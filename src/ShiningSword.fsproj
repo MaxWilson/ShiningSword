@@ -4,6 +4,7 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- Global to the app -->
+    <None Include="Script1.fsx" />
     <Compile Include="Global.fs" />
     <!-- Info -->
     <Compile Include="Info/View.fs" />
@@ -22,5 +23,6 @@
     <Compile Include="State.fs" />
     <Compile Include="App.fs" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="..\.paket\Paket.Restore.targets" />
 </Project>
