@@ -17,10 +17,14 @@
     <Compile Include="Home/View.fs" />
     <!-- Navbar -->
     <Compile Include="Navbar/View.fs" />
+    <Compile Include="Parsing.fs" />
     <!-- App -->
     <Compile Include="Types.fs" />
     <Compile Include="State.fs" />
     <Compile Include="App.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\modules\Packrat\src\Wilson.Packrat.fsproj" />
   </ItemGroup>
   <Import Project="..\.paket\Paket.Restore.targets" />
 </Project>

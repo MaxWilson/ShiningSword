@@ -70,7 +70,7 @@ open Elmish.HMR
 
 // App
 Program.mkProgram init update root
-|> Program.toNavigable (parseHash pageParser) urlUpdate
+|> Program.toNavigable (pageParser2) urlUpdate
 #if DEBUG
 |> Program.withDebugger
 |> Program.withHMR
