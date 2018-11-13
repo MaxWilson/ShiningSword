@@ -1,0 +1,15 @@
+namespace PaketLoadScripts
+
+#load "D:\\code\\ShiningSword\\.paket\\load\\net471\\System.Collections.csx" 
+#load "D:\\code\\ShiningSword\\.paket\\load\\net471\\System.Collections.Concurrent.csx" 
+#load "D:\\code\\ShiningSword\\.paket\\load\\net471\\System.Linq.csx" 
+#load "D:\\code\\ShiningSword\\.paket\\load\\net471\\System.Resources.ResourceManager.csx" 
+#load "D:\\code\\ShiningSword\\.paket\\load\\net471\\System.Runtime.csx" 
+#load "D:\\code\\ShiningSword\\.paket\\load\\net471\\System.Runtime.Extensions.csx" 
+#load "D:\\code\\ShiningSword\\.paket\\load\\net471\\System.Runtime.Handles.csx" 
+#load "D:\\code\\ShiningSword\\.paket\\load\\net471\\System.Runtime.InteropServices.csx" 
+#load "D:\\code\\ShiningSword\\.paket\\load\\net471\\System.Security.Cryptography.Primitives.csx" 
+#load "D:\\code\\ShiningSword\\.paket\\load\\net471\\System.Text.Encoding.csx" 
+#r "System" 
+#r "mscorlib" 
+#r "C:\\Users\\maxw\\.nuget\\packages\\system.security.cryptography.encoding\\4.3.0\\lib\\net46\\System.Security.Cryptography.Encoding.dll" 
