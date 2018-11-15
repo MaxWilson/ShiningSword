@@ -6,21 +6,6 @@ open Elmish.Browser.UrlParser
 open Fable.Import.Browser
 open Global
 open Types
-open Wilson.Packrat
-
-
-
-let pageParser (rootActivePattern: ParseInput -> ('result * ParseInput) option) (loc: Location) =
-    let (|Root|_|) = rootActivePattern
-    match ParseArgs.Init loc.hash with
-    | Str "#" (Root(v, End)) -> Some v
-    | _ -> None
-
-let (|Page|_|) = function
-    | Word(AnyCase "about", rest) -> Some (About, rest)
-    | Word(AnyCase "counter", rest) -> Some (Counter, rest)
-    | Word(AnyCase "home", rest) -> Some (Home, rest)
-    | _ -> None
 
 let urlUpdate (result: Option<Page>) model =
   match result with

@@ -68,9 +68,26 @@ open Elmish.React
 open Elmish.Debug
 open Elmish.HMR
 
+module Parse =
+    open Wilson.Packrat
+    open Global
+    let locationParser (rootActivePattern: ParseInput -> ('result * ParseInput) option) (loc: Location) =
+        let (|Root|_|) = rootActivePattern
+        match ParseArgs.Init loc.hash with
+        | Str "#" (Root(v, End)) -> Some v
+        | _ -> None
+
+    let (|Page|_|) = function
+        | Word(AnyCase "about", rest) -> Some (About, rest)
+        | Word(AnyCase "counter", rest) -> Some (Counter, rest)
+        | Word(AnyCase "home", rest) -> Some (Home, rest)
+        | _ -> None
+
+    let page = locationParser (|Page|_|)
+
 // App
 Program.mkProgram init update root
-|> Program.toNavigable (pageParser (|Page|_|)) urlUpdate
+|> Program.toNavigable Parse.page urlUpdate
 #if DEBUG
 |> Program.withDebugger
 |> Program.withHMR
