@@ -4,24 +4,27 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- Global to the app -->
-    <Compile Include="Global.fs" />
+    <Compile Include="Parsing\Parsing.fs" />
+    <Compile Include="UI\Global.fs" />
+    <Compile Include="UI\Info\View.fs" />
+    <Compile Include="UI\Counter\Types.fs" />
+    <Compile Include="UI\Counter\State.fs" />
+    <Compile Include="UI\Counter\View.fs" />
+    <Compile Include="UI\Home\Types.fs" />
+    <Compile Include="UI\Home\State.fs" />
+    <Compile Include="UI\Home\View.fs" />
+    <Compile Include="UI\Navbar\View.fs" />
+    <Compile Include="UI\Types.fs" />
+    <Compile Include="UI\State.fs" />
+    <Compile Include="UI\View.fs" />
     <!-- Info -->
-    <Compile Include="Info/View.fs" />
     <!-- Counter -->
-    <Compile Include="Counter/Types.fs" />
-    <Compile Include="Counter/State.fs" />
-    <Compile Include="Counter/View.fs" />
     <!-- Home -->
-    <Compile Include="Home/Types.fs" />
-    <Compile Include="Home/State.fs" />
-    <Compile Include="Home/View.fs" />
     <!-- Navbar -->
-    <Compile Include="Navbar/View.fs" />
-    <Compile Include="Parsing.fs" />
     <!-- App -->
-    <Compile Include="Types.fs" />
-    <Compile Include="State.fs" />
-    <Compile Include="App.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Models\" />
   </ItemGroup>
   <Import Project="..\.paket\Paket.Restore.targets" />
 </Project>
