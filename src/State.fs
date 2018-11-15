@@ -8,22 +8,19 @@ open Global
 open Types
 open Wilson.Packrat
 
-let pageParser: Parser<Page->Page,Page> =
-  oneOf [
-    map About (s "about")
-    map Counter (s "counter")
-    map Home (s "home")
-  ]
 
-let pageParser2 (loc: Location) =
-  match ParseArgs.Init loc.hash with
-  | Str "#about" End -> Some About
-  | Str "#counter" End -> Some Counter
-  | Word("#home", End) -> Some Home
-  | Word(AnyCase "#about", End) -> Some About
-  | Word(AnyCase "#counter", End) -> Some Counter
-  | Word(AnyCase "#home", End) -> Some Home
-  | _ -> None
+
+let pageParser (rootActivePattern: ParseInput -> ('result * ParseInput) option) (loc: Location) =
+    let (|Root|_|) = rootActivePattern
+    match ParseArgs.Init loc.hash with
+    | Str "#" (Root(v, End)) -> Some v
+    | _ -> None
+
+let (|Page|_|) = function
+    | Word(AnyCase "about", rest) -> Some (About, rest)
+    | Word(AnyCase "counter", rest) -> Some (Counter, rest)
+    | Word(AnyCase "home", rest) -> Some (Home, rest)
+    | _ -> None
 
 let urlUpdate (result: Option<Page>) model =
   match result with
