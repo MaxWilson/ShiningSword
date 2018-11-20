@@ -45,6 +45,13 @@ let main argv =
             let! intention = Queries.IntentionQuery.Query id
             return id, intention
             }
+        let rec declareAll ids = interaction {
+                match ids with
+                | [] -> return []
+                | h::t ->
+                    let! d = declare h
+                    return d::(declareAll t)
+            }
         let i1 = declare 1 |> resolveInteraction None
         let i2 = declare 2 |> resolveInteraction None
         g |> Operations.execute [i1;i2]
