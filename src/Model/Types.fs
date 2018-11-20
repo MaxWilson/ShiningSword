@@ -9,21 +9,27 @@ type Attack = {
     damage: Roll * DamageType
     }
 
+type Id = int
+type Position = int * int
+
 type StatBlock = {
     name: string
     hp: int
     }
-
-type Id = int
 
 type RosterEntry = {
     original: StatBlock
     current: StatBlock
     team: int
     id: Id
+    position: Position
     }
 
 type Roster = Map<Id, RosterEntry>
-type Position = int * int
 type Intention = Move of Position | Attack of Id
 type Declarations = (Id * Intention) list
+
+module Log =
+    type Data = string
+
+type GameState = Roster * Log.Data
