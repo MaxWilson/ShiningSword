@@ -6,6 +6,13 @@ open Operations
 open Interact
 open Model.Types
 
+type InteractionBuilder() =
+    member this.Bind(q: Queries.IntentionQuery, continuation) =
+        Intention(q, continuation)
+    member this.Return(x) = x
+
+let interaction = InteractionBuilder()
+
 [<EntryPoint>]
 let main argv =
     let add id teamId vals roster =
@@ -30,8 +37,12 @@ let main argv =
                 f g
             | None ->
                 resolve (Some "Sorry, I couldn't understand that.") interact
-        g |> resolve None (Intention(Queries.IntentionQuery.Query 1, fun i g -> Operations.execute g [1, i]))
-          |> resolve None (Intention(Queries.IntentionQuery.Query 2, fun i g -> Operations.execute g [2, i]))
+        let declare id g = interaction {
+            let! intention = Queries.IntentionQuery.Query id
+            return Operations.execute g [id, intention]
+            }
+        g |> declare 1 |> resolve None
+          |> declare 2 |> resolve None
 
     let mutable state = (roster, Log.empty)
     while (fst state) |> Seq.exists (function KeyValue(_, c) -> c.current.hp <= 0) |> not do
@@ -39,5 +50,5 @@ let main argv =
         state <- outcome, log
         printfn "%s" log
         for KeyValue(_, creature) in outcome do
-            printfn "%s: %d out of %d HP left\n\tPosition: %A" creature.current.name creature.original.hp creature.current.hp creature.position
+            printfn "%s: %d out of %d HP left\n\tPosition: %A" creature.current.name creature.current.hp creature.original.hp creature.position
     0 // return an integer exit code
