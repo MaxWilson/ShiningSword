@@ -31,18 +31,23 @@ let main argv =
         Operations.Interact.trampoline g interaction (Console.ReadLine())
     let executeOneRound g =
         // an event loop which resolves an interaction before continuing. Analagous to Async.RunSynchronously or the browser event loop.
-        let rec resolve errMsg interact =
-            match consoleInteraction errMsg g interact with
+        let rec resolveInteraction errMsg interaction =
+            match consoleInteraction errMsg g interaction with
             | Some f ->
                 f g
             | None ->
-                resolve (Some "Sorry, I couldn't understand that.") interact
-        let declare id g = interaction {
+                resolveInteraction (Some "Sorry, I couldn't understand that.") interaction
+        let declareAndExecuteImmediately id g = interaction {
             let! intention = Queries.IntentionQuery.Query id
-            return Operations.execute g [id, intention]
+            return Operations.execute [id, intention] g
             }
-        g |> declare 1 |> resolve None
-          |> declare 2 |> resolve None
+        let declare id = interaction {
+            let! intention = Queries.IntentionQuery.Query id
+            return id, intention
+            }
+        let i1 = declare 1 |> resolveInteraction None
+        let i2 = declare 2 |> resolveInteraction None
+        g |> Operations.execute [i1;i2]
 
     let mutable state = (roster, Log.empty)
     while (fst state) |> Seq.exists (function KeyValue(_, c) -> c.current.hp <= 0) |> not do

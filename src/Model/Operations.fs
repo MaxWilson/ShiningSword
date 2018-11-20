@@ -74,7 +74,7 @@ module GameState =
             roster |> Map.add id (Creature.map f roster.[id]), log |> Log.log msg
 
 // executes action declarations in listed order
-let execute (g:GameState) (d: Declarations) : GameState =
+let execute (d: Declarations) (g:GameState) : GameState =
     let execute ((r,log):GameState as g) = function
         | id, Move(x, y) ->
             let msg = sprintf "%s moves to %A" r.[id].current.name (x,y)
