@@ -59,3 +59,21 @@ module Recognizer =
     let (|FreeformText|_|) = function
         | Any(words, ctx) -> Some(words, ctx)
         
+module Interact =
+    open Queries
+    type Interact<'result> =
+        | Intention of IntentionQuery * (Intention -> 'result)
+        | StatNumber of StatQuery<int> * (int -> 'result)
+        | StatText of StatQuery<string> * (string -> 'result)
+        | Confirmation of string * (bool -> 'result)
+    let trampoline (interact: Interact<_>) (input:string) =
+        match interact, Wilson.Packrat.ParseArgs.Init input with
+        | Intention(query, continuation), Recognizer.Intention(intent, Wilson.Packrat.End) ->
+            Some (fun () -> continuation intent)
+        | StatNumber(query, continuation), Recognizer.Number(answer, Wilson.Packrat.End) ->
+            Some (fun () -> continuation answer)
+        | StatText(query, continuation), Recognizer.FreeformText(answer, Wilson.Packrat.End) ->
+            Some (fun () -> continuation answer)
+        | Confirmation(query, continuation), Recognizer.Bool(answer, Wilson.Packrat.End) ->
+            Some (fun () -> continuation answer)
+        | _ -> None
