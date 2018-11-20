@@ -12,22 +12,32 @@ let main argv =
         roster |> Map.add id { RosterEntry.current = vals; RosterEntry.original = vals; id = id; team = teamId; position = 0,0 }
     let roster = Map.empty |> add 1 1 { StatBlock.name = "Bob"; StatBlock.hp = 30 }
                            |> add 2 2 { StatBlock.name = "Fred"; StatBlock.hp = 30 }
-    let exec g =
-        let next = Intention(Queries.IntentionQuery.Query 1, fun i -> Operations.execute g [1, i])
-        let rec loop next =
-            match next with
-            | Intention(Queries.IntentionQuery.Query(id),_) ->
-                let r,log = g
-                printfn "What does %s want to do?" (r.[id].current.name)
-            | _ -> failwithf "Not implemented: No match for %A" next
-            match Operations.Interact.trampoline g next (Console.ReadLine()) with
+    let consoleInteraction (errMsg: string option) (g:GameState) interaction =
+        match errMsg with
+        | Some msg -> printfn "%s" msg
+        | None -> ()
+        match interaction with
+        | Intention(Queries.IntentionQuery.Query(id),_) ->
+            let r,log = g
+            printfn "What does %s want to do?" (r.[id].current.name)
+        | _ -> failwithf "Not implemented: consoleInteraction cannot render interaction %A" interaction
+        Operations.Interact.trampoline g interaction (Console.ReadLine())
+    let executeOneRound g =
+        // an event loop which resolves an interaction before continuing. Analagous to Async.RunSynchronously or the browser event loop.
+        let rec resolve errMsg interact =
+            match consoleInteraction errMsg g interact with
             | Some f ->
-                f()
+                f g
             | None ->
-                loop next
-        loop next
-    let (outcome, log) = exec (roster, Log.empty)
-    printfn "%s" log
-    for KeyValue(_, creature) in outcome do
-        printfn "%s: %d out of %d HP left" creature.current.name creature.original.hp creature.current.hp
+                resolve (Some "Sorry, I couldn't understand that.") interact
+        g |> resolve None (Intention(Queries.IntentionQuery.Query 1, fun i g -> Operations.execute g [1, i]))
+          |> resolve None (Intention(Queries.IntentionQuery.Query 2, fun i g -> Operations.execute g [2, i]))
+
+    let mutable state = (roster, Log.empty)
+    while (fst state) |> Seq.exists (function KeyValue(_, c) -> c.current.hp <= 0) |> not do
+        let (outcome, log) = executeOneRound state
+        state <- outcome, log
+        printfn "%s" log
+        for KeyValue(_, creature) in outcome do
+            printfn "%s: %d out of %d HP left\n\tPosition: %A" creature.current.name creature.original.hp creature.current.hp creature.position
     0 // return an integer exit code

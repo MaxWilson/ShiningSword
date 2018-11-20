@@ -22,7 +22,7 @@ module Recognizer =
             Some((inRoster (nameMatches name) roster |> Option.get), ctx)
         | _ -> None
     let (|Intention|_|) = function
-        | Str "move" (Int (x, (Int (y, ctx)))) -> Some(Move(x,y), ctx)
+        | Str "move" (Int (x, OWS(Str "," (Int (y, ctx))))) -> Some(Move(x,y), ctx)
         | Str "attack" (Name(id, ctx)) -> Some(Attack(id), ctx)
         | _ -> None
     let (|Number|_|) = (|Int|_|)
@@ -43,13 +43,13 @@ module Interact =
     let trampoline (g:GameState) (interact: Interact<_>) (input:string) =
         match interact, Wilson.Packrat.ParseArgs.Init(input, g) with
         | Intention(query, continuation), Recognizer.Intention(intent, Wilson.Packrat.End) ->
-            Some (fun () -> continuation intent)
+            Some (fun _ -> continuation intent)
         | StatNumber(query, continuation), Recognizer.Number(answer, Wilson.Packrat.End) ->
-            Some (fun () -> continuation answer)
+            Some (fun _ -> continuation answer)
         | StatText(query, continuation), Recognizer.FreeformText(answer, Wilson.Packrat.End) ->
-            Some (fun () -> continuation answer)
+            Some (fun _ -> continuation answer)
         | Confirmation(query, continuation), Recognizer.Bool(answer, Wilson.Packrat.End) ->
-            Some (fun () -> continuation answer)
+            Some (fun _ -> continuation answer)
         | _ -> None
 
 module Log =
@@ -76,7 +76,9 @@ module GameState =
 // executes action declarations in listed order
 let execute (g:GameState) (d: Declarations) : GameState =
     let execute ((r,log):GameState as g) = function
-        | id, Move(x, y) -> g
+        | id, Move(x, y) ->
+            let msg = sprintf "%s moves to %A" r.[id].current.name (x,y)
+            r |> Map.add id { r.[id] with position = x, y }, log |> Log.log msg
         | id, Attack(targetId) ->
             let actor = r.[id]
             let target = r.[targetId]
