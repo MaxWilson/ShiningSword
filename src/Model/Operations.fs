@@ -40,6 +40,7 @@ module Interact =
         | StatNumber of StatQuery<int> * (int -> 'result)
         | StatText of StatQuery<string> * (string -> 'result)
         | Confirmation of string * (bool -> 'result)
+        | Immediate of 'result
     let trampoline (g:GameState) (interact: Interact<_>) (input:string) =
         match interact, Wilson.Packrat.ParseArgs.Init(input, g) with
         | Intention(query, continuation), Recognizer.Intention(intent, Wilson.Packrat.End) ->

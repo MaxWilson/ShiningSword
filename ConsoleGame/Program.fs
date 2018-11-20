@@ -10,6 +10,7 @@ type InteractionBuilder() =
     member this.Bind(q: Queries.IntentionQuery, continuation) =
         Intention(q, continuation)
     member this.Return(x) = x
+    member this.ReturnFrom(x) = Immediate x
 
 let interaction = InteractionBuilder()
 
@@ -45,16 +46,15 @@ let main argv =
             let! intention = Queries.IntentionQuery.Query id
             return id, intention
             }
-        let rec declareAll ids = interaction {
+        let rec declareAll ids : Interact<(Id * Intention) list> = interaction {
                 match ids with
-                | [] -> return []
+                | [] -> return! []
                 | h::t ->
-                    let! d = declare h
-                    return d::(declareAll t)
+                    let! (list : Id * Intention) = declareAll t
+                    let! (d : Id * Intention) = declare h
+                    return d::rest
             }
-        let i1 = declare 1 |> resolveInteraction None
-        let i2 = declare 2 |> resolveInteraction None
-        g |> Operations.execute [i1;i2]
+        g |> Operations.execute (declareAll [1;2])
 
     let mutable state = (roster, Log.empty)
     while (fst state) |> Seq.exists (function KeyValue(_, c) -> c.current.hp <= 0) |> not do
