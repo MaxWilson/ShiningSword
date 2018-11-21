@@ -35,7 +35,7 @@ let main argv =
         let rec resolveInteraction errMsg interaction =
             match consoleInteraction errMsg g interaction with
             | Some f ->
-                f g
+                f
             | None ->
                 resolveInteraction (Some "Sorry, I couldn't understand that.") interaction
         let declareAndExecuteImmediately id g = interaction {
@@ -46,15 +46,16 @@ let main argv =
             let! intention = Queries.IntentionQuery.Query id
             return id, intention
             }
-        let rec declareAll ids : Interact<(Id * Intention) list> = interaction {
-                match ids with
-                | [] -> return! []
-                | h::t ->
-                    let! (list : Id * Intention) = declareAll t
-                    let! (d : Id * Intention) = declare h
-                    return d::rest
-            }
-        g |> Operations.execute (declareAll [1;2])
+        //let rec declareAll ids : Interact<(Id * Intention) list> = interaction {
+        //        match ids with
+        //        | [] -> return! []
+        //        | h::t ->
+        //            let! (list : Id * Intention) = declareAll t
+        //            let! (d : Id * Intention) = declare h
+        //            return d::rest
+        //    }
+        //g |> Operations.execute (declareAll [1;2])
+        g |> Operations.execute ([declare 1; declare 2] |> List.map (resolveInteraction None))
 
     let mutable state = (roster, Log.empty)
     while (fst state) |> Seq.exists (function KeyValue(_, c) -> c.current.hp <= 0) |> not do

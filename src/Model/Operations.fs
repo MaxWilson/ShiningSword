@@ -44,13 +44,13 @@ module Interact =
     let trampoline (g:GameState) (interact: Interact<_>) (input:string) =
         match interact, Wilson.Packrat.ParseArgs.Init(input, g) with
         | Intention(query, continuation), Recognizer.Intention(intent, Wilson.Packrat.End) ->
-            Some (fun _ -> continuation intent)
+            Some (continuation intent)
         | StatNumber(query, continuation), Recognizer.Number(answer, Wilson.Packrat.End) ->
-            Some (fun _ -> continuation answer)
+            Some (continuation answer)
         | StatText(query, continuation), Recognizer.FreeformText(answer, Wilson.Packrat.End) ->
-            Some (fun _ -> continuation answer)
+            Some (continuation answer)
         | Confirmation(query, continuation), Recognizer.Bool(answer, Wilson.Packrat.End) ->
-            Some (fun _ -> continuation answer)
+            Some (continuation answer)
         | _ -> None
 
 module Log =
