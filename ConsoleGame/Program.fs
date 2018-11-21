@@ -9,6 +9,18 @@ open Model.Types
 type InteractionBuilder() =
     member this.Bind(q: Queries.IntentionQuery, continuation) =
         Intention(q, continuation)
+    member this.Bind(interaction, continuation) =
+        match interaction with
+        | Intention(q, f) ->
+            Intention(q, f >> continuation)
+        | StatNumber(q, f) ->
+            StatNumber(q, f >> continuation)
+        | StatText(q, f) ->
+            StatText(q, f >> continuation)
+        | Confirmation(q, f) ->
+            Confirmation(q, f >> continuation)
+        | Immediate(r) ->
+            Immediate(continuation r)
     member this.Return(x) = x
     member this.ReturnFrom(x) = Immediate x
 
@@ -46,16 +58,16 @@ let main argv =
             let! intention = Queries.IntentionQuery.Query id
             return id, intention
             }
-        //let rec declareAll ids : Interact<(Id * Intention) list> = interaction {
-        //        match ids with
-        //        | [] -> return! []
-        //        | h::t ->
-        //            let! (list : Id * Intention) = declareAll t
-        //            let! (d : Id * Intention) = declare h
-        //            return d::rest
-        //    }
-        //g |> Operations.execute (declareAll [1;2])
-        g |> Operations.execute ([declare 1; declare 2] |> List.map (resolveInteraction None))
+        let rec declareAll ids : Interact<(Id * Intention) list> = interaction {
+                match ids with
+                | [] -> return! []
+                | h::t ->
+                    let decl = declareAll t
+                    let! (rest : (Id * Intention) list) = decl
+                    let! (d : Id * Intention) = declare h
+                    return d::rest
+            }
+        g |> Operations.execute (declareAll [1;2])
 
     let mutable state = (roster, Log.empty)
     while (fst state) |> Seq.exists (function KeyValue(_, c) -> c.current.hp <= 0) |> not do
