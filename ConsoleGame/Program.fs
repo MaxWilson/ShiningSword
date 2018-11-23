@@ -9,7 +9,7 @@ open Model.Types
 type InteractionBuilder() =
     member this.Bind(q: Queries.IntentionQuery, continuation) =
         Intention(q, continuation)
-    member this.Bind(interaction, continuation) =
+    member this.Bind(interaction: Interact<'a>, continuation: 'a -> Interact<'b>) : Interact<'b> =
         match interaction with
         | Intention(q, f) ->
             Intention(q, f >> continuation)
@@ -21,8 +21,8 @@ type InteractionBuilder() =
             Confirmation(q, f >> continuation)
         | Immediate(r) ->
             Immediate(continuation r)
-    member this.Return(x) = x
-    member this.ReturnFrom(x) = Immediate x
+    member this.Return(x) = Immediate x
+    member this.ReturnFrom(x) = x
 
 let interaction = InteractionBuilder()
 
@@ -58,16 +58,25 @@ let main argv =
             let! intention = Queries.IntentionQuery.Query id
             return id, intention
             }
-        let rec declareAll ids : Interact<(Id * Intention) list> = interaction {
+        let rec declareAll ids : Interact<Declarations> = interaction {
                 match ids with
-                | [] -> return! []
-                | h::t ->
-                    let decl = declareAll t
-                    let! (rest : (Id * Intention) list) = decl
-                    let! (d : Id * Intention) = declare h
-                    return d::rest
+                | [] -> return []
+                | h::t -> return []
+                    //let decl = declareAll t
+                    //return! interaction.Bind(declareAll t, fun rest -> interaction.Return [])
+                    //return! interaction.Bind(decl, id)
+                    //let! rest = declareAll t
+                    //return []
+                    //return! interaction.Bind(declareAll t, id)
+                    //let decl = declareAll t
+                    //let! (d : Id * Intention) = declare h
+                    //let! (rest : (Id * Intention) list) = decl
+                    //return d::rest
             }
-        g |> Operations.execute (declareAll [1;2])
+        let y = interaction.Return ([]: Declarations)
+        let x = interaction.Bind(declareAll [1;2], fun rest -> y)
+
+        g |> Operations.execute (declareAll [1;2] |> resolveInteraction None)
 
     let mutable state = (roster, Log.empty)
     while (fst state) |> Seq.exists (function KeyValue(_, c) -> c.current.hp <= 0) |> not do

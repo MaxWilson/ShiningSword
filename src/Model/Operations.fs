@@ -36,10 +36,10 @@ module Recognizer =
 module Interact =
     open Queries
     type Interact<'result> =
-        | Intention of IntentionQuery * (Intention -> 'result)
-        | StatNumber of StatQuery<int> * (int -> 'result)
-        | StatText of StatQuery<string> * (string -> 'result)
-        | Confirmation of string * (bool -> 'result)
+        | Intention of IntentionQuery * (Intention -> Interact<'result>)
+        | StatNumber of StatQuery<int> * (int -> Interact<'result>)
+        | StatText of StatQuery<string> * (string -> Interact<'result>)
+        | Confirmation of string * (bool -> Interact<'result>)
         | Immediate of 'result
     let trampoline (g:GameState) (interact: Interact<_>) (input:string) =
         match interact, Wilson.Packrat.ParseArgs.Init(input, g) with
