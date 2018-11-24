@@ -24,7 +24,7 @@ type InteractionBuilder() =
                     StatText(q, f >> continuation)
                 | Confirmation(q, f) ->
                     Confirmation(q, f >> continuation)
-            i
+            interaction
     member this.Return(x) = Immediate x
     member this.ReturnFrom(x) = x
 
@@ -45,15 +45,20 @@ let main argv =
             let r,log = g
             printfn "What does %s want to do?" (r.[id].current.name)
         | _ -> failwithf "Not implemented: consoleInteraction cannot render interaction %A" interaction
-        Operations.Interact.trampoline g interaction (Console.ReadLine())
+        Operations.Interact.tryUnlock g interaction (Console.ReadLine())
     let executeOneRound g =
         // an event loop which resolves an interaction before continuing. Analagous to Async.RunSynchronously or the browser event loop.
-        let rec resolveInteraction errMsg interaction =
+        let rec unlock errMsg interaction =
             match consoleInteraction errMsg g interaction with
             | Some f ->
                 f
             | None ->
-                resolveInteraction (Some "Sorry, I couldn't understand that.") interaction
+                unlock (Some "Sorry, I couldn't understand that.") interaction
+        let resolve interaction =
+            match interaction with
+            | Immediate v -> v
+            | Interact i -> 
+                unlock None i
         let declareAndExecuteImmediately id g = interaction {
             let! intention = Queries.IntentionQuery.Query id
             return Operations.execute [id, intention] g
@@ -62,7 +67,7 @@ let main argv =
             let! intention = Queries.IntentionQuery.Query id
             return id, intention
             }
-        let rec declareAll ids : Interact<Declarations> = interaction {
+        let rec declareAll ids : Interaction<Declarations> = interaction {
                 match ids with
                 | [] -> return []
                 | h::t -> return []
@@ -80,7 +85,7 @@ let main argv =
         let y = interaction.Return ([]: Declarations)
         let x = interaction.Bind(declareAll [1;2], fun rest -> y)
 
-        g |> Operations.execute (declareAll [1;2] |> resolveInteraction None)
+        g |> Operations.execute (declareAll [1;2] |> resolve)
 
     let mutable state = (roster, Log.empty)
     while (fst state) |> Seq.exists (function KeyValue(_, c) -> c.current.hp <= 0) |> not do
