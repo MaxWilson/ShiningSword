@@ -36,7 +36,7 @@ let main argv =
         roster |> Map.add id { RosterEntry.current = vals; RosterEntry.original = vals; id = id; team = teamId; position = 0,0 }
     let roster = Map.empty |> add 1 1 { StatBlock.name = "Bob"; StatBlock.hp = 30 }
                            |> add 2 2 { StatBlock.name = "Fred"; StatBlock.hp = 30 }
-    let consoleInteraction (errMsg: string option) (g:GameState) interaction =
+    let consoleInteraction (errMsg: string option) (g: GameState) interaction =
         match errMsg with
         | Some msg -> printfn "%s" msg
         | None -> ()
@@ -45,11 +45,11 @@ let main argv =
             let r,log = g
             printfn "What does %s want to do?" (r.[id].current.name)
         | _ -> failwithf "Not implemented: consoleInteraction cannot render interaction %A" interaction
-        Operations.Interact.tryUnlock g interaction (Console.ReadLine())
+        Console.ReadLine()
     let executeOneRound g =
         // an event loop which resolves an interaction before continuing. Analagous to Async.RunSynchronously or the browser event loop.
         let rec unlock errMsg interaction =
-            match consoleInteraction errMsg g interaction with
+            match Operations.Interact.tryUnlock g interaction (consoleInteraction errMsg g interaction) with
             | Some f ->
                 f
             | None ->
