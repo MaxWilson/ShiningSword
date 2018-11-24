@@ -9,18 +9,22 @@ open Model.Types
 type InteractionBuilder() =
     member this.Bind(q: Queries.IntentionQuery, continuation) =
         Intention(q, continuation)
-    member this.Bind(interaction: Interact<'a>, continuation: 'a -> Interact<'b>) : Interact<'b> =
+    member this.Bind(interaction: Interaction<'a>, continuation: 'a -> Interaction<'b>) : Interaction<'b> =
         match interaction with
-        | Intention(q, f) ->
-            Intention(q, f >> continuation)
-        | StatNumber(q, f) ->
-            StatNumber(q, f >> continuation)
-        | StatText(q, f) ->
-            StatText(q, f >> continuation)
-        | Confirmation(q, f) ->
-            Confirmation(q, f >> continuation)
-        | Immediate(r) ->
-            Immediate(continuation r)
+        | Immediate v ->
+            (continuation v)
+        | Interact q ->
+            let i =
+                match q with
+                | Intention(q, f) ->
+                    Intention(q, f >> continuation)
+                | StatNumber(q, f) ->
+                    StatNumber(q, f >> continuation)
+                | StatText(q, f) ->
+                    StatText(q, f >> continuation)
+                | Confirmation(q, f) ->
+                    Confirmation(q, f >> continuation)
+            i
     member this.Return(x) = Immediate x
     member this.ReturnFrom(x) = x
 
