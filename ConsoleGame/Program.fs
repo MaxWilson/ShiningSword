@@ -6,6 +6,30 @@ open Operations
 open Interact
 open Model.Types
 
+type Eventual<'state, 'result> =
+    | Final of 'result
+    | Intermediate of ('state -> 'state * Eventual<'state, 'result>)
+module Eventual =
+    let reduce s = function
+        | Final v as m -> s, m
+        | Intermediate f -> f s
+    let bind m f =
+        let rec progress m a =
+            let s, m = reduce a m
+            match m with
+            | Final v -> f v s
+            | Intermediate _ -> s, Intermediate (progress m)
+        Intermediate (progress m)
+    let rec resolve s = function
+        | Final v -> v
+        | m ->
+            let s, m = reduce s m
+            resolve s m
+
+let e = Eventual.bind (Final "Bob": Eventual<unit, _>) (fun name state -> state, Final ("This is " + name))
+let v = Eventual.resolve () e
+printfn "%A" v
+
 type InteractionBuilder() =
     member this.Bind(q: Queries.IntentionQuery, continuation) =
         Intention(q, continuation)
@@ -57,7 +81,7 @@ let main argv =
         let resolve interaction =
             match interaction with
             | Immediate v -> v
-            | Interact i -> 
+            | Interact i ->
                 unlock None i
         let declareAndExecuteImmediately id g = interaction {
             let! intention = Queries.IntentionQuery.Query id
