@@ -26,8 +26,8 @@ module Eventual =
             let s, m = reduce s m
             resolve s m
 
-let e = Eventual.bind (Final "Bob": Eventual<unit, _>) (fun name state -> state, Final ("This is " + name))
-let v = Eventual.resolve () e
+let e = Eventual.bind (Final "Bob": Eventual<string -> string, _>) (fun name transform -> transform, (Final <| transform ("This is " + name)))
+let v = Eventual.resolve id e
 printfn "%A" v
 
 type InteractionBuilder() =
