@@ -6,6 +6,15 @@ open Operations
 open Interact
 open Model.Types
 
+type StateFunc<'a, 'result> =
+    StateFunc of 'result * next:('a -> StateFunc<'a, 'result>)
+module StateFunc =
+    let apply arg (StateFunc(_, next)) = next arg
+    let get (StateFunc(v, _)) = v
+    let rec fold f state v =
+        let v = f state v
+        StateFunc(v, fold f v)
+
 type Eventual<'state, 'result> =
     | Final of 'result
     | Intermediate of ('state -> 'state * Eventual<'state, 'result>)
@@ -17,7 +26,7 @@ module Eventual =
         let rec progress m a =
             let s, m = reduce a m
             match m with
-            | Final v -> f v s
+            | Final v -> f(s,v)
             | Intermediate _ -> s, Intermediate (progress m)
         Intermediate (progress m)
     let rec resolve s = function
@@ -25,9 +34,29 @@ module Eventual =
         | m ->
             let s, m = reduce s m
             resolve s m
+let thunk v _ = v
+let increment = StateFunc.fold (fun state v -> state + v)
+increment "This is " "bob" |> StateFunc.apply "?" |> StateFunc.get
 
-let e = Eventual.bind (Final "Bob": Eventual<string -> string, _>) (fun name transform -> transform, (Final <| transform ("This is " + name)))
-let v = Eventual.resolve id e
+let logic (StateFunc.StateFunc(_lastValue, next), name) : string * Eventual<_,_> =
+    let rec loop (name:string) i f:StateFunc<string, string> =
+        if i > 1 then
+            let StateFunc(v, _) as next = next name
+            v, Intermediate(loop name (i-1) next)
+        else
+            (i, f), Final(i, f)
+    loop name i next
+let rec e = Eventual.bind (Final "Bob": Eventual<int * StateFunc<string, string>, _>) (function (state, name) ->
+    let StateFunc(i, next) = state
+    let rec loop (name:string) i f:StateFunc<string, string> =
+        if i > 1 then
+            let StateFunc(v, next) = StateFunc.apply name f
+            v, Intermediate(loop name (i-1) next)
+        else
+            (i, f), Final(i, f)
+    loop name i next
+    )
+let v = e |> Eventual.resolve (10, fun i name -> "This is" + name)
 printfn "%A" v
 
 type InteractionBuilder() =
