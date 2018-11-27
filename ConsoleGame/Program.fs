@@ -8,7 +8,7 @@ open Model.Types
 
 type StateFunc<'a, 'result> =
     StateFunc of 'result * next:('a -> StateFunc<'a, 'result>)
-module StateFunc =
+module StateFuncM =
     let apply arg (StateFunc(_, next)) = next arg
     let get (StateFunc(v, _)) = v
     let rec fold f state v =
@@ -35,22 +35,23 @@ module Eventual =
             let s, m = reduce s m
             resolve s m
 let thunk v _ = v
-let increment = StateFunc.fold (fun state v -> state + v)
-increment "This is " "bob" |> StateFunc.apply "?" |> StateFunc.get
+let increment = StateFuncM.fold (fun state v -> state + v)
+increment "This is " "bob" |> StateFuncM.apply "?" |> StateFuncM.get
 
-let logic (StateFunc.StateFunc(_lastValue, next), name) : string * Eventual<_,_> =
-    let rec loop (name:string) i f:StateFunc<string, string> =
-        if i > 1 then
-            let StateFunc(v, _) as next = next name
-            v, Intermediate(loop name (i-1) next)
-        else
-            (i, f), Final(i, f)
+let rec loop i arg =
+    let (next:StateFunc<string, string>),(name:string) = arg
+    if i > 1 then
+        let StateFunc(v:string, _) as next = next |> StateFuncM.apply name
+        v, Intermediate(loop (i-1))
+    else
+        (i, f), Final(i, f)
+let logic (StateFunc(_lastValue, next), name) : string * Eventual<_,_> =
     loop name i next
 let rec e = Eventual.bind (Final "Bob": Eventual<int * StateFunc<string, string>, _>) (function (state, name) ->
     let StateFunc(i, next) = state
-    let rec loop (name:string) i f:StateFunc<string, string> =
+    let rec loop (name:string) i (f:StateFunc<string, string>) =
         if i > 1 then
-            let StateFunc(v, next) = StateFunc.apply name f
+            let StateFunc(v: string, next) = StateFuncM.apply name f
             v, Intermediate(loop name (i-1) next)
         else
             (i, f), Final(i, f)
