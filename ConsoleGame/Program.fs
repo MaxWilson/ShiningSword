@@ -47,15 +47,21 @@ let rec loop i arg =
         (i, f), Final(i, f)
 let logic (StateFunc(_lastValue, next), name) : string * Eventual<_,_> =
     loop name i next
-let rec e = Eventual.bind (Final "Bob": Eventual<int * StateFunc<string, string>, _>) (function (state, name) ->
-    let StateFunc(i, next) = state
-    let rec loop (name:string) i (f:StateFunc<string, string>) =
+let rec e =
+    let rec loop (state, name) =
+        let i, StateFunc(v, next) = state
         if i > 1 then
-            let StateFunc(v: string, next) = StateFuncM.apply name f
-            v, Intermediate(loop name (i-1) next)
+            state, Final v
         else
-            (i, f), Final(i, f)
-    loop name i next
+            match next i with
+            | state ->
+                ((i-1), state), Intermediate loop
+    Eventual.bind (Final "Bob": Eventual<int * StateFunc<string, string>, _>) (function (state, name) ->
+    let i, StateFunc(v, next) = state
+    if i > 1 then
+        state, Final v
+    else
+        state, Intermediate (fun a -> a, (Final v))
     )
 let v = e |> Eventual.resolve (10, fun i name -> "This is" + name)
 printfn "%A" v
