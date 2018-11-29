@@ -39,17 +39,20 @@ let thunk v _ = v
 let increment = StateFuncM.unfold (fun state v -> state + v, state + v)
 increment "This is " "bob" |> StateFuncM.chain "?" |> StateFuncM.get
 
-let rec loop i accum arg =
+let rec loop i accum arg : Eventual<string, string, string> =
     let (name:string) = arg
     if i > 1 then
-        Intermediate(fun arg -> loop (i-1) accum + arg, accum + arg)
+        Intermediate(fun arg' -> loop (i-1) (accum + arg) arg', (accum + arg + arg'))
     else
         Final(name)
 let logic i accum arg =
     loop i accum arg
 let rec e =    
-    Eventual.bind (Final "Bob": Eventual<string, string, string>) (fun _ name -> (loop 10 "" name), name)
-let v = e |> Eventual.resolve (10, fun i name -> "This is" + name)
+    Eventual.bind (Final "Bob": Eventual<string, string, string>)
+        (fun _ name ->
+            let m = loop 10 "" name
+            (loop 10 "" name), name)
+let v = e |> Eventual.resolve ""
 printfn "%A" v
 
 type InteractionBuilder() =
