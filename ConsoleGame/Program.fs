@@ -41,13 +41,13 @@ increment "This is " "bob" |> StateFuncM.chain "?" |> StateFuncM.get
 
 for x in 1..10 do
     Eventual.bind (Final "Bob": Eventual<string, string, string>)
-        (fun _ name ->
+        (fun prefix name ->
             let rec loop i accum : Eventual<string, string, string> =
                 if i > 1 then
                     Intermediate(fun arg' -> loop (i-1) (accum + arg'), arg')
                 else
                     Final(accum)
-            (loop x name), name)
+            (loop x prefix), name)
     |> Eventual.resolve "Hi my name is "
     |> printfn "%A"
 
