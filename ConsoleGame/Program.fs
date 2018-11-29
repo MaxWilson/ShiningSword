@@ -21,7 +21,7 @@ type Eventual<'arg, 'intermediate, 'result> =
     | Intermediate of ('arg -> (Eventual<'arg, 'intermediate, 'result> * 'intermediate))
 module Eventual =
     let reduce s = function
-        | Final v as m -> m, s
+        | Final v as m -> m, None
         | Intermediate f -> f s
     let bind m f =
         let rec progress m a =
@@ -30,25 +30,32 @@ module Eventual =
             | Final v -> f s v
             | Intermediate _ -> Intermediate (progress m), s
         Intermediate (progress m)
-    let rec resolve s = function
-        | Final v -> v
-        | m ->
-            let m, s = reduce s m
-            resolve s m
+    /// Trampoline until Final state is reached, resolving queries back
+    /// to answers using the fResolveQuery. E.g. fResolveQuery might
+    /// turn an Interact<'t> into a 't by calling Console.WriteLine + Readline()
+    let resolve fResolveQuery =
+        let rec resolve s monad =
+            match monad with
+            | Final v -> v
+            | m ->
+                let m, s = reduce s m
+                resolve (fResolveQuery s) m
+        resolve
 let thunk v _ = v
 let increment = StateFuncM.unfold (fun state v -> state + v, state + v)
 increment "This is " "bob" |> StateFuncM.chain "?" |> StateFuncM.get
 
 for x in 1..10 do
-    Eventual.bind (Final "Bob": Eventual<string, string, string>)
+    Eventual.bind (Final "Bob": Eventual<string, string option, string>)
         (fun prefix name ->
-            let rec loop i accum : Eventual<string, string, string> =
-                if i > 1 then
-                    Intermediate(fun arg' -> loop (i-1) (accum + arg'), arg')
+            let rec loop i (accum:string) : Eventual<string, _, _> =
+                if i > 0 then
+                    Intermediate(fun arg ->
+                                    loop (i-1) (accum + i.ToString() + arg), Some arg)
                 else
                     Final(accum)
-            (loop x prefix), name)
-    |> Eventual.resolve "Hi my name is "
+            (loop x (Option.defaultValue "" prefix)), Some name)
+    |> Eventual.resolve (Option.defaultValue "") "Hi my name is "
     |> printfn "%A"
 
 type InteractionBuilder() =
