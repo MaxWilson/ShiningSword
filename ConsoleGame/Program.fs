@@ -42,15 +42,13 @@ increment "This is " "bob" |> StateFuncM.chain "?" |> StateFuncM.get
 for x in 1..10 do
     Eventual.bind (Final "Bob": Eventual<string, string, string>)
         (fun _ name ->
-            let rec loop i accum arg : Eventual<string, string, string> =
-                let (name:string) = arg
+            let rec loop i accum : Eventual<string, string, string> =
                 if i > 1 then
-                    Intermediate(fun arg' -> loop (i-1) (accum+arg) arg', (arg))
+                    Intermediate(fun arg' -> loop (i-1) (accum + arg'), arg')
                 else
-                    Final(accum+arg)
-            let m = loop 10 "" name
-            (loop x "" name), name)
-    |> Eventual.resolve ""
+                    Final(accum)
+            (loop x name), name)
+    |> Eventual.resolve "Hi my name is "
     |> printfn "%A"
 
 type InteractionBuilder() =
