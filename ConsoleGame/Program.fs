@@ -7,7 +7,7 @@ open Interact
 open Model.Types
 
 type StateFunc<'a, 'result> =
-    StateFunc of 'result * next:('a -> StateFunc<'a, 'result>)
+    StateFunc of current:'result * next:('a -> StateFunc<'a, 'result>)
 module StateFuncM =
     let apply arg (StateFunc(_, next)) = next arg
     let get (StateFunc(v, _)) = v
@@ -15,24 +15,24 @@ module StateFuncM =
         let v = f state v
         StateFunc(v, fold f v)
 
-type Eventual<'state, 'result> =
+type Eventual<'arg, 'intermediate, 'result> =
     | Final of 'result
-    | Intermediate of ('state -> 'state * Eventual<'state, 'result>)
+    | Intermediate of ('arg -> Eventual<'arg, 'intermediate, 'result> * 'intermediate)
 module Eventual =
     let reduce s = function
-        | Final v as m -> s, m
+        | Final v as m -> m, s
         | Intermediate f -> f s
     let bind m f =
         let rec progress m a =
-            let s, m = reduce a m
+            let m, s = reduce a m
             match m with
             | Final v -> f(s,v)
-            | Intermediate _ -> s, Intermediate (progress m)
+            | Intermediate _ -> Intermediate (progress m), s
         Intermediate (progress m)
     let rec resolve s = function
         | Final v -> v
         | m ->
-            let s, m = reduce s m
+            let m, s = reduce s m
             resolve s m
 let thunk v _ = v
 let increment = StateFuncM.fold (fun state v -> state + v)
