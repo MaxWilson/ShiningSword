@@ -40,14 +40,14 @@ let increment = StateFuncM.unfold (fun state v -> state + v, state + v)
 increment "This is " "bob" |> StateFuncM.chain "?" |> StateFuncM.get
 
 let rec loop i arg =
-    let (name:string), (next:StateFunc<string, string>) = arg
+    let (name:string), (prev:string) = arg
     if i > 1 then
-        let txt, next = next |> StateFuncM.apply name
-        Intermediate(loop (i-1)), next
+        let txt = prev + name
+        Intermediate(loop (i-1)), txt
     else
         Final(name), (snd arg)
-let logic (StateFunc(_lastValue, next), name) : string * Eventual<_,_> =
-    loop name i next
+let logic i (name, accum) : Eventual<_,_,_>*_ =
+    loop i (name,accum)
 let rec e =
     let rec loop (state, name) =
         let i, StateFunc(v, next) = state
