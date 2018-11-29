@@ -39,24 +39,15 @@ let thunk v _ = v
 let increment = StateFuncM.unfold (fun state v -> state + v, state + v)
 increment "This is " "bob" |> StateFuncM.chain "?" |> StateFuncM.get
 
-let rec loop i accum arg : Eventual<string, string, string> =
-    let (name:string) = arg
-    if i > 1 then
-        Intermediate(fun arg' -> loop (i-1) (accum+arg) arg', (accum + arg))
-    else
-        Final(name)
-let logic i accum arg =
-    loop i accum arg
-let rec e =    
-    Eventual.bind (Final "Bob": Eventual<string, string, string>)
-        (fun _ name ->
-            let m = loop 10 "" name
-            (loop 4 "" name), name)
-let v = e |> Eventual.resolve ""
-printfn "%A" v
 for x in 1..10 do
     Eventual.bind (Final "Bob": Eventual<string, string, string>)
         (fun _ name ->
+            let rec loop i accum arg : Eventual<string, string, string> =
+                let (name:string) = arg
+                if i > 1 then
+                    Intermediate(fun arg' -> loop (i-1) (accum+arg) arg', (arg))
+                else
+                    Final(accum+arg)
             let m = loop 10 "" name
             (loop x "" name), name)
     |> Eventual.resolve ""
