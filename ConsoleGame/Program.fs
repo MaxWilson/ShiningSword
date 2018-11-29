@@ -18,7 +18,7 @@ module StateFuncM =
 
 type Eventual<'arg, 'intermediate, 'result> =
     | Final of 'result
-    | Intermediate of ('arg -> Eventual<'arg, 'intermediate, 'result> * 'intermediate)
+    | Intermediate of ('arg -> (Eventual<'arg, 'intermediate, 'result> * 'intermediate))
 module Eventual =
     let reduce s = function
         | Final v as m -> m, s
@@ -27,7 +27,7 @@ module Eventual =
         let rec progress m a =
             let m, s = reduce a m
             match m with
-            | Final v -> f(s,v)
+            | Final v -> f s v
             | Intermediate _ -> Intermediate (progress m), s
         Intermediate (progress m)
     let rec resolve s = function
@@ -48,7 +48,7 @@ let rec loop i accum arg =
 let logic i accum arg =
     loop i accum arg
 let rec e =    
-    Eventual.bind (Final "Bob": Eventual<string, _, string>) (fun name -> loop 10 "" name)
+    Eventual.bind (Final "Bob": Eventual<string, string, string>) (fun _ name -> (loop 10 "" name), name)
 let v = e |> Eventual.resolve (10, fun i name -> "This is" + name)
 printfn "%A" v
 
