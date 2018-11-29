@@ -42,7 +42,7 @@ increment "This is " "bob" |> StateFuncM.chain "?" |> StateFuncM.get
 let rec loop i accum arg : Eventual<string, string, string> =
     let (name:string) = arg
     if i > 1 then
-        Intermediate(fun arg' -> loop (i-1) (accum + arg) arg', (accum + arg + arg'))
+        Intermediate(fun arg' -> loop (i-1) (accum+arg) arg', (accum + arg))
     else
         Final(name)
 let logic i accum arg =
@@ -54,7 +54,7 @@ let rec e =
             (loop 4 "" name), name)
 let v = e |> Eventual.resolve ""
 printfn "%A" v
-for x in 1..5 do
+for x in 1..10 do
     Eventual.bind (Final "Bob": Eventual<string, string, string>)
         (fun _ name ->
             let m = loop 10 "" name
