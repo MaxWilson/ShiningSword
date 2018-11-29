@@ -43,9 +43,9 @@ let rec loop i arg =
     let (name:string), (next:StateFunc<string, string>) = arg
     if i > 1 then
         let txt, next = next |> StateFuncM.apply name
-        Intermediate(loop (i-1)), txt
+        Intermediate(loop (i-1)), next
     else
-        Final(name), name
+        Final(name), (snd arg)
 let logic (StateFunc(_lastValue, next), name) : string * Eventual<_,_> =
     loop name i next
 let rec e =
