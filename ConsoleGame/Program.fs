@@ -51,9 +51,16 @@ let rec e =
     Eventual.bind (Final "Bob": Eventual<string, string, string>)
         (fun _ name ->
             let m = loop 10 "" name
-            (loop 10 "" name), name)
+            (loop 4 "" name), name)
 let v = e |> Eventual.resolve ""
 printfn "%A" v
+for x in 1..5 do
+    Eventual.bind (Final "Bob": Eventual<string, string, string>)
+        (fun _ name ->
+            let m = loop 10 "" name
+            (loop x "" name), name)
+    |> Eventual.resolve ""
+    |> printfn "%A"
 
 type InteractionBuilder() =
     member this.Bind(q: Queries.IntentionQuery, continuation) =
