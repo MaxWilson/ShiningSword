@@ -7,14 +7,14 @@ open Interact
 open Model.Types
 
 type StateFunc<'a, 'result> =
-    StateFunc of next:('a -> StateFunc<'a, 'result> * 'result)
+    StateFunc of next:('a -> 'result * StateFunc<'a, 'result>)
 module StateFuncM =
     let apply arg (StateFunc(next)) = next arg
-    let chain arg (StateFunc(next), _) = next arg
-    let get (StateFunc(_), v) = v
+    let chain arg (_, StateFunc(next)) = next arg
+    let get (v, StateFunc(_)) = v
     let rec unfold f state v =
-        let state, v = f state v
-        StateFunc(unfold f state), v
+        let v, state = f state v
+        v, StateFunc(unfold f state)
 
 type Eventual<'arg, 'intermediate, 'result> =
     | Final of 'result
@@ -42,10 +42,10 @@ increment "This is " "bob" |> StateFuncM.chain "?" |> StateFuncM.get
 let rec loop i arg =
     let (name:string), (next:StateFunc<string, string>) = arg
     if i > 1 then
-        
-        Intermediate(loop (i-1) (next |> StateFuncM.apply name))
+        let txt, next = next |> StateFuncM.apply name
+        Intermediate(loop (i-1)), txt
     else
-        Final(i)
+        Final(name), name
 let logic (StateFunc(_lastValue, next), name) : string * Eventual<_,_> =
     loop name i next
 let rec e =
