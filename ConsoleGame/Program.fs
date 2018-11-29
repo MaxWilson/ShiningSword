@@ -7,13 +7,14 @@ open Interact
 open Model.Types
 
 type StateFunc<'a, 'result> =
-    StateFunc of current:'result * next:('a -> StateFunc<'a, 'result>)
+    StateFunc of next:('a -> StateFunc<'a, 'result> * 'result)
 module StateFuncM =
-    let apply arg (StateFunc(_, next)) = next arg
-    let get (StateFunc(v, _)) = v
-    let rec fold f state v =
-        let v = f state v
-        StateFunc(v, fold f v)
+    let apply arg (StateFunc(next)) = next arg
+    let chain arg (StateFunc(next), _) = next arg
+    let get (StateFunc(_), v) = v
+    let rec unfold f state v =
+        let state, v = f state v
+        StateFunc(unfold f state), v
 
 type Eventual<'arg, 'intermediate, 'result> =
     | Final of 'result
@@ -35,16 +36,16 @@ module Eventual =
             let m, s = reduce s m
             resolve s m
 let thunk v _ = v
-let increment = StateFuncM.fold (fun state v -> state + v)
-increment "This is " "bob" |> StateFuncM.apply "?" |> StateFuncM.get
+let increment = StateFuncM.unfold (fun state v -> state + v, state + v)
+increment "This is " "bob" |> StateFuncM.chain "?" |> StateFuncM.get
 
 let rec loop i arg =
-    let (next:StateFunc<string, string>),(name:string) = arg
+    let (name:string), (next:StateFunc<string, string>) = arg
     if i > 1 then
-        let StateFunc(v:string, _) as next = next |> StateFuncM.apply name
-        v, Intermediate(loop (i-1))
+        
+        Intermediate(loop (i-1) (next |> StateFuncM.apply name))
     else
-        (i, f), Final(i, f)
+        Final(i)
 let logic (StateFunc(_lastValue, next), name) : string * Eventual<_,_> =
     loop name i next
 let rec e =
