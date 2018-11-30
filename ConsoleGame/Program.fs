@@ -127,15 +127,12 @@ let resolve =
         match monad with
         | Final(v,_) -> v
         | Intermediate(f) as m ->
-            let reduce s = function
-                | Final(_) as m -> m, InteractionQuery.Confirmation "What?"
-                | Intermediate f -> f s
-            let m, s = reduce s m
             printfn "%A?" s
             let answer = Console.ReadLine()
-            resolve answer m
+            let m, s = f answer
+            resolve s m
     resolve
-z |> resolve ("Done")
+z |> resolve (Unchecked.defaultof<_>) |> printfn "Result: %s"
 
 [<EntryPoint>]
 let main argv =
