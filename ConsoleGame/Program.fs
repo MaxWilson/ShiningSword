@@ -6,6 +6,7 @@ open Operations
 open Interact
 open Model.Types
 open Model.Operations.Queries
+open Wilson.Packrat
 
 type Eventual<'arg, 'intermediate, 'result> =
     | Final of 'result
@@ -58,20 +59,28 @@ type Interact<'result> =
     | StatText of StatQuery<string> * (Eventual<string, InteractionQuery, 'result>)
     | Confirmation of string * (Eventual<bool, InteractionQuery, 'result>)
 
-type Interaction<'a, 'b> =
-    | Interact of Interact<'b>
-    | Await of inner:Interact<'a> * ('a -> Interaction<'a,'b>) // how to allow different types? probably can't be part of Interact
+type Interactive<'result> = Eventual<string, InteractionQuery option, 'result>
 
 type InteractionBuilder() =
-    member this.Bind(q: Queries.IntentionQuery, continuation): Interaction<_, _> =
-        Interact(Intention(q, Intermediate(fun cmd -> continuation cmd)))
-    member this.Bind(interaction: Interaction<'a,'b>, continuation: 'b -> Interaction<'b,'c>) : Interaction<'b,'c> =
-        match interaction with
-        | Interact inner ->
-            Await(inner, continuation)
-        | Await (inner, next) ->
-            failwith "haven't figured this out yet"
-            // Await(inner, continuation >> adapt next) // how to adapt?
+    let ofIntention continuation q =
+        let q = q |> Some
+        let rec this =
+            Intermediate(fun arg ->
+                            match ParseArgs.Init arg with
+                            | Recognizer.Intention(intention) ->
+                                continuation intention
+                            | _ -> this, q)
+        this
+    member this.Bind(q: Queries.IntentionQuery, continuation): Interactive<_> =
+        InteractionQuery.Intention q |> ofIntention continuation
+    member this.Bind(q: Queries.StatQuery<int>, continuation): Interactive<_> =
+        InteractionQuery.StatNumber q |> ofIntention continuation
+    member this.Bind(q: Queries.StatQuery<string>, continuation): Interactive<_> =
+        InteractionQuery.StatText q |> ofIntention continuation
+    member this.Bind(Queries.FreeformQuery.Query(q), continuation): Interactive<_> =
+        InteractionQuery.Confirmation q |> ofIntention continuation
+    member this.Bind(interaction: Interactive<'a>, continuation: 'a -> Interactive<'b>) : Interactive<'b> =
+        Eventual.bind interaction (fun state x -> continuation x, state)
     member this.Return(x) = Final x
     member this.ReturnFrom(x) = x
 
@@ -114,7 +123,7 @@ let main argv =
             let! intention = Queries.IntentionQuery.Query id
             return id, intention
             }
-        let rec declareAll ids : Interaction<Declarations> = interaction {
+        let rec declareAll ids : Interactive<Declarations> = interaction {
                 match ids with
                 | [] -> return []
                 | h::t -> return []

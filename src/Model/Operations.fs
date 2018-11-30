@@ -8,7 +8,7 @@ module Queries =
     // context pairs with a recognizer to become a prompt.
     type IntentionQuery = Query of Id
     type StatQuery<'t> = Query of Id * string
-    type FreeformQuery = Query of Id * string
+    type FreeformQuery = Query of string
 
 module Recognizer =
     open Wilson.Packrat
