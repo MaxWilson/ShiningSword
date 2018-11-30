@@ -62,8 +62,8 @@ type Interact<'result> =
 type Interactive<'result> = Eventual<string, InteractionQuery option, 'result>
 
 type InteractionBuilder() =
-    let ofIntention continuation q =
-        let q = q |> Some
+    member this.Bind(q: Queries.IntentionQuery, continuation): Interactive<_> =
+        let q = InteractionQuery.Intention q |> Some
         let rec this =
             Intermediate(fun arg ->
                             match ParseArgs.Init arg with
@@ -71,14 +71,33 @@ type InteractionBuilder() =
                                 continuation intention
                             | _ -> this, q)
         this
-    member this.Bind(q: Queries.IntentionQuery, continuation): Interactive<_> =
-        InteractionQuery.Intention q |> ofIntention continuation
     member this.Bind(q: Queries.StatQuery<int>, continuation): Interactive<_> =
-        InteractionQuery.StatNumber q |> ofIntention continuation
+        let q = InteractionQuery.StatNumber q |> Some
+        let rec this =
+            Intermediate(fun arg ->
+                            match ParseArgs.Init arg with
+                            | Recognizer.Number(intention) ->
+                                continuation intention
+                            | _ -> this, q)
+        this
     member this.Bind(q: Queries.StatQuery<string>, continuation): Interactive<_> =
-        InteractionQuery.StatText q |> ofIntention continuation
+        let q = InteractionQuery.StatText q |> Some
+        let rec this =
+            Intermediate(fun arg ->
+                            match ParseArgs.Init arg with
+                            | Recognizer.FreeformText(intention) ->
+                                continuation intention
+                            | _ -> this, q)
+        this
     member this.Bind(Queries.FreeformQuery.Query(q), continuation): Interactive<_> =
-        InteractionQuery.Confirmation q |> ofIntention continuation
+        let q = InteractionQuery.Confirmation q |> Some
+        let rec this =
+            Intermediate(fun arg ->
+                            match ParseArgs.Init arg with
+                            | Recognizer.FreeformText(intention) ->
+                                continuation intention
+                            | _ -> this, q)
+        this
     member this.Bind(interaction: Interactive<'a>, continuation: 'a -> Interactive<'b>) : Interactive<'b> =
         Eventual.bind interaction (fun state x -> continuation x, state)
     member this.Return(x) = Final x
