@@ -9,6 +9,7 @@ module Queries =
     type IntentionQuery = Query of Id
     type StatQuery<'t> = Query of Id * string
     type FreeformQuery = Query of string
+    type ConfirmationQuery = Query of string
 
 module Recognizer =
     open Wilson.Packrat

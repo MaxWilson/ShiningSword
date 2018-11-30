@@ -1,4 +1,8 @@
 // Learn more about F# at http://fsharp.org
+#if INTERACTIVE
+#I __SOURCE_DIRECTORY__
+#r @"..\src\bin\Debug\netstandard2.0\ShiningSword.dll"
+#endif
 
 open System
 open Model
@@ -28,15 +32,15 @@ module Eventual =
     /// Trampoline until Final state is reached, resolving queries back
     /// to answers using the fResolveQuery. E.g. fResolveQuery might
     /// turn an Interact<'t> into a 't by calling Console.WriteLine + Readline()
-    let resolve fResolveQuery =
-        let reduce s = function
-            | Final(_) as m -> m, s
+    let resolve (fResolveQuery: 'intermediate -> 'arg) (fRequery: 'arg -> 'intermediate) =
+        let reduce fRequery s = function
+            | Final(_) as m -> m, fRequery s
             | Intermediate f -> f s
         let rec resolve s monad =
             match monad with
             | Final(v,_) -> v
             | m ->
-                let m, s = reduce s m
+                let m, s = reduce fRequery s m
                 resolve (fResolveQuery s) m
         resolve
 
@@ -50,7 +54,7 @@ for x in 1..10 do
                 else
                     Final(accum, id)
             (loop x prefix), name)
-    |> Eventual.resolve id "Hi my name is "
+    |> Eventual.resolve id id "Hi my name is "
     |> printfn "%A"
 
 type InteractionQuery =
@@ -65,51 +69,73 @@ type Interact<'result> =
     | StatText of StatQuery<string> * (Eventual<string, InteractionQuery, 'result>)
     | Confirmation of string * (Eventual<bool, InteractionQuery, 'result>)
 
-type Interactive<'result> = Eventual<string, InteractionQuery option, 'result>
+type Interactive<'result> = Eventual<string, InteractionQuery, 'result>
 
-type InteractionBuilder() =
-    member this.Bind(q: Queries.IntentionQuery, continuation): Interactive<_> =
-        let q = InteractionQuery.Intention q |> Some
+type InteractionBuilder<'a, 'b>(typeAdapter: 'a -> 'b) =
+    member this.Bind(q: Queries.IntentionQuery, continuation: (Intention -> Interactive<_>)): Interactive<_> =
+        let q = InteractionQuery.Intention q
         let rec this =
             Intermediate(fun arg ->
                             match ParseArgs.Init arg with
-                            | Recognizer.Intention(intention) ->
-                                continuation intention
+                            | Recognizer.Intention(intention, End) ->
+                                continuation intention, q
                             | _ -> this, q)
         this
-    member this.Bind(q: Queries.StatQuery<int>, continuation): Interactive<_> =
-        let q = InteractionQuery.StatNumber q |> Some
+    member this.Bind(q: Queries.StatQuery<int>, continuation: (int -> Interactive<_>)): Interactive<_> =
+        let q = InteractionQuery.StatNumber q
         let rec this =
             Intermediate(fun arg ->
                             match ParseArgs.Init arg with
-                            | Recognizer.Number(intention) ->
-                                continuation intention
+                            | Recognizer.Number(intention, End) ->
+                                continuation intention, q
                             | _ -> this, q)
         this
-    member this.Bind(q: Queries.StatQuery<string>, continuation): Interactive<_> =
-        let q = InteractionQuery.StatText q |> Some
+    member this.Bind(q: Queries.StatQuery<string>, continuation: (string -> Interactive<_>)): Interactive<_> =
+        let q = InteractionQuery.StatText q
         let rec this =
             Intermediate(fun arg ->
                             match ParseArgs.Init arg with
-                            | Recognizer.FreeformText(intention) ->
-                                continuation intention
+                            | Recognizer.FreeformText(intention, End) ->
+                                continuation intention, q
                             | _ -> this, q)
         this
-    member this.Bind(Queries.FreeformQuery.Query(q), continuation): Interactive<_> =
-        let q = InteractionQuery.Confirmation q |> Some
+    member this.Bind(Queries.ConfirmationQuery.Query(q), continuation: (bool -> Interactive<_>)): Interactive<_> =
+        let q = InteractionQuery.Confirmation q
         let rec this =
             Intermediate(fun arg ->
                             match ParseArgs.Init arg with
-                            | Recognizer.FreeformText(intention) ->
-                                continuation intention
+                            | Recognizer.Bool(intention, End) ->
+                                continuation intention, q
                             | _ -> this, q)
         this
     member this.Bind(interaction: Interactive<'a>, continuation: 'a -> Interactive<'b>) : Interactive<'b> =
         Eventual.bind interaction (fun state x -> continuation x, state)
-    member this.Return(x) = Final x
+    member this.Return(x) = Final (x, typeAdapter)
     member this.ReturnFrom(x) = x
 
-let interaction = InteractionBuilder()
+let interaction = InteractionBuilder(fun (s:string) -> InteractionQuery.Confirmation(sprintf "Did you mean to type '%s'?" s))
+let z : Eventual<string, InteractionQuery, string> =
+    interaction {
+        let! x = ConfirmationQuery.Query "Do you want fries with that?"
+        if x then
+            return "That will be $2.00"
+        else
+            return "That will be $1.00"
+    }
+let resolve =
+    let rec resolve s monad =
+        match monad with
+        | Final(v,_) -> v
+        | Intermediate(f) as m ->
+            let reduce s = function
+                | Final(_) as m -> m, InteractionQuery.Confirmation "What?"
+                | Intermediate f -> f s
+            let m, s = reduce s m
+            printfn "%A?" s
+            let answer = Console.ReadLine()
+            resolve answer m
+    resolve
+z |> resolve ("Done")
 
 [<EntryPoint>]
 let main argv =
