@@ -46,19 +46,26 @@ for x in 1..10 do
     |> Eventual.resolve (Option.defaultValue "") "Hi my name is "
     |> printfn "%A"
 
-type Interact<'result> =
-    | Intention of IntentionQuery
-    | StatNumber of StatQuery<int>
-    | StatText of StatQuery<string>
-    | Confirmation of string
+//type Interact<'result> =
+//    | Intention of IntentionQuery
+//    | StatNumber of StatQuery<int>
+//    | StatText of StatQuery<string>
+//    | Confirmation of string
 
-type Interaction<'result> = Interact<'result> * Eventual<string, Interact<'result> option, 'result>
+type Interact<'result> =
+    | Intention of IntentionQuery * (Eventual<Intention, Interact<'result>, 'result>)
+    | StatNumber of StatQuery<int> * (Eventual<int, Interact<'result>, 'result>)
+    | StatText of StatQuery<string> * (Eventual<string, Interact<'result>, 'result>)
+    | Confirmation of string * (Eventual<bool, Interact<'result>, 'result>)
+    | Await of inner:Interact<'result> * ('result -> Interact<'result>) // how to allow different types?
+
+type Interaction<'result> = Interact<'result>
 
 type InteractionBuilder() =
     member this.Bind(q: Queries.IntentionQuery, continuation): Interaction<_> =
-        Intention q, Intermediate(fun cmd -> continuation cmd)
-    member this.Bind((q, interaction): Interaction<'a>, continuation: 'a -> Interaction<'b>) : Interaction<'b> =
-        q, Eventual.bind interaction (fun _ arg -> continuation arg, None)
+        Intention(q, Intermediate(fun cmd -> continuation cmd))
+    member this.Bind(interaction: Interaction<'a>, continuation: 'a -> Interaction<'b>) : Interaction<'b> =
+        Await(interaction, continuation)
     member this.Return(x) = Final x
     member this.ReturnFrom(x) = x
 
