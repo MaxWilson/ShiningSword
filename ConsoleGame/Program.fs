@@ -6,16 +6,6 @@ open Operations
 open Interact
 open Model.Types
 
-type StateFunc<'a, 'result> =
-    StateFunc of next:('a -> 'result * StateFunc<'a, 'result>)
-module StateFuncM =
-    let apply arg (StateFunc(next)) = next arg
-    let chain arg (_, StateFunc(next)) = next arg
-    let get (v, StateFunc(_)) = v
-    let rec unfold f state v =
-        let v, state = f state v
-        v, StateFunc(unfold f state)
-
 type Eventual<'arg, 'intermediate, 'result> =
     | Final of 'result
     | Intermediate of ('arg -> (Eventual<'arg, 'intermediate, 'result> * 'intermediate))
@@ -41,9 +31,6 @@ module Eventual =
                 let m, s = reduce s m
                 resolve (fResolveQuery s) m
         resolve
-let thunk v _ = v
-let increment = StateFuncM.unfold (fun state v -> state + v, state + v)
-increment "This is " "bob" |> StateFuncM.chain "?" |> StateFuncM.get
 
 for x in 1..10 do
     Eventual.bind (Final "Bob": Eventual<string, string option, string>)
@@ -58,26 +45,13 @@ for x in 1..10 do
     |> Eventual.resolve (Option.defaultValue "") "Hi my name is "
     |> printfn "%A"
 
+type Interaction<'a> = Eventual<string, Interact<'a> option, 'a>
 type InteractionBuilder() =
-    member this.Bind(q: Queries.IntentionQuery, continuation) =
-        Intention(q, continuation)
+    member this.Bind(q: Queries.IntentionQuery, continuation): Interaction<_> =
+        Final(Intention(q, continuation))
     member this.Bind(interaction: Interaction<'a>, continuation: 'a -> Interaction<'b>) : Interaction<'b> =
-        match interaction with
-        | Immediate v ->
-            (continuation v)
-        | Interact q ->
-            let i =
-                match q with
-                | Intention(q, f) ->
-                    Intention(q, f >> continuation)
-                | StatNumber(q, f) ->
-                    StatNumber(q, f >> continuation)
-                | StatText(q, f) ->
-                    StatText(q, f >> continuation)
-                | Confirmation(q, f) ->
-                    Confirmation(q, f >> continuation)
-            interaction
-    member this.Return(x) = Immediate x
+        Eventual.bind interaction (fun _ arg -> continuation arg, None)
+    member this.Return(x) = Final x
     member this.ReturnFrom(x) = x
 
 let interaction = InteractionBuilder()
