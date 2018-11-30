@@ -9,17 +9,17 @@ open Model.Operations.Queries
 open Wilson.Packrat
 
 type Eventual<'arg, 'intermediate, 'result> =
-    | Final of 'result
+    | Final of 'result * stateUpdate: ('arg -> 'intermediate)
     | Intermediate of ('arg -> (Eventual<'arg, 'intermediate, 'result>) * 'intermediate)
 module Eventual =
     let reduce s = function
-        | Final v as m -> m, None
+        | Final(_v, update) as m -> m, update s
         | Intermediate f -> f s
     let bind m f =
         let rec progress m a =
             let m, s = reduce a m
             match m with
-            | Final v -> f s v
+            | Final(v,_) -> f s v
             | Intermediate _ -> Intermediate (progress m), s
         Intermediate (progress m)
     /// Trampoline until Final state is reached, resolving queries back
@@ -28,23 +28,23 @@ module Eventual =
     let resolve fResolveQuery =
         let rec resolve s monad =
             match monad with
-            | Final v -> v
+            | Final(v,_) -> v
             | m ->
                 let m, s = reduce s m
                 resolve (fResolveQuery s) m
         resolve
 
 for x in 1..10 do
-    Eventual.bind (Final "Bob": Eventual<string, string option, string>)
+    Eventual.bind (Final ("Bob", id): Eventual<string, string, string>)
         (fun prefix name ->
             let rec loop i (accum:string) : Eventual<string, _, _> =
                 if i > 0 then
                     Intermediate(fun arg ->
-                                    loop (i-1) (accum + i.ToString() + arg), Some arg)
+                                    loop (i-1) (accum + i.ToString() + arg), arg)
                 else
-                    Final(accum)
-            (loop x (Option.defaultValue "" prefix)), Some name)
-    |> Eventual.resolve (Option.defaultValue "") "Hi my name is "
+                    Final(accum, id)
+            (loop x prefix), name)
+    |> Eventual.resolve id "Hi my name is "
     |> printfn "%A"
 
 type InteractionQuery =
