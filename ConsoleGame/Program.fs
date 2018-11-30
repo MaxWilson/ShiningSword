@@ -5,10 +5,11 @@ open Model
 open Operations
 open Interact
 open Model.Types
+open Model.Operations.Queries
 
 type Eventual<'arg, 'intermediate, 'result> =
     | Final of 'result
-    | Intermediate of ('arg -> (Eventual<'arg, 'intermediate, 'result> * 'intermediate))
+    | Intermediate of ('arg -> (Eventual<'arg, 'intermediate, 'result>) * 'intermediate)
 module Eventual =
     let reduce s = function
         | Final v as m -> m, None
@@ -45,12 +46,19 @@ for x in 1..10 do
     |> Eventual.resolve (Option.defaultValue "") "Hi my name is "
     |> printfn "%A"
 
-type Interaction<'a> = Eventual<string, Interact<'a> option, 'a>
+type Interact<'result> =
+    | Intention of IntentionQuery
+    | StatNumber of StatQuery<int>
+    | StatText of StatQuery<string>
+    | Confirmation of string
+
+type Interaction<'result> = Interact<'result> * Eventual<string, Interact<'result> option, 'result>
+
 type InteractionBuilder() =
     member this.Bind(q: Queries.IntentionQuery, continuation): Interaction<_> =
-        Final(Intention(q, continuation))
-    member this.Bind(interaction: Interaction<'a>, continuation: 'a -> Interaction<'b>) : Interaction<'b> =
-        Eventual.bind interaction (fun _ arg -> continuation arg, None)
+        Intention q, Intermediate(fun cmd -> continuation cmd)
+    member this.Bind((q, interaction): Interaction<'a>, continuation: 'a -> Interaction<'b>) : Interaction<'b> =
+        q, Eventual.bind interaction (fun _ arg -> continuation arg, None)
     member this.Return(x) = Final x
     member this.ReturnFrom(x) = x
 
