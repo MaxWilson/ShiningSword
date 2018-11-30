@@ -17,26 +17,28 @@ open Wilson.Packrat
 /// break even if another function with the same type signature is substituted, e.g. to update an accumulator or do logging.
 type Eventual<'arg, 'intermediate, 'result> =
     | Final of 'result * _stateTypeAdapter: ('arg -> 'intermediate)
-    | Intermediate of ('arg -> (Eventual<'arg, 'intermediate, 'result>) * 'intermediate)
+    | Intermediate of question: 'intermediate * next: ('arg -> (Eventual<'arg, 'intermediate, 'result>))
 module Eventual =
-    let bind m f =
-        let reduce s = function
-            | Final(_v, typeAdapt) as m -> m, typeAdapt s
-            | Intermediate f -> f s
-        let rec progress m a =
-            let m, s = reduce a m
+    let bind m question f =
+        let rec progress m s =
             match m with
-            | Final(v,_) -> f s v
-            | Intermediate _ -> Intermediate (progress m), s
-        Intermediate (progress m)
+            | Final(v, typeAdapt) -> f (typeAdapt s) v
+            | Intermediate(_, next) ->
+                match next s with
+                | Final(v, typeAdapt) -> f (typeAdapt s) v
+                | Intermediate(q, _) as m -> Intermediate (q, progress m)
+        Intermediate (question, progress m)
     /// Trampoline until Final state is reached, resolving queries back
     /// to answers using the fResolveQuery. E.g. fResolveQuery might
     /// turn an Interact<'t> into a 't by calling Console.WriteLine + Readline()
     let resolve (fResolveQuery: 'intermediate -> 'arg) (fRequery: 'arg -> 'intermediate) =
-        let reduce fRequery s = function
-            | Final(_) as m -> m, fRequery s
-            | Intermediate f -> f s
         let rec resolve s monad =
+            match monad with
+            | Final(v, typeAdapt) -> f (typeAdapt s) v
+            | Intermediate(_, next) ->
+                match next s with
+                | Final(v, typeAdapt) -> f (typeAdapt s) v
+                | Intermediate(q, _) as m -> Intermediate (q, progress m)
             match monad with
             | Final(v,_) -> v
             | m ->
