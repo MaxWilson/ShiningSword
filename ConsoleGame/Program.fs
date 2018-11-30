@@ -46,26 +46,32 @@ for x in 1..10 do
     |> Eventual.resolve (Option.defaultValue "") "Hi my name is "
     |> printfn "%A"
 
-//type Interact<'result> =
-//    | Intention of IntentionQuery
-//    | StatNumber of StatQuery<int>
-//    | StatText of StatQuery<string>
-//    | Confirmation of string
+type InteractionQuery =
+    | Intention of IntentionQuery
+    | StatNumber of StatQuery<int>
+    | StatText of StatQuery<string>
+    | Confirmation of string
 
 type Interact<'result> =
-    | Intention of IntentionQuery * (Eventual<Intention, Interact<'result>, 'result>)
-    | StatNumber of StatQuery<int> * (Eventual<int, Interact<'result>, 'result>)
-    | StatText of StatQuery<string> * (Eventual<string, Interact<'result>, 'result>)
-    | Confirmation of string * (Eventual<bool, Interact<'result>, 'result>)
-    | Await of inner:Interact<'result> * ('result -> Interact<'result>) // how to allow different types?
+    | Intention of IntentionQuery * (Eventual<Intention, InteractionQuery, 'result>)
+    | StatNumber of StatQuery<int> * (Eventual<int, InteractionQuery, 'result>)
+    | StatText of StatQuery<string> * (Eventual<string, InteractionQuery, 'result>)
+    | Confirmation of string * (Eventual<bool, InteractionQuery, 'result>)
 
-type Interaction<'result> = Interact<'result>
+type Interaction<'a, 'b> =
+    | Interact of Interact<'b>
+    | Await of inner:Interact<'a> * ('a -> Interaction<'a,'b>) // how to allow different types? probably can't be part of Interact
 
 type InteractionBuilder() =
-    member this.Bind(q: Queries.IntentionQuery, continuation): Interaction<_> =
-        Intention(q, Intermediate(fun cmd -> continuation cmd))
-    member this.Bind(interaction: Interaction<'a>, continuation: 'a -> Interaction<'b>) : Interaction<'b> =
-        Await(interaction, continuation)
+    member this.Bind(q: Queries.IntentionQuery, continuation): Interaction<_, _> =
+        Interact(Intention(q, Intermediate(fun cmd -> continuation cmd)))
+    member this.Bind(interaction: Interaction<'a,'b>, continuation: 'b -> Interaction<'b,'c>) : Interaction<'b,'c> =
+        match interaction with
+        | Interact inner ->
+            Await(inner, continuation)
+        | Await (inner, next) ->
+            failwith "haven't figured this out yet"
+            // Await(inner, continuation >> adapt next) // how to adapt?
     member this.Return(x) = Final x
     member this.ReturnFrom(x) = x
 
