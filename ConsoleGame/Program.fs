@@ -8,17 +8,17 @@ open Model.Types
 open Model.Operations.Queries
 open Wilson.Packrat
 
-/// Note: Eventual.Final.stateUpdatePlaceholder is just a type kludge (placeholder type). You should not necessary expect it
-/// to always be called during evaluation--your logic should be written not to break even if another function
-/// with the same type signature could be substituted, e.g. to update an accumulator or do logging.
+/// Note: Eventual.Final._stateTypeAdapter is just a type kludge (placeholder type) used at monad construction time.
+/// You should not necessary expect it to always be called during evaluation--your logic should be written not to
+/// break even if another function with the same type signature is substituted, e.g. to update an accumulator or do logging.
 type Eventual<'arg, 'intermediate, 'result> =
-    | Final of 'result * _stateUpdatePlaceholder: ('arg -> 'intermediate)
+    | Final of 'result * _stateTypeAdapter: ('arg -> 'intermediate)
     | Intermediate of ('arg -> (Eventual<'arg, 'intermediate, 'result>) * 'intermediate)
 module Eventual =
-    let reduce s = function
-        | Final(_v, update) as m -> m, update s
-        | Intermediate f -> f s
     let bind m f =
+        let reduce s = function
+            | Final(_v, typeAdapt) as m -> m, typeAdapt s
+            | Intermediate f -> f s
         let rec progress m a =
             let m, s = reduce a m
             match m with
@@ -29,6 +29,9 @@ module Eventual =
     /// to answers using the fResolveQuery. E.g. fResolveQuery might
     /// turn an Interact<'t> into a 't by calling Console.WriteLine + Readline()
     let resolve fResolveQuery =
+        let reduce s = function
+            | Final(_) as m -> m, s
+            | Intermediate f -> f s
         let rec resolve s monad =
             match monad with
             | Final(v,_) -> v
