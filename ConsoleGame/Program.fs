@@ -31,19 +31,13 @@ module Eventual =
     /// Trampoline until Final state is reached, resolving queries back
     /// to answers using the fResolveQuery. E.g. fResolveQuery might
     /// turn an Interact<'t> into a 't by calling Console.WriteLine + Readline()
-    let resolve (fResolveQuery: 'intermediate -> 'arg) (fRequery: 'arg -> 'intermediate) =
-        let rec resolve s monad =
-            match monad with
-            | Final(v, typeAdapt) -> f (typeAdapt s) v
-            | Intermediate(_, next) ->
-                match next s with
-                | Final(v, typeAdapt) -> f (typeAdapt s) v
-                | Intermediate(q, _) as m -> Intermediate (q, progress m)
-            match monad with
-            | Final(v,_) -> v
-            | m ->
-                let m, s = reduce fRequery s m
-                resolve (fResolveQuery s) m
+    let resolve (fResolveQuery: 'intermediate -> 'arg) =
+        let rec resolve = function
+            | Final(v, typeAdapt) -> v
+            | Intermediate(q, next) ->
+                match fResolveQuery q |> next with
+                | Final(v, _) -> v
+                | m -> resolve m
         resolve
 
 for x in 1..10 do
@@ -51,12 +45,12 @@ for x in 1..10 do
         (fun prefix name ->
             let rec loop i (accum:string) : Eventual<string, _, _> =
                 if i > 0 then
-                    Intermediate(fun arg ->
-                                    loop (i-1) (accum + i.ToString() + arg), arg)
+                    Intermediate(accum, fun arg ->
+                                    loop (i-1) (accum + i.ToString() + arg))
                 else
                     Final(accum, id)
             (loop x prefix), name)
-    |> Eventual.resolve id id "Hi my name is "
+    |> Eventual.resolve id "Hi my name is "
     |> printfn "%A"
 
 type InteractionQuery =
