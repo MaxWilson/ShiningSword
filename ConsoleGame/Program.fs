@@ -8,8 +8,11 @@ open Model.Types
 open Model.Operations.Queries
 open Wilson.Packrat
 
+/// Note: Eventual.Final.stateUpdatePlaceholder is just a type kludge (placeholder type). You should not necessary expect it
+/// to always be called during evaluation--your logic should be written not to break even if another function
+/// with the same type signature could be substituted, e.g. to update an accumulator or do logging.
 type Eventual<'arg, 'intermediate, 'result> =
-    | Final of 'result * stateUpdate: ('arg -> 'intermediate)
+    | Final of 'result * _stateUpdatePlaceholder: ('arg -> 'intermediate)
     | Intermediate of ('arg -> (Eventual<'arg, 'intermediate, 'result>) * 'intermediate)
 module Eventual =
     let reduce s = function
