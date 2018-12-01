@@ -11,6 +11,7 @@ open Interact
 open Model.Types
 open Model.Operations.Queries
 open Wilson.Packrat
+open Fable.PowerPack.Keyboard
 
 /// Note: Eventual.Final._stateTypeAdapter is just a type kludge (placeholder type) used at monad construction time.
 /// You should not necessary expect it to always be called during evaluation--your logic should be written not to
@@ -72,42 +73,27 @@ type Interact<'result> =
 type Interactive<'result> = Eventual<string, InteractionQuery, 'result>
 
 type InteractionBuilder<'a, 'b>(typeAdapter: 'a -> 'b) =
+    let wrap q continuation recognizer =        
+        let rec this =
+            Intermediate(fun arg ->
+                match arg |> recognizer with
+                | Some arg -> 
+                    continuation arg, q
+                | _ -> this, q)
+        this
+    let tryParse recognizer arg =
+        match ParseArgs.Init arg |> recognizer with
+        | Some(v, End) -> Some v
+        | _ -> None
+        
     member this.Bind(q: Queries.IntentionQuery, continuation: (Intention -> Interactive<_>)): Interactive<_> =
-        let q = InteractionQuery.Intention q
-        let rec this =
-            Intermediate(fun arg ->
-                            match ParseArgs.Init arg with
-                            | Recognizer.Intention(intention, End) ->
-                                continuation intention, q
-                            | _ -> this, q)
-        this
+        wrap (InteractionQuery.Intention q) continuation (tryParse Recognizer.``|Intention|_|``)
     member this.Bind(q: Queries.StatQuery<int>, continuation: (int -> Interactive<_>)): Interactive<_> =
-        let q = InteractionQuery.StatNumber q
-        let rec this =
-            Intermediate(fun arg ->
-                            match ParseArgs.Init arg with
-                            | Recognizer.Number(intention, End) ->
-                                continuation intention, q
-                            | _ -> this, q)
-        this
+        wrap (InteractionQuery.StatNumber q) continuation (tryParse Recognizer.``|Number|_|``)
     member this.Bind(q: Queries.StatQuery<string>, continuation: (string -> Interactive<_>)): Interactive<_> =
-        let q = InteractionQuery.StatText q
-        let rec this =
-            Intermediate(fun arg ->
-                            match ParseArgs.Init arg with
-                            | Recognizer.FreeformText(intention, End) ->
-                                continuation intention, q
-                            | _ -> this, q)
-        this
+        wrap (InteractionQuery.StatText q) continuation (tryParse Recognizer.``|FreeformText|_|``)
     member this.Bind(Queries.ConfirmationQuery.Query(q), continuation: (bool -> Interactive<_>)): Interactive<_> =
-        let q = InteractionQuery.Confirmation q
-        let rec this =
-            Intermediate(fun arg ->
-                            match ParseArgs.Init arg with
-                            | Recognizer.Bool(intention, End) ->
-                                continuation intention, q
-                            | _ -> this, q)
-        this
+        wrap (InteractionQuery.Confirmation q) continuation (tryParse Recognizer.``|Bool|_|``)
     member this.Bind(interaction: Interactive<'a>, continuation: 'a -> Interactive<'b>) : Interactive<'b> =
         Eventual.bind interaction (fun state x -> continuation x, state)
     member this.Return(x) = Final (x, typeAdapter)
