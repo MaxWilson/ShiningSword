@@ -2,6 +2,17 @@ module Model.Operations
 open Model.Types
 open Common
 
+type Recursive<'arg, 'output> = Recursive of 'output * ('arg -> Recursive<'arg, 'output>)
+module Recursive =
+    let next(Recursive(v, next)) = next
+    let value(Recursive(v, next)) = v
+    let apply arg (Recursive(v, next)) = next arg
+let startFrom i =
+    let rec generator i () =
+        Recursive(i, generator (i+1))
+    generator i ()
+startFrom 1 |> Recursive.apply() |> Recursive.apply() |> Recursive.value 
+
 module Queries =
     // A query context has context about what question is being asked.
     // Think of it as a generalized input to Console.WriteLine. A query
