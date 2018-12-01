@@ -11,7 +11,6 @@ open Interact
 open Model.Types
 open Model.Operations.Queries
 open Wilson.Packrat
-open Fable.PowerPack.Keyboard
 
 /// Note: Eventual.Final._stateTypeAdapter is just a type kludge (placeholder type) used at monad construction time.
 /// You should not necessary expect it to always be called during evaluation--your logic should be written not to
@@ -81,28 +80,33 @@ type InteractionBuilder<'a, 'b>(typeAdapter: 'a -> 'b) =
                     continuation arg, q
                 | _ -> this, q)
         this
-    let tryParse recognizer arg =
-        match ParseArgs.Init arg |> recognizer with
-        | Some(v, End) -> Some v
-        | _ -> None
-        
-    member this.Bind(q: Queries.IntentionQuery, continuation: (Intention -> Interactive<_>)): Interactive<_> =
-        wrap (InteractionQuery.Intention q) continuation (tryParse Recognizer.``|Intention|_|``)
-    member this.Bind(q: Queries.StatQuery<int>, continuation: (int -> Interactive<_>)): Interactive<_> =
-        wrap (InteractionQuery.StatNumber q) continuation (tryParse Recognizer.``|Number|_|``)
-    member this.Bind(q: Queries.StatQuery<string>, continuation: (string -> Interactive<_>)): Interactive<_> =
-        wrap (InteractionQuery.StatText q) continuation (tryParse Recognizer.``|FreeformText|_|``)
-    member this.Bind(Queries.ConfirmationQuery.Query(q), continuation: (bool -> Interactive<_>)): Interactive<_> =
-        wrap (InteractionQuery.Confirmation q) continuation (tryParse Recognizer.``|Bool|_|``)
+    // todo: make more generic, with inputs other than string        
+    member this.Bind((q:InteractionQuery, recognizer: string -> 'arg option), continuation: ('arg -> Interactive<_>)): Interactive<_> =
+        wrap q continuation recognizer
     member this.Bind(interaction: Interactive<'a>, continuation: 'a -> Interactive<'b>) : Interactive<'b> =
         Eventual.bind interaction (fun state x -> continuation x, state)
     member this.Return(x) = Final (x, typeAdapter)
     member this.ReturnFrom(x) = x
 
+module Query =
+    let tryParse recognizer arg =
+        match ParseArgs.Init arg |> recognizer with
+        | Some(v, End) -> Some v
+        | _ -> None
+
+    let intention txt =
+        InteractionQuery.Intention(IntentionQuery.Query txt), (tryParse Recognizer.``|Intention|_|``)
+    let statNumber id statName =
+        InteractionQuery.StatNumber(StatQuery.Query(id, statName)), (tryParse Recognizer.``|Number|_|``)
+    let statText id statName =
+        InteractionQuery.StatText(StatQuery.Query(id, statName)), (tryParse Recognizer.``|FreeformText|_|``)
+    let confirm txt =
+        InteractionQuery.Confirmation txt, (tryParse Recognizer.``|Bool|_|``)
+
 let interaction = InteractionBuilder(fun (s:string) -> InteractionQuery.Confirmation(sprintf "Did you mean to type '%s'?" s))
 let z : Eventual<string, InteractionQuery, string> =
     interaction {
-        let! x = ConfirmationQuery.Query "Do you want fries with that?"
+        let! x = Query.confirm "Do you want fries with that?"
         if x then
             return "That will be $2.00"
         else
