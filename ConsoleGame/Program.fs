@@ -43,7 +43,7 @@ module Eventual =
                     resolve m
         resolve
 for x in 1..10 do
-    Eventual.bind (Final "Bob": Eventual<string, string, string>)
+    Eventual.bind (Final "Hi my name is ": Eventual<string, string, string>)
         (fun prefix ->
             let rec loop i (accum:string) : Eventual<string, _, _> =
                 if i > 0 then
@@ -52,7 +52,7 @@ for x in 1..10 do
                 else
                     Final(accum)
             (loop x prefix))
-    |> Eventual.resolve id
+    |> Eventual.resolve (fun _ -> "Bob")
     |> printfn "%A"
 
 type InteractionQuery =
