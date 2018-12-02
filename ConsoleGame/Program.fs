@@ -17,17 +17,17 @@ type Eventual<'arg, 'intermediate, 'result> =
     | Intermediate of question:'intermediate * provideAnswer:('arg -> (Eventual<'arg, 'intermediate, 'result>))
 module Eventual =
     let bind m f =
-        let reduce s = function
-            | Final(_) as m -> m
-            | Intermediate (_,f) -> f s
-        let rec progress m a =
-            let m = reduce a m
-            match m with
-            | Final(v) -> f v
-            | Intermediate _ -> m
         match m with
         | Final v -> f v // prereq already satisfied: evaluate continuation immediately
-        | Intermediate(q,_) -> progress m q // lift query to wrapping continuation
+        | Intermediate(q, continuation) ->
+            let rec resume func arg =
+                match func arg with
+                | Final v -> f v
+                | Intermediate(q, next) ->
+                    Intermediate(q, resume next)
+            // lift query to wrapping continuation
+            Intermediate(q, resume continuation)
+            
     /// Trampoline until Final state is reached, resolving queries back
     /// to answers using the fResolveQuery. E.g. fResolveQuery might
     /// turn an Interact<'t> into a 't by calling Console.WriteLine + Readline()
@@ -69,21 +69,21 @@ type Interact<'result> =
 
 type Interactive<'result> = Eventual<string, InteractionQuery, 'result>
 
-type InteractionBuilder<'a, 'b>(typeAdapter: 'a -> 'b) =
+type InteractionBuilder() =
     let wrap q continuation recognizer =        
         let rec this =
-            Intermediate(fun arg ->
+            Intermediate(q, fun arg ->
                 match arg |> recognizer with
                 | Some arg -> 
-                    continuation arg, q
-                | _ -> this, q)
+                    continuation arg
+                | _ -> this)
         this
     // todo: make more generic, with inputs other than string        
     member this.Bind((q:InteractionQuery, recognizer: string -> 'arg option), continuation: ('arg -> Interactive<_>)): Interactive<_> =
         wrap q continuation recognizer
     member this.Bind(interaction: Interactive<'a>, continuation: 'a -> Interactive<'b>) : Interactive<'b> =
-        Eventual.bind interaction (fun state x -> continuation x, state)
-    member this.Return(x) = Final (x, typeAdapter)
+        Eventual.bind interaction continuation
+    member this.Return(x) = Final (x)
     member this.ReturnFrom(x) = x
 
 module Query =
