@@ -12,49 +12,47 @@ open Model.Types
 open Model.Operations.Queries
 open Wilson.Packrat
 
-/// Note: Eventual.Final._stateTypeAdapter is just a type kludge (placeholder type) used at monad construction time.
-/// You should not necessary expect it to always be called during evaluation--your logic should be written not to
-/// break even if another function with the same type signature is substituted, e.g. to update an accumulator or do logging.
 type Eventual<'arg, 'intermediate, 'result> =
-    | Final of 'result * _stateTypeAdapter: ('arg -> 'intermediate)
-    | Intermediate of ('arg -> (Eventual<'arg, 'intermediate, 'result>) * 'intermediate)
+    | Final of 'result
+    | Intermediate of question:'intermediate * provideAnswer:('arg -> (Eventual<'arg, 'intermediate, 'result>))
 module Eventual =
     let bind m f =
         let reduce s = function
-            | Final(_v, typeAdapt) as m -> m, typeAdapt s
-            | Intermediate f -> f s
+            | Final(_) as m -> m
+            | Intermediate (_,f) -> f s
         let rec progress m a =
-            let m, s = reduce a m
+            let m = reduce a m
             match m with
-            | Final(v,_) -> f s v
-            | Intermediate _ -> Intermediate (progress m), s
-        Intermediate (progress m)
+            | Final(v) -> f v
+            | Intermediate _ -> m
+        match m with
+        | Final v -> f v // prereq already satisfied: evaluate continuation immediately
+        | Intermediate(q,_) -> progress m q // lift query to wrapping continuation
     /// Trampoline until Final state is reached, resolving queries back
     /// to answers using the fResolveQuery. E.g. fResolveQuery might
     /// turn an Interact<'t> into a 't by calling Console.WriteLine + Readline()
-    let resolve (fResolveQuery: 'intermediate -> 'arg) (fRequery: 'arg -> 'intermediate) =
-        let reduce fRequery s = function
-            | Final(_) as m -> m, fRequery s
-            | Intermediate f -> f s
-        let rec resolve s monad =
+    let resolve (fResolveQuery: 'intermediate -> 'arg) =
+        let rec resolve monad =
             match monad with
-            | Final(v,_) -> v
-            | m ->
-                let m, s = reduce fRequery s m
-                resolve (fResolveQuery s) m
+            | Final v -> v
+            | Intermediate(q, f) ->
+                let answer = fResolveQuery q
+                match f answer with
+                | Final v -> v
+                | Intermediate(s, _) as m ->
+                    resolve m
         resolve
-
 for x in 1..10 do
-    Eventual.bind (Final ("Bob", id): Eventual<string, string, string>)
-        (fun prefix name ->
+    Eventual.bind (Final "Bob": Eventual<string, string, string>)
+        (fun prefix ->
             let rec loop i (accum:string) : Eventual<string, _, _> =
                 if i > 0 then
-                    Intermediate(fun arg ->
-                                    loop (i-1) (accum + i.ToString() + arg), arg)
+                    Intermediate(accum, fun arg ->
+                                    loop (i-1) (accum + i.ToString() + arg))
                 else
-                    Final(accum, id)
-            (loop x prefix), name)
-    |> Eventual.resolve id id "Hi my name is "
+                    Final(accum)
+            (loop x prefix))
+    |> Eventual.resolve id
     |> printfn "%A"
 
 type InteractionQuery =
