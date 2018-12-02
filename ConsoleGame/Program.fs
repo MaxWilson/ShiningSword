@@ -102,25 +102,28 @@ module Query =
         InteractionQuery.Confirmation txt, (tryParse Recognizer.``|Bool|_|``)
 
 let interaction = InteractionBuilder()
-let z : Eventual<string, InteractionQuery, string> =
+let rec z : Eventual<_, InteractionQuery, int> =
     interaction {
         let! x = Query.confirm "Do you want fries with that?"
-        if x then
-            return "That will be $2.00"
+        let price = if x then 2 else 1
+        let! more = Query.confirm "Want another?"
+        if more then
+            let! rest = z
+            return rest + price
         else
-            return "That will be $1.00"
+            return price
     }
 let resolve =
-    let rec resolve s monad =
+    let rec resolve monad =
         match monad with
-        | Final(v,_) -> v
+        | Final(v) -> v
         | Intermediate(q,f) as m ->
             printfn "%A?" q
             let answer = Console.ReadLine()
-            let m, s = f answer
-            resolve s m
+            let m = f answer
+            resolve m
     resolve
-z |> resolve (Unchecked.defaultof<_>) |> printfn "Result: %s"
+z |> resolve |> printfn "Result: That will be $%d.00 please"
 
 [<EntryPoint>]
 let main argv =
