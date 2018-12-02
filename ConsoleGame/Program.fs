@@ -101,7 +101,7 @@ module Query =
     let confirm txt =
         InteractionQuery.Confirmation txt, (tryParse Recognizer.``|Bool|_|``)
 
-let interaction = InteractionBuilder(fun (s:string) -> InteractionQuery.Confirmation(sprintf "Did you mean to type '%s'?" s))
+let interaction = InteractionBuilder()
 let z : Eventual<string, InteractionQuery, string> =
     interaction {
         let! x = Query.confirm "Do you want fries with that?"
@@ -114,8 +114,8 @@ let resolve =
     let rec resolve s monad =
         match monad with
         | Final(v,_) -> v
-        | Intermediate(f) as m ->
-            printfn "%A?" s
+        | Intermediate(q,f) as m ->
+            printfn "%A?" q
             let answer = Console.ReadLine()
             let m, s = f answer
             resolve s m
