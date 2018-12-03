@@ -23,7 +23,7 @@ module Eventual =
             | Intermediate(q, continuation) ->
                 Intermediate(q, continuation >> chain)
         chain m
-            
+
     /// Trampoline until Final state is reached, resolving queries back
     /// to answers using the fResolveQuery. E.g. fResolveQuery might
     /// turn an Interact<'t> into a 't by calling Console.WriteLine + Readline()
@@ -63,21 +63,21 @@ type Interact<'result> =
     | StatText of StatQuery<string> * (Eventual<string, InteractionQuery, 'result>)
     | Confirmation of string * (Eventual<bool, InteractionQuery, 'result>)
 
-type Interactive<'result> = Eventual<string, InteractionQuery, 'result>
+type Interactive<'answer,'question,'result> = Eventual<'answer, 'question, 'result>
 
-type InteractionBuilder() =
-    let wrap q continuation recognizer =        
+type InteractionBuilder<'input, 'query>() =
+    let wrap q recognizer continuation  =
         let rec this =
             Intermediate(q, fun arg ->
                 match arg |> recognizer with
-                | Some arg -> 
+                | Some arg ->
                     continuation arg
                 | _ -> this)
         this
-    // todo: make more generic, with inputs other than string        
-    member this.Bind((q:InteractionQuery, recognizer: string -> 'arg option), continuation: ('arg -> Interactive<_>)): Interactive<_> =
-        wrap q continuation recognizer
-    member this.Bind(interaction: Interactive<'a>, continuation: 'a -> Interactive<'b>) : Interactive<'b> =
+    // todo: make more generic, with inputs other than string
+    member this.Bind((q:'query, recognizer: 'input -> 'arg option), continuation: ('arg -> Interactive<'input, 'query, _>)): Interactive<'input, 'query, _> =
+        wrap q recognizer continuation
+    member this.Bind(interaction: Interactive<'input, 'query, 'a>, continuation: 'a -> Interactive<'input, 'query, 'b>) : Interactive<'input, 'query, 'b> =
         Eventual.bind interaction continuation
     member this.Return(x) = Final (x)
     member this.ReturnFrom(x) = x
