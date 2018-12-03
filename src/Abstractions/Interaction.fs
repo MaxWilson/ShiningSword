@@ -29,8 +29,6 @@ module Eventual =
                     resolve m
         resolve
 
-type Interactive<'answer,'question,'result> = Eventual<'answer, 'question, 'result>
-
 type InteractionBuilder<'input, 'query>() =
     let wrap q recognizer continuation  =
         let rec this =
@@ -41,9 +39,9 @@ type InteractionBuilder<'input, 'query>() =
                 | _ -> this)
         this
     // todo: make more generic, with inputs other than string
-    member this.Bind((q:'query, recognizer: 'input -> 'arg option), continuation: ('arg -> Interactive<'input, 'query, _>)): Interactive<'input, 'query, _> =
+    member this.Bind((q:'query, recognizer: 'input -> 'arg option), continuation: ('arg -> Eventual<'input, 'query, _>)): Eventual<'input, 'query, _> =
         wrap q recognizer continuation
-    member this.Bind(interaction: Interactive<'input, 'query, 'a>, continuation: 'a -> Interactive<'input, 'query, 'b>) : Interactive<'input, 'query, 'b> =
+    member this.Bind(interaction: Eventual<'input, 'query, 'a>, continuation: 'a -> Eventual<'input, 'query, 'b>) : Eventual<'input, 'query, 'b> =
         Eventual.bind interaction continuation
     member this.Return(x) = Final (x)
     member this.ReturnFrom(x) = x

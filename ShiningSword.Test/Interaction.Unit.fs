@@ -55,7 +55,7 @@ module Query =
 let ``Simulated user interaction``(burgers, getFries, tip, expected) =
 
     let interaction = InteractionBuilder<string, InteractionQuery>()
-    let rec getBurgers : Interactive<_,_,_> =
+    let rec getBurgers : Eventual<_,_,_> =
         interaction {
             let! burger = Query.confirm "Would you like a burger?"
             if burger then
@@ -66,7 +66,7 @@ let ``Simulated user interaction``(burgers, getFries, tip, expected) =
             else
                 return 0
         }
-    let getOrder: Eventual<_, InteractionQuery, _> =
+    let getOrder: Eventual<_, _, _> =
         interaction {
             let! price = getBurgers
             let! tip = Query.confirm "Would you like to leave a tip?"
