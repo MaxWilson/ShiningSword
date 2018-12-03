@@ -92,13 +92,4 @@ let ``Simulated user interaction``(burgers, getFries, tip, expected) =
             else
                 "no"
         | Number(GetNumber.Query txt) -> tip.ToString() // must always answer question by typing text
-    let resolve =
-        let rec resolve monad =
-            match monad with
-            | Final(v) -> v
-            | Intermediate(q,f) as m ->
-                let answer = question q
-                let m = f answer
-                resolve m
-        resolve
-    Assert.Equal(expected, getOrder |> resolve)
+    Assert.Equal(expected, getOrder |> Eventual.resolve question)
