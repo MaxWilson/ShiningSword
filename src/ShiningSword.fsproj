@@ -5,7 +5,8 @@
   <ItemGroup>
     <!-- Global to the app -->
     <Compile Include="Common.fs" />
-    <Compile Include="Parsing\Parsing.fs" />
+    <Compile Include="Abstractions\Parsing.fs" />
+    <Compile Include="Abstractions\Interaction.fs" />
     <Compile Include="Model\Types.fs" />
     <Compile Include="Model\Operations.fs" />
     <Compile Include="UI\Global.fs" />
