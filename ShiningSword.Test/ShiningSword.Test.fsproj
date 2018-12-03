@@ -5,8 +5,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Abstraction.Unit.fs" />
+    <Compile Include="Parsing.Unit.fs" />
+    <Compile Include="Interaction.Unit.fs" />
   </ItemGroup>
+
+  <ItemGroup />
 
   <ItemGroup>
     <PackageReference Include="xunit" Version="2.4.1" />

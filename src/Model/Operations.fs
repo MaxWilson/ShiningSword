@@ -12,7 +12,7 @@ module Queries =
     type ConfirmationQuery = Query of string
 
 module Recognizer =
-    open Wilson.Packrat
+    open Packrat
     let (|Roster|_|) = ExternalContextOf<GameState> >> Option.map fst
     let inRoster pred (roster: Roster) =
         roster |> Map.tryFindKey (fun id v -> pred v)
@@ -46,14 +46,14 @@ module Interact =
         | Interact of Interact<'result>
         | Immediate of 'result
     let tryUnlock (g:GameState) (interact: Interact<_>) (input:string) =
-        match interact, Wilson.Packrat.ParseArgs.Init(input, g) with
-        | Intention(query, continuation), Recognizer.Intention(intent, Wilson.Packrat.End) ->
+        match interact, Packrat.ParseArgs.Init(input, g) with
+        | Intention(query, continuation), Recognizer.Intention(intent, Packrat.End) ->
             Some (continuation intent)
-        | StatNumber(query, continuation), Recognizer.Number(answer, Wilson.Packrat.End) ->
+        | StatNumber(query, continuation), Recognizer.Number(answer, Packrat.End) ->
             Some (continuation answer)
-        | StatText(query, continuation), Recognizer.FreeformText(answer, Wilson.Packrat.End) ->
+        | StatText(query, continuation), Recognizer.FreeformText(answer, Packrat.End) ->
             Some (continuation answer)
-        | Confirmation(query, continuation), Recognizer.Bool(answer, Wilson.Packrat.End) ->
+        | Confirmation(query, continuation), Recognizer.Bool(answer, Packrat.End) ->
             Some (continuation answer)
         | _ -> None
 

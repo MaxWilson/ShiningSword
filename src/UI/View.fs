@@ -69,7 +69,7 @@ open Elmish.Debug
 open Elmish.HMR
 
 module Parse =
-    open Wilson.Packrat
+    open Packrat
     open Global
     let locationParser (rootActivePattern: ParseInput -> ('result * ParseInput) option) (loc: Location) =
         let (|Root|_|) = rootActivePattern

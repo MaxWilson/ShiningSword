@@ -1,4 +1,4 @@
-module Abstraction.Unit
+module ShiningSword.Test.Interaction.Unit
 
 open Xunit
 open Interaction
@@ -27,7 +27,7 @@ type InteractionQuery =
     | Confirmation of Confirmation
 
 module Recognizer =
-    open Wilson.Packrat
+    open Packrat
     let (|Number|_|) = (|Int|_|)
     let (|Bool|_|) = function
         | Word(AnyCase("y" | "yes" | "true" | "t"), ctx) -> Some(true, ctx)
@@ -35,7 +35,7 @@ module Recognizer =
         | _ -> None
 
 module Query =
-    open Wilson.Packrat
+    open Packrat
 
     let tryParse recognizer arg =
         match ParseArgs.Init arg |> recognizer with
