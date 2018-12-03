@@ -16,7 +16,7 @@ let EventualBindTest() =
                     else
                         Final(accum)
                 (loop iMax prefix))
-    Assert.Equal(Eventual.resolve (fun _ -> "Bob") e, "Hi my name is 10Bob9Bob8Bob7Bob6Bob5Bob4Bob3Bob2Bob1Bob")
+    Assert.Equal(Eventual.resolveSynchronously (fun _ -> "Bob") e, "Hi my name is 10Bob9Bob8Bob7Bob6Bob5Bob4Bob3Bob2Bob1Bob")
 
 // types for test scenario
 type GetNumber = Query of string
@@ -92,4 +92,4 @@ let ``Simulated user interaction``(burgers, getFries, tip, expected) =
             else
                 "no"
         | Number(GetNumber.Query txt) -> tip.ToString() // must always answer question by typing text
-    Assert.Equal(expected, getOrder |> Eventual.resolve question)
+    Assert.Equal(expected, getOrder |> Eventual.resolveSynchronously question)

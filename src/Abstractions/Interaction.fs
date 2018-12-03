@@ -17,7 +17,7 @@ module Eventual =
     /// Trampoline until Final state is reached, resolving queries back
     /// to answers using the fResolveQuery. E.g. fResolveQuery might
     /// turn an Interact<'t> into a 't by calling Console.WriteLine + Readline()
-    let resolve (fResolveQuery: 'intermediate -> 'arg) =
+    let resolveSynchronously (fResolveQuery: 'intermediate -> 'arg) =
         let rec resolve monad =
             match monad with
             | Final v -> v
