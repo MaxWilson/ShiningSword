@@ -17,16 +17,12 @@ type Eventual<'arg, 'intermediate, 'result> =
     | Intermediate of question:'intermediate * provideAnswer:('arg -> (Eventual<'arg, 'intermediate, 'result>))
 module Eventual =
     let bind m f =
-        match m with
-        | Final v -> f v // prereq already satisfied: evaluate continuation immediately
-        | Intermediate(q, continuation) ->
-            let rec resume func arg =
-                match func arg with
-                | Final v -> f v
-                | Intermediate(q, next) ->
-                    Intermediate(q, resume next)
-            // lift query to wrapping continuation
-            Intermediate(q, resume continuation)
+        let rec chain m =
+            match m with
+            | Final v -> f v // prereq already satisfied: evaluate continuation immediately
+            | Intermediate(q, continuation) ->
+                Intermediate(q, continuation >> chain)
+        chain m
             
     /// Trampoline until Final state is reached, resolving queries back
     /// to answers using the fResolveQuery. E.g. fResolveQuery might
