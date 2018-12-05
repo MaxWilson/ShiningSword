@@ -54,7 +54,7 @@ module Query =
 [<InlineData(3,false,3,"Thanks! That will be $6.00 please")>]
 let ``Simulated user interaction``(burgers, getFries, tip, expected) =
 
-    let interaction = InteractionBuilder<string, InteractionQuery>()
+    let interaction = InteractionBuilder<InteractionQuery, string>()
     let rec getBurgers : Eventual<_,_,_> =
         interaction {
             let! burger = Query.confirm "Would you like a burger?"

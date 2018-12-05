@@ -29,7 +29,7 @@ module Eventual =
                     resolve m
         resolve
 
-type InteractionBuilder<'input, 'query>() =
+type InteractionBuilder<'query, 'input>() =
     let wrap q recognizer continuation  =
         let rec this =
             Intermediate(q, fun arg ->
@@ -45,4 +45,5 @@ type InteractionBuilder<'input, 'query>() =
         Eventual.bind interaction continuation
     member this.Return(x) = Final (x)
     member this.ReturnFrom(x) = x
+
 

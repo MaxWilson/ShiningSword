@@ -7,6 +7,7 @@
     <Compile Include="Common.fs" />
     <Compile Include="Abstractions\Parsing.fs" />
     <Compile Include="Abstractions\Interaction.fs" />
+    <Compile Include="Abstractions\DataStorage.fs" />
     <Compile Include="Model\Types.fs" />
     <Compile Include="Model\Operations.fs" />
     <Compile Include="UI\Global.fs" />
@@ -21,11 +22,16 @@
     <Compile Include="UI\Types.fs" />
     <Compile Include="UI\State.fs" />
     <Compile Include="UI\View.fs" />
+    <None Include="Script1.fsx" />
     <!-- Info -->
     <!-- Counter -->
     <!-- Home -->
     <!-- Navbar -->
     <!-- App -->
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Fable.JsonConverter" Version="1.0.8" />
+    <PackageReference Include="Newtonsoft.Json" Version="12.0.1" />
   </ItemGroup>
   <Import Project="..\.paket\Paket.Restore.targets" />
 </Project>
