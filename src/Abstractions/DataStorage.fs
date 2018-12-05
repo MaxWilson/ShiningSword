@@ -9,7 +9,7 @@ let getAuthToken() = InteractionBuilder<string, string>() {
     match _token with
     | Some token -> return token
     | None ->
-        let! token = "Please enter a WilsonData auth token (access_token from https://wilsondata.azurewebsites.net/.auth/me)", Some
+        let! token = "Please enter a WilsonData auth token (from e.g. F12 on https://maxwilson.github.io/ThingTracker/)", Some
         _token <- Some token
         return token
     }

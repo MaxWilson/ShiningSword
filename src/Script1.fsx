@@ -46,4 +46,6 @@ let loadPC name = DataStorage.load<PC> PCTag name |> Eventual.resolveSynchronous
 PC "Vaughn Shawnessey" Fighter 3000 |> savePC
 loadPC "Vaughn Shawnessey"
 
+DataStorage.showRaw (PCTag + "/Vaughn Shawnessey") |> Eventual.resolveSynchronously consoleResolve
+
 
