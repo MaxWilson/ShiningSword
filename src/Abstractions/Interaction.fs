@@ -1,5 +1,6 @@
 // Learn more about F# at http://fsharp.org
 namespace Interaction
+open Common
 
 type Eventual<'arg, 'intermediate, 'result> =
     | Final of 'result
@@ -28,6 +29,8 @@ module Eventual =
                 | Intermediate(s, _) as m ->
                     resolve m
         resolve
+
+    let continueWith follow = flip bind (fun v -> let v = follow v in Final v)
 
 type InteractionBuilder<'query, 'input>() =
     let wrap q recognizer continuation  =

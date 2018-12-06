@@ -39,13 +39,18 @@ let stats() =
 let PC name characterClass xp =
     let stats = stats()
     let levels = List.init (computeLevel xp) (thunk characterClass)
-    { name = name; XP = xp; HP = (computeHP stats.[3] levels); rolls = stats; levels = levels }
+    { name = name; XP = xp; HP = (computeHP stats.[3] levels); rolls = stats; levels = levels; description = "" }
 let PCTag = "ShiningSwordPC"
 let savePC pc = DataStorage.save PCTag pc.name pc |> Eventual.resolveSynchronously consoleResolve
 let loadPC name = DataStorage.load<PC> PCTag name |> Eventual.resolveSynchronously consoleResolve
 PC "Vaughn Shawnessey" Fighter 3000 |> savePC
 loadPC "Vaughn Shawnessey"
 
-DataStorage.showRaw (PCTag + "/Vaughn Shawnessey") |> Eventual.resolveSynchronously consoleResolve
+let exec =
+    Eventual.continueWith (printfn "Final = %A")
+    >> Eventual.resolveSynchronously consoleResolve
+
+exec <| DataStorage.showRaw (PCTag + "/Vaughn Shawnessey")
+
 
 
