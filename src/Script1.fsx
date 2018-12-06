@@ -37,13 +37,13 @@ let computeLevel xp =
         5,6000
         20,400000
         ]
-    levelAdvancement |> Array.findBack(function { level = level; xpReq = xpReq }  -> xp >= xpReq) |> level
+    (levelAdvancement |> Array.findBack (fun x -> xp >= x.XPReq)).level
 let stats() =
     Array.init 6 (fun _ -> Seq.init 4 (thunk1 rand 6) |> Seq.sortDescending |> Seq.take 3 |> Seq.sum)
 let PC name characterClass xp =
     let stats = stats()
     let levels = List.init (computeLevel xp) (thunk characterClass)
-    { name = name; XP = xp; HP = (computeHP stats.[3] levels); rolls = stats; levels = levels; description = "" }
+    { name = name; XP = xp; HP = (computeHP stats.[2] levels); rolls = stats; levels = levels; description = "" }
 let PCTag = "ShiningSwordPC"
 let savePC pc = DataStorage.save PCTag pc.name pc |> Eventual.resolveSynchronously consoleResolve
 let loadPC name = DataStorage.load<PC> PCTag name |> Eventual.resolveSynchronously consoleResolve
@@ -54,7 +54,10 @@ let exec =
     Eventual.continueWith (printfn "Final = %A")
     >> Eventual.resolveSynchronously consoleResolve
 
-exec <| DataStorage.showRaw (PCTag + "/Vaughn Shawnessey")
+let show pc =
+    sprintf "Name: %s\n%dth level %A (%d XP)\nStr %d Dex %d Con %d Int %d Wis %d Cha %d HP %d " pc.name (pc.levels.Length) (pc.levels.[0]) pc.XP pc.rolls.[0] pc.rolls.[1] pc.rolls.[2] pc.rolls.[3] pc.rolls.[4] pc.rolls.[5] pc.HP
+
+(PC "Vlad" Wizard ((rand 20)*(rand 20)*(rand 20) * 100)) |> show |> printfn "%s"
 
 
 
