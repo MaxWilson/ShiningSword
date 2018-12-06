@@ -61,5 +61,62 @@ let show pc =
 
 loadPC "Vaughn Shawnessey" |> exec (show >> printfn "%s")
 
+let calculate mtable (monsters: Name seq) =
+    let costs = monsters |> Seq.map (fun m -> Math.Pow((mtable m |> snd |> float) / 100., (2./3.)))
+    (Math.Pow(Seq.sum costs, 1.5) |> int) * 100
 
+let normalize template =
+    [|for (name, i) in template do
+        for i in 1..i do
+            yield name
+        |]
 
+let makeEncounter (mtable: Name -> float * int) templates (maxCR: int) (xpBudget: int) =
+    let rec generate() =
+        let template : (Name * int) list = templates maxCR
+        let template = normalize template
+        let rec addMonster accum =
+            let precost = calculate mtable accum
+            if precost >= xpBudget then
+                accum
+            else
+                let monster = template.[random.Next(template.Length)]
+                let monsters' = monster::accum
+                let postcost = calculate mtable monsters'
+                if postcost <= xpBudget then
+                    addMonster monsters'
+                else // probabilistically add the final monster, or not
+                    let overage = postcost - xpBudget
+                    let overageRatio = (float overage) / (float xpBudget)
+                    if random.NextDouble() < overageRatio then
+                        monsters'
+                    else
+                        accum
+        match addMonster [] with
+        | [] ->
+            generate() // this template was too tough to allow even one monster--choose a different template
+        | candidate ->
+            candidate
+    let lst = generate()
+    lst |> List.groupBy id |> List.map (fun (k, vs) -> k, List.length vs) |> List.sortByDescending snd
+
+let monsters = [
+    "Hobgoblin", 0.5
+    "Orc", 0.5
+    "Orc War Chief", 4.
+    "Beholder", 13.
+    ]
+let lookup monsters name = monsters |> List.find (fst >> (=) name) |> fun (_, cr) -> Model.Tables.monsterCR |> Array.pick (function { CR = cr'; XPReward = xp } when cr' = cr -> Some(cr, xp) | _ -> None)
+let templates = [|
+    ["Orc", 10; "Orc War Chief", 1]
+    ["Beholder", 1; "Hobgoblin", 20]
+    |]
+let rec getTemplate monsters (templates: (string * int) list[]) maxCR =
+    let t = templates.[random.Next(templates.Length)]
+    if t |> List.exists (fun (name, _) -> (lookup monsters name |> fst) |> int > maxCR) then
+        getTemplate monsters templates maxCR
+    else
+        t
+for x in 1..4 do
+    let e = makeEncounter (lookup monsters) (getTemplate monsters templates) 13 40000
+    printfn "%A %d" e (calculate (lookup monsters) (normalize e))
