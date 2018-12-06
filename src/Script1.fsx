@@ -45,19 +45,21 @@ let PC name characterClass xp =
     let levels = List.init (computeLevel xp) (thunk characterClass)
     { name = name; XP = xp; HP = (computeHP stats.[2] levels); rolls = stats; levels = levels; description = "" }
 let PCTag = "ShiningSwordPC"
-let savePC pc = DataStorage.save PCTag pc.name pc |> Eventual.resolveSynchronously consoleResolve
-let loadPC name = DataStorage.load<PC> PCTag name |> Eventual.resolveSynchronously consoleResolve
+let savePC pc = DataStorage.save PCTag pc.name pc
+let loadPC name = DataStorage.load<PC> PCTag name
 PC "Vaughn Shawnessey" Fighter 3000 |> savePC
 loadPC "Vaughn Shawnessey"
 
-let exec =
-    Eventual.continueWith (printfn "Final = %A")
+let exec finalAction =
+    Eventual.continueWith finalAction
     >> Eventual.resolveSynchronously consoleResolve
 
 let show pc =
     sprintf "Name: %s\n%dth level %A (%d XP)\nStr %d Dex %d Con %d Int %d Wis %d Cha %d HP %d " pc.name (pc.levels.Length) (pc.levels.[0]) pc.XP pc.rolls.[0] pc.rolls.[1] pc.rolls.[2] pc.rolls.[3] pc.rolls.[4] pc.rolls.[5] pc.HP
 
 (PC "Vlad" Wizard ((rand 20)*(rand 20)*(rand 20) * 100)) |> show |> printfn "%s"
+
+loadPC "Vaughn Shawnessey" |> exec (show >> printfn "%s")
 
 
 
