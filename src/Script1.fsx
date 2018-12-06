@@ -103,13 +103,24 @@ let makeEncounter (mtable: Name -> float * int) templates (maxCR: int) (xpBudget
 let monsters = [
     "Hobgoblin", 0.5
     "Orc", 0.5
+    "Orog", 2.
     "Orc War Chief", 4.
     "Beholder", 13.
+    "Frost Giant", 8.
+    "Fire Giant", 9.
+    "Skeleton", 0.25
+    "Zombie", 0.5
+    "Goblin", 0.25
+    "Flameskull", 4.
     ]
 let lookup monsters name = monsters |> List.find (fst >> (=) name) |> fun (_, cr) -> Model.Tables.monsterCR |> Array.pick (function { CR = cr'; XPReward = xp } when cr' = cr -> Some(cr, xp) | _ -> None)
 let templates = [|
     ["Orc", 10; "Orc War Chief", 1]
     ["Beholder", 1; "Hobgoblin", 20]
+    ["Fire Giant", 1; "Hobgoblin", 8; "Skeleton", 4]
+    ["Orc", 10; "Orog", 1]
+    ["Skeleton", 3; "Zombie", 2]
+    ["Orc", 6; "Skeleton", 4]
     |]
 let rec getTemplate monsters (templates: (string * int) list[]) maxCR =
     let t = templates.[random.Next(templates.Length)]
@@ -117,6 +128,14 @@ let rec getTemplate monsters (templates: (string * int) list[]) maxCR =
         getTemplate monsters templates maxCR
     else
         t
-for x in 1..4 do
-    let e = makeEncounter (lookup monsters) (getTemplate monsters templates) 13 40000
-    printfn "%A %d" e (calculate (lookup monsters) (normalize e))
+for x in 1..10 do
+    let mutable cost = 0
+    printfn "==================Level %d=================" x
+    for y in 1..3 do
+        let budget = 4 * (xpBudgets.[x-1].deadly)
+        let e = makeEncounter (lookup monsters) (getTemplate monsters templates) x budget
+        let c = (calculate (lookup monsters) (normalize e))
+        printfn "\t%A %d" e c
+        cost <- cost + c
+    printfn "Total cost for level %d: %d/%d XP\n" x cost (4 * (xpBudgets.[x-1].daily))
+    printfn "===========================================\n"
