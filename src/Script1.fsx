@@ -6,10 +6,14 @@
 #load @"Abstractions\Parsing.fs"
 #load @"Abstractions\Interaction.fs"
 #load @"Abstractions\DataStorage.fs"
+#load @"Model\Types.fs"
+#load @"Model\Tables.fs"
 
 open System
 open Common
 open Interaction
+open Model.Types
+open Model.Tables
 
 let consoleResolve q = printfn "%A" q; Console.ReadLine()
 
@@ -18,7 +22,7 @@ type Thing = { name: string; instances: (string * int) list }
 DataStorage.list<Thing> "thingTracker"
 DataStorage.load<Thing> "thingTracker" "Fasting"
 type Class = Fighter | Wizard
-type PC = { name: string; XP: int; HP: int; rolls: int[]; levels: (Class list) }
+type PC = { name: Name; XP: int; HP: int; rolls: int[]; levels: (Class list); description: Description }
 let combatBonus stat = (stat/2) - 5 // based on 5E tables
 let computeHP con classList =
     let bonus = combatBonus con
@@ -33,7 +37,7 @@ let computeLevel xp =
         5,6000
         20,400000
         ]
-    table |> List.findBack(fun (level, xpReq) -> xp >= xpReq) |> fst
+    levelAdvancement |> Array.findBack(function { level = level; xpReq = xpReq }  -> xp >= xpReq) |> level
 let stats() =
     Array.init 6 (fun _ -> Seq.init 4 (thunk1 rand 6) |> Seq.sortDescending |> Seq.take 3 |> Seq.sum)
 let PC name characterClass xp =

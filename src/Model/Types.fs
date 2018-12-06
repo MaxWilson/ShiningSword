@@ -10,10 +10,12 @@ type Attack = {
     }
 
 type Id = int
+type Name = string
+type Description = string
 type Position = int * int
 
 type StatBlock = {
-    name: string
+    name: Name
     hp: int
     }
 
