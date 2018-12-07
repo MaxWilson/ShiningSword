@@ -146,6 +146,7 @@ let N = 4 // number of ideal PCs
 let mutable gateNumber = 0
 let doGate () =
     let avg a b = (a + b)/2
+    let isEpic = earned >= 400000
     gateNumber <- gateNumber + 1
     let level = (computeLevel earned)
     let mutable cost = 0
@@ -154,11 +155,11 @@ let doGate () =
         let budget =
             match n with
             // once you've been 20th level for a while, we take off the difficulty caps and scale to unlimited difficulty
-            | 1 | 2 when earned >= 400000 ->
+            | 1 | 2 when isEpic ->
                 N * (earned / 40)
-            | 3 when earned >= 400000 ->
+            | 3 when isEpic ->
                 N * (earned / 27)
-            | _ when earned >= 400000 ->
+            | _ when isEpic ->
                 N * (earned / 20)
             // otherwise use the DMG tables. Note that encounters 1-4 should sum to somewhat less than a full day's XP budget,
             // because you will have random encounters while resting.
@@ -170,7 +171,7 @@ let doGate () =
                 N * (avg xpBudgets.[level-1].hard xpBudgets.[level-1].deadly)
             | _ ->
                 N * ((float xpBudgets.[level-1].deadly) * 1.2 |> int)
-        let e = makeEncounter (lookup monsters) (getTemplate monsters templates) (if earned < 400000 then level else 30) budget
+        let e = makeEncounter (lookup monsters) (getTemplate monsters templates) (if isEpic then 30 else level) budget
         let c = (calculate (lookup monsters) (normalize e))
         let xpEarned' = e |> Seq.sumBy (fun (name, i) -> i * (lookup monsters name |> snd))
         earned <- earned + xpEarned'/N
@@ -178,6 +179,15 @@ let doGate () =
         cost <- cost + c
     printfn "Total cost for gate #%d (level %d): %d/%d XP\n" gateNumber level cost (4 * (xpBudgets.[level-1].daily))
     printfn "Earned %d XP so far (level %d)" earned (computeLevel earned)
+
+    // compute random encounter backlog: 4 random encounters
+    let minRandomEncounterBudget = if isEpic then N * (earned / 80) else N * (avg xpBudgets.[level-1].easy xpBudgets.[level-1].medium) / 2
+    for i in 1..4 do
+        let budget = minRandomEncounterBudget * i
+        let e = makeEncounter (lookup monsters) (getTemplate monsters templates) (if isEpic then 30 else level) budget
+        let c = (calculate (lookup monsters) (normalize e))
+        let xpEarned' = e |> Seq.sumBy (fun (name, i) -> i * (lookup monsters name |> snd))
+        printfn "\tRandom #%d: %A %d/%d (earned %d each)" i e c budget (xpEarned'/N)
     printfn "===========================================\n"
 for gateNumber in 1..100 do
     doGate()
