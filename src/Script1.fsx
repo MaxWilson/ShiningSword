@@ -122,6 +122,7 @@ let templates = [|
     ["Young White Dragon", 1]
     ["Young Red Dragon", 1]
     ["Adult Red Dragon", 1]
+    ["Frost Giant", 1; "Yeti", 2]
     |]
 let rec getTemplate monsters (templates: (string * int) list[]) maxCR =
     let t = templates.[random.Next(templates.Length)]
