@@ -157,7 +157,7 @@ for gateNumber in 1..100 do
         let c = (calculate (lookup monsters) (normalize e))
         let xpEarned' = e |> Seq.sumBy (fun (name, i) -> i * (lookup monsters name |> snd))
         earned <- earned + xpEarned'/N
-        printfn "\t%A %d (earned %d each)" e c (xpEarned'/N)
+        printfn "\t%A %d/%d (earned %d each)" e c budget (xpEarned'/N)
         cost <- cost + c
     printfn "Total cost for gate #%d (level %d): %d/%d XP\n" gateNumber level cost (4 * (xpBudgets.[level-1].daily))
     printfn "Earned %d XP so far (level %d)" earned (computeLevel earned)
