@@ -29,14 +29,6 @@ let computeHP con classList =
     let dieSize characterClass = match characterClass with Fighter -> 10 | Wizard -> 6
     classList |> Seq.mapi (fun l cl -> if l = 0 then (dieSize cl) + bonus else (dieSize cl)/2 + 1 + bonus) |> Seq.sum
 let computeLevel xp =
-    let table = [
-        1,0
-        2,300
-        3,900
-        4,2700
-        5,6000
-        20,400000
-        ]
     (levelAdvancement |> Array.findBack (fun x -> xp >= x.XPReq)).level
 let stats() =
     Array.init 6 (fun _ -> Seq.init 4 (thunk1 rand 6) |> Seq.sortDescending |> Seq.take 3 |> Seq.sum)
@@ -112,6 +104,11 @@ let monsters = [
     "Zombie", 0.5
     "Goblin", 0.25
     "Flameskull", 4.
+    "Githyanki Warrior", 3.
+    "Yeti", 3.
+    "Young White Dragon", 6.
+    "Young Red Dragon", 10.
+    "Adult Red Dragon", 17.
     ]
 let lookup monsters name = monsters |> List.find (fst >> (=) name) |> fun (_, cr) -> Model.Tables.monsterCR |> Array.pick (function { CR = cr'; XPReward = xp } when cr' = cr -> Some(cr, xp) | _ -> None)
 let templates = [|
@@ -121,6 +118,10 @@ let templates = [|
     ["Orc", 10; "Orog", 1]
     ["Skeleton", 3; "Zombie", 2]
     ["Orc", 6; "Skeleton", 4]
+    ["Githyanki Warrior", 6; "Yeti", 3]
+    ["Young White Dragon", 1]
+    ["Young Red Dragon", 1]
+    ["Adult Red Dragon", 1]
     |]
 let rec getTemplate monsters (templates: (string * int) list[]) maxCR =
     let t = templates.[random.Next(templates.Length)]
@@ -128,14 +129,20 @@ let rec getTemplate monsters (templates: (string * int) list[]) maxCR =
         getTemplate monsters templates maxCR
     else
         t
-for x in 1..10 do
+let mutable earned = 0
+let N = 4 // number of ideal PCs
+for gateNumber in 1..100 do
+    let level = (computeLevel earned)
     let mutable cost = 0
-    printfn "==================Level %d=================" x
-    for y in 1..3 do
-        let budget = 4 * (xpBudgets.[x-1].deadly)
-        let e = makeEncounter (lookup monsters) (getTemplate monsters templates) x budget
+    printfn "==================Gate %d=================" gateNumber
+    for _ in 1..3 do
+        let budget = 4 * (xpBudgets.[level-1].deadly)
+        let e = makeEncounter (lookup monsters) (getTemplate monsters templates) level budget
         let c = (calculate (lookup monsters) (normalize e))
-        printfn "\t%A %d" e c
+        let xpEarned' = e |> Seq.sumBy (fun (name, i) -> i * (lookup monsters name |> snd))
+        earned <- earned + xpEarned'/N
+        printfn "\t%A %d (earned %d each)" e c (xpEarned'/N)
         cost <- cost + c
-    printfn "Total cost for level %d: %d/%d XP\n" x cost (4 * (xpBudgets.[x-1].daily))
+    printfn "Total cost for gate #%d (level %d): %d/%d XP\n" gateNumber level cost (4 * (xpBudgets.[level-1].daily))
+    printfn "Earned %d XP so far (level %d)" earned (computeLevel earned)
     printfn "===========================================\n"
