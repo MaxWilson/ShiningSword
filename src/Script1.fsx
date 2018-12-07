@@ -149,12 +149,24 @@ let doGate () =
     let level = (computeLevel earned)
     let mutable cost = 0
     printfn "==================Gate %d=================" gateNumber
-    for _ in 1..3 do
+    for n in 1..4 do
         let budget =
-            if earned < 400000 then
-                N * (xpBudgets.[level-1].deadly)
-            else // once you've been 20th level for a while, we take off the difficulty caps and scale to unlimited difficulty
+            match n with
+            // once you've been 20th level for a while, we take off the difficulty caps and scale to unlimited difficulty
+            | 1 | 2 when earned >= 400000 ->
+                N * (earned / 40)
+            | 3 when earned >= 400000 ->
+                N * (earned / 27)
+            | _ when earned >= 400000 ->
                 N * (earned / 20)
+            // otherwise use the DMG tables. Note that encounters 1-4 should sum to somewhat less than a full day's XP budget,
+            // because you will have random encounters while resting.
+            | 1 | 2 ->
+                N * (xpBudgets.[level-1].medium)
+            | 3 ->
+                N * (xpBudgets.[level-1].hard)
+            | _ ->
+                N * (xpBudgets.[level-1].deadly)
         let e = makeEncounter (lookup monsters) (getTemplate monsters templates) (if earned < 400000 then level else 30) budget
         let c = (calculate (lookup monsters) (normalize e))
         let xpEarned' = e |> Seq.sumBy (fun (name, i) -> i * (lookup monsters name |> snd))
