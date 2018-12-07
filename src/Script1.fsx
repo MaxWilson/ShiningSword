@@ -1,7 +1,7 @@
 #I __SOURCE_DIRECTORY__
 #r "System.Net.Http"
 #r "NewtonSoft.Json"
-#r @"C:\Users\maxw\.nuget\packages\fable.jsonconverter\1.0.8\lib\net45\Fable.JsonConverter.dll"
+#r @"\tmp\Fable.JsonConverter.dll"
 #load @"Common.fs"
 #load @"Abstractions\Parsing.fs"
 #load @"Abstractions\Interaction.fs"
