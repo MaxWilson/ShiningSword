@@ -7,6 +7,7 @@
     <Compile Include="Common.fs" />
     <Compile Include="Abstractions\Parsing.fs" />
     <Compile Include="Abstractions\Interaction.fs" />
+    <Compile Include="Abstractions\DataStorage.Globals.fs" />
     <Compile Include="Abstractions\DataStorage.fs" />
     <Compile Include="Model\Types.fs" />
     <Compile Include="Model\Tables.fs" />

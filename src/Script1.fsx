@@ -1,10 +1,11 @@
 #I __SOURCE_DIRECTORY__
 #r "System.Net.Http"
 #r "NewtonSoft.Json"
-#r @"\tmp\Fable.JsonConverter.dll"
+#r @"bin\Fable.JsonConverter.dll"
 #load @"Common.fs"
 #load @"Abstractions\Parsing.fs"
 #load @"Abstractions\Interaction.fs"
+#load @"Abstractions\DataStorage.Globals.fs"
 #load @"Abstractions\DataStorage.fs"
 #load @"Model\Types.fs"
 #load @"Model\Tables.fs"
@@ -113,6 +114,7 @@ let monsters = [
     "Purple Worm", 15.
     "Nightwalker", 20.
     "Bodak", 6.
+    "Tarrasque", 30.
     ]
 let lookup monsters name = monsters |> List.find (fst >> (=) name) |> fun (_, cr) -> Model.Tables.monsterCR |> Array.pick (function { CR = cr'; XPReward = xp } when cr' = cr -> Some(cr, xp) | _ -> None)
 let templates = [|
@@ -131,6 +133,7 @@ let templates = [|
     ["Nightwalker",1;"Ancient White Dragon", 1; "Beholder", 1; "Purple Worm", 1; "Adult Red Dragon", 1; "Frost Giant", 3]
     ["Ancient White Dragon", 1; "Beholder", 1; "Purple Worm", 1; "Adult Red Dragon", 1; "Frost Giant", 3]
     ["Nightwalker", 1; "Bodak", 6]
+    ["Tarrasque", 1]
     |]
 let rec getTemplate monsters (templates: (string * int) list[]) maxCR =
     let t = templates.[random.Next(templates.Length)]
@@ -145,8 +148,12 @@ for gateNumber in 1..100 do
     let mutable cost = 0
     printfn "==================Gate %d=================" gateNumber
     for _ in 1..3 do
-        let budget = 4 * (xpBudgets.[level-1].deadly)
-        let e = makeEncounter (lookup monsters) (getTemplate monsters templates) level budget
+        let budget =
+            if earned < 400000 then
+                N * (xpBudgets.[level-1].deadly)
+            else // once you've been 20th level for a while, we take off the difficulty caps and scale to unlimited difficulty
+                N * (earned / 6)
+        let e = makeEncounter (lookup monsters) (getTemplate monsters templates) (if earned < 400000 then level else 30) budget
         let c = (calculate (lookup monsters) (normalize e))
         let xpEarned' = e |> Seq.sumBy (fun (name, i) -> i * (lookup monsters name |> snd))
         earned <- earned + xpEarned'/N
