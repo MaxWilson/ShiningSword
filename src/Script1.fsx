@@ -143,7 +143,9 @@ let rec getTemplate monsters (templates: (string * int) list[]) maxCR =
         t
 let mutable earned = 0
 let N = 4 // number of ideal PCs
-for gateNumber in 1..100 do
+let mutable gateNumber = 0
+let doGate () =
+    gateNumber <- gateNumber + 1
     let level = (computeLevel earned)
     let mutable cost = 0
     printfn "==================Gate %d=================" gateNumber
@@ -162,3 +164,5 @@ for gateNumber in 1..100 do
     printfn "Total cost for gate #%d (level %d): %d/%d XP\n" gateNumber level cost (4 * (xpBudgets.[level-1].daily))
     printfn "Earned %d XP so far (level %d)" earned (computeLevel earned)
     printfn "===========================================\n"
+for gateNumber in 1..100 do
+    doGate()
