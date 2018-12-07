@@ -110,6 +110,9 @@ let monsters = [
     "Young Red Dragon", 10.
     "Adult Red Dragon", 17.
     "Ancient White Dragon", 20.
+    "Purple Worm", 15.
+    "Nightwalker", 20.
+    "Bodak", 6.
     ]
 let lookup monsters name = monsters |> List.find (fst >> (=) name) |> fun (_, cr) -> Model.Tables.monsterCR |> Array.pick (function { CR = cr'; XPReward = xp } when cr' = cr -> Some(cr, xp) | _ -> None)
 let templates = [|
@@ -124,7 +127,10 @@ let templates = [|
     ["Young Red Dragon", 1]
     ["Adult Red Dragon", 1]
     ["Frost Giant", 1; "Yeti", 2]
-    ["Ancient White Dragon", 1]
+    ["Ancient White Dragon", 1; "Beholder", 1; "Purple Worm", 1; "Adult Red Dragon", 1; "Frost Giant", 3]
+    ["Ancient White Dragon", 1; "Beholder", 1; "Purple Worm", 1; "Adult Red Dragon", 1; "Frost Giant", 3]
+    ["Ancient White Dragon", 1; "Beholder", 1; "Purple Worm", 1; "Adult Red Dragon", 1; "Frost Giant", 3]
+    ["Nightwalker", 1; "Bodak", 6]
     |]
 let rec getTemplate monsters (templates: (string * int) list[]) maxCR =
     let t = templates.[random.Next(templates.Length)]
