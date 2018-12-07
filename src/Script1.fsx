@@ -55,7 +55,7 @@ loadPC "Vaughn Shawnessey" |> exec (show >> printfn "%s")
 
 let calculate mtable (monsters: Name seq) =
     let costs = monsters |> Seq.map (fun m -> Math.Pow((mtable m |> snd |> float) / 100., (2./3.)))
-    (Math.Pow(Seq.sum costs, 1.5) |> int) * 100
+    (Math.Pow(Seq.sum costs, 1.5) * 100. |> Math.Round |> int)
 
 let normalize template =
     [|for (name, i) in template do
