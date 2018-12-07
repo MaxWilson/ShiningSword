@@ -152,7 +152,7 @@ for gateNumber in 1..100 do
             if earned < 400000 then
                 N * (xpBudgets.[level-1].deadly)
             else // once you've been 20th level for a while, we take off the difficulty caps and scale to unlimited difficulty
-                N * (earned / 6)
+                N * (earned / 20)
         let e = makeEncounter (lookup monsters) (getTemplate monsters templates) (if earned < 400000 then level else 30) budget
         let c = (calculate (lookup monsters) (normalize e))
         let xpEarned' = e |> Seq.sumBy (fun (name, i) -> i * (lookup monsters name |> snd))
