@@ -145,6 +145,7 @@ let mutable earned = 0
 let N = 4 // number of ideal PCs
 let mutable gateNumber = 0
 let doGate () =
+    let avg a b = (a + b)/2
     gateNumber <- gateNumber + 1
     let level = (computeLevel earned)
     let mutable cost = 0
@@ -161,12 +162,14 @@ let doGate () =
                 N * (earned / 20)
             // otherwise use the DMG tables. Note that encounters 1-4 should sum to somewhat less than a full day's XP budget,
             // because you will have random encounters while resting.
-            | 1 | 2 ->
-                N * (xpBudgets.[level-1].medium)
+            | 1 ->
+                N * (avg xpBudgets.[level-1].easy xpBudgets.[level-1].medium)
+            | 2 ->
+                N * (avg xpBudgets.[level-1].medium xpBudgets.[level-1].hard)
             | 3 ->
-                N * (xpBudgets.[level-1].hard)
+                N * (avg xpBudgets.[level-1].hard xpBudgets.[level-1].deadly)
             | _ ->
-                N * (xpBudgets.[level-1].deadly)
+                N * ((float xpBudgets.[level-1].deadly) * 1.2 |> int)
         let e = makeEncounter (lookup monsters) (getTemplate monsters templates) (if earned < 400000 then level else 30) budget
         let c = (calculate (lookup monsters) (normalize e))
         let xpEarned' = e |> Seq.sumBy (fun (name, i) -> i * (lookup monsters name |> snd))
