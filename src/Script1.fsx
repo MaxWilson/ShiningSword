@@ -82,9 +82,9 @@ let makeEncounter (mtable: Name -> float * int) templates (maxCR: int) (xpBudget
                     let overage = postcost - xpBudget
                     let overageRatio = (float overage) / (float xpBudget)
                     if random.NextDouble() < overageRatio then
-                        monsters'
-                    else
                         accum
+                    else
+                        monsters'
         match addMonster [] with
         | [] ->
             generate() // this template was too tough to allow even one monster--choose a different template
