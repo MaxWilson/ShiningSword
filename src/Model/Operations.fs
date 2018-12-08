@@ -2,15 +2,6 @@ module Model.Operations
 open Model.Types
 open Common
 
-module Queries =
-    // A query context has context about what question is being asked.
-    // Think of it as a generalized input to Console.WriteLine. A query
-    // context pairs with a recognizer to become a prompt.
-    type IntentionQuery = Query of Id
-    type StatQuery<'t> = Query of Id * string
-    type FreeformQuery = Query of string
-    type ConfirmationQuery = Query of string
-
 module Recognizer =
     open Packrat
     let (|Roster|_|) = ExternalContextOf<GameState> >> Option.map fst
@@ -34,28 +25,17 @@ module Recognizer =
     let (|FreeformText|_|) = function
         | Any(words, ctx) -> Some(words, ctx)
 
-module Interact =
-    open Queries
-    type Interact<'result> =
-        | Intention of IntentionQuery * (Intention -> 'result)
-        | StatNumber of StatQuery<int> * (int -> 'result)
-        | StatText of StatQuery<string> * (string -> 'result)
-        | Confirmation of string * (bool -> 'result)
-        | Continuation of Interact<'result>
-    type Interaction<'result> =
-        | Interact of Interact<'result>
-        | Immediate of 'result
-    let tryUnlock (g:GameState) (interact: Interact<_>) (input:string) =
-        match interact, Packrat.ParseArgs.Init(input, g) with
-        | Intention(query, continuation), Recognizer.Intention(intent, Packrat.End) ->
-            Some (continuation intent)
-        | StatNumber(query, continuation), Recognizer.Number(answer, Packrat.End) ->
-            Some (continuation answer)
-        | StatText(query, continuation), Recognizer.FreeformText(answer, Packrat.End) ->
-            Some (continuation answer)
-        | Confirmation(query, continuation), Recognizer.Bool(answer, Packrat.End) ->
-            Some (continuation answer)
+module Query =
+    open Packrat
+
+    let tryParse recognizer arg =
+        match ParseArgs.Init arg |> recognizer with
+        | Some(v, End) -> Some v
         | _ -> None
+    let text txt =
+        Query.Freetext txt, (tryParse Recognizer.``|Bool|_|``)
+    let confirm txt =
+        Query.Confirm txt, (tryParse Recognizer.``|Bool|_|``)
 
 module Log =
     let log msg log =

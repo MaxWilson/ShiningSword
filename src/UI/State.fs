@@ -6,16 +6,18 @@ open Elmish.Browser.UrlParser
 open Fable.Import.Browser
 open Global
 open Types
+open Model.Types
 
 let urlUpdate (parseResult: Msg option) model =
     model, []
 
 let init parseResult =
-    { stack = []; modalDialog = None } |> urlUpdate parseResult
+    { modalDialogs = [] } |> urlUpdate parseResult
 
-let rec game i : Interaction.Eventual<_,_,_> = Interaction.InteractionBuilder<string, string>() {
-    let! keepGoing = "Want to keep going?", Some
-    if keepGoing = "yes" then
+let queryInteraction = Interaction.InteractionBuilder<Query, string>()
+let rec game i : Interaction.Eventual<_,_,_> = queryInteraction {
+    let! keepGoing = Model.Operations.Query.confirm "Want to keep going?"
+    if keepGoing then
         let! rest = game (1+i)
         return rest
     else
@@ -25,9 +27,12 @@ let rec game i : Interaction.Eventual<_,_,_> = Interaction.InteractionBuilder<st
 let update msg model =
     match msg with
     | NewModal op ->
-        { model with modalDialog = Some(op) }, Cmd.Empty
+        { model with modalDialogs = op :: model.modalDialogs }, Cmd.Empty
+    | UpdateModal op ->
+        { model with modalDialogs = op :: model.modalDialogs.Tail }, Cmd.Empty
     | CloseModal ->
-        { model with modalDialog = None }, Cmd.Empty
+        let pop = function [] -> [] | _::t -> t
+        { model with modalDialogs = model.modalDialogs |> pop }, Cmd.Empty
 
 let oldUrlUpdate (result: Option<OldPage>) model =
   let toHash page =

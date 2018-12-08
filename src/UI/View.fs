@@ -38,20 +38,20 @@ module Parse =
     let page = locationParser (|Page|_|)
 
 let root model dispatch =
-    let modalOperation onEnd e =
-        e |> Eventual.toOperation (dispatch << NewModal) (fun v -> onEnd v; dispatch CloseModal)
-    let progress (Operation(_, answer)) v =
+    let progress (Operation(_:Model.Types.Query, answer)) v =
         match answer v with
         | Final v -> dispatch CloseModal
-        | Intermediate(q, answer) -> dispatch (NewModal (Operation(q, answer)))
+        | Intermediate(q, answer) -> dispatch (UpdateModal (Operation(q, answer)))
     let contents =
         match model with
-        | { modalDialog = Some(Operation(v,_) as op) } ->
+        | { modalDialogs = Operation(v,_) as op::_ } ->
             div [] [
-                button [OnClick (fun _ -> progress op "yes")] [str v]
+                button [OnClick (fun _ -> progress op "yes")] [str (sprintf "%A" v)]
                 button [OnClick (fun _ -> progress op "no")] [str "Done"]
                 ]
         | _ ->
+            let modalOperation onEnd e =
+                e |> Eventual.toOperation (dispatch << NewModal) (fun v -> onEnd v; dispatch CloseModal)
             let startGame _ = game 0 |> modalOperation (fun x -> Browser.window.alert(sprintf "Result: %A" x))
             button [OnClick startGame] [str "Start new game"]
     div [] [contents]

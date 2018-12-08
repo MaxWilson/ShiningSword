@@ -35,3 +35,7 @@ module Log =
     type Data = string
 
 type GameState = Roster * Log.Data
+
+type Query =
+    | Freetext of string
+    | Confirm of string

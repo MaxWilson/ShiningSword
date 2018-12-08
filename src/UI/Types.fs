@@ -2,15 +2,12 @@ module App.Types
 
 open Global
 open Interaction
+open Model.Types
 
-type Msg = NewModal of Operation<string, string> | CloseModal
-
-type Page =
-    | StringOperation of Operation<string, string>
+type Msg = NewModal of Operation<Query, string> | UpdateModal of Operation<Query, string> | CloseModal
 
 type Model = {
-    modalDialog: Operation<string, string> option
-    stack: Page list
+    modalDialogs: Operation<Query, string> list
     }
 
 type OldMsg =
