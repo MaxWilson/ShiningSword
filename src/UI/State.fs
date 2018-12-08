@@ -7,7 +7,21 @@ open Fable.Import.Browser
 open Global
 open Types
 
-let urlUpdate (result: Option<OldPage>) model =
+let urlUpdate (parseResult: Msg option) model =
+    model, []
+
+let init parseResult =
+    { stack = []; modalDialog = None } |> urlUpdate parseResult
+
+let update msg model =
+    model, Cmd.Empty
+
+let oldUrlUpdate (result: Option<OldPage>) model =
+  let toHash page =
+    match page with
+    | About -> "#about"
+    | Counter -> "#counter"
+    | Home -> "#home"
   match result with
   | None ->
     console.error("Error parsing url")
@@ -15,11 +29,11 @@ let urlUpdate (result: Option<OldPage>) model =
   | Some page ->
       { model with currentPage = page }, []
 
-let init result =
+let oldInit result =
   let (counter, counterCmd) = Counter.State.init()
   let (home, homeCmd) = Home.State.init()
   let (model, cmd) =
-    urlUpdate result
+    oldUrlUpdate result
       { currentPage = Home
         counter = counter
         home = home }
@@ -27,7 +41,7 @@ let init result =
                      Cmd.map CounterMsg counterCmd
                      Cmd.map HomeMsg homeCmd ]
 
-let update msg model =
+let oldUpdate msg model =
   match msg with
   | CounterMsg msg ->
       let (counter, counterCmd) = Counter.State.update msg model.counter
