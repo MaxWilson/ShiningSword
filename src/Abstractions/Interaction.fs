@@ -10,9 +10,6 @@ type Eventual<'arg, 'intermediate, 'result> =
 type Operation<'t, 'msg> = Operation of 't * ('msg -> Eventual<'msg, 't, unit>)
 
 module Eventual =
-    open Fable.PowerPack.Keyboard
-    open Fable.PowerPack.Keyboard
-
     let bind m f =
         let rec chain m =
             match m with
