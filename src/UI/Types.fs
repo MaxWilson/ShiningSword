@@ -3,9 +3,7 @@ module App.Types
 open Global
 open Interaction
 
-type Msg = unit
-
-type Operation<'t, 'msg> = 't * ('msg -> Eventual<'msg, 't, unit>)
+type Msg = NewModal of Operation<string, string> | CloseModal
 
 type Page =
     | StringOperation of Operation<string, string>

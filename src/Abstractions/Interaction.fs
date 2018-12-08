@@ -6,7 +6,13 @@ type Eventual<'arg, 'intermediate, 'result> =
     | Final of 'result
     | Intermediate of question:'intermediate * provideAnswer:('arg -> (Eventual<'arg, 'intermediate, 'result>))
 
+// An Eventual that has not completed yet, and will have a side effect when it does complete
+type Operation<'t, 'msg> = Operation of 't * ('msg -> Eventual<'msg, 't, unit>)
+
 module Eventual =
+    open Fable.PowerPack.Keyboard
+    open Fable.PowerPack.Keyboard
+
     let bind m f =
         let rec chain m =
             match m with
@@ -31,6 +37,18 @@ module Eventual =
         resolve
 
     let continueWith follow = flip bind (fun v -> let v = follow v in Final v)
+
+    // Stateful, Mailbox-style integration for Eventual. Do onEnd immediately,
+    //  or post a pending Operation somewhere where it will get progressed later.
+    let toOperation onStart onEnd eventual =
+        let finish v =
+            onEnd v
+            Final ()
+        match bind eventual finish with
+        | Intermediate(q, f) ->
+            let op = Operation(q, f)
+            onStart op
+        | Final v -> () // onEnd should have already executed
 
 type InteractionBuilder<'query, 'input>() =
     let wrap q recognizer continuation  =

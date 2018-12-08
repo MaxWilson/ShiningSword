@@ -13,8 +13,21 @@ let urlUpdate (parseResult: Msg option) model =
 let init parseResult =
     { stack = []; modalDialog = None } |> urlUpdate parseResult
 
+let rec game i : Interaction.Eventual<_,_,_> = Interaction.InteractionBuilder<string, string>() {
+    let! keepGoing = "Want to keep going?", Some
+    if keepGoing = "yes" then
+        let! rest = game (1+i)
+        return rest
+    else
+        return (sprintf "You played %d rounds" i)
+    }
+
 let update msg model =
-    model, Cmd.Empty
+    match msg with
+    | NewModal op ->
+        { model with modalDialog = Some(op) }, Cmd.Empty
+    | CloseModal ->
+        { model with modalDialog = None }, Cmd.Empty
 
 let oldUrlUpdate (result: Option<OldPage>) model =
   let toHash page =
