@@ -80,7 +80,7 @@ let makeEncounter (mtable: Name -> float * int) templates (maxCR: int) (xpBudget
                     addMonster monsters'
                 else // probabilistically add the final monster, or not
                     let overage = postcost - xpBudget
-                    let overageRatio = (float overage) / (float xpBudget)
+                    let overageRatio = (float overage) / (float (postcost - precost))
                     if random.NextDouble() < overageRatio then
                         accum
                     else
