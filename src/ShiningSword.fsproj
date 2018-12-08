@@ -13,14 +13,6 @@
     <Compile Include="Model\Tables.fs" />
     <Compile Include="Model\Operations.fs" />
     <Compile Include="UI\Global.fs" />
-    <Compile Include="UI\Info\View.fs" />
-    <Compile Include="UI\Counter\Types.fs" />
-    <Compile Include="UI\Counter\State.fs" />
-    <Compile Include="UI\Counter\View.fs" />
-    <Compile Include="UI\Home\Types.fs" />
-    <Compile Include="UI\Home\State.fs" />
-    <Compile Include="UI\Home\View.fs" />
-    <Compile Include="UI\Navbar\View.fs" />
     <Compile Include="UI\Types.fs" />
     <Compile Include="UI\State.fs" />
     <Compile Include="UI\View.fs" />

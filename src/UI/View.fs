@@ -30,9 +30,6 @@ module Parse =
         | _ -> None
 
     let (|Page|_|) = function
-        //| Word(AnyCase "about", rest) -> Some ((), rest)
-        //| Word(AnyCase "counter", rest) -> Some (Counter, rest)
-        //| Word(AnyCase "home", rest) -> Some (Home, rest)
         | _ -> None
 
     let page = locationParser (|Page|_|)
