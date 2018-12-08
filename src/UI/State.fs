@@ -7,7 +7,7 @@ open Fable.Import.Browser
 open Global
 open Types
 
-let urlUpdate (result: Option<Page>) model =
+let urlUpdate (result: Option<OldPage>) model =
   match result with
   | None ->
     console.error("Error parsing url")

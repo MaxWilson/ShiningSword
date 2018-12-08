@@ -1,12 +1,6 @@
 module Global
 
-type Page =
+type OldPage =
   | Home
   | Counter
   | About
-
-let toHash page =
-  match page with
-  | About -> "#about"
-  | Counter -> "#counter"
-  | Home -> "#home"
