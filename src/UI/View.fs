@@ -11,7 +11,7 @@ open Types
 open App.State
 open Global
 
-importAll "../sass/main.sass"
+importAll "../../sass/main.sass"
 
 open Fable.Helpers.React
 open Fable.Helpers.React.Props
