@@ -141,6 +141,10 @@ let rec getTemplate monsters (templates: (string * int) list[]) maxCR =
         getTemplate monsters templates maxCR
     else
         t
+let mixTemplate mixProbability getTemplate arg =
+    if (random.NextDouble() < mixProbability) then
+        (getTemplate arg) @ (getTemplate arg)
+    else getTemplate arg
 let mutable earned = 0
 let N = 4 // number of ideal PCs
 let mutable gateNumber = 0
@@ -171,7 +175,7 @@ let doGate () =
                 N * (avg xpBudgets.[level-1].hard xpBudgets.[level-1].deadly)
             | _ ->
                 N * ((float xpBudgets.[level-1].deadly) * 1.2 |> int)
-        let e = makeEncounter (lookup monsters) (getTemplate monsters templates) (if isEpic then 30 else level) budget
+        let e = makeEncounter (lookup monsters) (getTemplate monsters templates |> mixTemplate 0.30) (if isEpic then 30 else level) budget
         let c = (calculate (lookup monsters) (normalize e))
         let xpEarned' = e |> Seq.sumBy (fun (name, i) -> i * (lookup monsters name |> snd))
         earned <- earned + xpEarned'/N
