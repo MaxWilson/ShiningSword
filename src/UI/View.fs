@@ -35,10 +35,24 @@ module Parse =
     let page = locationParser (|Page|_|)
 
 let root model dispatch =
+    let modalOperation onEnd e =
+        e |> Eventual.toOperation (dispatch << NewModal) (fun () -> dispatch CloseModal) (fun v -> onEnd v)
     let progress (Operation(_:Model.Types.Query, answer)) v =
         match answer v with
-        | Final v -> dispatch CloseModal
+        | Final v -> ()
         | Intermediate(q, answer) -> dispatch (UpdateModal (Operation(q, answer)))
+    let names = [|"Vanya"; "Ryan"; "Ted"; "Matt"|]
+    let chooseName() =
+        let rec e() : Eventual<_,_,_> = queryInteraction {
+            let name = names.[random.Next(names.Length)]
+            let! like = Model.Operations.Query.confirm (sprintf "Do you like the name '%s'?" name)
+            if like then
+                return name
+            else
+                let! name = e()
+                return name
+            }
+        button [OnClick (fun _ -> e() |> modalOperation (fun x -> dispatch (SetName x)))][str "Choose name"]
     let contents =
         match model with
         | { modalDialogs = Operation(q,_) as op::_ } ->
@@ -54,16 +68,14 @@ let root model dispatch =
                     str txt
                     ]
         | _ ->
-            let modalOperation onEnd e =
-                e |> Eventual.toOperation (dispatch << NewModal) (fun () -> dispatch CloseModal) (fun v -> onEnd v)
             let startGame _ = game 0 |> modalOperation (fun x -> dispatch (SetGameLength x))
             div [] [
                 match model.gameLength with
-                | Some n -> yield (str (sprintf "Last time, you played %d rounds" n))
+                | Some n -> yield (str (sprintf "Last time, %s played %d rounds" (defaultArg model.name "you") n))
                 | _ -> ()
                 yield button [OnClick startGame] [str "Start new game"]
                 ]
-    div [] [contents]
+    div [] [contents;chooseName()]
         
 
 // App

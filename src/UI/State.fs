@@ -12,7 +12,7 @@ let urlUpdate (parseResult: Msg option) model =
     model, []
 
 let init parseResult =
-    { modalDialogs = []; gameLength = None } |> urlUpdate parseResult
+    { modalDialogs = []; gameLength = None; name = None } |> urlUpdate parseResult
 
 let queryInteraction = Interaction.InteractionBuilder<Query, string>()
 let rec game i : Interaction.Eventual<_,_,_> = queryInteraction {
@@ -35,3 +35,5 @@ let update msg model =
         { model with modalDialogs = model.modalDialogs |> pop }, Cmd.Empty
     | SetGameLength x ->
         { model with gameLength = Some x }, Cmd.Empty
+    | SetName name ->
+        { model with name = Some name }, Cmd.Empty

@@ -7,6 +7,7 @@ open Model.Types
 type Model = {
     modalDialogs: Operation<Query, string> list
     gameLength: int option
+    name: string option
     }
 
 type Msg =
@@ -14,4 +15,5 @@ type Msg =
     | UpdateModal of Operation<Query, string>
     | CloseModal
     | SetGameLength of int
+    | SetName of string
 
