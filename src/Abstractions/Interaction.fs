@@ -38,19 +38,11 @@ module Eventual =
 
     // Stateful, Mailbox-style integration for Eventual. Do onEnd immediately,
     //  or post a pending Operation somewhere where it will get progressed later.
-    let toOperation onRegister onUnregister consumeValue eventual =
-        let finish v =
-            (consumeValue v)
-            Final ()
-        match bind eventual finish with
-        | Final v -> () // has already executed consumeValue
-        | Intermediate(_) as m ->
-            match bind m (fun () -> onUnregister(); Final ()) with
-            | Final () -> //should not happen
-                failwith "This shouldn't happen--binding Intermediate should never produce Final"
-            | Intermediate(q, f) ->
-                let op = Operation(q, f)
-                onRegister op
+    let toOperation onRegister onUnregister consumeValue = function
+        | Final v -> consumeValue v
+        | Intermediate(q, f) as m ->
+            let op = Operation(q, f >> flip bind (fun v -> consumeValue v; onUnregister(); Final ()))
+            onRegister op
 
 type InteractionBuilder<'query, 'input>() =
     let wrap q recognizer continuation  =
