@@ -12,7 +12,7 @@ let urlUpdate (parseResult: Msg option) model =
     model, []
 
 let init parseResult =
-    { modalDialogs = [] } |> urlUpdate parseResult
+    { modalDialogs = []; gameLength = None } |> urlUpdate parseResult
 
 let queryInteraction = Interaction.InteractionBuilder<Query, string>()
 let rec game i : Interaction.Eventual<_,_,_> = queryInteraction {
@@ -21,7 +21,7 @@ let rec game i : Interaction.Eventual<_,_,_> = queryInteraction {
         let! rest = game (1+i)
         return rest
     else
-        return (sprintf "You played %d rounds" i)
+        return i
     }
 
 let update msg model =
@@ -33,3 +33,5 @@ let update msg model =
     | CloseModal ->
         let pop = function [] -> [] | _::t -> t
         { model with modalDialogs = model.modalDialogs |> pop }, Cmd.Empty
+    | SetGameLength x ->
+        { model with gameLength = Some x }, Cmd.Empty

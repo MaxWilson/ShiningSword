@@ -41,16 +41,28 @@ let root model dispatch =
         | Intermediate(q, answer) -> dispatch (UpdateModal (Operation(q, answer)))
     let contents =
         match model with
-        | { modalDialogs = Operation(v,_) as op::_ } ->
-            div [] [
-                button [OnClick (fun _ -> progress op "yes")] [str (sprintf "%A" v)]
-                button [OnClick (fun _ -> progress op "no")] [str "Done"]
-                ]
+        | { modalDialogs = Operation(q,_) as op::_ } ->
+            match q with
+            | Model.Types.Query.Confirm(txt) ->
+                div [] [
+                    str txt
+                    button [OnClick (fun _ -> progress op "yes")] [str "Yes"]
+                    button [OnClick (fun _ -> progress op "no")] [str "No"]
+                    ]
+            | Model.Types.Query.Freetext(txt) ->
+                div [] [
+                    str txt
+                    ]
         | _ ->
             let modalOperation onEnd e =
-                e |> Eventual.toOperation (dispatch << NewModal) (fun v -> onEnd v; dispatch CloseModal)
-            let startGame _ = game 0 |> modalOperation (fun x -> Browser.window.alert(sprintf "Result: %A" x))
-            button [OnClick startGame] [str "Start new game"]
+                e |> Eventual.toOperation (dispatch << NewModal) (fun () -> dispatch CloseModal) (fun v -> onEnd v)
+            let startGame _ = game 0 |> modalOperation (fun x -> dispatch (SetGameLength x))
+            div [] [
+                match model.gameLength with
+                | Some n -> yield (str (sprintf "Last time, you played %d rounds" n))
+                | _ -> ()
+                yield button [OnClick startGame] [str "Start new game"]
+                ]
     div [] [contents]
         
 

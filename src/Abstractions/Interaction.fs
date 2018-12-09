@@ -10,6 +10,7 @@ type Eventual<'arg, 'intermediate, 'result> =
 type Operation<'t, 'msg> = Operation of 't * ('msg -> Eventual<'msg, 't, unit>)
 
 module Eventual =
+
     let bind m f =
         let rec chain m =
             match m with
@@ -37,15 +38,19 @@ module Eventual =
 
     // Stateful, Mailbox-style integration for Eventual. Do onEnd immediately,
     //  or post a pending Operation somewhere where it will get progressed later.
-    let toOperation onStart onEnd eventual =
+    let toOperation onRegister onUnregister consumeValue eventual =
         let finish v =
-            onEnd v
+            (consumeValue v)
             Final ()
         match bind eventual finish with
-        | Intermediate(q, f) ->
-            let op = Operation(q, f)
-            onStart op
-        | Final v -> () // onEnd should have already executed
+        | Final v -> () // has already executed consumeValue
+        | Intermediate(_) as m ->
+            match bind m (fun () -> onUnregister(); Final ()) with
+            | Final () -> //should not happen
+                failwith "This shouldn't happen--binding Intermediate should never produce Final"
+            | Intermediate(q, f) ->
+                let op = Operation(q, f)
+                onRegister op
 
 type InteractionBuilder<'query, 'input>() =
     let wrap q recognizer continuation  =
