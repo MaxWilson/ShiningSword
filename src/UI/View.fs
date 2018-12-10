@@ -34,13 +34,44 @@ module Parse =
 
     let page = locationParser (|Page|_|)
 
+let modalOperation dispatch state onSuccess e =
+    e |> Eventual.toOperation (fun op -> dispatch (NewModal(op, state))) (fun () -> dispatch CloseModal) (fun v -> onSuccess v)
+
+let progress dispatch (Operation(_:Model.Types.Query, provideAnswer)) answer =
+    match provideAnswer answer with
+    | Final _ -> ()
+    | Intermediate(q, answer) -> dispatch (UpdateModalOperation (Operation(q, answer)))
+
+let confirmQuery txt answer =
+    div [] [
+        str txt
+        button [OnClick (answer "yes")] [str "Yes"]
+        button [OnClick (answer "no")] [str "No"]
+        ]
+
+module KeyCode =
+    let enter = 13.
+    let upArrow = 38.
+    let downArrow =  40.
+
+let onKeyDown keyCode action =
+      OnKeyDown (fun (ev:Fable.Import.React.KeyboardEvent) ->
+          if ev.keyCode = keyCode then
+              ev.preventDefault()
+              action ev)
+
+let freeTextQuery prompt state updateState answer =
+    input [
+        ClassName "input"
+        Type "text"
+        Placeholder prompt
+        Value state
+        AutoFocus true
+        OnChange (fun ev -> !!ev.target?value |> updateState)
+        onKeyDown KeyCode.enter (answer state)
+        ]
+
 let root model dispatch =
-    let modalOperation onEnd e =
-        e |> Eventual.toOperation (dispatch << NewModal) (fun () -> dispatch CloseModal) (fun v -> onEnd v)
-    let progress (Operation(_:Model.Types.Query, answer)) v =
-        match answer v with
-        | Final v -> ()
-        | Intermediate(q, answer) -> dispatch (UpdateModal (Operation(q, answer)))
     let names = [|"Vanya"; "Ryan"; "Ted"; "Matt"|]
     let chooseName() =
         let rec e() : Eventual<_,_,_> = queryInteraction {
@@ -49,26 +80,20 @@ let root model dispatch =
             if like then
                 return name
             else
-                let! name = e()
+                let! name = Model.Operations.Query.text "Please enter your name"
                 return name
             }
-        button [OnClick (fun _ -> e() |> modalOperation (fun x -> dispatch (SetName x)))][str "Choose name"]
+        button [OnClick (fun _ -> e() |> modalOperation dispatch "" (fun x -> dispatch (SetName x)))][str "Choose name"]
     let contents =
         match model with
-        | { modalDialogs = Operation(q,_) as op::_ } ->
+        | { modalDialogs = (Operation(q,_) as op, vm)::_ } ->
+            let inline answer v _ = progress dispatch op v
             match q with
-            | Model.Types.Query.Confirm(txt) ->
-                div [] [
-                    str txt
-                    button [OnClick (fun _ -> progress op "yes")] [str "Yes"]
-                    button [OnClick (fun _ -> progress op "no")] [str "No"]
-                    ]
-            | Model.Types.Query.Freetext(txt) ->
-                div [] [
-                    str txt
-                    ]
+            | Model.Types.Query.Confirm(q) -> confirmQuery q answer
+            | Model.Types.Query.Freetext(q) ->
+                freeTextQuery q vm (dispatch << UpdateModalViewModel) answer
         | _ ->
-            let startGame _ = game 0 |> modalOperation (fun x -> dispatch (SetGameLength x))
+            let startGame _ = game 0 |> modalOperation dispatch "" (fun x -> dispatch (SetGameLength x))
             div [] [
                 match model.gameLength with
                 | Some n -> yield (str (sprintf "Last time, %s played %d rounds" (defaultArg model.name "you") n))
@@ -76,7 +101,7 @@ let root model dispatch =
                 yield button [OnClick startGame] [str "Start new game"]
                 ]
     div [] [contents;chooseName()]
-        
+
 
 // App
 Program.mkProgram init update root

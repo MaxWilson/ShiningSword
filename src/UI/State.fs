@@ -16,7 +16,7 @@ let init parseResult =
 
 let queryInteraction = Interaction.InteractionBuilder<Query, string>()
 let rec game i : Interaction.Eventual<_,_,_> = queryInteraction {
-    let! keepGoing = Model.Operations.Query.confirm "Want to keep going?"
+    let! keepGoing = Model.Operations.Query.confirm (sprintf "You've played %d rounds. Want to keep going?" i)
     if keepGoing then
         let! rest = game (1+i)
         return rest
@@ -26,14 +26,24 @@ let rec game i : Interaction.Eventual<_,_,_> = queryInteraction {
 
 let update msg model =
     match msg with
-    | NewModal op ->
-        { model with modalDialogs = op :: model.modalDialogs }, Cmd.Empty
-    | UpdateModal op ->
-        { model with modalDialogs = op :: model.modalDialogs.Tail }, Cmd.Empty
+    | NewModal(op,state) ->
+        { model with modalDialogs = (op, state) :: model.modalDialogs }, Cmd.Empty
+    | UpdateModalOperation op ->
+        let m =
+            match model.modalDialogs with
+            | (_, st)::rest -> (op, st)::rest
+            | _ -> []
+        { model with modalDialogs = m }, Cmd.Empty
+    | UpdateModalViewModel vm ->
+        let m =
+            match model.modalDialogs with
+            | (op, _)::rest -> (op, vm)::rest
+            | _ -> []
+        { model with modalDialogs = m }, Cmd.Empty
     | CloseModal ->
         let pop = function [] -> [] | _::t -> t
         { model with modalDialogs = model.modalDialogs |> pop }, Cmd.Empty
     | SetGameLength x ->
         { model with gameLength = Some x }, Cmd.Empty
     | SetName name ->
-        { model with name = Some name }, Cmd.Empty
+        { model with name = if not (System.String.IsNullOrWhiteSpace name) then Some name else None }, Cmd.Empty

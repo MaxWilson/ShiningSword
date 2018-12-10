@@ -33,7 +33,7 @@ module Query =
         | Some(v, End) -> Some v
         | _ -> None
     let text txt =
-        Query.Freetext txt, (tryParse Recognizer.``|Bool|_|``)
+        Query.Freetext txt, Some
     let confirm txt =
         Query.Confirm txt, (tryParse Recognizer.``|Bool|_|``)
 
