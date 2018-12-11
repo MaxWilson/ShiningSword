@@ -1,7 +1,7 @@
 STORAGE: NONE
 NUGET
   remote: https://www.nuget.org/api/v2
-    dotnet-fable (2.0.10) - clitool: true
+    dotnet-fable (2.0.11) - clitool: true
       Dotnet.ProjInfo (>= 0.20) - restriction: >= netcoreapp2.0
       FSharp.Compiler.Service (>= 25.0.1) - restriction: >= netcoreapp2.0
       FSharp.Core (>= 4.5.2) - restriction: >= netcoreapp2.0
@@ -9,7 +9,7 @@ NUGET
       Newtonsoft.Json (>= 11.0.2) - restriction: >= netcoreapp2.0
     Dotnet.ProjInfo (0.20) - restriction: >= netcoreapp2.0
       FSharp.Core (>= 4.1.18) - restriction: && (< net45) (>= netstandard2.0)
-    Fable.Core (2.0.1)
+    Fable.Core (2.0.3)
       FSharp.Core (>= 4.5.2) - restriction: >= netstandard2.0
     Fable.Elmish (2.0.3) - restriction: >= netstandard2.0
       Fable.Core (>= 2.0) - restriction: >= netstandard2.0
@@ -24,13 +24,15 @@ NUGET
       Fable.Core (>= 2.0) - restriction: >= netstandard2.0
       Fable.Elmish (>= 2.0) - restriction: >= netstandard2.0
       FSharp.Core (>= 4.5.2) - restriction: >= netstandard2.0
-    Fable.Elmish.HMR (2.1)
+    Fable.Elmish.HMR (3.0.2)
       Fable.Core (>= 2.0.1) - restriction: >= netstandard2.0
       Fable.Elmish (>= 2.0.3) - restriction: >= netstandard2.0
       Fable.Elmish.Browser (>= 2.1) - restriction: >= netstandard2.0
+      Fable.Elmish.React (>= 2.1) - restriction: >= netstandard2.0
       Fable.Import.HMR (>= 0.1) - restriction: >= netstandard2.0
+      Fable.React (>= 4.1.3) - restriction: >= netstandard2.0
       FSharp.Core (>= 4.5.2) - restriction: >= netstandard2.0
-    Fable.Elmish.React (2.0)
+    Fable.Elmish.React (2.1)
       Fable.Core (>= 2.0) - restriction: >= netstandard2.0
       Fable.Elmish (>= 2.0) - restriction: >= netstandard2.0
       Fable.PowerPack (>= 2.0.1) - restriction: >= netstandard2.0
@@ -40,7 +42,7 @@ NUGET
       Fable.Core (>= 1.3.17) - restriction: >= netstandard1.6
     Fable.Import.HMR (0.1) - restriction: >= netstandard2.0
       Fable.Core (>= 1.3.17) - restriction: >= netstandard1.6
-    Fable.PowerPack (2.0.2) - restriction: >= netstandard2.0
+    Fable.PowerPack (3.0) - restriction: >= netstandard2.0
       Fable.Core (>= 2.0) - restriction: >= netstandard2.0
       Fable.Import.Browser (>= 1.3) - restriction: >= netstandard2.0
       FSharp.Core (>= 4.5.2) - restriction: >= netstandard2.0
@@ -59,7 +61,7 @@ NUGET
       System.Reflection.TypeExtensions (>= 4.3) - restriction: && (< net45) (>= netstandard2.0)
       System.Runtime.Loader (>= 4.0) - restriction: && (< net45) (>= netstandard2.0)
       System.Security.Cryptography.Algorithms (>= 4.3) - restriction: && (< net45) (>= netstandard2.0)
-    FSharp.Core (4.5.2)
+    FSharp.Core (4.5.4)
       System.Collections (>= 4.0.11) - restriction: && (< net45) (>= netstandard1.6) (< netstandard2.0)
       System.Console (>= 4.0) - restriction: && (< net45) (>= netstandard1.6) (< netstandard2.0)
       System.Diagnostics.Debug (>= 4.0.11) - restriction: && (< net45) (>= netstandard1.6) (< netstandard2.0)
@@ -83,17 +85,20 @@ NUGET
       System.Threading.Thread (>= 4.0) - restriction: && (< net45) (>= netstandard1.6) (< netstandard2.0)
       System.Threading.ThreadPool (>= 4.0.10) - restriction: && (< net45) (>= netstandard1.6) (< netstandard2.0)
       System.Threading.Timer (>= 4.0.1) - restriction: && (< net45) (>= netstandard1.6) (< netstandard2.0)
-    Microsoft.NETCore.App (2.1.5) - restriction: >= netcoreapp2.0
-      Microsoft.NETCore.DotNetHostPolicy (>= 2.1.5) - restriction: >= netcoreapp2.1
-      Microsoft.NETCore.Platforms (>= 2.1.1) - restriction: >= netcoreapp2.1
-      Microsoft.NETCore.Targets (>= 2.0) - restriction: >= netcoreapp2.1
-      NETStandard.Library (>= 2.0.3) - restriction: >= netcoreapp2.1
-    Microsoft.NETCore.DotNetAppHost (2.1.5) - restriction: >= netcoreapp2.1
-    Microsoft.NETCore.DotNetHostPolicy (2.1.5) - restriction: >= netcoreapp2.1
-      Microsoft.NETCore.DotNetHostResolver (>= 2.1.5)
-    Microsoft.NETCore.DotNetHostResolver (2.1.5) - restriction: >= netcoreapp2.1
-      Microsoft.NETCore.DotNetAppHost (>= 2.1.5)
-    Microsoft.NETCore.Platforms (2.1.1) - restriction: || (&& (< monoandroid) (< monotouch) (< net45) (>= netstandard1.6) (< netstandard2.0) (< win8) (< wpa81) (< xamarinmac) (< xamarintvos) (< xamarinwatchos)) (>= netcoreapp2.0) (&& (>= netstandard1.6) (< portable-net45+win8+wp8+wpa81)) (&& (>= netstandard1.6) (< portable-net45+win8+wpa81))
+    Fulma (1.1)
+      Fable.Core (>= 2.0.2) - restriction: >= netstandard2.0
+      Fable.React (>= 4.1.3) - restriction: >= netstandard2.0
+    Microsoft.NETCore.App (2.2) - restriction: >= netcoreapp2.0
+      Microsoft.NETCore.DotNetHostPolicy (>= 2.2) - restriction: >= netcoreapp2.2
+      Microsoft.NETCore.Platforms (>= 2.2) - restriction: >= netcoreapp2.2
+      Microsoft.NETCore.Targets (>= 2.0) - restriction: >= netcoreapp2.2
+      NETStandard.Library (>= 2.0.3) - restriction: >= netcoreapp2.2
+    Microsoft.NETCore.DotNetAppHost (2.2) - restriction: >= netcoreapp2.2
+    Microsoft.NETCore.DotNetHostPolicy (2.2) - restriction: >= netcoreapp2.2
+      Microsoft.NETCore.DotNetHostResolver (>= 2.2)
+    Microsoft.NETCore.DotNetHostResolver (2.2) - restriction: >= netcoreapp2.2
+      Microsoft.NETCore.DotNetAppHost (>= 2.2)
+    Microsoft.NETCore.Platforms (2.2) - restriction: || (&& (< monoandroid) (< monotouch) (< net45) (>= netstandard1.6) (< netstandard2.0) (< win8) (< wpa81) (< xamarinmac) (< xamarintvos) (< xamarinwatchos)) (>= netcoreapp2.0) (&& (>= netstandard1.6) (< portable-net45+win8+wp8+wpa81)) (&& (>= netstandard1.6) (< portable-net45+win8+wpa81))
     Microsoft.NETCore.Targets (2.1) - restriction: || (&& (< monoandroid) (< monotouch) (< net45) (>= netstandard1.6) (< netstandard2.0) (< xamarinmac) (< xamarintvos) (< xamarinwatchos)) (>= netcoreapp2.0) (&& (>= netstandard1.6) (< portable-net45+win8+wp8+wpa81))
     Microsoft.Win32.Primitives (4.3) - restriction: >= netcoreapp2.0
       Microsoft.NETCore.Platforms (>= 1.1) - restriction: && (< monoandroid) (< monotouch) (< net46) (>= netstandard1.3) (< xamarinios) (< xamarinmac) (< xamarintvos) (< xamarinwatchos)
@@ -103,9 +108,9 @@ NUGET
       System.Memory (>= 4.5) - restriction: || (&& (< net46) (< netcoreapp2.0) (>= netstandard2.0) (< xamarinios)) (&& (>= netcoreapp2.0) (< netcoreapp2.1)) (>= uap10.1)
       System.Security.AccessControl (>= 4.5) - restriction: || (&& (>= monoandroid) (< netstandard2.0)) (>= monotouch) (&& (< net46) (>= netstandard2.0)) (>= net461) (>= netcoreapp2.0) (>= xamarinios) (>= xamarinmac) (>= xamarintvos) (>= xamarinwatchos)
       System.Security.Principal.Windows (>= 4.5) - restriction: || (&& (>= monoandroid) (< netstandard2.0)) (>= monotouch) (&& (< net46) (>= netstandard2.0)) (>= net461) (>= netcoreapp2.0) (>= xamarinios) (>= xamarinmac) (>= xamarintvos) (>= xamarinwatchos)
-    NETStandard.Library (2.0.3) - restriction: >= netcoreapp2.1
+    NETStandard.Library (2.0.3) - restriction: >= netcoreapp2.2
       Microsoft.NETCore.Platforms (>= 1.1) - restriction: || (&& (>= net45) (< netstandard1.3)) (&& (< net45) (>= netstandard1.1) (< netstandard1.2) (< win8)) (&& (< net45) (>= netstandard1.2) (< netstandard1.3) (< win8) (< wpa81)) (&& (< net45) (>= netstandard1.3) (< netstandard1.4) (< win8) (< wpa81)) (&& (< net45) (>= netstandard1.4) (< netstandard1.5) (< win8) (< wpa81)) (&& (< net45) (>= netstandard1.5) (< netstandard1.6) (< win8) (< wpa81)) (&& (< net45) (>= netstandard1.6) (< netstandard2.0) (< win8) (< wpa81)) (&& (< net45) (>= netstandard2.0)) (&& (>= net46) (< netstandard1.4)) (>= net461) (>= netcoreapp2.0) (&& (>= netstandard1.0) (< portable-net45+win8+wpa81)) (&& (< netstandard1.0) (>= portable-net45+win8) (< win8)) (&& (< netstandard1.0) (< portable-net45+win8) (>= portable-net45+win8+wpa81)) (&& (< netstandard1.0) (>= portable-net45+win8+wp8+wpa81) (< portable-net45+win8+wpa81)) (&& (< netstandard1.0) (>= win8)) (&& (< netstandard1.3) (< win8) (>= wpa81)) (&& (< netstandard1.5) (>= uap10.0)) (>= uap10.1) (>= wp8)
-    Newtonsoft.Json (11.0.2) - restriction: >= netcoreapp2.0
+    Newtonsoft.Json (12.0.1) - restriction: >= netcoreapp2.0
     runtime.debian.8-x64.runtime.native.System.Security.Cryptography.OpenSsl (4.3.3) - restriction: || (&& (< monoandroid) (< monotouch) (< net45) (>= netstandard1.6) (< netstandard2.0) (< win8) (< wpa81) (< xamarinmac) (< xamarintvos) (< xamarinwatchos)) (&& (>= netstandard1.6) (< portable-net45+win8+wp8+wpa81))
     runtime.debian.9-x64.runtime.native.System.Security.Cryptography.OpenSsl (4.3.3) - restriction: || (&& (< monoandroid) (< monotouch) (< net45) (>= netstandard1.6) (< netstandard2.0) (< win8) (< wpa81) (< xamarinmac) (< xamarintvos) (< xamarinwatchos)) (&& (>= netstandard1.6) (< portable-net45+win8+wp8+wpa81))
     runtime.fedora.23-x64.runtime.native.System.Security.Cryptography.OpenSsl (4.3.3) - restriction: || (&& (< monoandroid) (< monotouch) (< net45) (>= netstandard1.6) (< netstandard2.0) (< win8) (< wpa81) (< xamarinmac) (< xamarintvos) (< xamarinwatchos)) (&& (>= netstandard1.6) (< portable-net45+win8+wp8+wpa81))

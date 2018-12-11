@@ -19,6 +19,8 @@ open Elmish.Debug
 open Elmish.HMR
 open Interaction
 open Common
+open Fulma
+open Fulma.Color
 
 module Parse =
     open Packrat
@@ -45,8 +47,8 @@ let progress dispatch (Operation(_:Model.Types.Query, provideAnswer)) answer =
 let confirmQuery txt answer =
     div [] [
         str txt
-        button [OnClick (answer "yes")] [str "Yes"]
-        button [OnClick (answer "no")] [str "No"]
+        Button.button [Button.OnClick (answer "yes")] [str "Yes"]
+        Button.button [Button.OnClick (answer "no")] [str "No"]
         ]
 
 module KeyCode =
@@ -83,7 +85,7 @@ let root model dispatch =
                 let! name = Model.Operations.Query.text "Please enter your name"
                 return name
             }
-        button [OnClick (fun _ -> e() |> modalOperation dispatch "" (fun x -> dispatch (SetName x)))][str "Choose name"]
+        Button.button [Button.OnClick (fun _ -> e() |> modalOperation dispatch "" (fun x -> dispatch (SetName x)))][str "Choose name"]
     let contents =
         match model with
         | { modalDialogs = (Operation(q,_) as op, vm)::_ } ->
@@ -107,7 +109,7 @@ let root model dispatch =
                 match model.gameLength with
                 | Some n -> yield (str (sprintf "Last time, %s played %d rounds" (defaultArg model.name "you") n))
                 | _ -> ()
-                yield button [OnClick startGame] [str "Start new game"]
+                yield Button.button [Button.OnClick startGame; Button.Color Fulma.Color.IsBlack] [str "Start new game"]
                 ]
     div [] [contents;chooseName()]
 
@@ -117,7 +119,6 @@ Program.mkProgram init update root
 |> Program.toNavigable Parse.page urlUpdate
 #if DEBUG
 |> Program.withDebugger
-|> Program.withHMR
 #endif
 |> Program.withReact "elmish-app"
-|> Program.run
+|> Elmish.HMR.Program.run
