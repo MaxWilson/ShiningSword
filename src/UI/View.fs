@@ -93,6 +93,15 @@ let root model dispatch =
             | Model.Types.Query.Freetext(q) ->
                 freeTextQuery q vm (dispatch << UpdateModalViewModel) answer
         | _ ->
+            let rec game i : Interaction.Eventual<_,_,_> = queryInteraction {
+                let! keepGoing = Model.Operations.Query.confirm (sprintf "You've played %d rounds%s. Want to keep going?" i (match model.name with Some name -> (", " + name) | None -> ""))
+                if keepGoing then
+                    let! rest = game (1+i)
+                    return rest
+                else
+                    return i
+                }
+
             let startGame _ = game 0 |> modalOperation dispatch "" (fun x -> dispatch (SetGameLength x))
             div [] [
                 match model.gameLength with

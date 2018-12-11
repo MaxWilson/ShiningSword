@@ -15,14 +15,6 @@ let init parseResult =
     { modalDialogs = []; gameLength = None; name = None } |> urlUpdate parseResult
 
 let queryInteraction = Interaction.InteractionBuilder<Query, string>()
-let rec game i : Interaction.Eventual<_,_,_> = queryInteraction {
-    let! keepGoing = Model.Operations.Query.confirm (sprintf "You've played %d rounds. Want to keep going?" i)
-    if keepGoing then
-        let! rest = game (1+i)
-        return rest
-    else
-        return i
-    }
 
 let update msg model =
     match msg with
