@@ -5,10 +5,15 @@
 #load @"Common.fs"
 #load @"Abstractions\Parsing.fs"
 #load @"Abstractions\Interaction.fs"
+#load @"Model\Types.fs"
+#load @"Model\Tables.fs"
+#load @"Model\Operations.fs"
+#load @"Model\Gameplay.fs"
 #load @"Abstractions\DataStorage.Globals.fs"
 #load @"Abstractions\DataStorage.fs"
 #load @"Model\Types.fs"
 #load @"Model\Tables.fs"
+
 
 open System
 open Common
@@ -17,6 +22,7 @@ open Model.Types
 open Model.Tables
 
 let consoleResolve q = printfn "%A" q; Console.ReadLine()
+Model.Gameplay.game() |> Eventual.resolveSynchronously consoleResolve
 
 DataStorage.showRaw "thingTracker" |> Eventual.resolveSynchronously consoleResolve
 type Thing = { name: string; instances: (string * int) list }
