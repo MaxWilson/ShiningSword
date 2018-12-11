@@ -74,16 +74,10 @@ let freeTextQuery prompt state updateState answer =
         ]
 
 let root model dispatch =
-    let names = [|"Vanya"; "Ryan"; "Ted"; "Matt"|]
     let chooseName() =
         let rec e() : Eventual<_,_,_> = queryInteraction {
-            let name = names.[random.Next(names.Length)]
-            let! like = Model.Operations.Query.confirm (sprintf "Do you like the name '%s'?" name)
-            if like then
-                return name
-            else
-                let! name = Model.Operations.Query.text "Please enter your name"
-                return name
+            let! name = Model.Operations.Query.text "Please enter your name"
+            return name
             }
         Button.button [Button.OnClick (fun _ -> e() |> modalOperation dispatch "" (fun x -> dispatch (SetName x)))][str "Choose name"]
     let contents =
