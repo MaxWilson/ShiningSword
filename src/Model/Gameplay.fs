@@ -21,10 +21,10 @@ let game() : Eventual<_,_,_> =
     and round n : Eventual<_,_,_> = queryInteraction {
         let! guess = Query.number (sprintf "Guess a number! You have made %d guesses so far" n)
         if guess < target then
-            let! _ = Query.choose "Guess higher" ["OK"]
+            do! Query.alert "Guess higher"
             return! round (n+1)
         else if guess > target then
-            let! _ = Query.choose "Guess lower" ["OK"]
+            do! Query.alert "Guess lower"
             return! round (n+1)
         else
             return! victory()

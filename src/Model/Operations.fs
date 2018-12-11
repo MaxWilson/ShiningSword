@@ -42,6 +42,8 @@ module Query =
         let tryChoose arg =
             choices |> Seq.tryFind (fun choice -> arg = choice.ToString())
         Query.Select (prompt, choices |> Seq.map (fun v -> v.ToString()) |> Array.ofSeq), tryChoose
+    let alert txt =
+        Query.Alert txt, thunk (Some ())
 
 module Log =
     let log msg log =

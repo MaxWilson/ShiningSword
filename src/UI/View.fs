@@ -83,6 +83,13 @@ let selectQuery prompt choices answer =
             yield Button.button [Button.OnClick <| answer choice; Button.Color Fulma.Color.IsBlack] [str choice]
         ]
 
+let alertQuery prompt answer =
+    div [] [
+        yield str prompt
+        yield br[]
+        yield Button.button [Button.OnClick <| answer "OK"] [str "OK"]
+        ]
+
 let root model dispatch =
     let contents =
         match model with
@@ -94,6 +101,8 @@ let root model dispatch =
                 freeTextQuery q vm (dispatch << UpdateModalViewModel) answer
             | Query.Select(prompt, choices) ->
                 selectQuery prompt choices answer
+            | Query.Alert txt ->
+                alertQuery txt answer
         | _ ->
             let startGame _ = Model.Gameplay.game() |> modalOperation dispatch "" ignore
 
