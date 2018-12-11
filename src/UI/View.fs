@@ -76,6 +76,19 @@ let freeTextQuery prompt state updateState answer =
             ]
         ]
 
+let numberQuery prompt state updateState answer =
+    div [] [
+        str prompt
+        input [
+            ClassName "input"
+            Type "number"
+            Value state
+            AutoFocus true
+            OnChange (fun ev -> !!ev.target?value |> updateState)
+            onKeyDown KeyCode.enter (answer state)
+            ]
+        ]
+
 let selectQuery prompt choices answer =
     div [] [
         yield str prompt
@@ -99,6 +112,8 @@ let root model dispatch =
             | Query.Confirm(q) -> confirmQuery q answer
             | Query.Freetext(q) ->
                 freeTextQuery q vm (dispatch << UpdateModalViewModel) answer
+            | Query.Number(q) ->
+                numberQuery q vm (dispatch << UpdateModalViewModel) answer
             | Query.Select(prompt, choices) ->
                 selectQuery prompt choices answer
             | Query.Alert txt ->

@@ -37,7 +37,7 @@ module Query =
     let confirm txt =
         Query.Confirm txt, (tryParse Recognizer.``|Bool|_|``)
     let number txt =
-        Query.Freetext txt, (tryParse Recognizer.``|Number|_|``)
+        Query.Number txt, (tryParse Recognizer.``|Number|_|``)
     let choose prompt choices =
         let tryChoose arg =
             choices |> Seq.tryFind (fun choice -> arg = choice.ToString())
