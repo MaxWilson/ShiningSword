@@ -14,8 +14,6 @@ let urlUpdate (parseResult: Msg option) model =
 let init parseResult =
     { modalDialogs = []; game = (Map.empty, "") } |> urlUpdate parseResult
 
-let queryInteraction = Interaction.InteractionBuilder<Query, string>()
-
 let update msg model =
     match msg with
     | NewModal(op,state) ->
@@ -23,9 +21,9 @@ let update msg model =
     | UpdateModalOperation op ->
         let m =
             match model.modalDialogs with
-            | (_, st)::rest -> (op, st)::rest
+            | (_, st)::rest -> (op, "")::rest
             | _ -> []
-        { model with modalDialogs = m }, Cmd.Empty
+        { model with modalDialogs = m; }, Cmd.Empty
     | UpdateModalViewModel vm ->
         let m =
             match model.modalDialogs with

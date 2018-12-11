@@ -12,6 +12,7 @@
     <Compile Include="Model\Types.fs" />
     <Compile Include="Model\Tables.fs" />
     <Compile Include="Model\Operations.fs" />
+    <Compile Include="Model\Gameplay.fs" />
     <Compile Include="UI\Global.fs" />
     <Compile Include="UI\Types.fs" />
     <Compile Include="UI\State.fs" />

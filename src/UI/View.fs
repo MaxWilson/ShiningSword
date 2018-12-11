@@ -64,19 +64,21 @@ let onKeyDown keyCode action =
               action ev)
 
 let freeTextQuery prompt state updateState answer =
-    input [
-        ClassName "input"
-        Type "text"
-        Placeholder prompt
-        Value state
-        AutoFocus true
-        OnChange (fun ev -> !!ev.target?value |> updateState)
-        onKeyDown KeyCode.enter (answer state)
+    div [] [
+        str prompt
+        input [
+            ClassName "input"
+            Type "text"
+            Value state
+            AutoFocus true
+            OnChange (fun ev -> !!ev.target?value |> updateState)
+            onKeyDown KeyCode.enter (answer state)
+            ]
         ]
 
 let selectQuery prompt choices answer =
-    fragment [] [
-        yield div[][str prompt]
+    div [] [
+        yield str prompt
         for choice in choices do
             yield Button.button [Button.OnClick <| answer choice; Button.Color Fulma.Color.IsBlack] [str choice]
         ]
@@ -93,15 +95,7 @@ let root model dispatch =
             | Query.Select(prompt, choices) ->
                 selectQuery prompt choices answer
         | _ ->
-            let rec game i : Interaction.Eventual<_,_,_> = queryInteraction {
-                let! keepGoing = Model.Operations.Query.confirm (sprintf "You've played %d rounds. Want to keep going?" i)
-                if keepGoing then
-                    let! rest = game (1+i)
-                    return rest
-                else
-                    return i
-                }
-            let startGame _ = game 0 |> modalOperation dispatch "" ignore
+            let startGame _ = Model.Gameplay.game() |> modalOperation dispatch "" ignore
 
             div [] [
                 yield Button.button [Button.OnClick startGame; Button.Color Fulma.Color.IsBlack] [str "Start new game"]
