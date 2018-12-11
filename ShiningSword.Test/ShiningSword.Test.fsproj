@@ -23,4 +23,8 @@
     <ProjectReference Include="..\src\ShiningSword.fsproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Update="FSharp.Core" Version="4.5.4" />
+  </ItemGroup>
+
 </Project>
