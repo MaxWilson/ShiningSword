@@ -21,6 +21,7 @@ open Interaction
 open Common
 open Fulma
 open Fulma.Color
+open Model.Types
 
 module Parse =
     open Packrat
@@ -73,39 +74,39 @@ let freeTextQuery prompt state updateState answer =
         onKeyDown KeyCode.enter (answer state)
         ]
 
+let selectQuery prompt choices answer =
+    fragment [] [
+        yield div[][str prompt]
+        for choice in choices do
+            yield Button.button [Button.OnClick <| answer choice; Button.Color Fulma.Color.IsBlack] [str choice]
+        ]
+
 let root model dispatch =
-    let chooseName() =
-        let rec e() : Eventual<_,_,_> = queryInteraction {
-            let! name = Model.Operations.Query.text "Please enter your name"
-            return name
-            }
-        Button.button [Button.OnClick (fun _ -> e() |> modalOperation dispatch "" (fun x -> dispatch (SetName x)))][str "Choose name"]
     let contents =
         match model with
         | { modalDialogs = (Operation(q,_) as op, vm)::_ } ->
             let inline answer v _ = progress dispatch op v
             match q with
-            | Model.Types.Query.Confirm(q) -> confirmQuery q answer
-            | Model.Types.Query.Freetext(q) ->
+            | Query.Confirm(q) -> confirmQuery q answer
+            | Query.Freetext(q) ->
                 freeTextQuery q vm (dispatch << UpdateModalViewModel) answer
+            | Query.Select(prompt, choices) ->
+                selectQuery prompt choices answer
         | _ ->
             let rec game i : Interaction.Eventual<_,_,_> = queryInteraction {
-                let! keepGoing = Model.Operations.Query.confirm (sprintf "You've played %d rounds%s. Want to keep going?" i (match model.name with Some name -> (", " + name) | None -> ""))
+                let! keepGoing = Model.Operations.Query.confirm (sprintf "You've played %d rounds. Want to keep going?" i)
                 if keepGoing then
                     let! rest = game (1+i)
                     return rest
                 else
                     return i
                 }
+            let startGame _ = game 0 |> modalOperation dispatch "" ignore
 
-            let startGame _ = game 0 |> modalOperation dispatch "" (fun x -> dispatch (SetGameLength x))
             div [] [
-                match model.gameLength with
-                | Some n -> yield (str (sprintf "Last time, %s played %d rounds" (defaultArg model.name "you") n))
-                | _ -> ()
                 yield Button.button [Button.OnClick startGame; Button.Color Fulma.Color.IsBlack] [str "Start new game"]
                 ]
-    div [] [contents;chooseName()]
+    div [] [contents]
 
 
 // App

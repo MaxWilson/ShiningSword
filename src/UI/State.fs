@@ -12,7 +12,7 @@ let urlUpdate (parseResult: Msg option) model =
     model, []
 
 let init parseResult =
-    { modalDialogs = []; gameLength = None; name = None } |> urlUpdate parseResult
+    { modalDialogs = []; game = (Map.empty, "") } |> urlUpdate parseResult
 
 let queryInteraction = Interaction.InteractionBuilder<Query, string>()
 
@@ -35,7 +35,3 @@ let update msg model =
     | CloseModal ->
         let pop = function [] -> [] | _::t -> t
         { model with modalDialogs = model.modalDialogs |> pop }, Cmd.Empty
-    | SetGameLength x ->
-        { model with gameLength = Some x }, Cmd.Empty
-    | SetName name ->
-        { model with name = if not (System.String.IsNullOrWhiteSpace name) then Some name else None }, Cmd.Empty

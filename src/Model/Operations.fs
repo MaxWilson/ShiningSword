@@ -36,6 +36,10 @@ module Query =
         Query.Freetext txt, Some
     let confirm txt =
         Query.Confirm txt, (tryParse Recognizer.``|Bool|_|``)
+    let choose prompt choices =
+        let tryChoose arg =
+            choices |> Seq.tryFind (fun choice -> arg = choice.ToString())
+        Query.Select (prompt, choices |> Seq.map (fun v -> v.ToString()) |> Array.ofSeq), tryChoose
 
 module Log =
     let log msg log =

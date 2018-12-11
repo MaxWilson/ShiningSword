@@ -8,8 +8,7 @@ type ViewModel = string
 
 type Model = {
     modalDialogs: (Operation<Query, string> * ViewModel) list
-    gameLength: int option
-    name: string option
+    game: GameState
     }
 
 type Msg =
@@ -17,7 +16,5 @@ type Msg =
     | UpdateModalViewModel of ViewModel
     | UpdateModalOperation of Operation<Query, string>
     | CloseModal
-    | SetGameLength of int
-    | SetName of string
 
 

@@ -39,3 +39,4 @@ type GameState = Roster * Log.Data
 type Query =
     | Freetext of string
     | Confirm of string
+    | Select of prompt: string * choices: string[]
