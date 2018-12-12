@@ -211,24 +211,26 @@ let timeSummary = function
         sprintf "%d day(s) and %d hour(s)" (hours / 24) (hours % 24)
 
 let rec doRest state : Eventual<_,_,_> = queryInteraction {
-    match! Query.choose (sprintf "You have earned %d XP and %d gold pieces, and you've been adventuring for %s. What do you wish to do next?" xp gp (timeSummary state.timeElapsed)) ["Advance"; "Rest"; "Return to town"] with
+    match! Query.choose (sprintf "You have earned %d XP and %d gold pieces, and you've been adventuring for %s. What do you wish to do next?" state.pcs.[0].xp state.gp (timeSummary state.timeElapsed)) ["Advance"; "Rest"; "Return to town"] with
         | "Advance" -> return! doTower (advance state)
         | "Rest" -> return! doRest (advance state)
         | "Return to town" ->
-            do! Query.alert (sprintf "You happily retire from adventuring and spend the rest of your life living off %d gold pieces that you found." state.gold)
+            do! Query.alert (sprintf "You happily retire from adventuring and spend the rest of your life living off %d gold pieces that you found." state.gp)
             return state
         | _ -> return state
         }
 and doTower state : Eventual<_,_,_> = queryInteraction {
     let e, c, xp, gp = makeTower state.pcs state.parEarned state.towerNumber
-    let state = { state with gp = state.gp + gp; pcs = state.pcs |> List.map (fun pc -> { pc with xp = pc.xp + xp }) }
+    do! Query.alert (sprintf "You have reached the %s tower of Gate #%d" (match state.towerNumber with | 1 -> "first" | 2 -> "second" | 3 -> "inner" | _ -> "final") state.gateNumber)
     do! Query.alert (battlecry state.pcs e)
     if rand 10 = 0 then
         // super simple battle resolver: die 10% of the time
         do! Query.alert "You have died!"
         return state
     else
-        match! Query.choose (sprintf "You have earned %d XP and %d gold pieces, and you've been adventuring for %s. What do you wish to do next?" xp gp (timeSummary state.timeElapsed)) ["Advance"; "Rest"; "Return to town"] with
+        do! Query.alert (sprintf "You have found %d gold pieces and earned %d experience points." gp xp)
+        let state = { state with gp = state.gp + gp; pcs = state.pcs |> List.map (fun pc -> { pc with xp = pc.xp + xp }) }
+        match! Query.choose (sprintf "You have earned %d XP and %d gold pieces, and you've been adventuring for %s. What do you wish to do next?" state.pcs.[0].xp state.gp (timeSummary state.timeElapsed)) ["Advance"; "Rest"; "Return to town"] with
         | "Advance" -> return! doTower (advance state)
         | "Rest" -> return! doRest (advance state)
         | "Return to town" ->
