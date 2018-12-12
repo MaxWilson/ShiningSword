@@ -223,7 +223,7 @@ and doTower state : Eventual<_,_,_> = queryInteraction {
     let e, c, xp, gp = makeTower state.pcs state.parEarned state.towerNumber
     do! Query.alert (sprintf "You have reached the %s tower of Gate #%d" (match state.towerNumber with | 1 -> "first" | 2 -> "second" | 3 -> "inner" | _ -> "final") state.gateNumber)
     do! Query.alert (battlecry state.pcs e)
-    if rand 10 = 0 then
+    if rand 10 = 1 then
         // super simple battle resolver: die 10% of the time
         do! Query.alert "You have died!"
         return state
