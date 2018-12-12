@@ -142,7 +142,8 @@ let makeTower pcs parXpEarned nTower =
     let cost = (calculate (lookup monsters) (normalize e))
     let xpEarned = e |> Seq.sumBy (fun (name, i) -> i * (lookup monsters name |> snd))
     let earned = xpEarned/N
-    e, cost, earned
+    let gpEarned = rand (Math.Log (float budget) |> int)
+    e, cost, earned, gpEarned
 
 let makeRandom pcs parXpEarned nRandom =
     let N = pcs |> Seq.length // number of ideal PCs
@@ -157,7 +158,8 @@ let makeRandom pcs parXpEarned nRandom =
     let c = (calculate (lookup monsters) (normalize e))
     let xpEarned = e |> Seq.sumBy (fun (name, i) -> i * (lookup monsters name |> snd))
     let earned = xpEarned / N
-    e, c, earned
+    let gpEarned = rand (Math.Log10 (float budget) |> int) // make less money from random encounters
+    e, c, earned, gpEarned
 
 type State = {
     pcs: StatBlock list
@@ -166,6 +168,7 @@ type State = {
     towerNumber: int
     randomNumber: int
     timeElapsed: int // seconds
+    gp: int
     }
 
 let battlecry (pcs: StatBlock list) monsters =
@@ -195,10 +198,43 @@ let battlecry (pcs: StatBlock list) monsters =
 
     cry (monsterDescription monsters |> oxfordJoin)
 
-let doTower state : Eventual<_,_,_> = queryInteraction {
-    let e, c, xp = makeTower state.pcs state.parEarned state.towerNumber
+let advance = function
+    | { towerNumber = 4 } as state -> { state with gateNumber = state.gateNumber + 1; towerNumber = 1; timeElapsed = state.timeElapsed + 600 }
+    | { towerNumber = n } as state -> { state with towerNumber = n + 1; timeElapsed = state.timeElapsed + 600 }
+
+let timeSummary = function
+    | n when n < 60 -> sprintf "%d seconds" n
+    | n when n < 3600 -> sprintf "%d minutes" (n/60)
+    | n when n < 3600*24 -> sprintf "%d hour(s)" (n/(3600))
+    | n ->
+        let hours = (n/(3600))
+        sprintf "%d day(s) and %d hour(s)" (hours / 24) (hours % 24)
+
+let rec doRest state : Eventual<_,_,_> = queryInteraction {
+    match! Query.choose (sprintf "You have earned %d XP and %d gold pieces, and you've been adventuring for %s. What do you wish to do next?" xp gp (timeSummary state.timeElapsed)) ["Advance"; "Rest"; "Return to town"] with
+        | "Advance" -> return! doTower (advance state)
+        | "Rest" -> return! doRest (advance state)
+        | "Return to town" ->
+            do! Query.alert (sprintf "You happily retire from adventuring and spend the rest of your life living off %d gold pieces that you found." state.gold)
+            return state
+        | _ -> return state
+        }
+and doTower state : Eventual<_,_,_> = queryInteraction {
+    let e, c, xp, gp = makeTower state.pcs state.parEarned state.towerNumber
+    let state = { state with gp = state.gp + gp; pcs = state.pcs |> List.map (fun pc -> { pc with xp = pc.xp + xp }) }
     do! Query.alert (battlecry state.pcs e)
-    return state
+    if rand 10 = 0 then
+        // super simple battle resolver: die 10% of the time
+        do! Query.alert "You have died!"
+        return state
+    else
+        match! Query.choose (sprintf "You have earned %d XP and %d gold pieces, and you've been adventuring for %s. What do you wish to do next?" xp gp (timeSummary state.timeElapsed)) ["Advance"; "Rest"; "Return to town"] with
+        | "Advance" -> return! doTower (advance state)
+        | "Rest" -> return! doRest (advance state)
+        | "Return to town" ->
+            do! Query.alert (sprintf "You happily retire from adventuring and spend the rest of your life living off %d gold pieces that you found." state.gp)
+            return state
+        | _ -> return state
     }
 let doGate state : Eventual<_,_,_> = queryInteraction {
     return! (doTower state)
@@ -207,7 +243,7 @@ let doGate state : Eventual<_,_,_> = queryInteraction {
 let game() : Eventual<_,_,_> = queryInteraction {
     let! party = getPCs()
     do! Query.alert "Before you lies the Wild Country, the Gate of Doom. Prepare yourselves for death and glory!"
-    let state = { pcs = party; parEarned = 0; gateNumber = 1; towerNumber = 1; randomNumber = 1; timeElapsed = 0 }
+    let state = { pcs = party; parEarned = 0; gateNumber = 1; towerNumber = 1; randomNumber = 1; timeElapsed = 0; gp = 0 }
     let! state = doGate state
     return ()
     }
