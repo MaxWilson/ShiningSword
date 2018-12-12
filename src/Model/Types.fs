@@ -17,6 +17,7 @@ type Position = int * int
 type StatBlock = {
     name: Name
     hp: int
+    xp: int
     }
 
 type RosterEntry = {
