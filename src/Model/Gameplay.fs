@@ -171,6 +171,12 @@ type State = {
     gp: int
     }
 
+let oxfordJoin = function
+    | a::b::c::rest -> sprintf "%s, and %s" (System.String.Join(", ", b::c::rest)) a
+    | [a;b] -> sprintf "%s and %s" a b
+    | [a] -> a
+    | [] -> "Nothing at all!" // shouldn't happen
+
 let battlecry (pcs: StatBlock list) monsters =
     let plural = match monsters with [_, 1] -> false | _ -> true
     let cries = [|
@@ -190,12 +196,6 @@ let battlecry (pcs: StatBlock list) monsters =
         | (name, qty)::rest ->
             (sprintf "%d %ss" qty name)::(monsterDescription rest)
         | [] -> []
-    let oxfordJoin = function
-        | a::b::c::rest -> sprintf "%s, and %s" (System.String.Join(", ", b::c::rest)) a
-        | [a;b] -> sprintf "%s and %s" a b
-        | [a] -> a
-        | [] -> "Nothing at all!" // shouldn't happen
-
     cry (monsterDescription monsters |> oxfordJoin)
 
 let advance = function
@@ -234,7 +234,7 @@ and doTower state : Eventual<_,_,_> = queryInteraction {
         | "Advance" -> return! doTower (advance state)
         | "Rest" -> return! doRest (advance state)
         | "Return to town" ->
-            do! Query.alert (sprintf "You happily retire from adventuring and spend the rest of your life living off %d gold pieces that you found." state.gp)
+            do! Query.alert (sprintf "%s happily retire from adventuring and spend the rest of your life living off %d gold pieces that you found." (state.pcs |> List.map (fun pc -> pc.name) |> oxfordJoin) state.gp)
             return state
         | _ -> return state
     }
