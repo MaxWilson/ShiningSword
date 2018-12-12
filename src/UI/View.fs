@@ -100,7 +100,7 @@ let alertQuery prompt answer =
     div [] [
         yield str prompt
         yield br[]
-        yield Button.button [Button.OnClick <| answer "OK" ; Button.Props [AutoFocus true]] [str "OK"]
+        yield Button.button [Button.OnClick <| answer "OK" ; Button.Props [AutoFocus true]; Button.Color IsPrimary] [str "OK"]
         ]
 
 let root model dispatch =
