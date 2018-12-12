@@ -5,6 +5,7 @@ open Model.Operations
 open Model.Tables
 open Common
 open System
+open System
 
 let calculate mtable (monsters: Name seq) =
     let costs = monsters |> Seq.map (fun m -> Math.Pow((mtable m |> snd |> float) / 100., (2./3.)))
@@ -158,14 +159,55 @@ let makeRandom pcs parXpEarned nRandom =
     let earned = xpEarned / N
     e, c, earned
 
-let doGate pcs nGate towerNumber parEarned : Eventual<_,_,_> = queryInteraction {
+type State = {
+    pcs: StatBlock list
+    parEarned: int
+    gateNumber: int
+    towerNumber: int
+    randomNumber: int
+    timeElapsed: int // seconds
+    }
 
-    return ()
+let battlecry (pcs: StatBlock list) monsters =
+    let plural = match monsters with [_, 1] -> false | _ -> true
+    let cries = [|
+        sprintf (if plural then """"Give me blood!" you scream as %s attack.""" else """"Give me blood!" you scream as %s attacks.""")
+        sprintf (if plural then """"Not again!" you groan, as %s attack.""" else """"Not again!" you groan, as %s attacks.""")
+        sprintf """"Blood or death!" shout your companions at %s, as they draw their weapons."""
+        sprintf """%s grins crazily and gestures behind you. You turn and see %s!""" (pcs.[random.Next(pcs.Length)].name)
+        sprintf "Glumly you prepare yourselves to meet %s in battle."
+        |]
+    let cry = cries.[random.Next(cries.Length)]
+    let rec monsterDescription monsters =
+        match monsters with
+        | (name:string, qty)::rest when qty = 1 ->
+            match Char.ToLowerInvariant(name.[0]) with
+            | 'a' | 'e' | 'i' | 'o' | 'u' -> (sprintf "an %s" name)::(monsterDescription rest)
+            | _ -> (sprintf "a %s" name)::(monsterDescription rest)
+        | (name, qty)::rest ->
+            (sprintf "%d %ss" qty name)::(monsterDescription rest)
+        | [] -> []
+    let oxfordJoin = function
+        | a::b::c::rest -> sprintf "%s, and %s" (System.String.Join(", ", b::c::rest)) a
+        | [a;b] -> sprintf "%s and %s" a b
+        | [a] -> a
+        | [] -> "Nothing at all!" // shouldn't happen
+
+    cry (monsterDescription monsters |> oxfordJoin)
+
+let doTower state : Eventual<_,_,_> = queryInteraction {
+    let e, c, xp = makeTower state.pcs state.parEarned state.towerNumber
+    do! Query.alert (battlecry state.pcs e)
+    return state
+    }
+let doGate state : Eventual<_,_,_> = queryInteraction {
+    return! (doTower state)
     }
 
 let game() : Eventual<_,_,_> = queryInteraction {
     let! party = getPCs()
     do! Query.alert "Before you lies the Wild Country, the Gate of Doom. Prepare yourselves for death and glory!"
-
+    let state = { pcs = party; parEarned = 0; gateNumber = 1; towerNumber = 1; randomNumber = 1; timeElapsed = 0 }
+    let! state = doGate state
     return ()
     }
