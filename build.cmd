@@ -1,0 +1,1 @@
+pushd %~dp0src && dotnet fable yarn-start
