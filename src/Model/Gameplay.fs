@@ -264,8 +264,9 @@ let rec doRest (state: GameState) : Eventual<_,_,_> = queryInteraction {
         }
 and doTower (state: GameState) : Eventual<_,_,_> = queryInteraction {
     let e, c, xp, gp = makeTower state.pcs state.parEarned state.towerNumber
-    do! alert state (sprintf "You have reached the %s tower of Gate #%d" (match state.towerNumber with | 1 -> "first" | 2 -> "second" | 3 -> "inner" | _ -> "final") state.gateNumber)
-    do! alert state (battlecry state.pcs e)
+    do! alert state <|
+        (sprintf "You have reached the %s tower of Gate #%d. %s" (match state.towerNumber with | 1 -> "first" | 2 -> "second" | 3 -> "inner" | _ -> "final") state.gateNumber
+            (battlecry state.pcs e))
     let state = fight e state
     if state.pcs |> List.exists (fun pc -> pc.hp > 0) |> not then
         // everyone is dead
