@@ -229,7 +229,7 @@ and doTower state : Eventual<_,_,_> = queryInteraction {
         return state
     else
         do! Query.alert (sprintf "You have found %d gold pieces and earned %d experience points." gp xp)
-        let state = { state with gp = state.gp + gp; pcs = state.pcs |> List.map (fun pc -> { pc with xp = pc.xp + xp }) }
+        let state = { state with gp = state.gp + gp; pcs = state.pcs |> List.map (fun pc -> { pc with xp = pc.xp + xp }); parEarned = state.parEarned + xp }
         match! Query.choose (sprintf "You have earned %d XP and %d gold pieces, and you've been adventuring for %s. What do you wish to do next?" state.pcs.[0].xp state.gp (timeSummary state.timeElapsed)) ["Advance"; "Rest"; "Return to town"] with
         | "Advance" -> return! doTower (advance state)
         | "Rest" -> return! doRest (advance state)
