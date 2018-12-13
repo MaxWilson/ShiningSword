@@ -249,10 +249,18 @@ let fight encounter state =
     let updateHp pcs =
         pcs |> List.mapi (fun i pc -> { pc with hp = !(snd goodguys.[i]) })
     { state with log = log; pcs = updateHp state.pcs }
+let computeLevel xp =
+    (levelAdvancement |> Array.findBack (fun x -> xp >= x.XPReq)).level
+let combatBonus stat = (stat/2) - 5 // based on 5E tables
+type Class = Fighter | Wizard
+let computeHP con classList =
+    let bonus = combatBonus con
+    let dieSize characterClass = match characterClass with Fighter -> 10 | Wizard -> 6
+    classList |> Seq.mapi (fun l cl -> if l = 0 then (dieSize cl) + bonus else (dieSize cl)/2 + 1 + bonus) |> Seq.sum
 
 let rec doRest (state: GameState) : Eventual<_,_,_> = queryInteraction {
     let state =
-        { state with timeElapsed = state.timeElapsed + 3600 * 8; pcs = state.pcs |> List.map (fun pc -> if pc.hp > 0 then { pc with hp = 10 } else pc) }
+        { state with timeElapsed = state.timeElapsed + 3600 * 8; pcs = state.pcs |> List.map (fun pc -> if pc.hp > 0 then { pc with hp = List.init (computeLevel pc.xp) (thunk Fighter) |> computeHP 12 } else pc) }
         |> GameState.mapLog (Log.log "The party rests for 8 hours and heals")
     match! Query.choose state (sprintf "You have earned %d XP and %d gold pieces, and you've been adventuring for %s. What do you wish to do next?" state.pcs.[0].xp state.gp (timeSummary state.timeElapsed)) ["Advance"; "Rest"; "Return to town"] with
         | "Advance" -> return! doTower (advance state)
