@@ -13,9 +13,11 @@ type Id = int
 type Name = string
 type Description = string
 type Position = int * int
+type Sex = Male | Female
 
 type StatBlock = {
     name: Name
+    sex: Sex
     hp: int
     xp: int
     str: int

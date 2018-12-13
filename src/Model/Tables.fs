@@ -1,4 +1,5 @@
 module Model.Tables
+open Model.Types
 type Advancement = { level: int; XPReq: int; proficiencyBonus: int }
 let levelAdvancement =
     [|

@@ -10,6 +10,7 @@
     <Compile Include="Abstractions\DataStorage.Globals.fs" />
     <Compile Include="Abstractions\DataStorage.fs" />
     <Compile Include="Model\Types.fs" />
+    <Compile Include="Model\Names.fs" />
     <Compile Include="Model\Tables.fs" />
     <Compile Include="Model\Operations.fs" />
     <Compile Include="Model\Gameplay.fs" />
@@ -18,6 +19,7 @@
     <Compile Include="UI\State.fs" />
     <Compile Include="UI\View.fs" />
     <None Include="Script1.fsx" />
+    <None Include="NameMaker.fsx" />
     <!-- Info -->
     <!-- Counter -->
     <!-- Home -->

@@ -26,7 +26,7 @@ let makeEncounter (mtable: Name -> float * int) templates (maxCR: int) (xpBudget
             if precost >= xpBudget then
                 accum
             else
-                let monster = template.[random.Next(template.Length)]
+                let monster = chooseRandom template
                 let monsters' = monster::accum
                 let postcost = calculate mtable monsters'
                 if postcost <= xpBudget then
@@ -89,7 +89,7 @@ let templates = [|
     ["Tarrasque", 1]
     |]
 let rec getTemplate monsters (templates: (string * int) list[]) maxCR =
-    let t = templates.[random.Next(templates.Length)]
+    let t = chooseRandom templates
     if t |> List.exists (fun (name, _) -> (lookup monsters name |> fst) |> int > maxCR) then
         getTemplate monsters templates maxCR
     else
@@ -104,19 +104,43 @@ let queryInteraction = Interaction.InteractionBuilder<Query * GameState, string>
 let log msg state = { state with log = Log.log msg state.log }
 let logAdvance state = { state with log = Log.advance state.log }
 
-let rec getPCs (state: GameState) : Eventual<_,_,_> = queryInteraction {
-    let! name = Query.text state (if state.pcs = [] then "What's your name?" else "Enter a name:")
-    let pc = PC.create name
+let getNameAndSex state firstPerson isFriend : Eventual<_,_,Name * Sex> = queryInteraction {
+    let! sex = Query.choose state (if firstPerson then "What's your sex?" else "What sex?") ["Don't care";"Male"; "Female"]
+    let sex = match sex with "Don't care" -> chooseRandom [|Male;Female|] | "Male" -> Male | _ -> Female
+    if firstPerson then
+        let! name = Query.text state "What's your name?"
+        return (name, sex)
+    elif isFriend then
+        let! name = Query.text state "What's your friend's name?"
+        return (name, sex)
+    else
+        let eligibleLists = Model.Names.names |> List.filter (fun ((n,t),_) -> t = (sex.ToString()))
+        let captions = (eligibleLists |> List.map (fst >> fst))
+        let! nameType = Query.choose state "What region do you want to recruit from?" ("Don't care" :: captions)
+        let nameType = match nameType with "Don't care" -> chooseRandom (Array.ofList captions) | v -> v
+        let chosenList = eligibleLists |> List.pick (fun ((n,_),l) -> if nameType = n then Some l else None)
+        let firstname = chooseRandom chosenList
+        let lastname =
+            match Model.Names.names |> List.tryFind (fun ((n,t),_) -> t = "Last" && n = nameType) with
+            | Some (_, lst) -> chooseRandom lst
+            | None -> sprintf "%s %s" (chooseRandom [|" ben ";" son ";" dak ";" "|]) (chooseRandom chosenList)
+        let name = sprintf "%s %s" firstname lastname
+        return (name, sex)
+    }
 
-    let state = { state with pcs = state.pcs@[pc] }
+let rec getPCs (state: GameState) firstPerson isFriend : Eventual<_,_,_> = queryInteraction {
+    let! name, sex = getNameAndSex state firstPerson isFriend
+    let pc = PC.create name sex
+
+    let state = { state with pcs = state.pcs@[pc]; gp = if firstPerson || isFriend then state.gp else state.gp - 100 }
     let! more = Query.choose state (sprintf "Do you want to recruit%shelp? It costs 100 gold pieces up front plus salary." (if state.pcs.Length = 1 then " " else " more "))
                     ["I have a friend"; "Hire help"; "No, I'm ready"]
     match more with
     | "I have a friend" ->
-        return! getPCs state // no cost
+        return! getPCs state false true // no cost
     | "Hire help" ->
         // charge 100 gp to recruit a companion
-        return! getPCs { state with gp = state.gp - 100 }
+        return! getPCs state false false
     | _ ->
         return state
     }
@@ -176,10 +200,10 @@ let battlecry (pcs: StatBlock list) monsters =
         sprintf (if plural then """"Give me blood!" you scream as %s attack.""" else """"Give me blood!" you scream as %s attacks.""")
         sprintf (if plural then """"Not again!" you groan, as %s attack.""" else """"Not again!" you groan, as %s attacks.""")
         sprintf """"Blood or death!" shout your companions at %s, as they draw their weapons."""
-        sprintf """%s grins crazily and gestures behind you. You turn and see %s!""" (pcs.[random.Next(pcs.Length)].name)
+        sprintf """%s grins crazily and gestures behind you. You turn and see %s!""" ((chooseRandom (Array.ofList pcs)).name)
         sprintf "Glumly you prepare yourselves to meet %s in battle."
         |]
-    let cry = cries.[random.Next(cries.Length)]
+    let cry = chooseRandom cries
     let rec monsterDescription monsters =
         match monsters with
         | (name:string, qty)::rest when qty = 1 ->
@@ -228,7 +252,7 @@ let fight encounter state =
     let randomTarget targets =
         let liveTargets = targets |> Array.filter (fun (name, hp) -> !hp > 0)
         if liveTargets.Length > 0 then
-            Some <| liveTargets.[random.Next liveTargets.Length]
+            Some <| chooseRandom liveTargets
         else None
     let alive guys =
         guys |> Array.filter (fun (name, hp) -> !hp > 0)
@@ -289,7 +313,7 @@ let doGate state : Eventual<_,_,_> = queryInteraction {
 
 let game() : Eventual<_,_,_> = queryInteraction {
     let state = GameState.empty
-    let! state = getPCs state
+    let! state = getPCs state true false
     do! alert state "Before you lies the Wild Country, the Gate of Doom. Prepare yourselves for death and glory!"
     return! doGate state
     }

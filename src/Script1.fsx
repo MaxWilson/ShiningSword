@@ -79,7 +79,7 @@ let makeEncounter (mtable: Name -> float * int) templates (maxCR: int) (xpBudget
             if precost >= xpBudget then
                 accum
             else
-                let monster = template.[random.Next(template.Length)]
+                let monster = chooseRandom template
                 let monsters' = monster::accum
                 let postcost = calculate mtable monsters'
                 if postcost <= xpBudget then
