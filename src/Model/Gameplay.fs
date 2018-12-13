@@ -234,7 +234,7 @@ and doTower state : Eventual<_,_,_> = queryInteraction {
         | "Advance" -> return! doTower (advance state)
         | "Rest" -> return! doRest (advance state)
         | "Return to town" ->
-            do! Query.alert (sprintf "%s happily retire from adventuring and spend the rest of your life living off %d gold pieces that you found." (state.pcs |> List.map (fun pc -> pc.name) |> oxfordJoin) state.gp)
+            do! Query.alert (sprintf "%s happily retire from adventuring and spend the rest of your life living off %d gold pieces that you found." (state.pcs |> List.map (fun pc -> pc.name) |> oxfordJoin |> sprintf "%s, you") state.gp)
             return state
         | _ -> return state
     }
