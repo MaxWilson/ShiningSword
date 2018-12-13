@@ -213,7 +213,45 @@ let retirementMessage state =
         (sprintf "%s happily retire from adventuring and spend the rest of your life living off %d gold pieces that you found." (state.pcs |> List.map (fun pc -> pc.name) |> oxfordJoin |> sprintf "%s, you") state.gp)
     else
         (sprintf "%s glumly retire from adventuring and spend the rest of your life paying off the %d gold pieces that you owe." (state.pcs |> List.map (fun pc -> pc.name) |> oxfordJoin |> sprintf "%s, you") -state.gp)
+
+// super-simple fight resolver currently
+let fight encounter state =
+    let goodguys = state.pcs |> Seq.map (fun pc -> pc.name, ref <| pc.hp) |> Array.ofSeq
+    let badguys = normalize encounter |> Seq.map (fun name -> name, ref <| rand 10) |> Array.ofSeq // random number of HP
+    let mutable log = state.log
+    let inflict (me, _) (targetName, hp) dmg =
+        hp := !hp - dmg
+        if !hp > 0 then
+            log <- Log.log (sprintf "%s hits %s for %d points of damage! (%d HP remaining)" me targetName dmg !hp) log
+        else
+            log <- Log.log (sprintf "%s hits %s for %d points of damage! %s dies!" me targetName dmg targetName) log
+    let randomTarget targets =
+        let liveTargets = targets |> Array.filter (fun (name, hp) -> !hp > 0)
+        if liveTargets.Length > 0 then
+            Some <| liveTargets.[random.Next liveTargets.Length]
+        else None
+    let randomLiveGuys guys =
+        guys |> Array.filter (fun (name, hp) -> !hp > 0) |> shuffleCopy
+
+    for g in goodguys |> randomLiveGuys do
+        match badguys |> randomTarget with
+        | Some target ->
+            let dmg = rand 10
+            inflict g target dmg
+        | None -> ()
+    for b in badguys |> randomLiveGuys do
+        match goodguys |> randomTarget with
+        | Some target ->
+            let dmg = rand 10
+            inflict b target dmg
+        | None -> ()
+    let updateHp pcs =
+        pcs |> List.mapi (fun i pc -> { pc with hp = !(snd goodguys.[i]) })
+    { state with log = log; pcs = updateHp state.pcs }
 let rec doRest (state: GameState) : Eventual<_,_,_> = queryInteraction {
+    let state =
+        { state with timeElapsed = state.timeElapsed + 3600 * 8; pcs = state.pcs |> List.map (fun pc -> if pc.hp > 0 then { pc with hp = 10 } else pc) }
+        |> GameState.mapLog (Log.log "The party rests for 8 hours and heals")
     match! Query.choose state (sprintf "You have earned %d XP and %d gold pieces, and you've been adventuring for %s. What do you wish to do next?" state.pcs.[0].xp state.gp (timeSummary state.timeElapsed)) ["Advance"; "Rest"; "Return to town"] with
         | "Advance" -> return! doTower (advance state)
         | "Rest" -> return! doRest (advance state)
@@ -226,8 +264,9 @@ and doTower (state: GameState) : Eventual<_,_,_> = queryInteraction {
     let e, c, xp, gp = makeTower state.pcs state.parEarned state.towerNumber
     do! alert state (sprintf "You have reached the %s tower of Gate #%d" (match state.towerNumber with | 1 -> "first" | 2 -> "second" | 3 -> "inner" | _ -> "final") state.gateNumber)
     do! alert state (battlecry state.pcs e)
-    if rand 10 = 1 then
-        // super simple battle resolver: die 10% of the time
+    let state = fight e state
+    if state.pcs |> List.exists (fun pc -> pc.hp > 0) |> not then
+        // everyone is dead
         do! alert state "You have died!"
         return state
     else

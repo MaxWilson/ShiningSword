@@ -21,3 +21,13 @@ let oxfordJoin = function
     | [a;b] -> sprintf "%s and %s" a b
     | [a] -> a
     | [] -> "Nothing at all!" // shouldn't happen
+
+let shuffleCopy =
+    let swap (a: _[]) x y =
+            let tmp = a.[x]
+            a.[x] <- a.[y]
+            a.[y] <- tmp
+    fun a ->
+        let a = Array.map id a // make a copy
+        a |> Array.iteri (fun i _ -> swap a i (random.Next(i, Array.length a)))
+        a // return the copy

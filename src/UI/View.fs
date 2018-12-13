@@ -123,6 +123,10 @@ let partySummary =
                     yield line (sprintf "%s: HP %d XP %d" pc.name pc.hp pc.xp)
                 yield line <| sprintf "You have %d gold" game.gp
                 ]
+
+let logOutput =
+    lazyView <| fun (log: Log.Data) ->
+        div[] (Log.extract log |> List.head |> List.map (fun line -> p[][str line]))
     
 let root model dispatch =
     let contents =
@@ -157,7 +161,7 @@ let root model dispatch =
             div [] [
                 yield Button.button [Button.OnClick startGame; Button.Color Fulma.Color.IsBlack] [str "Start new game"]
                 ]
-    div [] [contents; partySummary model.game]
+    div [] [contents; partySummary model.game; logOutput model.game.log]
 
 
 // App
