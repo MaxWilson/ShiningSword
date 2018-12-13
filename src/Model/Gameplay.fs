@@ -230,21 +230,22 @@ let fight encounter state =
         if liveTargets.Length > 0 then
             Some <| liveTargets.[random.Next liveTargets.Length]
         else None
-    let randomLiveGuys guys =
-        guys |> Array.filter (fun (name, hp) -> !hp > 0) |> shuffleCopy
-
-    for g in goodguys |> randomLiveGuys do
-        match badguys |> randomTarget with
-        | Some target ->
-            let dmg = rand 10
-            inflict g target dmg
-        | None -> ()
-    for b in badguys |> randomLiveGuys do
-        match goodguys |> randomTarget with
-        | Some target ->
-            let dmg = rand 10
-            inflict b target dmg
-        | None -> ()
+    let alive guys =
+        guys |> Array.filter (fun (name, hp) -> !hp > 0)
+    while goodguys |> alive |> Array.exists (thunk true)
+            && badguys |> alive |> Array.exists (thunk true) do
+        for g in goodguys |> alive |> shuffleCopy do
+            match badguys |> randomTarget with
+            | Some target ->
+                let dmg = rand 10
+                inflict g target dmg
+            | None -> ()
+        for b in badguys |> alive |> shuffleCopy do
+            match goodguys |> randomTarget with
+            | Some target ->
+                let dmg = rand 10
+                inflict b target dmg
+            | None -> ()
     let updateHp pcs =
         pcs |> List.mapi (fun i pc -> { pc with hp = !(snd goodguys.[i]) })
     { state with log = log; pcs = updateHp state.pcs }
