@@ -33,8 +33,20 @@ type Intention = Move of Position | Attack of Id
 type Declarations = (Id * Intention) list
 
 module Log =
-    type Data = string
-
+    type Data = string list * string list list
+    let empty = [], []
+    let log msg (log:Data) =
+        match log with
+        | buffer, log -> msg::buffer, log
+    let flush (log:Data) =
+        match log with
+        | buffer, (h::rest) -> [], (h@(List.rev buffer))::rest
+        | buffer, [] -> [], [List.rev buffer]
+    let advance (log:Data) =
+        match flush log with
+        | _, rest -> [], []::rest
+    let extract = flush >> snd >> List.rev
+    
 type GameState = Roster * Log.Data
 
 type Query =
