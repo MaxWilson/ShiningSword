@@ -120,14 +120,19 @@ let partySummary =
             div[] [
                 yield line <| "The party consists of " + (game.pcs |> List.map (fun pc -> pc.name) |> oxfordJoin)
                 for pc in game.pcs do
-                    yield line (sprintf "%s: HP %d XP %d" pc.name pc.hp pc.xp)
+                    if pc.hp > 0 then
+                        yield line (sprintf "%s: HP %d XP %d" pc.name pc.hp pc.xp)
+                    else
+                        yield line (sprintf "(Dead) %s: XP %d" pc.name pc.xp)
                 yield line <| sprintf "You have %d gold" game.gp
                 ]
 
 let logOutput =
     lazyView <| fun (log: Log.Data) ->
-        div[] (Log.extract log |> List.last |> List.map (fun line -> p[][str line]))
-    
+        let log = Log.extract log
+        let last = List.last log
+        div[] (last |> List.map (fun line -> p[][str line]))
+
 let root model dispatch =
     let contents =
         match model with
@@ -144,7 +149,7 @@ let root model dispatch =
                         answer (choices.[n-1])()
                         true
                     | _ -> false)
-            | _ -> onKeypress <- None            
+            | _ -> onKeypress <- None
             match q with
             | Query.Confirm(q) -> confirmQuery q answer
             | Query.Freetext(q) ->

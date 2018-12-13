@@ -105,15 +105,18 @@ let log msg state = { state with log = Log.log msg state.log }
 let logAdvance state = { state with log = Log.advance state.log }
 
 let getNameAndSex state firstPerson isFriend : Eventual<_,_,Name * Sex> = queryInteraction {
-    let! sex = Query.choose state (if firstPerson then "What's your sex?" else "What sex?") ["Don't care";"Male"; "Female"]
-    let sex = match sex with "Don't care" -> chooseRandom [|Male;Female|] | "Male" -> Male | _ -> Female
+
     if firstPerson then
         let! name = Query.text state "What's your name?"
+        let! sex = Query.choose state "What's your sex?" [Male; Female]
         return (name, sex)
     elif isFriend then
         let! name = Query.text state "What's your friend's name?"
+        let! sex = Query.choose state "What's their sex?" [Male; Female]
         return (name, sex)
     else
+        let! sex = Query.choose state "Are you looking for males or females? (This affects which regions you can recruit from.)" ["Don't care";"Male"; "Female"]
+        let sex = match sex with "Don't care" -> chooseRandom [|Male;Female|] | "Male" -> Male | _ -> Female
         let eligibleLists = Model.Names.names |> List.filter (fun ((n,t),_) -> t = (sex.ToString()))
         let captions = (eligibleLists |> List.map (fst >> fst))
         let! nameType = Query.choose state "What region do you want to recruit from?" ("Don't care" :: captions)
@@ -176,7 +179,7 @@ let makeTower pcs parXpEarned nTower =
     let xpEarned = e |> Seq.sumBy (fun (name, i) -> i * (lookup monsters name |> snd))
     let earned = xpEarned/N
     let gpEarned = rand (Math.Log (float budget) |> int)
-    e, cost, earned, gpEarned
+    e, cost, earned, xpEarned, gpEarned
 
 let makeRandom pcs parXpEarned nRandom =
     let N = pcs |> Seq.length // number of ideal PCs
@@ -192,7 +195,7 @@ let makeRandom pcs parXpEarned nRandom =
     let xpEarned = e |> Seq.sumBy (fun (name, i) -> i * (lookup monsters name |> snd))
     let earned = xpEarned / N
     let gpEarned = rand (Math.Log10 (float budget) |> int) // make less money from random encounters
-    e, c, earned, gpEarned
+    e, c, earned, xpEarned, gpEarned
 
 let battlecry (pcs: StatBlock list) monsters =
     let plural = match monsters with [_, 1] -> false | _ -> true
@@ -230,7 +233,8 @@ let timeSummary = function
         sprintf "%d day(s) and %d hour(s)" (hours / 24) (hours % 24)
 let alert state msg = queryInteraction {
     let state = state |> GameState.mapLog (Log.log msg)
-    return! Query.alert state msg
+    do! Query.alert state msg
+    return state
     }
 let retirementMessage state =
     if state.gp >= 0 then
@@ -282,29 +286,28 @@ let rec doRest (state: GameState) : Eventual<_,_,_> = queryInteraction {
         | "Advance" -> return! doTower (advance state)
         | "Rest" -> return! doRest (advance state)
         | "Return to town" ->
-            do! alert state (retirementMessage state)
-            return state
+            return! alert state (retirementMessage state)
         | _ -> return state
         }
 and doTower (state: GameState) : Eventual<_,_,_> = queryInteraction {
-    let e, c, xp, gp = makeTower state.pcs state.parEarned state.towerNumber
-    do! alert state <|
+    let e, c, parEarned, totalXpEarned, gp = makeTower state.pcs state.parEarned state.towerNumber
+    let! state = alert state <|
         (sprintf "You have reached the %s tower of Gate #%d. %s" (match state.towerNumber with | 1 -> "first" | 2 -> "second" | 3 -> "inner" | _ -> "final") state.gateNumber
             (battlecry state.pcs e))
     let state = fight e state
     if state.pcs |> List.exists (fun pc -> pc.hp > 0) |> not then
         // everyone is dead
-        do! alert state "You have died!"
-        return state
+        return! alert state "You have died!"
     else
-        let state = { state with gp = state.gp + gp; pcs = state.pcs |> List.map (fun pc -> { pc with xp = pc.xp + xp }); parEarned = state.parEarned + xp }
-        do! alert state (sprintf "You have found %d gold pieces and earned %d experience points." gp xp)
+        let livePCs = state.pcs |> List.sumBy (fun pc -> if pc.hp > 0 then 1 else 0)
+        let xp = totalXpEarned / livePCs
+        let state = { state with gp = state.gp + gp; pcs = state.pcs |> List.map (fun pc -> if pc.hp <= 0 then pc else { pc with xp = pc.xp + xp }) |> List.sortByDescending (fun pc -> pc.hp > 0); parEarned = state.parEarned + parEarned }
+        let! state = alert state (sprintf "You have found %d gold pieces and earned %d experience points." gp xp)
         match! Query.choose state (sprintf "You have earned %d XP and %d gold pieces, and you've been adventuring for %s. What do you wish to do next?" state.pcs.[0].xp state.gp (timeSummary state.timeElapsed)) ["Advance"; "Rest"; "Return to town"] with
         | "Advance" -> return! doTower (advance state)
         | "Rest" -> return! doRest (advance state)
         | "Return to town" ->
-            do! alert state (retirementMessage state)
-            return state
+            return! alert state (retirementMessage state)
         | _ -> return state
     }
 let doGate state : Eventual<_,_,_> = queryInteraction {
@@ -314,6 +317,6 @@ let doGate state : Eventual<_,_,_> = queryInteraction {
 let game() : Eventual<_,_,_> = queryInteraction {
     let state = GameState.empty
     let! state = getPCs state true false
-    do! alert state "Before you lies the Wild Country, the Gate of Doom. Prepare yourselves for death and glory!"
+    let! state = alert state "Before you lies the Wild Country, the Gate of Doom. Prepare yourselves for death and glory!"
     return! doGate state
     }
