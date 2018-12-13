@@ -100,6 +100,7 @@ let numberQuery prompt state updateState answer =
 let selectQuery prompt choices answer =
     div [] [
         yield str prompt
+        yield br[]
         for choice in choices do
             yield Button.button [Button.OnClick <| answer choice; Button.Color Fulma.Color.IsBlack] [str choice]
         ]
