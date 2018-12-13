@@ -60,10 +60,16 @@ module KeyCode =
     let downArrow =  40.
 
 let onKeyDown keyCode action =
-      OnKeyDown (fun (ev:Fable.Import.React.KeyboardEvent) ->
-          if ev.keyCode = keyCode then
-              ev.preventDefault()
-              action ev)
+    OnKeyDown (fun (ev:Fable.Import.React.KeyboardEvent) ->
+        if ev.keyCode = keyCode then
+            ev.preventDefault()
+            action ev)
+
+let mutable onKeypress : (KeyboardEvent -> bool) option = None
+document.addEventListener_keydown(fun ev ->
+    if onKeypress.IsSome && onKeypress.Value(ev) then
+        ev.preventDefault()
+    obj())
 
 let freeTextQuery prompt state updateState answer =
     div [] [
@@ -122,6 +128,18 @@ let root model dispatch =
         match model with
         | { modalDialogs = (Operation(q,_) as op, vm)::_ } ->
             let inline answer v _ = progress dispatch op v
+            match q with
+            | Query.Alert _ ->
+                onKeypress <- Some(fun ev -> if ev.keyCode = KeyCode.enter then answer "" (); true else false)
+            | Query.Select(_, choices) ->
+                onKeypress <- Some(fun ev ->
+                    match System.Int32.TryParse ev.key with
+                    // use one-based choosing for UI purposes: 1 is the first choice, 2 is the second
+                    | true, n when n-1 < choices.Length ->
+                        answer (choices.[n-1])()
+                        true
+                    | _ -> false)
+            | _ -> onKeypress <- None            
             match q with
             | Query.Confirm(q) -> confirmQuery q answer
             | Query.Freetext(q) ->
