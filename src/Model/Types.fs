@@ -18,9 +18,13 @@ type StatBlock = {
     name: Name
     hp: int
     xp: int
+    str: int
+    dex: int
+    con: int
+    int: int
+    wis: int
+    cha: int
     }
-    with
-    member this.id = this.name
 
 type RosterEntry = {
     original: StatBlock
@@ -59,7 +63,7 @@ type GameState = {
     gp: int
     log: Log.Data
     roster: Roster option
-    }    
+    }
 
 type Query =
     | Freetext of string
