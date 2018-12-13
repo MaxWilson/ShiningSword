@@ -126,7 +126,7 @@ let partySummary =
 
 let logOutput =
     lazyView <| fun (log: Log.Data) ->
-        div[] (Log.extract log |> List.head |> List.map (fun line -> p[][str line]))
+        div[] (Log.extract log |> List.last |> List.map (fun line -> p[][str line]))
     
 let root model dispatch =
     let contents =

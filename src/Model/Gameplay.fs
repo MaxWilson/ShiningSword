@@ -249,6 +249,7 @@ let fight encounter state =
     let updateHp pcs =
         pcs |> List.mapi (fun i pc -> { pc with hp = !(snd goodguys.[i]) })
     { state with log = log; pcs = updateHp state.pcs }
+
 let rec doRest (state: GameState) : Eventual<_,_,_> = queryInteraction {
     let state =
         { state with timeElapsed = state.timeElapsed + 3600 * 8; pcs = state.pcs |> List.map (fun pc -> if pc.hp > 0 then { pc with hp = 10 } else pc) }
