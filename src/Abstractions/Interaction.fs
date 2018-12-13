@@ -7,7 +7,7 @@ type Eventual<'arg, 'intermediate, 'result> =
     | Intermediate of question:'intermediate * provideAnswer:('arg -> (Eventual<'arg, 'intermediate, 'result>))
 
 // An Eventual that has not completed yet, and will have a side effect when it does complete
-type Operation<'t, 'msg> = Operation of 't * ('msg -> Eventual<'msg, 't, unit>)
+type Operation<'q, 'arg, 'intermediate> = Operation of 'q * ('arg -> Eventual<'arg, 'intermediate, unit>)
 
 module Eventual =
 
@@ -40,9 +40,9 @@ module Eventual =
     //  or post a pending Operation somewhere where it will get progressed later.
     let toOperation onRegister onUnregister consumeValue = function
         | Final v -> consumeValue v
-        | Intermediate(q, f) as m ->
-            let op = Operation(q, f >> flip bind (fun v -> consumeValue v; onUnregister(); Final ()))
-            onRegister op
+        | Intermediate(q, f) ->
+            let next = f >> flip bind (fun v -> consumeValue v; onUnregister(); Final ())
+            onRegister q next
 
 type InteractionBuilder<'query, 'input>() =
     let wrap q recognizer continuation  =

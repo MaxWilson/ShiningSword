@@ -5,16 +5,16 @@ open Interaction
 open Model.Types
 
 type ViewModel = string
-
+type Operation = Operation<Query, string, Query * GameState>
 type Model = {
-    modalDialogs: (Operation<Query, string> * ViewModel) list
+    modalDialogs: (Operation * ViewModel) list
     game: GameState
     }
 
 type Msg =
-    | NewModal of Operation<Query, string> * ViewModel
+    | NewModal of Operation * GameState * ViewModel
     | UpdateModalViewModel of ViewModel
-    | UpdateModalOperation of Operation<Query, string>
+    | UpdateModalOperation of Operation * GameState
     | CloseModal
 
 

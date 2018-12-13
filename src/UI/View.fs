@@ -37,13 +37,13 @@ module Parse =
 
     let page = locationParser (|Page|_|)
 
-let modalOperation dispatch state onSuccess e =
-    e |> Eventual.toOperation (fun op -> dispatch (NewModal(op, state))) (fun () -> dispatch CloseModal) (fun v -> onSuccess v)
+let modalOperation dispatch viewModel onSuccess e =
+    e |> Eventual.toOperation (fun (q, gameState) continue' -> dispatch (NewModal(Operation(q, continue'), gameState, viewModel))) (fun () -> dispatch CloseModal) (fun v -> onSuccess v)
 
 let progress dispatch (Operation(_:Model.Types.Query, provideAnswer)) answer =
     match provideAnswer answer with
     | Final _ -> ()
-    | Intermediate(q, answer) -> dispatch (UpdateModalOperation (Operation(q, answer)))
+    | Intermediate((q,gameState), answer) -> dispatch (UpdateModalOperation (Operation(q, answer), gameState))
 
 let confirmQuery txt answer =
     div [] [

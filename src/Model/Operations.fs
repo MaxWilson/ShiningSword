@@ -32,23 +32,18 @@ module Query =
         match ParseArgs.Init arg |> recognizer with
         | Some(v, End) -> Some v
         | _ -> None
-    let text txt =
-        Query.Freetext txt, Some
-    let confirm txt =
-        Query.Confirm txt, (tryParse Recognizer.``|Bool|_|``)
-    let number txt =
-        Query.Number txt, (tryParse Recognizer.``|Number|_|``)
-    let choose prompt choices =
+    let text state txt =
+        (Query.Freetext txt, state), Some
+    let confirm state txt =
+        (Query.Confirm txt, state), (tryParse Recognizer.``|Bool|_|``)
+    let number state txt =
+        (Query.Number txt, state), (tryParse Recognizer.``|Number|_|``)
+    let choose state prompt choices =
         let tryChoose arg =
             choices |> Seq.tryFind (fun choice -> arg = choice.ToString())
-        Query.Select (prompt, choices |> Seq.map (fun v -> v.ToString()) |> Array.ofSeq), tryChoose
-    let alert txt =
-        Query.Alert txt, thunk (Some ())
-
-module Log =
-    let log msg log =
-        log + "\n" + msg
-    let empty = ""
+        (Query.Select (prompt, choices |> Seq.map (fun v -> v.ToString()) |> Array.ofSeq), state), tryChoose
+    let alert state txt =
+        (Query.Alert txt, state), thunk (Some ())
 
 module Creature =
     let map f (c: RosterEntry) =

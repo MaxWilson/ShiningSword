@@ -19,6 +19,8 @@ type StatBlock = {
     hp: int
     xp: int
     }
+    with
+    member this.id = this.name
 
 type RosterEntry = {
     original: StatBlock
@@ -35,19 +37,28 @@ type Declarations = (Id * Intention) list
 module Log =
     type Data = string list * string list list
     let empty = [], []
-    let log msg (log:Data) =
+    let log msg (log:Data) : Data =
         match log with
         | buffer, log -> msg::buffer, log
-    let flush (log:Data) =
+    let flush (log:Data) : Data =
         match log with
         | buffer, (h::rest) -> [], (h@(List.rev buffer))::rest
         | buffer, [] -> [], [List.rev buffer]
-    let advance (log:Data) =
+    let advance (log:Data) : Data =
         match flush log with
         | _, rest -> [], []::rest
     let extract = flush >> snd >> List.rev
-    
-type GameState = Roster * Log.Data
+
+type Party = {
+    pcs: StatBlock list
+    parEarned: int
+    gateNumber: int
+    towerNumber: int
+    randomNumber: int
+    timeElapsed: int // seconds
+    gp: int
+    }    
+type GameState = Party * Log.Data
 
 type Query =
     | Freetext of string
