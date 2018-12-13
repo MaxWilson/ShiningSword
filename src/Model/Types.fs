@@ -49,7 +49,7 @@ module Log =
         | _, rest -> [], []::rest
     let extract = flush >> snd >> List.rev
 
-type Party = {
+type GameState = {
     pcs: StatBlock list
     parEarned: int
     gateNumber: int
@@ -57,8 +57,9 @@ type Party = {
     randomNumber: int
     timeElapsed: int // seconds
     gp: int
+    log: Log.Data
+    roster: Roster option
     }    
-type GameState = Party * Log.Data
 
 type Query =
     | Freetext of string

@@ -8,4 +8,16 @@ let thunk1 f arg _ = f arg
 let thunk2 f arg1 arg2 _ = f arg1 arg2
 let thunk3 f arg1 arg2 arg3 _ = f arg1 arg2 arg3
 
+let shouldntHappen _ =
+    System.Diagnostics.Debugger.Break()
+    failwith "This shouldn't ever happen. If it does there's a bug"
 
+let oxfordJoin = function
+    | _::_::_::_rest as lst -> // length 3 or greater
+        match List.rev lst with
+        | last::rest ->                        
+            sprintf "%s, and %s" (System.String.Join(", ", List.rev rest)) last
+        | _ -> shouldntHappen()
+    | [a;b] -> sprintf "%s and %s" a b
+    | [a] -> a
+    | [] -> "Nothing at all!" // shouldn't happen

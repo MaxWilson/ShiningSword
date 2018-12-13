@@ -101,20 +101,23 @@ let mixTemplate mixProbability getTemplate arg =
 
 let queryInteraction = Interaction.InteractionBuilder<Query * GameState, string>()
 
-let stateUpdate (state, log) f : GameState = (f state), log
-let log (state, log) msg = state, Log.log msg log
-let logAdvance (state, log) = state, Log.advance log
+let log msg state = { state with log = Log.log msg state.log }
+let logAdvance state = { state with log = Log.advance state.log }
 
 let rec getPCs (state: GameState) : Eventual<_,_,_> = queryInteraction {
-    let! name = Query.text state "Enter a name:"
+    let! name = Query.text state (if state.pcs = [] then "What's your name?" else "Enter a name:")
     let pc = { name = name; xp = 0; hp = 10 }
     
-    let state = stateUpdate state (fun state -> { state with pcs = pc::state.pcs })
-    let! more = Query.confirm state "Do you want to recruit help? It costs 100 gold pieces up front plus salary."
-    if more then
+    let state = { state with pcs = state.pcs@[pc] }
+    let! more = Query.choose state (sprintf "Do you want to recruit%shelp? It costs 100 gold pieces up front plus salary." (if state.pcs.Length = 1 then " " else " more "))
+                    ["I have a friend"; "Hire help"; "No, I'm ready"]
+    match more with
+    | "I have a friend" ->
+        return! getPCs state // no cost
+    | "Hire help" ->
         // charge 100 gp to recruit a companion
-        return! getPCs (stateUpdate state <| fun s -> { s with gp = s.gp - 100 })
-    else
+        return! getPCs { state with gp = state.gp - 100 }
+    | _ ->
         return state
     }
 
@@ -167,12 +170,6 @@ let makeRandom pcs parXpEarned nRandom =
     let gpEarned = rand (Math.Log10 (float budget) |> int) // make less money from random encounters
     e, c, earned, gpEarned
 
-let oxfordJoin = function
-    | a::b::c::rest -> sprintf "%s, and %s" (System.String.Join(", ", b::c::rest)) a
-    | [a;b] -> sprintf "%s and %s" a b
-    | [a] -> a
-    | [] -> "Nothing at all!" // shouldn't happen
-
 let battlecry (pcs: StatBlock list) monsters =
     let plural = match monsters with [_, 1] -> false | _ -> true
     let cries = [|
@@ -194,11 +191,11 @@ let battlecry (pcs: StatBlock list) monsters =
         | [] -> []
     cry (monsterDescription monsters |> oxfordJoin)
 
-let advance =
-    let advance = function
-    | { towerNumber = 4 } as state -> { state with gateNumber = state.gateNumber + 1; towerNumber = 1; timeElapsed = state.timeElapsed + 600 }
-    | { towerNumber = n } as state -> { state with towerNumber = n + 1; timeElapsed = state.timeElapsed + 600 }
-    flip stateUpdate advance >> logAdvance
+let advance state =
+    match state with
+        | { towerNumber = 4 } as state -> { state with gateNumber = state.gateNumber + 1; towerNumber = 1; timeElapsed = state.timeElapsed + 600 }
+        | { towerNumber = n } as state -> { state with towerNumber = n + 1; timeElapsed = state.timeElapsed + 600 }
+    |> logAdvance
 
 let timeSummary = function
     | n when n < 60 -> sprintf "%d seconds" n
@@ -207,34 +204,40 @@ let timeSummary = function
     | n ->
         let hours = (n/(3600))
         sprintf "%d day(s) and %d hour(s)" (hours / 24) (hours % 24)
-
+let alert state msg = queryInteraction {
+    let state = state |> GameState.mapLog (Log.log msg)
+    return! Query.alert state msg
+    }
+let retirementMessage state =
+    if state.gp >= 0 then
+        (sprintf "%s happily retire from adventuring and spend the rest of your life living off %d gold pieces that you found." (state.pcs |> List.map (fun pc -> pc.name) |> oxfordJoin |> sprintf "%s, you") state.gp)
+    else
+        (sprintf "%s glumly retire from adventuring and spend the rest of your life paying off the %d gold pieces that you owe." (state.pcs |> List.map (fun pc -> pc.name) |> oxfordJoin |> sprintf "%s, you") -state.gp)
 let rec doRest (state: GameState) : Eventual<_,_,_> = queryInteraction {
-    let party = fst state
-    match! Query.choose state (sprintf "You have earned %d XP and %d gold pieces, and you've been adventuring for %s. What do you wish to do next?" party.pcs.[0].xp party.gp (timeSummary party.timeElapsed)) ["Advance"; "Rest"; "Return to town"] with
+    match! Query.choose state (sprintf "You have earned %d XP and %d gold pieces, and you've been adventuring for %s. What do you wish to do next?" state.pcs.[0].xp state.gp (timeSummary state.timeElapsed)) ["Advance"; "Rest"; "Return to town"] with
         | "Advance" -> return! doTower (advance state)
         | "Rest" -> return! doRest (advance state)
         | "Return to town" ->
-            do! Query.alert state (sprintf "You happily retire from adventuring and spend the rest of your life living off %d gold pieces that you found." (fst state).gp)
+            do! alert state (retirementMessage state)
             return state
         | _ -> return state
         }
 and doTower (state: GameState) : Eventual<_,_,_> = queryInteraction {
-    let party = fst state
-    let e, c, xp, gp = makeTower party.pcs party.parEarned party.towerNumber
-    do! Query.alert state (sprintf "You have reached the %s tower of Gate #%d" (match party.towerNumber with | 1 -> "first" | 2 -> "second" | 3 -> "inner" | _ -> "final") party.gateNumber)
-    do! Query.alert state (battlecry party.pcs e)
+    let e, c, xp, gp = makeTower state.pcs state.parEarned state.towerNumber
+    do! alert state (sprintf "You have reached the %s tower of Gate #%d" (match state.towerNumber with | 1 -> "first" | 2 -> "second" | 3 -> "inner" | _ -> "final") state.gateNumber)
+    do! alert state (battlecry state.pcs e)
     if rand 10 = 1 then
         // super simple battle resolver: die 10% of the time
-        do! Query.alert state "You have died!"
+        do! alert state "You have died!"
         return state
     else
-        do! Query.alert state (sprintf "You have found %d gold pieces and earned %d experience points." gp xp)
-        let state = stateUpdate state <| fun party -> { party with gp = party.gp + gp; pcs = party.pcs |> List.map (fun pc -> { pc with xp = pc.xp + xp }); parEarned = party.parEarned + xp }
-        match! Query.choose state (sprintf "You have earned %d XP and %d gold pieces, and you've been adventuring for %s. What do you wish to do next?" party.pcs.[0].xp party.gp (timeSummary party.timeElapsed)) ["Advance"; "Rest"; "Return to town"] with
+        do! alert state (sprintf "You have found %d gold pieces and earned %d experience points." gp xp)
+        let state = { state with gp = state.gp + gp; pcs = state.pcs |> List.map (fun pc -> { pc with xp = pc.xp + xp }); parEarned = state.parEarned + xp }
+        match! Query.choose state (sprintf "You have earned %d XP and %d gold pieces, and you've been adventuring for %s. What do you wish to do next?" state.pcs.[0].xp state.gp (timeSummary state.timeElapsed)) ["Advance"; "Rest"; "Return to town"] with
         | "Advance" -> return! doTower (advance state)
         | "Rest" -> return! doRest (advance state)
         | "Return to town" ->
-            do! Query.alert state (sprintf "%s happily retire from adventuring and spend the rest of your life living off %d gold pieces that you found." (party.pcs |> List.map (fun pc -> pc.name) |> oxfordJoin |> sprintf "%s, you") party.gp)
+            do! alert state (retirementMessage state)
             return state
         | _ -> return state
     }
@@ -243,9 +246,8 @@ let doGate state : Eventual<_,_,_> = queryInteraction {
     }
 
 let game() : Eventual<_,_,_> = queryInteraction {
-    let state = { pcs = []; parEarned = 0; gateNumber = 1; towerNumber = 1; randomNumber = 1; timeElapsed = 0; gp = 500 }, Log.empty
+    let state = GameState.empty
     let! state = getPCs state
-    do! Query.alert state "Before you lies the Wild Country, the Gate of Doom. Prepare yourselves for death and glory!"
-    let! state = doGate state
-    return ()
+    do! alert state "Before you lies the Wild Country, the Gate of Doom. Prepare yourselves for death and glory!"
+    return! doGate state
     }

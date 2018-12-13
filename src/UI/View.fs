@@ -16,7 +16,9 @@ open Fable.Helpers.React
 open Fable.Helpers.React.Props
 open Elmish.React
 open Elmish.Debug
+#if DEBUG
 open Elmish.HMR
+#endif
 open Interaction
 open Common
 open Fulma
@@ -103,6 +105,18 @@ let alertQuery prompt answer =
         yield Button.button [Button.OnClick <| answer "OK" ; Button.Props [AutoFocus true]] [str "OK"]
         ]
 
+let partySummary =
+    lazyView <| fun (game: GameState) ->
+        let line msg = p [] [str msg]
+        if game.pcs.IsEmpty then div[][]
+        else
+            div[] [
+                yield line <| "The party consists of " + (game.pcs |> List.map (fun pc -> pc.name) |> oxfordJoin)
+                for pc in game.pcs do
+                    yield line (sprintf "%s: HP %d XP %d" pc.name pc.hp pc.xp)
+                yield line <| sprintf "You have %d gold" game.gp
+                ]
+    
 let root model dispatch =
     let contents =
         match model with
@@ -124,7 +138,7 @@ let root model dispatch =
             div [] [
                 yield Button.button [Button.OnClick startGame; Button.Color Fulma.Color.IsBlack] [str "Start new game"]
                 ]
-    div [] [contents]
+    div [] [contents; partySummary model.game]
 
 
 // App
@@ -134,4 +148,4 @@ Program.mkProgram init update root
 |> Program.withDebugger
 #endif
 |> Program.withReact "elmish-app"
-|> Elmish.HMR.Program.run
+|> Program.run
