@@ -1,5 +1,6 @@
 module Model.Names
 open Model.Types
+open Common
 
 let names = [
     ("Tir na n'Og", "Male"), [|
@@ -208,3 +209,18 @@ let names = [
         "Gronk";"Sponk";"Spud";"Thud";"Blat";"Kreegah";"Krock";"Skar";"Smash";"Szeth";"Vallano"
         |]
     ]
+
+let chooseName sex nameType =
+    let eligibleLists = names |> List.filter (fun ((n,t),_) -> t = (sex.ToString()))
+    let chosenList = eligibleLists |> List.pick (fun ((n,_),l) -> if nameType = n then Some l else None)
+    let firstname = chooseRandom chosenList
+    let lastname =
+        match sex, names |> List.tryFind (fun ((n,t),_) -> (t = ("Last" + sex.ToString()) || t = "Last") && n = nameType) with
+        | _, Some (_, lst) -> chooseRandom lst
+        | Male, None -> sprintf "%s%s" (chooseRandom [|"ben ";"son ";"dak ";"s'";""|]) (chooseRandom chosenList)
+        | Female, None -> (chooseRandom [|"bat " + (chooseRandom chosenList); (chooseRandom chosenList) + "dotter"; "d'"+(chooseRandom chosenList); chooseRandom chosenList|])
+    match names |> List.tryFind (fun ((n,t),_) -> t = ("Cognomen" + sex.ToString()) && n = nameType) with
+    | Some (_, cognomens) ->
+        sprintf "%s %s %s" firstname lastname (chooseRandom cognomens)
+    | None ->
+        sprintf "%s %s" firstname lastname

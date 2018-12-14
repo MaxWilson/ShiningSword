@@ -2,7 +2,7 @@ module Model.Types
 
 type Roll = { n: int; die: int; bonus: int }
 
-type DamageType = Weapon | Fire | Cold
+type DamageType = Weapon | Fire | Cold | Poison
 
 type Attack = {
     tohit: int
