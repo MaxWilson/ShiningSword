@@ -149,7 +149,7 @@ let rec getPCs (state: GameState) firstPerson isFriend : Eventual<_,_,_> = query
     }
 
 let makeTower pcs parXpEarned nTower =
-    let N = pcs |> Seq.length // number of ideal PCs
+    let N = 4 // number of ideal PCs
     let avg a b = (a + b)/2
     let isEpic = parXpEarned >= 400000
     let computeLevel xp =
