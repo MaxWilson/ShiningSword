@@ -290,7 +290,7 @@ let rec doRest (state: GameState) : Eventual<_,_,_> = queryInteraction {
         |> GameState.mapLog (Log.log "The party rests for 8 hours and heals")
     match! Query.choose state (sprintf "You have earned %d XP and %d gold pieces, and you've been adventuring for %s. What do you wish to do next?" state.pcs.[0].xp state.gp (timeSummary state.timeElapsed)) ["Advance"; "Rest"; "Return to town"] with
         | "Advance" -> return! doTower (advance state)
-        | "Rest" -> return! doRest (advance state)
+        | "Rest" -> return! doRest state
         | "Return to town" ->
             return! alert state (retirementMessage state)
         | _ -> return state
@@ -312,7 +312,7 @@ and doTower (state: GameState) : Eventual<_,_,_> = queryInteraction {
         let! state = alert state (sprintf "You have found %d gold pieces and earned %d experience points." gp xp)
         match! Query.choose state (sprintf "You have earned %d XP and %d gold pieces, and you've been adventuring for %s. What do you wish to do next?" state.pcs.[0].xp state.gp (timeSummary state.timeElapsed)) ["Advance"; "Rest"; "Return to town"] with
         | "Advance" -> return! doTower (advance state)
-        | "Rest" -> return! doRest (advance state)
+        | "Rest" -> return! doRest state
         | "Return to town" ->
             return! alert state (retirementMessage state)
         | _ -> return state
