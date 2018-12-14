@@ -3559,13 +3559,986 @@ Timat	Tjia	Tjuiu
 Tjuyu	Tutu	Wenis
 Weret	Wernero"""
 
+let english =
+    ["""Adam	Geoffrey	Gilbert
+Henry	Hugh	John
+Nicholas	Peter	Ralf
+Richard	Robert	Roger
+Simon	Thomas	Walter
+William""";
+"""Agnes	Alice	Avice
+Beatrice	Cecily	Emma
+Isabella	Joan	Juliana
+Margery	Matilda	Rohesia""";
+"""Achard
+Addinell	Adeney	Aguilon
+Albelin	Alevi	Alis
+Altard	Ansgot	Anzeray
+Arundel	Aschuill	Asselin
+Auber	Aubert	Auffrye
+Aungier	Auvray	Azor
+Bachiler	Baignard	Bailleul
+Bainard	Baliol	Ballard
+Barkentin	Basnage	Basset
+Baudry	Baujot	Bauldry
+Bauquemare	Bavent	Beaumanoir
+Beaumarchais	Beaumont	Beauvallet
+Becdelièvre	Bele	Belet
+Bellecote	Belmis	Benoist
+Beringar	Berners	Bernières
+Bertran	Bigot	Blancbaston
+Blangi	Blosbeville	Blouet
+Bohon	Boisivon	Boislevesque
+Boissel	Boivin	Bolam
+Bolbec	Bondeville	Bonel
+Bonenffant	Boneth	Bonvalet
+Bordel	Bosanquet	Bosc
+Bosiet	Bossard	Bostel
+Boteler	Boterel	Botin
+Bouchard	Bourchier	Bourdekin
+Bourdet	Bourneville	Bradwardine
+Brai	Braund	Brebeuf
+Brereton	Bretel	Breteuil
+Bretteville	Brèvedent	Brimou
+Brinon	Briouse	Briqueville
+Brix	Buci	Budi
+Bulli	Burci	Burguet
+Buron	Bursigni	Busnois
+Busquent	Caen	Cailli
+Caillot	Cairon	Calmette
+Cambrai	Campion	Canaigres
+Canouville	Caradas	Carbonnel
+Cardon	Cardonell	Carnet
+Carteret	Castillon	Caunter
+Cavelier	Ceauce	Cely
+Challenge	Chandos	Chartres
+Chauncy	Cheney	Cherbourg
+Cioches	Claville	Clerinell
+Clinchamps	Coliar	Colleville
+Colombelles	Colombieres	Comyn
+Conteville	Corbet	Corbière
+Corbon	Cormeilles	Corneilles
+Corviser	Cosin	Couci
+Couer	Courcelle	Courcelles
+Courci	Courcon	Courcy
+Courseume	Craon	Crevecoeur
+Croc	Cruel	Cugey
+Cul de Louf	Culai	Cumin
+Curteys	d'Ouilli	d'Adreci
+d'Aguillon	d'Albert	d'Alencon
+Dalyngridge	d'Amboise	d'Ambray
+Damours	d'Andeli	d'Andre
+d'Angers	d'Angerville	d'Angleville
+Danneville	d'Ansleville	Danvers
+Darcy	Darell	d'Argentan
+D'Argouges	d'Argues	d'Armentieres
+d'Arques	d'Athenous	d'Aubernon
+d'Auberville	d'Audrieu	d'Aufai
+d'Aumale	Daunger	d'Aunon
+D'Auvay	D'Auvrecher	d'Avranches
+d'Avre	de Bailleul	de Balon
+de Bans	de Bapaumes	de Barbes
+de Beauchamp	de Beaufou	de Beaumais
+de Beaumont	de Beauvais	de Bellehache
+de Bellemare	de Bellièvre	de Belmeis
+De Berchelai	de Bercheres	de Bernai
+de Bernieres	de Berranger	de Berville
+de Bethencourt	de Bienfaite	de Biville
+de Blays	de Blundville	de Bouilon
+de Bourgueville	de Breos	de Cahaihnes
+de Calmesnil	de Caulmont	de Caux
+de Challon	de Chefderue	de Civille
+de Corbeil	de Cormeilles	de Coucy
+de Courseilles	de Croismare	de Faicterau
+De Felius	De Fry	de Genville
+de Gosbeck	de Grieu	de Hanivel
+de Hattes	de Herle	de Ireby
+de La Champagne	de La Hay	de La Mare
+de La Noue	de La Place	de La Porte
+de La Reue	de La Roche	de Lampérière
+de Lombelon	de Lorraine	de Malhortye
+de Maromme	de Massard	de Mesniel
+de Mesnildo	de Monchy	de Monluc
+de Montchrestien	de Montfault	de Montgomery
+de Moustiers	de Moy	de Munchesney
+de Pardieu	de Perronet	de Pinchemont
+de Recusson	de Rely	de Reymes
+de Roncherolles	de Salynges	de Saussay
+de Savage	de Seguzzo	de Servian
+de Seyssel	de Tanie	de Tocni
+de Toeni	de Valles	de Vandes
+de Vaux	de Vesci	de Villy
+de Viuepont	de Vymont	d'Ecouis
+d'Engagne	d'Eresby	des Moutiers
+des Vaux	d'Escalles	Deschamps
+Desmares	d'Espagne	Destain
+d'Eu	d'Evreux	d'Helion
+d'Hericy	d'Houdetot	Digby
+d'Incourt	Ditton	Dive Beugelin
+d'Ivri	Dol Hugue	d'Olgeanc
+d'Orbec	d'Orglande	d'Ornontville
+Douai	Dreux	Droullin
+Druel	du Bec	du Bois-Hebert
+du Bosc-Roard	du Breuil	Du Buisson
+Du Gouey	du Merle	Du Moucel
+du Perche	Du Perron	du Quesnai
+du Saussai	du Theil	du Tilleul
+Dubosc	Dufay	Dufour
+Duhamel	Dumont	d'Unepac
+Dupasquier	Duquesne	Durandal
+Durerie	Durjardin	Durville
+Duval	Dyel	Ecouland
+Elers	Emory	Engerrand
+Erquemboure	Espec	Esteney
+Evelyn	Eveque	Faceby
+Faintree	Falaise	Fantosme
+Faucon	Fecamp	Fergant
+Ferrieres	Feu	Fitzalan
+Fitzherbert	Fitzhugh	Fitzroy
+Flambard	Folet	Foliot
+Fonnereau	Fontemai	Fossard
+Fougeres	Fourneaux	Framan
+Fresle	Fribois	Froissart
+Fromentin	Furnival	Gael
+Gand	Garin	Gaveston
+Gibard	Giffard	Gillain
+Gilpin	Giscard	Glanville
+Godart	Godefroy	Gomboult
+Gouel	Goulaffre	Gournai
+Grai	Grancourt	Grentemesnil
+Grenteville	Greslet	Griffin
+Grimoult	Grouchet	Groulart
+Guéribout	Guernon	Gueron
+Guideville	Guiffart	Guildersleeve
+Guinand	Gurney	Guyot
+Hachet	Halacre	Hallé
+Hamage	Harcourt	Haute
+Hauville	Hédiart	Hendry
+Herbard	Heriet	Heuzé
+Hewse	Hodenc	Holland
+Hotot	Hue	Hugonin
+Hynde	Ide	Jolland
+Jubert	la Berviere	la Bruiere
+la Cleve	la Foret	la Guierche
+la Mare	la Pommeraie	la Riviere
+La Vache	La Verrier	Labbé
+Laci	l'Adoube	l'Aigle
+Lallement	l'Ane	Lanquetot
+l'Appeville	l'Archer	l'Aune
+Le Barge	le Berruier	Le Blanc
+le Blond	le Bouguignon	le Breton
+Le Chandelier	Le Clerc	Le Conte
+Le Cordier	Le Cornu	le Despensier
+Le Doulcet	le Flamand	le Gaucher
+Le Goix	Le Grant	Le Gras
+Le Jumel	Le Lieur	Le Maistre
+Le Marchant	le Marechal	Le Marinier
+Le Masson	Le Paulmier	Le Pelletier
+Le Pesant	le Poitevin	Le Prévost
+le Roux	Le Roux	Le Seigneur
+le Senechal	Le Sueur	Le Tellier
+le Vicomte	Lefebre	l'Estourmi
+Letre	Levasseur	Lhuillier
+Libourg	Ligonier	L'ile
+Linesi	Lisieux	Loges
+Lorz	Loucelles	Louet
+Louvet	Lovet	Lucy
+Ludel	Lynom	Machault
+Machel	Maci	Maignart
+Malet	Mallebisse	Malleville
+Mallilie	Mallory	Malvallet
+Malveisin	Maminot	Mandeville
+Manneilli	Mansel	Mantel
+Marchés	Marchmain	Marci
+Marescot	Margas	Mariage
+Marillac	Marisco	Martel
+Mathan	Maubenc	Maudit
+Mauduit	Maunsell	Maurouard
+Mautravers	Maynet	Medley
+Mercier	Meri	Merteberge
+Mesnage	Meulan	Meules
+Meverel	Middleton	Mobec
+Moion	Monceaux	Montacute
+Montaigu	Montbrai	Mont-Canisi
+Montfiquet	Montfort	Montgomery
+Montgommeri	Moron	Morphew
+Mortagne	Mortain	Mortemer
+Mortmain	Moyaux	Mucedent
+Munneville	Murdac	Musard
+Musart	Mussegros	Mustel
+Nelond	Neot	Nesdin
+Neufmarche	Neuville	Noyers
+Omand	Orlebar	Ormond
+Osmond	Osmont	Ouistreham
+Painel	Paixdecouer	Pancevolt
+Pantoul	Papelion	Papon
+Paris	Parry	Parthenai
+Paschal	Pasquier	Pastforeire
+Patris	Paumera	Peccoth
+Peche	Peis	Pennant
+Perci	Péricard	Perroy
+Petremol	Peveril	Pevrel
+Picard	Picot	Picvini
+Pierrepont	Pinel	Pipin
+Pippery	Piquiri	Pistres
+Pithou	Plucknet	Poer
+Poignant	Poillei	Pointel
+Pont	Pont de l'Arche	Pontchardon
+Port	Postel	Poussin
+Prestcote	Puchot	Quesnel
+Quièvremont	Quincarnon	Raimbeaucourt
+Rainecourt	Raleigh	Rames
+Raoullin	Rassent	Ravenot
+Rennes	Renold	Restault
+Reviers	Riebou	Rivière
+Roard	Rocque	Roger
+Romé	Romenel	Ros
+Rosai	Rou	Roussel
+Runeville	Sacquerville	Saint-Clair
+Sainte-d'Aignaux	Saint-Germain	Saint-Helene
+Saint-Leger	Saint-Ouen	Saint-Quentin
+Saint-Sanson	Saint-Valeri	Saint-Waleri
+Saisset	Sauvigni	Scolland
+Séguier	Senarpont	Senlis
+Sept-Meules	Simnel	Sollers
+Somneri	Sourdeval	Strivelyn
+Stukely	Tabraham	Taillebois
+Taillepied	Talvace	Tessel
+Thaon	Theroulde	Thibault
+Thiboust	Thorel	Tibon
+Tilly	Tinel	Tirel
+Toclive	Torteval	Touchet
+Tourlaville	Tourmente	Tournai
+Tournebulle	Tournebut	Tourneville
+Toustain	Tranchant	Trelli
+Tulles	Urry	Valance
+Valognes	Vastel	Vatteville
+Vaubadon	Vauville	Vaux
+Vavassour	Veci	Venois
+Ventris	Ver	Verdun
+Vernold	Vernon	Verrall
+Vesci	Vesli	Veteripont
+Vieuxpont	Villehardain	Villon
+Vipont	Vis-de-Louf	Vis-de-Loup
+Vitalis	Vivers	Viville
+Voisin	Wadard	Warci
+Watteau	Werables	Willoughby
+Wissant	Ygou
+Beauchamp
+Bigod	Bohun	Boleyn
+Cecil	Courteney	Dacre
+de Braose	de Burgh	de Clare
+de la Pole	de Lacy	de Montfort
+Devereux	Dudley	Fairfax
+Ferrers	Fiennes	Fitton
+Herbert	Howard	Lovell
+Montague	Mortimer	Mowbray
+Neville	Percy	Quincey
+Russell	Sidney	Stafford
+Stanley	Talbot	Umfraville
+Vane	Vaughan	Woodville"""
+    ]
+
+let greece =
+    ["""Abantes	Abas	Abascantus	Abderos	Aberkios	Ablerus
+Abreas	Abronychus	Abydos	Acaeus	Acamus	Acessamenus
+Acestes	Aclepiades	Acrisias	Acrisius	Acroneos	Actor
+Adeimanthos	Adelphius	Admetos	Adrastos	Adrastus	Adrestus
+Aeaces	Aegaeon	Aegicoros	Aegisthes	Aegon	Aeimnestos
+Aenesidemos	Aeolus	Aeropus	Aeschreas	Aesculapius	Aesepus
+Aeson	Aesop	Aetes	Aethon	Aetion	Aetios
+Aetolos	Agamedes	Agamemnon	Agapenor	Agapias	Agastrophos
+Agathocles	Agathon	Agelaus	Agenor	Agesilaus	Agetos
+Agis	Agrias	Aiantes	Aias	Aigeus	Airopos
+Aischylos	Akadios	Akamas	Aktis	Aktor	Alastor
+Alcaeos	Alcandros	Alcides	Alcimos	Alcinous	Alcmaion
+Alcman	Alcon	Alector	Alektryon	Aleuas	Alexandros
+Alexarchos	Alexias	Alexis	Alexon	Alkamenos	Alkestis
+Alketas	Alkibiades	Alkides	Alkimachos	Alkiphron	Alkmaion
+Aloeus	Alphaeus	Alpheos	Alphesiboeus	Alphios	Altes
+Alypius	Amarinceus	Ameinias	Ameinokles	Amiantos	Amompharetos
+Amopaon	Amphiaraos	Amphidamos	Amphimachos	Amphimnestus	Amphinomous
+Amphion	Amphios	Amphitrion	Amyntas	Amyntor	Amyris
+Amythaon	Anabesineos	Anacharsis	Anakletos	Anakreon	Anastasios
+Anaxagoras	Anaxandridas	Anaxandrides	Anaxandros	Anaxarchos	Anaxilaus
+Anaximander	Anaximenes	Anaxis	Anaxos	Anchialus	Anchimolios
+Anchises	Ancus	Andokides	Andraemon	Andreas	Androbulos
+Androcles	Androdamos	Androgeus	Aneristos	Aniketos	Anisodoros
+Antaeus	Antagoras	Antemion	Antenor	Anthemion	Antichares
+Antidoros	Antigenes	Antigonos	Antikles	Antilochus	Antinous
+Antiochus	Antipatris	Antipatros	Antiphales	Antiphones	Antiphus
+Antisthenes	Anytos	Anytus	Apelles	Apellicon	Aphidnos
+Apisaon	Apollodoros	Apollophanes	Apollos	Aratus	Arcas
+Arcesilaus	Archagoras	Archelaos	Archeptolemus	Archesilaus	Archestratidas
+Archilochus	Archytas	Arcidamus	Arcturus	Areilycus	Areisius
+Areithous	Argades	Argaeus	Argos	Aridolis	Arion
+Ariphron	Aristaeus	Aristagoras	Aristaios	Aristandros	Aristarchos
+Aristarchus	Aristides	Aristion	Aristippus	Aristoboulos	Aristobulus
+Aristocles	Aristocypros	Aristodemos	Aristogeiton	Aristomachos	Ariston
+Aristonous	Aristonymos	Aristophanes	Aristophantes	Aristos	Aristotles
+Aristoxenus	Arrabaios	Arridaios	Arsenios	Artemas	Artemidoros
+Artemios	Artemisthenes	Arybbas	Asasthenes	Ascalaphus	Ascanius
+Aschines	Asius	Asklepios	Asonides	Asopodoros	Asopus
+Asphalion	Assaraeus	Astacos	Aster	Asterion	Asteropaeus
+Astrabacus	Astyanax	Athamas	Athenades	Athenaeus	Athenion
+Athenodorus	Atiphates	Atreus	Atrometos	Attaginas	Attaginos
+Attalos	Atymnius	Atys	Audax	Augias	Auletes
+Autesion	Autodikos	Autolycus	Autolykos	Automedon	Autonous
+Axylus	Azeus	Bacchides	Bacchios	Bacchylides	Bacenor
+Bacis	Baerius	Balius	Barates	Bardas	Basileides
+Basileios	Basilides	Bathyaes	Belos	Bendis	Bianor
+Bias	Bion	Bisaltes	Biton	Blathyllos	Boethus
+Borus	Boter	Briareus	Briarus	Brison	Brygos
+Bucoli	Bulis	Burrhus	Butacidas	Callimachus	Callimorphus
+Carenos	Carneades	Carpophorus	Carpus	Casambus	Castor
+Ceas	Cebriones	Celeas	Cephalos	Cepheus	Cephissos
+Ceyx	Chabrias	Chaeremon	Chairophon	Chalcodon	Chalcon
+Charax	Chares	Charidemos	Charilaus	Charillos	Charmides
+Charon	Charopos	Cheiron	Chersis	Chileos	Chilon
+Choerilos	Choeros	Chremes	Chremon	Chremonides	Chromis
+Chromius	Chrysaor	Chryses	Chrysippos	Chrysogones	Chrysogonus
+Chrysolorus	Cilix	Cineas	Cinyras	Cisses	Cisseus
+Cleades	Cleandros	Cleathes	Cleisthenes	Cleobulus	Cleodaeos
+Cleombrotos	Cleomenes	Cleon	Cleonicus	Cleonymus	Clinias
+Clisthenes	Clonius	Clytius	Clytomedes	Cnoethos	Cobon
+Codros	Coenus	Coeranus	Coes	Cois	Conon
+Cöon	Copreus	Cordylion	Coronos	Corydallos	Corydon
+Crathis	Cratinus	Cratippus	Cretheus	Crethon	Cretines
+Crios	Croesus	Cronos	Cteatus	Ctesippus	Cuphagoras
+Cyberniskos	Cycnus	Cylon	Cynaegiros	Cyncus	Cyneas
+Cyniscus	Cypselos	Cyrenios	Cytorissos	Dadaces	Daedalos
+Daetor	Damasippus	Damasithymos	Damasos	Damastor	Damian
+Damianos	Damiskos	Damoetas	Damon	Danaos	Danaus
+Daphis	Daphnis	Dardanus	Dares	Davos	Deinias
+Deinokrates	Deinomenes	Deiotones	Deiphobus	Deiphonous	Deipylus
+Demades	Demaratos	Demarmenos	Demas	Demeas	Demetrios
+Democedes	Democoön	Demodocus	Demokrates	Demoleon	Demonax
+Demonous	Demophlos	Demosthenes	Deon	Derkylos	Deukalion
+Dexicos	Dexios	Diactorides	Diadromes	Diadumenus	Diagoras
+Dicaeus	Dieneces	Diocles	Diodoros	Diodorus	Diokles
+Diomedes	Dionysios	Dionysophanes	Dionysos	Diophantus	Diores
+Dioscuros	Diotrephes	Dismas	Dithyrambos	Dmetor	Dolon
+Dolops	Doreios	Doreius	Dorian	Doriskos	Doros
+Dorotheus	Doryssos	Dosithios	Drimylos	Dromeus	Dryas
+Dryops	Ducetius	Duris	Dymas	Dymnos	Echëeus
+Echekrates	Echelaos	Echemmon	Echemus	Echephron	Echepolus
+Echestratos	Eetion	Eioneus	Eirenaios	Elasus	Elatos
+Elatreus	Eleon	Elephenor	Elpenor	Elpides	Elpidius
+Empedocles	Endios	Endymion	Engenes	Eniopus	Ennaeus
+Ennomus	Ennychus	Enops	Eos	Epaenetus	Epaphos
+Epaphroditus	Epeigeus	Epeius	Ephialtes	Epicurus	Epicydes
+Epikrates	Epimenes	Epiphanes	Epistor	Epistrophos	Epitrophos
+Epizelos	Erasistratus	Eratosthenes	Eratostheres	Erechtheus	Eretmenus
+Ereuthalion	Erginus	Ergiyios	Erichthonius	Erxandros	Eryalus
+Erysichton	Eryx	Eryximachos	Eteocles	Eteokles	Eteonous
+Euaemon	Eualcidas	Euanthes	Euarestos	Eubalus	Eubulus
+Eucarpus	Euchenor	Eucleides	Eudorus	Eudoxsus	Eudoxus
+Euenius	Euenor	Euenus	Eugammon	Eugenios	Eugenius
+Euhemenis	Euippus	Eukles	Eumaeus	Eumastas	Eumelus
+Eumenes	Eumneus	Eumolpus	Euneas	Euonomos	Eupalinus
+Euphenes	Euphorbos	Euphorion	Euphronios	Eupolos	Euripides
+Euryanax	Eurybates	Eurybiades	Eurycliedes	Eurydamus	Eurydemon
+Eurydemos	Euryhus	Eurykrates	Eurykratides	Euryleon	Eurylochos
+Eurymachos	Euryphon	Eurypylos	Eurystenes	Eurysthenes	Eurystheus
+Eurysthios	Eurythion	Eurytos	Eussorus	Euthydemos	Euthynos
+Eutropios	Eutuches	Eutychides	Eutychus	Evaenetos	Evagoras
+Evandros	Evanetus	Evelthon	Evenios	Evenus	Evios
+Exaduis	Exekias	Faenus	Galenus	Gallus	Ganymedes
+Gauanes	Geleon	Gelo	Gelon	Gennadios	Gerasimos
+Giorgius	Glaukias	Glaukos	Glycon	Gnipho	Gordias
+Gorgias	Gorgion	Gorgos	Gorgythion	Gregorius	Gryllus
+Gurgos	Gylippos	Gyras	Gyrtias	Haemon	Hagias
+Hagnon	Halisthertes	Halius	Harmatidas	Harmocydes	Harmodios
+Harmon	Harpagos	Harpalion	Harpalos	Harpocras	Hecataeus
+Hegesandros	Hegesistratos	Hegetoridas	Heirax	Heiron	Hektor
+Helenos	Helgesippos	Helicaon	Heliodorus	Helios	Helle
+Hephaestos	Herakleides	Herakleitos	Heraklides	Hermeias	Hermeros
+Hermippos	Hermogenes	Hermolaos	Hermolycus	Hermon	Hermotimos
+Hero	Herodes	Herodianus	Herodion	Heromenes	Hicetaon
+Hiero	Hieronymus	Hipparchos	Hipparinos	Hippasus	Hippias
+Hippocoön	Hippoklides	Hippokratides	Hippolytos	Hippomachos	Hippomenes
+Hippon	Hipponax	Hipponicus	Hipponous	Hippotas	Hippothous
+Hippotion	Hoiples	Homeros	Hyakinthos	Hylas	Hyllos
+Hyllus	Hypatius	Hypeirochus	Hypenor	Hyperenor	Hyperion
+Hypsenor	Hyrcanus	Hyrtacus	Hyrtius	Iakchos	Ialmenes
+Iambulus	Iamus	Iasos	Iatragoras	Iatrokles	Ibanolis
+Ibykos	Icarion	Icarius	Icarus	Idaeus	Idaios
+Idas	Idomeneus	Ilioneus	Illyrius	Ilus	Imbrasus
+Imbrius	Imbrus	Inachos	Inachus	Inaros	Iobates
+Iolaos	Iollas	Ion	Iphiclus	Iphicrates	Iphikrates
+Iphinous	Iphitos	Iphitus	Iros	Irus	Isagoras
+Isandros	Ischenous	Isidor	Isidoros	Ision	Ismaros
+Ismenios	Isocrates	Isodemos	Isokrates	Itheus	Itylus
+Itys	Kadmos	Kaenas	Kaeneus	Kalchas	Kalesius
+Kaletor	Kalliaros	Kallias	Kallikles	Kallikrates	Kallimachos
+Kallinicus	Kallinos	Kallipides	Kallipos	Kallisthenes	Kallon
+Kameirus	Kandaules	Kannadis	Kapaneus	Kapys	Karipos
+Karopophores	Kasos	Kassandros	Kaunos	Kebalinos	Kebes
+Kekrops	Keos	Kephalon	Kephalos	Kerameikos	Kerkyon
+Keteus	Kimon	Kirphis	Kittos	Kleitos	Kleobis
+Kleomenes	Koines	Koinos	Konon	Koragos	Korax
+Kosmas	Krantor	Krateros	Kreon	Krinippos	Kristos
+Kritias	Kritoboulos	Kritodemos	Kriton	Kroisos	Krokinos
+Ktesiphon	Kyknos	Kynaegeiros	Kyrillos	Kyrios	Kyros
+Labdacus	Labotas	Laertes	Lagos	Laios	Lamachos
+Lampo	Lampon	Lampus	Lamus	Laodamas	Laodocus
+Laogonus	Laomedon	Laphanes	Lasos	Lasthenes	Laureion
+Leagros	Leandros	Learchos	Leicritus	Leitus	Lemnus
+Leo	Leocedes	Leodes	Leon	Leonidas	Leonnatos
+Leontiades	Leontis	Leoprepes	Leotychides	Lethos	Leucippus
+Leukos	Lichas	Licymnios	Linus	Loxias	Lukos
+Lycaon	Lycaretos	Lycidas	Lycomedes	Lycophon	Lycophron
+Lycoris	Lycurgos	Lycus	Lydus	Lygdamis	Lykomedes
+Lykon	Lynceus	Lysagoras	Lysandros	Lysanios	Lysias
+Lysikles	Lysimachos	Lysippos	Lysippus	Lysis	Macar
+Macarias	Machaon	Maeon	Maiandrios	Makarios	Maleos
+Males	Mantes	Mantios	Marcion	Marnes	Maro
+Maron	Marsyas	Mastor	Matullus	Mausolos	Mecistes
+Mecistios	Medios	Medon	Medus	Megadates	Megakles
+Megakreon	Megapenthes	Megareus	Megasthenes	Megathenes	Meges
+Megistias	Meidias	Melampos	Melampus	Melanippos	Melanthios
+Melanthos	Melas	Meleagros	Melegros	Meles	Meliboeus
+Melicertes	Memnon	Menalcas	Menandros	Menares	Menekrates
+Menelaos	Menestas	Menesthes	Menesthios	Menexinos	Menoeces
+Menoitios	Mentes	Mentor	Meriones	Mermerus	Merops
+Mesaulius	Mesthles	Methodios	Metiochus	Meton	Metrobius
+Metron	Metrophanes	Meurius	Micythos	Midas	Midylos
+Mikkos	Mikon	Milanion	Miltiades	Minos	Misenus
+Mnasyllus	Mnesiphilos	Mnester	Mnesus	Moeris	Moliones
+Molpagoras	Monoecus	Monomachus	Mopsius	Mopsus	Morsimus
+Morys	Moschion	Mulius	Musaeus	Musaios	Mydon
+Mygdon	Myrsinus	Myrto	Mys	Narkissos	Nastes
+Naubolus	Naukles	Nausithous	Nauteus	Nearchos	Neleos
+Nelpus	Neokles	Neoptolemos	Neritos	Nestor	Niarchos
+Nicandros	Nicanor	Nicholas	Nicholaus	Nicias	Nicodromos
+Nicolaus	Nicomachos	Nicon	Nikandros	Nikanor	Nikasios
+Nikeratos	Nikias	Nikomachos	Nikomedes	Nilus	Nireus
+Nisos	Noemon	Nomion	Nothon	Numa	Nyctinus
+Nymphicus	Nymphodorus	Ocealus	Ochesius	Ochos	Ocytos
+Odaenathus	Odius	Odysseus	Oeagnus	Oecleus	Oedipus
+Oenemaus	Oeneus	Oenomaus	Oenopion	Oenops	Oicles
+Oileas	Oliatos	Olus	Olympicus	Olympiodorus	Onamakritos
+Onesilos	Onesimos	Onesiphorus	Onetas	Onetor	Onias
+Onomastos	Ophelestes	Opites	Ops	Orcus	Orestes
+Oresus	Orges	Oribasius	Orion	Orius	Oroites
+Orpheus	Orsilochus	Orsiphantes	Orthaeus	Orythroneus	Otreus
+Otrynteus	Otus	Paeëon	Paios	Palaechthon	Palaemon
+Pallans	Pallas	Palmys	Pammon	Panaetios	Panaetius
+Panares	Pandaros	Pandion	Panionos	Panites	Pankratios
+Pantares	Panthous	Pantites	Paopeus	Paraebates	Paris
+Parmenides	Parmenion	Parthenopaeus	Pasion	Pataicos	Patrobas
+Patrobus	Patroclus	Patron	Pausanius	Pedaeus	Pedasus
+Pedocles	Peirithous	Peiros	Peisandros	Peithon	Pelagon
+Pelegon	Peleus	Pelias	Pelicles	Pelonus	Pelopidas
+Peneleos	Peneus	Pentheus	Penthylos	Peolpidas	Perdikkas
+Perdix	Periandros	Periclymenus	Perieeres	Perikles	Perimedes
+Perimos	Periphas	Periphetes	Periscus	Peritas	Periumus
+Peteos	Peukestes	Phaedo	Phaenippos	Phaeops	Phaestus
+Phaidon	Phaidriades	Phalanthus	Phalces	Phalinos	Phanagoras
+Phancis	Phanes	Phanias	Phantias	Pharnaces	Phausius
+Phegeus	Pheidias	Pheidippides	Pheidon	Phemius	Phereclus
+Pherecydes	Pheres	Pheronactus	Phidias	Phigaleios	Philagros
+Philaon	Phileas	Philemon	Philetor	Philiskos	Philistos
+Phillipos	Philocion	Philocrates	Philoctetes	Philocypros	Philoetius
+Philogus	Philokles	Philokrates	Philolaos	Philologus	Philomen
+Philomenes	Philometer	Philon	Philonikos	Philopoemon	Philostratos
+Philostratus	Philotas	Philotectes	Philoxenos	Philpoemon	Phineus
+Phintias	Phlaris	Phlegon	Phlios	Phoenix	Phoibus
+Phoinix	Phoitios	Phokas	Phokion	Phorbas	Phorcys
+Phormion	Phormos	Photius	Phrixus	Phrynichos	Phrynikos
+Phrynon	Phylacus	Phylas	Pidytes	Pigres	Pinder
+Pirithoos	Pisistratos	Pistias	Pittacos	Pittacus	Pittheus
+Pixodarus	Plades	Pleistarchos	Pleistos	Plutarch	Podaeleirus
+Podaleirus	Podalinus	Podarces	Podargos	Podaroes	Podes
+Poeas	Poecas	Poimen	Polemion	Poliadas	Pollio
+Polyas	Polybius	Polyctor	Polydectes	Polydeuces	Polydius
+Polydoros	Polyeides	Polygonus	Polykleitos	Polykles	Polykritos
+Polymedes	Polyneices	Polypemon	Polyperchon	Polyphemous	Polyphetes
+Polyphontes	Polypoetes	Polyxeinus	Ponteus	Porphyrios	Porphyrius
+Poseidon	Posides	Posidonios	Potamon	Pratinos	Praxilaus
+Praxis	Praxiteles	Praxites	Prexinos	Priam	Prinetadas
+Priskos	Procrustes	Proctus	Proetus	Prokles	Prokopios
+Prokrustes	Proreus	Protagoras	Protesilaus	Prothoenor	Prothous
+Protogenes	Protus	Proxenos	Prymneus	Prytanis	Ptolemaios
+Ptolomaeus	Pylades	Pylaemenes	Pylaeus	Pylartes	Pylas
+Pylenor	Pyris	Pyrrhus	Pythagoras	Pytheas	Pythes
+Pythios	Pythogenes	Radamanthos	Rhadamanthos	Rhesus	Rhexenor
+Ribes	Rizon	Sabas	Sabyllos	Salmoneus	Sarpedon
+Satyros	Scaios	Scamandius	Scamandrius	Schedius	Scylax
+Scyllias	Scythas	Sebastos	Seisames	Selagus	Seldomus
+Selepos	Seleukos	Sicinnos	Siculus	Silanos	Silenos
+Simmias	Simo	Simoisius	Simonides	Sinis	Sinon
+Sippas	Siromos	Sisyphus	Skiron	Smindyrides	Smintheus
+Socus	Sophanes	Sophokles	Soranus	Sosibios	Sosicles
+Sosigines	Sosilus	Sosimenes	Sosipatros	Sosthenes	Sostias
+Sostratos	Spertias	Speudon	Speusippos	Spinther	Spirodion
+Stachys	Stentor	Stesagoras	Stesanor	Stesilaus	Sthenelaus
+Sthenelus	Stichius	Stolos	Strabo	Strachys	Stratios
+Straton	Strophantes	Strophius	Strymon	Syagros	Syennesis
+Syloson	Synesius	Talaemenes	Talaos	Talaus	Talos
+Talthybios	Tarchon	Taureas	Tebaeus	Tecton	Teiresias
+Telamon	Telekles	Telemacho	Telemachos	Telemachus	Telephos
+Telephus	Telesinus	Telesphorus	Telines	Tellias	Tellis
+Telys	Temenos	Tenes	Tenes	Tenthredon	Tereus
+Terillos	Teucer	Teukros	Teutamos	Teuthranes	Teuthras
+Thales	Thalpius	Thalysios	Tharybis	Thaulos	Thaumastus
+Theagenes	Theages	Theas	Theasides	Themistius	Theoclymnius
+Theocydes	Theodekles	Theodoros	Theodotus	Theognis	Theomestor
+Theomestros	Theophanes	Theophrastos	Theophrastus	Theophylaktos	Theopompos
+Theopompus	Theopropides	Theoros	Theos	Theramenes	Therapon
+Theras	Thero	Theron	Thersandros	Therseandros	Thersilochus
+Thersites	Thessalos	Thestor	Thettalos	Thoas	Thon
+Thoön	Thorax	Thrasidaios	Thrasilaus	Thrasius	Thrasybulos
+Thrasyllus	Thrasymedes	Threspotus	Thukydides	Thyestes	Thymoetes
+Thymotes	Thyrsis	Thyrsos	Timagenidas	Timagoras	Timais
+Timanthes	Timasion	Timasitheus	Timesithius	Timnes	Timoleon
+Timon	Timonax	Timotheus	Timoxenos	Tiro	Tirynthius
+Tisamenos	Tisandros	Tisias	Tithonius	Titormos	Tityrus
+Tlepolemus	Tmolus	Trechus	Triopas	Triptolemus	Triton
+Troezenus	Trophimus	Trophnus	Tros	Trypho	Turrianus
+Tychaeus	Tydeides	Tydeus	Tymnes	Tyndareus	Tyndarios
+Ucalegon	Vettias	Xanthippos	Xanthippus	Xanthos	Xenagoras
+Xenokrates	Xenophanes	Xenophon	Xiphilinus	Xuthos	Xuthus
+Zagreus	Zamolxis	Zenicetes	Zenodoros	Zephyrinus	Zethus
+Zeuxidamos	Zeuxis	Zosimus""";
+"""Achaia	Achradina	Actaëe	Actë	Ada	Adeia
+Aedon	Aegiolea	Aegle	Aerope	Aethre	Agamede
+Aganippe	Agape	Agapia	Agarista	Agathé	Agathonice
+Agave	Aglaia	Aglaurus	Aikaterine	Aithra	Aketa
+Alcandre	Alcestis	Alcippe	Alcmene	Alcyone	Alemene
+Alkmena	Althaea	Althaia	Althea	Amarhyllis	Amathea
+Amatheia	Amphithoe	Amphitrite	Ampinomene	Amplias	Anais
+Anastasia	Andromeda	Antehe	Anteia	Antheia	Anthousa
+Anthusa	Anticleia	Antigone	Antiochis	Antiope	Anysia
+Appollonia	Apseudes	Arete	Arethusa	Argeia	Ariadne
+Arisbe	Aristonike	Aristophane	Arsinoe	Artemidora	Artemisia
+Aspasia	Astera	Astyoche	Astyocheia	Atalanta	Atë
+Athis	Auge	Augo	Autonoe	Auxesia	Axiothea
+Barbara	Basiane	Baucis	Berenike	Bito	Briseis
+Caenis	Caleope	Callianeira	Callianessa	Calliphana	Calypso
+Canace	Castianiera	Charis	Chione	Chiore	Chloë
+Chloris	Chryse	Chryseis	Chrysothemis	Cilissa	Cilla
+Circe	Clio	Clymene	Clymere	Colubra	Corythia
+Cratais	Creusa	Crisa	Ctimene	Cybele	Cydippe
+Cymodoce	Cymothoe	Cyrene	Cythereia	Cytheris	Damaris
+Damia	Danaë	Deianeira	Deineira	Deiphobe	Deipyle
+Delias	Demetria	Demophile	Dexamene	Dianeme	Diomede
+Dione	Dirce	Doris	Dorothea	Doto	Drosis
+Dynamene	Egeria	Egina	Eidothee	Eileithyia	Elcmene
+Electra	Elpir	Endeis	Enyo	Eos	Epicaste
+Eriboea	Erigone	Eriopis	Eriphyle	Eris	Eucarpia
+Eudokia	Eunice	Euodias	Euphro	Euphrosyne	Europa
+Eurycleia	Eurydike	Eurynome	Evadne	Galatea	Glauce
+Glyke	Gorgo	Gygaea	Haidee	Halie	Harmodias
+Harmonia	Hecuba	Hekabe	Hekaline	Hekate	Helice
+Helike	Heliodora	Hellanike	Helle	Hermine	Hermione
+Hero	Herophile	Hesione	Hilaera	Hippodameia	Hippodamia
+Hippolyta	Hypsipyle	Hyrmina	Iaera	Ianeira	Ianessa
+Ianthe	Ino	Iola	Iolanthe	Iole	Iomene
+Ione	Iphianassa	Iphigenia	Iphimedeia	Iphis	Iphitheme
+Irene	Iris	Isadora	Ismene	Issa	Jocasta
+Kallisto	Kallixeina	Kassandra	Katana	Katina	Kephissa
+Kharmion	Khlöe	Khloris	Kleio	Kleopatra	Klymene
+Klytemnestra	Koré	Koritto	Kydilla	Kynna	Kynthia
+Kypris	Kyra	Labda	Lais	Lalage	Lampetie
+Lampito	Lanike	Laodameia	Laodamia	Laodice	Laothoe
+Lasthena	Latona	Leda	Lede	Leto	Leucothea
+Leucothoë	Limnoreia	Lois	Lyra	Maeonia	Maera
+Maia	Maiandria	Marpessa	Medea	Medesicaste	Megaera
+Megara	Megare	Melanie	Melantho	Melissa	Melita
+Melite	Menelaia	Merope	Metis	Metriche	Milo
+Milto	Molpadia	Monima	Monime	Mykale	Myrine
+Nausicaa	Neaera	Nemerte	Nephele	Nesaea	Nicopolis
+Nikaia	Nikasepolis	Niko	Niobe	Nysa	Oenone
+Oitane	Olympias	Omphale	Oreithuia	Oreithyia	Orithyia
+Orthia	Otonia	Pales	Panope	Panora	Parthenia
+Parthenope	Pasiphae	Pelopia	Penelope	Penthesilea	Percalus
+Perialla	Periboea	Pero	Perse	Persephone	Persis
+Pervica	Pervinca	Phaedra	Phaedre	Phaethusa	Phaia
+Pherenike	Pherusa	Phigaleia	Philea	Philinna	Philomache
+Philomela	Philona	Phoebe	Phryne	Phylace	Phylia
+Phyllis	Phylo	Phylomedusa	Podarge	Polycaste	Polydamna
+Polydora	Polymede	Polyxena	Procne	Procris	Prone
+Proto	Protogonia	Psamathe	Psyche	Pylia	Pyrrha
+Pythias	Raisa	Rhea	Rhene	Rhoda	Rhode
+Rhodope	Roxane	Sappho	Scylla	Sebasteia	Semele
+Sophia	Sotera	Speio	Stheneboea	Stratonice	Tecmessa
+Telephassa	Thais	Thalassa	Thaleia	Theano	Thebe
+Thelma	Themis	Theodotis	Theophane	Theophania	Theophano
+Theresa	Thessala	Thessalonike	Thetis	Thisbe	Thoë
+Thoösa	Thyia	Timandra	Timo	Tryphena	Tryphosa
+Tyro	Xanthe	Xanthippe	Xantippe	Xene	Xenophile
+Zenobia	Zita	Zoe""";
+]
+
+let rome =
+    [
+    """Amulius	Appius (App)#	Aulus (A)	Caius (C)	Cnaeus (Cn)	Decimus (D)
+Domitius	Flavus	Gaius (G)	Galerius	Gnaeus	Gneo
+Julius	Kaeso	Lucius (L)	Mamercus*	Manius (M')	Marcus (M)
+Numerius (N)	Olus~	Oppius	Publius (P)	Quintus (Q)	Servius (Ser)
+Sextus (Sex)	Spurius (Sp)	Tiberius (Ti)	Titus (T)	Vibius
+Cornelii	Gnaeus, Lucius, Publius
+Julii	Gaius, Lucius, Sextus
+Licinii	Lucius, Marcus, Publius
+Pompeii	Gnaeus, Quintus, Sextus
+Servilii	Gnaeus, Quintus""";
+    """Aeliana	Aeterna	Afrania	Afrodisia	Agneta	Agrippina
+Aia	Amabilis	Amalthea	Amanda	Apicata	Apphia
+Apronia	Apulia	Arruntia	Astia	Atia	Augusta
+Aventina	Avita	Blatta	Byrria	Caepionis	Caesonia
+Calva	Camilla	Capitolina	Carina	Casta	Cata
+Catia	Caula	Censorina	Cherusca	Christiana	Cinna
+Clara	Cloelia	Columella	Concessa	Cordelia	Cosconia
+Cotta	Coventina	Crescentia	Crispina	Cristina	Cypria
+Decima	Desiderata	Dinysia	Dolichena	Domna	Dulcilla
+Emelia	Emerentiana	Encratia	Ennia	Erigena	Estella
+Eubala	Eubia	Eutropia	Fausta	Faustina	Faustinia
+Fecenia	Felicia	Felicula	Fesonia	Flora	Fontia
+Fortunata	Gaea	Gaetulica	Galla	Geneura	Gloria
+Gnaea	Graecina	Grata	Hilara	Hilaria	Honora
+Hypatia	Iana	Idonea	Indara	Ingenua	Innocentia
+Januaria	Jovina	Juliana	Julilla	Julitta	Juncina
+Justa	Justina	Lanilla	Larina	Laureola	Laurina
+Lavinia	Lepida	Lesbia	Licinian	Livigena	Longina
+Luciana	Lucilla	Lucina	Lupula	Lutatia	Macrina
+Maesa	Maia	Mallea	Mamaea	Mamma	Mammiola
+Mansueta	Mariana	Marina	Martia	Martina	Martiola
+Matrona	Maxilla	Maxima	Maximilla	Messalina	Messina
+Metella	Metiliana	Milvia	Myrtilla	Naissa	Narcissa
+Natalia	Nobilioris	Numantina	Occia	Ocresia	Olivia
+Oriuna	Pacata	Palla	Panthea	Pantheria	Pascentia
+Paulla	Peregrina	Petraea	Phrygia	Pinta	Placida
+Planasia	Plancina	Plautia	Plotina	Pluma	Pompeia
+Poppaea	Porcella	Postimia	Potamiaena	Praxedes	Prenestina
+Priscilla	Procilla	Procula	Pulchra	Pussitta	Regina
+Restita	Rhea	Ria	Romana	Sabina	Sabrina
+Sacrata	Salonia	Salviena	Sapientia	Saturnia	Saturnina
+Scaura	Scipionis	Secunda	Selene	Selina	Serena
+Severa	Severiana	Silana	Silicia	Silvia	Simplicia
+Sophrona	Sosia	Sulpicia	Tacita	Tarpeia	Tebetta
+Teracina	Tertia	Tertulla	Thena	Tiberia	Titullinia
+Trifosa	Tristonia	Tuomina	Ulidia	Una	Ursula
+Utica	Vacia	Vecchia	Velva	Velvinna	Vernico
+Veronica	Viatrix	Vibidia	Victoria	Victorina	Vilbia
+Vinicia	Virgilia	Virginia	Viventia	Volumnia	Xiphilina
+Zonara""";
+    """Abercius	Abito	Acacius	Acaunus	Acilianus	Adauctus
+Adepphius	Adjutor	Adranos	Adventus	Aeacus	Aebutus
+Aelianus	Aemilianus	Afer	Agapitus	Agatopus	Agelastus
+Agorix	Agricola	Agrippa	Agustalis	Ahala	Albinius
+Albinus	Albucius	Alethius	Aloysius	Aluredes	Alypius
+Amandus	Amantius	Ambrosius	Ammausius	Ammianus	Amor
+Amphion	Ampliatus	Ancus	Angelus	Annaeus	Antistianus
+Antyllus	Anullinus	Apelles	Apellinus	Aper	Apollonarius
+Aponius	Apuleius	Aquila	Aquilius	Aquillius	Aratus
+Arcavius	Archarius	Arius	Armiger	Arpagius	Arrianus
+Arruntius	Aruns	Arvina	Asclepiodotus	Asellio	Asiagenes
+Asina	Asprenas	Asprenus	Assanius	Athanasius	Audaios
+Audens	Augendus	Augurinus	Augurius	Augustales	Augustalis
+Augustanus	Augustus	Auila	Aurelianus	Aurelius	Ausonius
+Auspex	Auxentius	Auxientius	Auxilius	Avitus	Balbillus
+Balbus	Balduinus	Bambalio	Bamballio	Banquerius	Barbatus
+Baro	Bartolomaeus	Bassus	Bato	Belenus	Belisarius
+Bellator	Belletor	Bellicus	Bellus	Benigius	Bestia
+Betto	Bibaculus	Bibulus	Bitucus	Blaesus	Blandus
+Blassianus	Bodenius	Bolanus	Bonosus	Bonus	Bradua
+Bromidus	Bruccius	Brucetus	Bruscius	Brutus	Bubo
+Bulla	Burcanius	Burrus	Buteo	Caecilianus	Caecina
+Caecus	Caelestis	Caelestius	Caelianus	Caelinus	Caepio
+Caerellius	Caesar	Caesoninus	Calacicus	Calatinus	Caldus
+Calenus	Calerus	Caletus	Caligula	Callisunus	Calogerus
+Calpornius	Calpurnianus	Calpurnis	Calvinus	Calvus	Camerius
+Camillus	Campanus	Candidus	Canidius	Canio	Canisius
+Cantaber	Capito	Capiton	Caprarius	Caracturus	Carantus
+Carausius	Carbo	Carisius	Carius	Carnifex	Casca
+Cassianus	Castorius	Castus	Catianus	Catilina	Cato
+Catonius	Catsuminianus	Catullus	Catulus	Catus	Cecilianus
+Celer	Celsus	Cenaeus	Cencius	Censorinus	Censorius
+Centumalus	Cerialis	Cervianus	Cervidus	Cethegus	Chilo
+Christianus	Cicero	Cico	Cimber	Cinna	Cinnianus
+Cita	Cittinus	Civilis	Clarus	Classicianus	Classicus
+Claudianus	Clemens	Clement	Clodian	Clodianus	Cocceianus
+Cogitatus	Colias	Collatinus	Columbanus	Columella	Comes
+Comitianus	Comitinus	Commidius	Commidus	Commius	Compitalicius
+Concessus	Condrausisius	Congrio	Consrotius	Constans	Constantius
+Contumeliorus	Corbulo	Cordus	Cornix	Cornutus	Corvinus
+Cotentinus	Cotta	Crassus	Cremutius	Crescentius	Cresces
+Crispian	Crispin	Crispus	Crito	Crotilo	Cucuphas
+Culleolus	Cumanus	Cunctator delayer	Cunobarrus	Cupitus	Curio
+Cyprianus	Cyprias	Dacian	Dagwalus	Dama	Damasippus
+Dannicus	Dardanius	Dardanus	Decianus	Decmitius	Decmus
+Decuminus	Delicius	Desideratus	Dexion	Dexippus	Didacus
+Dignus	Dio	Diocletianus	Dioscourides	Disertus	Docilinus
+Docilis	Dolabella	Dominicus	Domitianus	Donatianus	Donatus
+Donicus	Drusillus	Drusus	Dubitatus	Durio	Durus
+Duvianus	Eborius	Eburnus	Ecdicius	Eclectus	Egbutius
+Egnatius	Elerius	Eleutherius	Eliphias	Elvorix	Emeritus
+Encratis	Ennecus	Ennius	Eonus	Epidianus	Epimachus
+Epitynchianus	Epolonius	Erasinus	Esdras	Eudomius	Eugenius
+Eugenus	Eumenius	Eunapius	Eustacius	Eutherius	Evodius
+Excingus	Exsupereus	Exuperantius	Exupertus	Fabianus	Fabillus
+Facilis	Fadus	Fagus	Falco	Falconius	Falx
+Famia	Familiaris	Fastidius	Faustillus	Faustinianus	Faustinius
+Faustus	Felicissimus	Felissimus	Felix	Ferentinus	Ferreolius
+Festus	Fidelis	Figulus	Fimbria	Fimus	Firminus
+Firmus	Flaccus	Flavian	Flavianus	Flavillus	Flavinus
+Florens	Florianus	Forianus	Fortunatus	Fraucus	Fredisius
+Frigidian	Frontalis	Frontinus	Fronto	Fructosis	Frugi
+Frugius	Frumentius	Fullofaudes	Fulvianus	Funisulanus	Furius
+Fuscinus	Fuscus	Gaianus	Gaius	Gala	Galarius
+Galerus	Gallus	Galvisius	Garilianus	Gaurus	Gavros
+Gavrus	Gelasius	Gellius	Gemellus	Geminianus	Generidus
+Genesius	Genialis	Gerardus	Gessius	Geta	Getha
+Glabrio	Glaucia	Globulus	Gluvias	Glycia	Gordianus
+Gordio	Gorgonius	Gracchus	Gracilis	Gratidianus	Grumio
+Gualtierus	Habitus	Hadrianus	Hardalio	Haterius	Helvius
+Herculius	Herenus	Herma	Hermina	Hesychius	Hiberus
+Hieronimianus	Hilario	Hilaris	Hilarius	Hirpinius	Hirrus
+Homullus	Horatius	Hortensius	Hosidius	Humilis	Hyacinthus
+Hybrida	Iacomus	Igennus	Indaletius	Indus	Ingenuus
+Ingenvinus	Iocundus	Isatis	Italicus	Ivimarus	Januarius
+Javolenus	Jovinianus	Jovinus	Jovius	Juba	Julian
+Julianus	Juncinus	Juncus	Junianus	Justianus	Justin
+Justinianus	Justinus	Justus	Juvenalis	Kaeso	Lactantius
+Laeca	Laenas	Laetinianus	Laevinus	Larcius	Lartius
+Lateranus	Latinus	Laurentius	Leddicus	Lentullus	Lentulus
+Leon	Lepidus	Lepontus	Leptis	Libanius	Liberalis
+Libo	Licinianus	Licinius	Ligur	Ligustinus	Limetanus
+Linus	Litorius	Littera	Litumarus	Livianus	Livigenus
+Lovernianus	Lovernius	Lucan	Lucanus	Lucianus	Lucilianus
+Lucretinaus	Lucretius	Luctacus	Lucullus	Lunaris	Luonercus
+Lupercus	Lupicinus	Lupinus	Lupus	Lurco	Lurio
+Lutherius	Lutorius	Maccalus	Macrinus	Macro	Macrobius
+Mactator	Maecenas	Maecius	Magnus	Magunnus	Maius
+Major	Malchus	Mallus	Maltinus	Maminianus	Mancinus
+Manlius	Mansuetus	Marcellinus	Marcellus	Marcialis	Marcipor
+Margarita	Marinianus	Marinus	Maritimus	Marius	Maro
+Marsicus	Marsus	Marsyas	Martial	Martialis	Martianus
+Martinus	Martius	Marullinus	Marullus	Maternus	Matho
+Maursus	Maximian	Maximinius	Maximus	Medullinus	Megellus
+Melissus	Melitus	Mellitus	Melus	Meminius	Memmius
+Memor	Mercator	Mercurialis	Mercurinus	Merula	Messala
+Messor	Metellus	Metilius	Metunus	Micianus	Mico
+Milonius	Minervalis	Minianus	Minicianus	Moderatus	Molacus
+Momus	Montanus	Montaus	Mordanticus	Mucianus	Muco
+Muncius	Murena	Mus	Musa	Musicus	Mutilus
+Mutius	Nabor	Naevius	Namatianus	Narcissus	Nasica
+Naso	Natalinus	Natalis	Naucratius	Nazarius	Nectaridus
+Nelius	Nemesianus	Nemnogenus	Neneus	Nennius	Nepos
+Nero	Nertomarus	Nerva	Nicasius	Nigellus	Niger
+Nigidius	Nigrinus	Niraemius	Nolus	Nonius	Noster
+Novatian	Novellius	Numerianus	Numonis	Oceanus	Octavian
+Octavianus	Octobrianus	Olennius	Olympicus	Opimius	Opis
+Optatus	Orientalis	Orientius	Orissus	Orosius	Ostorianus
+Pacatianus	Pachomius	Pacuvianus	Paenula	Paetinus	Paetus
+Palicamus	Pamphilius	Panaetius	Pansa	Pantenus	Pantera
+Panthera	Papinian	Papus	Paratus	Parnesius	Pascentius
+Paterculus	Patiens	Paulinus	Paullus	Pavo	Pennus
+Peregrinus	Perennis	Perpenna	Perperna	Pertacus	Pertinax
+Petasius	Petreius	Petronax	Petrus	Philippus	Pictor
+Pilatus	Pilus	Pinarius	Piso	Pius	Placidus
+Planta	Plautis	Plautius	Plautus	Pleminius	Pollienus
+Pollio	Polus	Polybius	Pompolussa	Pomponius	Poplicola
+Porcus	Porphyrius	Postumianus	Postumus	Potitus	Praetextus
+Prilidianus	Primanus	Primulus	Primus	Prisca	Priscillian
+Priscillianus	Priscus	Processus	Proceus	Proculus	Procyon
+Profuterius	Propertius	Propinquus	Protacius	Protus	Proxsimus
+Publianus	Publicola	Pudens	Pudentius	Pulcher	Pulcherius
+Pullus	Pusinnus	Pustula	Quartinus	Quarto	Quatruus
+Quentin	Quietus	Quintilianus	Quintilius	Quintillius	Quintillus
+Quiriac	Quiricus	Quirinalis	Ramio	Ramirus	Ravilla
+Reburrus	Receptus	Rectus	Regillus	Reginus	Regulus
+Remigius	Remus	Renatus	Respectus	Restitutus	Rex
+Ripanus	Rogelius	Romanus	Romulianus	Romulus	Roscius
+Rufinianus	Rufinus	Rufrius	Rufus	Rullus	Ruricius
+Ruso	Rusticus	Rutilianus	Sabellius	Sabinianus	Sabinus
+Saenus	Salinator	Salonianus	Saloninus	Salonius	Salvianus
+Salvius	Sanctus	Sandilianus	Sanga	Sarimarcus	Sarrius
+Saturninus	Saunio	Scaevola	Scapula	Scaro	Scato
+Scaurus	Schlerus	Scipio	Scribonianus	Scrofa	Secundus
+Segestes	Sejanus	Sellic	Seneca	Senecianus	Senecio
+Senilis	Senna	Senopianus	Sentius	Septimianus	Sergius
+Seronatus	Serranus	Sertorius	Servanus	Servatius	Servilius
+Seuso	Severinus	Sevso	Siculus	Sidonius	Sigilis
+Silanus	Silius	Silo	Silus	Silvanus	Similis
+Simo	Simplex	Simplicianus	Siricus	Sisenna	Sisinnius
+Sita	Sollemnis	Sorex	Sorio	Sosius	Soterichus
+Sotericus	Soulinus	Spartacus	Spendius	Speratus	Statius
+Stichus	Strabo	Sudrenus	Suilius	Sulinus	Sulla
+Sulpicius	Super	Superbus	Superstes	Sura	Surinus
+Surius	Surus	Sylla	Sylvian	Sylvius	Symmachus
+Symphorian	Sympronian	Synistor	Synnodus	Tacitus	Taenarus
+Tancinus	Tanicus	Tarquinius	Tarsicius	Tasius	Tatian
+Tatianus	Taurinus	Taurus	Telesinus	Terenteianus	Tertius
+Tertullian	Tertullianus	Tertulus	Tetricus	Tetullianus	Thrasea
+Tiberillus	Tiberinus	Tibullus	Tiburs	Tiburtius	Ticinus
+Titianus	Titillus	Torquatus	Toutius	Traianus	Traillus
+Tranio	Tranquillus	Trebellius	Trebius	Trebonianus	Trebonius
+Tremerus	Tremorinus	Trenico	Trenus	Triarius	Trifer
+Triferus	Trimalchio	Trogus	Trupo	Tuccianus	Tuditanus
+Tullius	Tullus	Turibius	Turpilianus	Turpilinus	Turpilius
+Tuticanus	Tutor	Typhoeus	Tyranus	Ulfila	Ulixes
+Ulpian	Umbonius	Ursacius	Ursinus	Ursus	Uticensis
+Vala	Valens	Valentinian	Valentinus	Valerianus	Valgus
+Varialus	Varro	Varus	Vatia	Vedrix	Vegetius
+Velus	Venator	Ventor	Venustinius	Vepgenus	Veranius
+Verecundus	Vergilius	Verinus	Verres	Verrucosis	Verullus
+Verulus	Verus	Vespasianus	Vestinus	Vestorius	Vetranio
+Vettonianus	Veturius	Vibennis	Vibius	Vibullius	Victor
+Victricius	Vincentius	Vindex	Vinicianus	Vipsanius	Virginius
+Viridio	Virilis	Virnius	Vitalinus	Vitalion	Vitalis
+Vitoricus	Vitulus	Vitus	Vocula	Volturcius	Volusenus
+Volusianus	Vonones	Vopiscus	Voteporix	Vulso	Zosimus
+Africanus	Allobrogicus	Asiaticus	Atticus	Balearicus	Briganticus
+Britannicus	Creticu	Cyriacus?	Dalmaticus	Gaetulicus?	Gallicus
+Germanicus	Glycoricus?	Helveticus	Isauricus	Macedonicus	Numidicus
+Spartacus
+Primus, Primitivus	Prima, Primitiva, Una
+Secundus	Secunda
+Tertius	Tertia
+Quartius, Quartilius	Quartia, Quartilla
+Quintus, Quintilius	Quinta, Quintilla
+Sextus	Sexta
+Septimus	Septima
+Octavius	Octavia
+Nonus	Nona
+Decimus	Decima
+Undecimus	Undecima
+Vicesimus	Vicesima""";
+"""Balearica	Cretica	Dalmatica
+Primus, Primitivus	Prima, Primitiva, Una
+Secundus	Secunda
+Tertius	Tertia
+Quartius, Quartilius	Quartia, Quartilla
+Quintus, Quintilius	Quinta, Quintilla
+Sextus	Sexta
+Septimus	Septima
+Octavius	Octavia
+Nonus	Nona
+Decimus	Decima
+Undecimus	Undecima
+Vicesimus	VicesimaAeliana	Aeterna	Afrania	Afrodisia	Agneta	Agrippina
+Aia	Amabilis	Amalthea	Amanda	Apicata	Apphia
+Apronia	Apulia	Arruntia	Astia	Atia	Augusta
+Aventina	Avita	Blatta	Byrria	Caepionis	Caesonia
+Calva	Camilla	Capitolina	Carina	Casta	Cata
+Catia	Caula	Censorina	Cherusca	Christiana	Cinna
+Clara	Cloelia	Columella	Concessa	Cordelia	Cosconia
+Cotta	Coventina	Crescentia	Crispina	Cristina	Cypria
+Decima	Desiderata	Dinysia	Dolichena	Domna	Dulcilla
+Emelia	Emerentiana	Encratia	Ennia	Erigena	Estella
+Eubala	Eubia	Eutropia	Fausta	Faustina	Faustinia
+Fecenia	Felicia	Felicula	Fesonia	Flora	Fontia
+Fortunata	Gaea	Gaetulica	Galla	Geneura	Gloria
+Gnaea	Graecina	Grata	Hilara	Hilaria	Honora
+Hypatia	Iana	Idonea	Indara	Ingenua	Innocentia
+Januaria	Jovina	Juliana	Julilla	Julitta	Juncina
+Justa	Justina	Lanilla	Larina	Laureola	Laurina
+Lavinia	Lepida	Lesbia	Licinian	Livigena	Longina
+Luciana	Lucilla	Lucina	Lupula	Lutatia	Macrina
+Maesa	Maia	Mallea	Mamaea	Mamma	Mammiola
+Mansueta	Mariana	Marina	Martia	Martina	Martiola
+Matrona	Maxilla	Maxima	Maximilla	Messalina	Messina
+Metella	Metiliana	Milvia	Myrtilla	Naissa	Narcissa
+Natalia	Nobilioris	Numantina	Occia	Ocresia	Olivia
+Oriuna	Pacata	Palla	Panthea	Pantheria	Pascentia
+Paulla	Peregrina	Petraea	Phrygia	Pinta	Placida
+Planasia	Plancina	Plautia	Plotina	Pluma	Pompeia
+Poppaea	Porcella	Postimia	Potamiaena	Praxedes	Prenestina
+Priscilla	Procilla	Procula	Pulchra	Pussitta	Regina
+Restita	Rhea	Ria	Romana	Sabina	Sabrina
+Sacrata	Salonia	Salviena	Sapientia	Saturnia	Saturnina
+Scaura	Scipionis	Secunda	Selene	Selina	Serena
+Severa	Severiana	Silana	Silicia	Silvia	Simplicia
+Sophrona	Sosia	Sulpicia	Tacita	Tarpeia	Tebetta
+Teracina	Tertia	Tertulla	Thena	Tiberia	Titullinia
+Trifosa	Tristonia	Tuomina	Ulidia	Una	Ursula
+Utica	Vacia	Vecchia	Velva	Velvinna	Vernico
+Veronica	Viatrix	Vibidia	Victoria	Victorina	Vilbia
+Vinicia	Virgilia	Virginia	Viventia	Volumnia	Xiphilina
+Zonara""";
+    """Accius?	Acilius	Aebutius	Aedinius	Aegidius	Aelia/Aelius
+Aeresius	Aetius	Afrania/Afranius	Agrius	Albanus	Albia/Albius
+Albinovanus	Albucius	Alfenus	Allectus	Alleius	Allia/Allius
+Amatius	Ammianus	Ancharius	Annaeus	Annia/Annius	Anninius
+Antistius	Antius	Antonia/Antonius	Antoninus	Appuleius	Arius
+Arminia/Arminius	Arminus	Arria/Arrius	Arruntia/Arruntius	Artorius	Asinius
+Ateius	Atia/Atius	Atilius	Atrius	Attia/Attius	Aufidius
+Aulus	Aurunceius	Ausonius	Autronius	Avidius	Axius
+Babudius	Baebius	Baenius	Baibius	Barrius	Bebius
+Belaeus	Bellienus	Blandius	Bruccius	Bruttius	Caelius
+Caeparius	Caerellius	Caesennius	Caesius	Calatoria/Calatorius	Caledonius
+Calidius	Calpurnia/Calpurnius	Calventius	Calvinus	Calvisius	Cammius
+Canuleius	Caprenius	Caria/Carius	Caristanius	Caristianus	Cassia/Cassius
+Cassianus	Catiotus	Cecia/Cecius	Celatus	Celerinius	Centennius
+Cicereius	Cipius	Clitumna/Clitumnus	Cloatius	Clovius	Cluentius
+Cluntius	Cnisius	Cocceius	Cominius	Comnena/Comnenus	Conconius
+Congaonius	Congonius	Cordius	Cornificius	Cosconius	Cossutia/Cossutius
+Crispus	Curatia/Curatius	Curius	Curtius	Decianus	Decimius
+Decumius	Delluius	Desidenius	Desticius	Dexius	Didius
+Dillius	Dossenius	Drusa/Drusus	Duccius	Duilis	Duilius
+Duronius	Egnatius	Ennius	Epidius	Equitia/Equitius	Fabricius
+Fadia	Fadius	Falerius	Famulus	Fannius	Fausta/Faustus
+Faventinus	Favonius	Fenius	Festinius	Flaccus	Flaminius
+Flavinius	Flavonius	Floridius	Florius	Floronius	Fonteia/Fonteius
+Francus	Fufius	Fulcinia/Fulcinius	Fulvia/Fulvius	Fundanus	Fundilius
+Funisulanus	Gabinius	Galenus	Galerius	Galla/Gallus	Gargilius
+Gavius	Gellius	Grania/Granius	Gratia/Gratus	Gratidia/Gratidius	Haterius
+Helvetius	Helvia/Helvius	Herennius	Herius	Herminius	Hispala/Hispalus
+Horatia/Horatius	Hortensia/Hortensius	Hosidius	Hostilius	Inventius	Iulus
+Javolena/Javolenus	Jucundius	Junia/Junius	Justus	Juventius	Laberius
+Labienus	Laelius	Laetonius	Lafrenius	Lampronius	Lepidus
+Liburnius	Licinia/Licinius	Ligustinius	Lollia/Lollius	Longinus	Longus
+Loreius	Lucceia/Lucceius	Lucia/Lucius	Lucilia/Lucilius	Lusius	Lutatius
+Maccius	Macrinus	Maecilius	Maelius	Maenia/Maenius	Magius
+Maianius	Mallius	Mamilius	Manilius	Manlius	Mannius
+Marcia/Marcius	Maria/Marius	Martiannius	Matia/Matius	Maximius	Melissaeius
+Memmius	Messienus	Metilius	Milonius	Minucius	Minutius
+Modius	Mucia/Mucius	Mummius	Munatius	Munius	Murcius
+Murrius	Naevius	Nasennius	Nemetorius	Nepius	Neratius
+Nigidius	Nigidullus	Nigilius	Nigrius	Nipius	Nonius
+Norbanus	Novius	Numerius	Occius	Oclatinius	Octavia/Octavius
+Olcinius	Oppius	Opsius	Oranius	Orestilla	Ostorius
+Otacilius	Papellius	Papius	Paquius	Peltrasius	Perpennia/Perpennius
+Perquitienus	Pescennius	Petellius	Petilius	Petillius	Petreia/Petreius
+Petronia/Petronius	Piscius	Pisentius	Pituanius	Placida/Placidus	Platorius
+Plautia/Plautius	Plinius	Plotius	Poenius	Pollia/Pollius	Polus
+Pomponia/Pomponius	Pomptinus	Pontidius	Pontius	Popidius	Popillia/Popillius
+Poppaedius	Portia/Portius	Praesentius	Publicius	Pupius	Quettius
+Quinctilia/Quinctilius	Quintilia/Quintilius	Quintius	Quirinius	Rabirius	Roscius
+Rufia/Rufius	Rufina/Rufinus	Rufrius	Rufus	Rusonia/Rusonius	Sabidius
+Sabucius	Sacerdus	Sallustius	Salonia/Salonius	Salvius	Saufeius
+Scribonia/Scribonius	Secundinius	Secundius	Seius	Senecianus	Senicianus
+Sennius	Sentius	Septimius	Sepunius	Sepurcius	Sertoria/Sertorius
+Sestius	Sextilius	Sextius	Sidonius	Silia/Silius	Silvianus
+Sittius	Socellius	Sornatius	Sosia/Sosius	Spurius	Staius
+Statius	Statlilius	Stertinius	Stlaccius	Suedius	Sylvia/Sylvius
+Tadia/Tadius	Talmudius	Tanicius	Teideius	Terentia	Terentius
+Tertinius	Tetius	Titia/Titius	Titinia/Titinius	Tituleius	Tragus
+Trebatius	Trebellius	Tremellius	Tuccius	Tullia/Tullius	Turrianus
+Ulpianus	Ulpius	Umbrenius	Urgulania/Urgulanius	Uulius	Vagiennius
+Vagionius	Vagnius	Valerianus	Valerius	Valgus	Vargunteius
+Varia/Varius	Vassinus	Vatinius	Vedius	Velva/Velvus	Venidius
+Veranius	Verecundius	Vergilius	Verus	Vesnius	Vesuius
+Vesuvius	Vettienus?	Vibenius	Vibidius	Victricius	Vidacilius
+Viducius	Vinicius	Vipsania/Vipsanius	Viridius	Virius	Vitellia/Vitellius
+Vitruvius	Vitulasius	Volcatius	Volumni/Volumnius	Volusenus	Volusia/Volusius
+Aemilia/Aemilius	Atilia/Atilius	Aurelia/Aurelius	Caecilia/Caecilius	Camilla/Camillus	Claudia/Claudius
+Clodia/Clodius	Cornelia/Cornelius	Domitia/Domitius	Fabia/Fabius	Flavia/Flavius	Furia/Furius
+Livia/Livius	Manlia/Manlius	Papinia/Papinius	Papiria/Papirius	Pinarus	Pompeia/Pompeius?
+Porcia/Porcius?	Postumia/Postumius	Rutilia/Rutilius	Sempronia/Sempronius	Segia/Sergius	Servilia/Servilius
+Sulpicia/Sulpicius	Valeria/Valerius	Vettia/Vettius?
+""";
+    ]
+
 let orcMale = "Gronk Sponk Spud Thud Blat Kreegah Krock Skar Smash Szeth Vallano"
 
 let trim (s:string) = s.Trim()
 let preprocess name =
-    System.Text.RegularExpressions.Regex.Replace(trim name, "[.,]*","")
+    System.Text.RegularExpressions.Regex.Replace(trim name, "[.,/]*","")
 let parseLine (ln:string) =
-    ln.Split(' ') |> Seq.map preprocess
+    (preprocess ln).Split(' ')
 let isValid (txt:string) =
     System.Text.RegularExpressions.Regex.IsMatch(txt, "^[A-Z][a-zA-Z]+$") // filter out weird celtic characters, names that don't start with a capital, and other things that look like errors
 // parse1=discard all but first column
@@ -3608,6 +4581,9 @@ codeFor [
     "Tir na n'Og", "Male", parse1, cmale; "Tir na n'Og", "Female", parse1, cfemale; "Tir na n'Og", "Last", parse1, clast
     "Abysia", "Male", parseAll, memale; "Abysia", "Female", parseAll, mefemale
     "Kailasa", "Male", parseAll, hmale; "Kailasa", "Female", parseAll, hfemale; "Kailasa", "Last", parseAll, hlast
+    "Ermor", "Male", parseAll, rome.[0]; "Ermor", "Female", parseAll, rome.[1]; "Ermor", "CognomenMale", parseAll, rome.[2]; "Ermor", "CognomenFemale", parseAll, rome.[3]; "Ermor", "Last", parseAll, rome.[4];
+    "Undauntra", "Male", parseAll, greece.[0]; "Undauntra", "Female", parseAll, greece.[1];
+    "Arboria", "Male", parseAll, english.[0]; "Arboria", "Female", parseAll, english.[1]; "Arboria", "Last", parseAll, english.[2];
     "Mordor", "Male", parseAll, orcMale
             ]
 

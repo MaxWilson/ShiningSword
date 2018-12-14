@@ -128,8 +128,13 @@ let getNameAndSex state firstPerson isFriend : Eventual<_,_,Name * Sex> = queryI
             | _, Some (_, lst) -> chooseRandom lst
             | Male, None -> sprintf "%s%s" (chooseRandom [|" ben ";" son ";" dak ";" s'";" "|]) (chooseRandom chosenList)
             | Female, None -> (chooseRandom [|" bat " + (chooseRandom chosenList); (chooseRandom chosenList) + "dotter"; "d'"+(chooseRandom chosenList); chooseRandom chosenList|])
-        let name = sprintf "%s %s" firstname lastname
-        return (name, sex)
+        match Model.Names.names |> List.tryFind (fun ((n,t),_) -> t = ("Cognomen" + sex.ToString()) && n = nameType) with
+        | Some (_, cognomens) ->
+            let name = sprintf "%s %s %s" firstname lastname (chooseRandom cognomens)
+            return (name, sex)
+        | None ->
+            let name = sprintf "%s %s" firstname lastname
+            return (name, sex)
     }
 
 let rec getPCs (state: GameState) firstPerson isFriend : Eventual<_,_,_> = queryInteraction {
