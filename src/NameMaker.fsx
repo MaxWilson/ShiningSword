@@ -4394,31 +4394,32 @@ Africanus	Allobrogicus	Asiaticus	Atticus	Balearicus	Briganticus
 Britannicus	Creticu	Cyriacus?	Dalmaticus	Gaetulicus?	Gallicus
 Germanicus	Glycoricus?	Helveticus	Isauricus	Macedonicus	Numidicus
 Spartacus
-Primus, Primitivus	Prima, Primitiva, Una
-Secundus	Secunda
-Tertius	Tertia
-Quartius, Quartilius	Quartia, Quartilla
-Quintus, Quintilius	Quinta, Quintilla
-Sextus	Sexta
-Septimus	Septima
-Octavius	Octavia
-Nonus	Nona
-Decimus	Decima
-Undecimus	Undecima
-Vicesimus	Vicesima""";
+Primus, Primitivus
+Secundus
+Tertius
+Quartius, Quartilius
+Quintus, Quintilius
+Sextus
+Septimus
+Octavius
+Nonus
+Decimus
+Undecimus
+Vicesimus""";
 """Balearica	Cretica	Dalmatica
-Primus, Primitivus	Prima, Primitiva, Una
-Secundus	Secunda
-Tertius	Tertia
-Quartius, Quartilius	Quartia, Quartilla
-Quintus, Quintilius	Quinta, Quintilla
-Sextus	Sexta
-Septimus	Septima
-Octavius	Octavia
-Nonus	Nona
-Decimus	Decima
-Undecimus	Undecima
-Vicesimus	VicesimaAeliana	Aeterna	Afrania	Afrodisia	Agneta	Agrippina
+Prima, Primitiva, Una
+Secunda
+Tertia
+Quartia, Quartilla
+Quinta, Quintilla
+Sexta
+Septima
+Octavia
+Nona
+Decima
+Undecima
+Vicesima
+Aeliana	Aeterna	Afrania	Afrodisia	Agneta	Agrippina
 Aia	Amabilis	Amalthea	Amanda	Apicata	Apphia
 Apronia	Apulia	Arruntia	Astia	Atia	Augusta
 Aventina	Avita	Blatta	Byrria	Caepionis	Caesonia
@@ -4536,13 +4537,14 @@ let orcMale = "Gronk Sponk Spud Thud Blat Kreegah Krock Skar Smash Szeth Vallano
 
 let trim (s:string) = s.Trim()
 let preprocess name =
-    System.Text.RegularExpressions.Regex.Replace(trim name, "[.,/]*","")
-let parseLine (ln:string) =
-    (preprocess ln).Split(' ')
+    System.Text.RegularExpressions.Regex.Replace(trim name, "[.,]*","")
+let parseLine (separator: char) (ln:string) =
+    (preprocess ln).Split(separator)
 let isValid (txt:string) =
     System.Text.RegularExpressions.Regex.IsMatch(txt, "^[A-Z][a-zA-Z]+$") // filter out weird celtic characters, names that don't start with a capital, and other things that look like errors
 // parse1=discard all but first column
 let parse1 (input:string) =
+    let parseLine = parseLine ' '
     input.Split('\n') |> Seq.map(fun (ln:string) ->
         match ln.IndexOf('\t') with
         | -1 -> parseLine ln
@@ -4553,9 +4555,21 @@ let parse1 (input:string) =
     |> List.ofSeq
 let parseAll (input:string) =
     input.Split('\n')
-    |> Seq.map (fun x -> x.Replace("\t", " "))
-    |> Seq.map parseLine
+    //|> Seq.map (fun x -> x.Replace("\t", " "))
+    |> Seq.map (parseLine '\t')
     |> Seq.collect id
+    |> Seq.filter isValid
+    |> List.ofSeq
+let differentiate ix (name:string) =
+    match name.Split('/') with
+    | [|_|] -> name // no split
+    | names when names.Length > ix -> names.[ix]
+    | _ -> failwithf "I don't understand this: %s" name
+let parseTabbedWithDifferentiation index (input:string) =
+    input.Split('\n')
+    |> Seq.map (parseLine '\t')
+    |> Seq.collect id
+    |> Seq.map (differentiate index)
     |> Seq.filter isValid
     |> List.ofSeq
 
@@ -4581,9 +4595,9 @@ codeFor [
     "Tir na n'Og", "Male", parse1, cmale; "Tir na n'Og", "Female", parse1, cfemale; "Tir na n'Og", "Last", parse1, clast
     "Abysia", "Male", parseAll, memale; "Abysia", "Female", parseAll, mefemale
     "Kailasa", "Male", parseAll, hmale; "Kailasa", "Female", parseAll, hfemale; "Kailasa", "Last", parseAll, hlast
-    "Ermor", "Male", parseAll, rome.[0]; "Ermor", "Female", parseAll, rome.[1]; "Ermor", "CognomenMale", parseAll, rome.[2]; "Ermor", "CognomenFemale", parseAll, rome.[3]; "Ermor", "Last", parseAll, rome.[4];
+    "Ermor", "Male", parseAll, rome.[0]; "Ermor", "Female", parseAll, rome.[1]; "Ermor", "CognomenMale", parseAll, rome.[2]; "Ermor", "CognomenFemale", parseAll, rome.[3]; "Ermor", "LastFemale", parseTabbedWithDifferentiation 0, rome.[4]; "Ermor", "LastMale", parseTabbedWithDifferentiation 1, rome.[4];
     "Undauntra", "Male", parseAll, greece.[0]; "Undauntra", "Female", parseAll, greece.[1];
-    "Arboria", "Male", parseAll, english.[0]; "Arboria", "Female", parseAll, english.[1]; "Arboria", "Last", parseAll, english.[2];
-    "Mordor", "Male", parseAll, orcMale
+    "Arboria", "Male", parseAll, english.[0]; "Arboria", "Femalale", parseAll, english.[1]; "Arboria", "Last", parseAll, english.[2];
+    "Mordor", "Male", parseAll, orcMale.Replace(" ", "\t")
             ]
 
