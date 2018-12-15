@@ -163,7 +163,8 @@ let root model dispatch =
         | _ ->
             let startGame _ = Model.Gameplay.game() |> modalOperation dispatch "" ignore
 
-            div [] [
+            div [Style [TextAlign "center"]] [
+                yield h1 [Style [TextAlign "center"]] [str "Shining Sword: Citadel of the Hundred Gates"]
                 yield Button.button [Button.OnClick startGame; Button.Color Fulma.Color.IsBlack] [str "Start new game"]
                 ]
     div [] [contents; partySummary model.game; logOutput model.game.log]
