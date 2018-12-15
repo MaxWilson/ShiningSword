@@ -1,1 +1,0 @@
-dotnet fable yarn-build && azcopy /y /source:..\public /dest:https://shiningsword.blob.core.windows.net/public/v0.2 /destkey:OzdcL1efpb/lqwnhuccu/Vcbmhfy+2/27qXSnnLaFmrwpDTFgfXWWDa0tb/uCGk7j1qHTG0ThYYRcMP9Jjo0Lw== /s /setcontentType && start https://shiningsword.blob.core.windows.net/public/v0.2/index.html
