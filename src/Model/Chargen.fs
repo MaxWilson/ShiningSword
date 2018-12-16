@@ -77,4 +77,28 @@ let featureGraph : (Feature * Consequent) [] = [|
     Feat, Choose [Sharpshooter; GreatWeaponMaster; HeavyArmorMaster; DefensiveDuelist]
     HeavyArmorMaster, Grants (ASI (Str, +1))
     |]
-    
+
+// do all the auto-grants    
+let grants features =
+    let rec fixpoint features = 
+        let notAlreadyChosen feature =
+            features |> List.contains feature |> not
+        let grants =
+            [for feature in features do
+                yield feature
+                for consequent in featureGraph |> Array.filter (fst >> (=) feature) |> Array.map snd do
+                    match consequent with
+                    | Grants feature ->
+                        if notAlreadyChosen feature then yield feature
+                    | GrantsAll features ->
+                        for feature in features do
+                            if notAlreadyChosen feature then yield feature
+                    | _ -> ()                
+                ]
+        if grants = features then features
+        else fixpoint grants
+    fixpoint features
+
+// get all the choices that can legally be added, based on features already selected
+let choices features =
+    failwith "Not implemented"
