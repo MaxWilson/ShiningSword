@@ -116,3 +116,6 @@ let choices features =
                 | _ -> ()                
             ]
     (grants features |> getChoices) |> List.distinct
+
+let validate (race, classLevels) features =
+    failwith "Not implemented"
