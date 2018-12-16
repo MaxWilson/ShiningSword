@@ -101,4 +101,18 @@ let grants features =
 
 // get all the choices that can legally be added, based on features already selected
 let choices features =
-    failwith "Not implemented"
+    let chosen choices =
+        choices |> Seq.filter (fun choice -> List.contains choice features) |> Seq.length
+    let getChoices features =
+        [for feature in features do
+            for consequent in featureGraph |> Array.filter (fst >> (=) feature) |> Array.map snd do
+                match consequent with
+                | Choose choices when chosen choices < 1 ->
+                     for c in choices do
+                        yield c
+                | ChooseN(n, choices) when chosen choices < n ->
+                     for c in choices do
+                        yield c
+                | _ -> ()                
+            ]
+    (grants features |> getChoices) |> List.distinct
