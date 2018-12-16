@@ -15,6 +15,17 @@ type Description = string
 type Position = int * int
 type Sex = Male | Female
 
+type CharClass = Champion | Elemonk | PurpleDragonKnight | Battlerager
+type SpellList = Wizard | Cleric
+type Race =
+    | Human
+    | Elf
+    | Dwarf
+    | HalfElf
+    | Other
+type AbilityScore =
+    | Str | Dex | Con | Int | Wis | Cha
+
 type StatBlock = {
     name: Name
     sex: Sex

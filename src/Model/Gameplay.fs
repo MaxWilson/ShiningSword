@@ -5,7 +5,6 @@ open Model.Operations
 open Model.Tables
 open Common
 open System
-open System
 
 let calculate mtable (monsters: Name seq) =
     let costs = monsters |> Seq.map (fun m -> Math.Pow((mtable m |> snd |> float) / 100., (2./3.)))
@@ -286,7 +285,7 @@ let fight encounter state =
 
 let rec doRest (state: GameState) : Eventual<_,_,_> = queryInteraction {
     let state =
-        { state with timeElapsed = state.timeElapsed + 3600 * 8; pcs = state.pcs |> List.map (fun pc -> if pc.hp > 0 then { pc with hp = List.init (PC.computeLevel pc.xp) (thunk PC.Fighter) |> PC.computeHP pc.con } else pc) }
+        { state with timeElapsed = state.timeElapsed + 3600 * 8; pcs = state.pcs |> List.map (fun pc -> if pc.hp > 0 then { pc with hp = List.init (PC.computeLevel pc.xp) (thunk CharClass.Champion) |> PC.computeHP pc.con } else pc) }
         |> GameState.mapLog (Log.log "The party rests for 8 hours and heals")
     match! Query.choose state (sprintf "You have earned %d XP and %d gold pieces, and you've been adventuring for %s. What do you wish to do next?" state.pcs.[0].xp state.gp (timeSummary state.timeElapsed)) ["Advance"; "Rest"; "Return to town"] with
         | "Advance" -> return! doTower (advance state)

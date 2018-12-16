@@ -93,12 +93,11 @@ module PC =
     let computeLevel xp =
         (levelAdvancement |> Array.findBack (fun x -> xp >= x.XPReq)).level
     let combatBonus stat = (stat/2) - 5 // based on 5E tables
-    type Class = Fighter | Wizard
     let computeHP con classList =
         let bonus = combatBonus con
-        let dieSize characterClass = match characterClass with Fighter -> 10 | Wizard -> 6
+        let dieSize characterClass = match characterClass with Champion -> 10 | Battlerager -> 12 | Elemonk -> 8 | PurpleDragonKnight -> 10
         classList |> Seq.mapi (fun l cl -> if l = 0 then (dieSize cl) + bonus else (dieSize cl)/2 + 1 + bonus) |> Seq.sum
     let create name sex =
         let xp = 0
-        { name = name; sex = sex; xp = xp; hp = List.init (computeLevel xp) (thunk Fighter) |> computeHP 12
+        { name = name; sex = sex; xp = xp; hp = List.init (computeLevel xp) (thunk Champion) |> computeHP 12
           str = 12; dex = 12; con = 12; int = 12; wis = 12; cha = 12 }
