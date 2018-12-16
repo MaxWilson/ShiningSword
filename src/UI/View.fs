@@ -58,6 +58,7 @@ module KeyCode =
     let enter = 13.
     let upArrow = 38.
     let downArrow =  40.
+    let escape = 27.
 
 let onKeyDown keyCode action =
     OnKeyDown (fun (ev:Fable.Import.React.KeyboardEvent) ->
@@ -70,6 +71,11 @@ document.addEventListener_keydown(fun ev ->
     if onKeypress.IsSome && onKeypress.Value(ev) then
         ev.preventDefault()
     obj())
+let mutable undoModal : unit -> unit = ignore
+document.addEventListener_keyup((fun ev ->
+    if ev.keyCode = KeyCode.escape then
+        undoModal()
+    obj()), true)
 
 let freeTextQuery prompt state updateState answer =
     div [] [
@@ -134,13 +140,16 @@ let logOutput =
         div[] (last |> List.map (fun line -> p[][str line]))
 
 let root model dispatch =
+    undoModal <- thunk1 dispatch UndoModal
     let contents =
         match model with
         | { modalDialogs = (Operation(q,_) as op, vm)::_ } ->
             let inline answer v _ = progress dispatch op v
             match q with
             | Query.Alert _ ->
-                onKeypress <- Some(fun ev -> if ev.keyCode = KeyCode.enter then answer "" (); true else false)
+                onKeypress <- Some(fun ev ->
+                    if ev.keyCode = KeyCode.enter then answer "" (); true
+                    else false)
             | Query.Select(_, choices) ->
                 onKeypress <- Some(fun ev ->
                     match System.Int32.TryParse ev.key with
