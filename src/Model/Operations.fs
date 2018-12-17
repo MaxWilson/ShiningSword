@@ -111,3 +111,4 @@ module CharSheet =
             }
         { CharInfo.src = stats; usages = Map.empty; status = { conditions = [] }; thp = 0; sp = 0; hp = stats.classLevels |> computeHP stats.con }
     let name = Lens.lens (fun (c:CharInfo) -> c.src.name) (fun v c -> { c with src = { c.src with name = v }})
+    let isAlive (charSheet:CharInfo) = charSheet.hp > 0
