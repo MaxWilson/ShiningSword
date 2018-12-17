@@ -23,8 +23,57 @@ type Race =
     | Dwarf
     | HalfElf
     | Other
+
 type AbilityScore =
     | Str | Dex | Con | Int | Wis | Cha
+
+type Feature =
+    | Race of Race
+    | Subrace of string
+    | ClassLevel of CharClass * int
+    | HeavyArmorMaster
+    | ASI of AbilityScore * int
+    | GreatWeaponMaster
+    | Sharpshooter
+    | DefensiveDuelist
+    | HeavyArmorDamageResistance of N:int
+    | Faster of int
+    | CharmResist
+    | NoSleep
+    | ExtraCantrip of SpellList
+    | Feat
+    | ExtraHP of int
+    | PoisonResist
+    | MediumArmorProficiency
+    | Darkvision
+
+type Equipment = Item of string | LimitedUseItem of string * int
+
+type CharSheet = {
+    originalRolls: int list
+    name: Name
+    sex: Sex
+    isNPC: bool
+    race: Race
+    classLevels: CharClass list
+    str: int
+    dex: int
+    con: int
+    int: int
+    wis: int
+    cha: int
+    features: Feature list // all non-spell choice points derived from race/class: feats, fighting styles, etc.
+    xp: int
+    equipment: Equipment list
+    }
+
+type Usages = Map<string, int>
+
+type Condition =
+    | Prone
+    | Grappled
+    | Stunned
+    | Unconscious
 
 type StatBlock = {
     name: Name
@@ -37,6 +86,45 @@ type StatBlock = {
     int: int
     wis: int
     cha: int
+    resistances: Set<DamageType>
+    immunities: Set<DamageType>
+    damageResistance: Map<DamageType, int>
+    conditionExemptions: Set<Condition>
+    attacks: Attack list
+    features: Feature list
+    }
+
+type Status = {
+    conditions: Condition list
+    }
+
+// In-combat character or monster info
+type Combatant = {
+    id: Id
+    team: Id
+    stats: StatBlock
+    usages: Usages
+    status: Status
+    position: Position
+    }
+
+// Persistent, between-encounters character info
+type CharacterInfo = {
+    charSheet: CharSheet
+    usages: Usages
+    status: Status
+    hp: int
+    thp: int
+    sp: int
+    }
+
+type TerrainFeature = | Rubble | Undergrowth | Wall | Combatant of Id
+
+type TerrainMap = Map<Position, TerrainFeature> // todo: is map the right data structure to support the right queries?
+
+type Battle = {
+    map: TerrainMap
+    combatants: Map<Id, Combatant>
     }
 
 type RosterEntry = {

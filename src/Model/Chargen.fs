@@ -1,27 +1,6 @@
 module Model.Chargen
 open Model.Types
 
-
-type Feature =
-    | Race of Race
-    | Subrace of string
-    | ClassLevel of CharClass * int
-    | HeavyArmorMaster
-    | ASI of AbilityScore * int
-    | GreatWeaponMaster
-    | Sharpshooter
-    | DefensiveDuelist
-    | HeavyArmorDamageResistance of N:int
-    | Faster of int
-    | CharmResist
-    | NoSleep
-    | ExtraCantrip of SpellList
-    | Feat
-    | ExtraHP of int
-    | PoisonResist
-    | MediumArmorProficiency
-    | Darkvision
-
 let descriptions = function
     | HeavyArmorDamageResistance n ->
         sprintf "Damage resistance %d vs. nonmagical damage while wearing heavy armor" n

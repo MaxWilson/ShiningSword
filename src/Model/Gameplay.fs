@@ -280,7 +280,7 @@ let fight encounter state =
                 inflict b target dmg
             | None -> ()
     let updateHp pcs =
-        pcs |> List.mapi (fun i pc -> { pc with hp = !(snd goodguys.[i]) })
+        pcs |> List.mapi (fun i pc -> { pc with StatBlock.hp = !(snd goodguys.[i]) })
     { state with log = log; pcs = updateHp state.pcs }
 
 let rec doRest (state: GameState) : Eventual<_,_,_> = queryInteraction {

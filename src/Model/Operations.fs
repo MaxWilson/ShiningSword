@@ -100,4 +100,6 @@ module PC =
     let create name sex =
         let xp = 0
         { name = name; sex = sex; xp = xp; hp = List.init (computeLevel xp) (thunk Champion) |> computeHP 12
-          str = 12; dex = 12; con = 12; int = 12; wis = 12; cha = 12 }
+          str = 12; dex = 12; con = 12; int = 12; wis = 12; cha = 12; resistances = Set.empty; damageResistance = Map.empty; conditionExemptions = Set.empty; immunities = Set.empty
+          attacks = []; features = []
+          }
