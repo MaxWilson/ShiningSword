@@ -98,6 +98,10 @@ type Status = {
     conditions: Condition list
     }
 
+type TerrainFeature = | Rubble | Undergrowth | Wall | Combatant of Id
+
+type TerrainMap = Map<Position, TerrainFeature> // todo: is map the right data structure to support the right queries?
+
 // In-combat character or monster info
 type Combatant = {
     id: Id
@@ -117,10 +121,6 @@ type CharacterInfo = {
     thp: int
     sp: int
     }
-
-type TerrainFeature = | Rubble | Undergrowth | Wall | Combatant of Id
-
-type TerrainMap = Map<Position, TerrainFeature> // todo: is map the right data structure to support the right queries?
 
 type Battle = {
     map: TerrainMap

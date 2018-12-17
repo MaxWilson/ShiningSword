@@ -5,12 +5,20 @@ open Common
 
 open Model.Types
 
-type Combatant = {
-    name: Name
-    attacks: Attack list
-    }
-
 let randomSex() = chooseRandom [|Male;Female|]
+
+let create = { Battle.map = Map.empty; combatants = Map.empty }
+let add teamId (sb:StatBlock) (usages:Usages) (status:Status) (battle: Battle) =
+    let nextId = 1 + (battle.combatants |> Map.toSeq |> Seq.maxBy fst |> fst)
+    let rec freshPosition candidate =
+        // look for a random empty square
+        if battle.map.ContainsKey(candidate) then
+            freshPosition (rand 20, rand 20) // random placement for now
+        else
+            candidate
+    let newPosition = freshPosition (0,0)
+    let combatant = { id = nextId; team = teamId; stats = sb; usages = usages; status = status; position = newPosition }
+    { battle with combatants = Map.add nextId combatant battle.combatants; map = Map.add newPosition (Combatant nextId) battle.map }
 
 #nowarn "40" // recursive references in parse patterns are fine
 module Parse =
@@ -48,9 +56,31 @@ module Parse =
         function
         | Word(AnyCase("attacks"), Optional ":" (OWS (AttackList(attacklist, ctx)))) -> Some(attacklist, ctx)
         | _ -> None
+    let makeCombatantStub name attacks =
+        let stats = {
+            name = name
+            sex = Male
+            hp = 10
+            xp = 0
+            str = 10
+            dex = 10
+            con = 10
+            int = 10
+            wis = 10
+            cha = 10
+            resistances = Set.empty
+            immunities = Set.empty
+            damageResistance = Map.empty
+            conditionExemptions = Set.empty
+            attacks = attacks
+            features = []
+            }
+        { id = 0; team = 0; usages = Map.empty; status = { conditions = [] }; position = (0,0); stats = stats }
     let (|Combatant|_|) = pack <| function
-        | Name(name, (Attacks(attacks, ctx))) -> Some({ Combatant.name = name(); attacks = attacks }, ctx)
-        | Name(name, ctx) -> Some({ Combatant.name = name(); attacks = [] }, ctx)
+        | Name(name, (Attacks(attacks, ctx))) ->
+            Some(makeCombatantStub (name()) attacks, ctx)
+        | Name(name, ctx) ->
+            Some(makeCombatantStub (name()) [], ctx)
         | _ -> None
     let attack = parser (|Attack|_|)
     let name = parser (|Name|_|)
