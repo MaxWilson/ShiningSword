@@ -88,7 +88,7 @@ let execute (d: Declarations) (g:GameState) : GameState =
 
     d |> List.fold execute g
 
-module PC =
+module CharSheet =
     open Model.Tables
     let computeLevel xp =
         (levelAdvancement |> Array.findBack (fun x -> xp >= x.XPReq)).level
@@ -97,9 +97,17 @@ module PC =
         let bonus = combatBonus con
         let dieSize characterClass = match characterClass with Champion -> 10 | Battlerager -> 12 | Elemonk -> 8 | PurpleDragonKnight -> 10
         classList |> Seq.mapi (fun l cl -> if l = 0 then (dieSize cl) + bonus else (dieSize cl)/2 + 1 + bonus) |> Seq.sum
-    let create name sex =
+    let create name sex ((str,dex,con,int,wis,cha) as rolls) isNPC =
         let xp = 0
-        { name = name; sex = sex; xp = xp; hp = List.init (computeLevel xp) (thunk Champion) |> computeHP 12
-          str = 12; dex = 12; con = 12; int = 12; wis = 12; cha = 12; resistances = Set.empty; damageResistance = Map.empty; conditionExemptions = Set.empty; immunities = Set.empty
-          attacks = []; features = []
-          }
+        let (stats : CharSheet) = {
+            originalRolls = rolls
+            CharSheet.name = name; sex = sex; xp = xp;
+            str = str; dex = dex; con = con; int = int; wis = wis; cha = cha;
+            features = []
+            isNPC = isNPC
+            race = Human
+            classLevels = List.init (computeLevel xp) (thunk Champion)
+            equipment = []
+            }
+        { CharInfo.src = stats; usages = Map.empty; status = { conditions = [] }; thp = 0; sp = 0; hp = stats.classLevels |> computeHP stats.con }
+    let name = Lens.lens (fun (c:CharInfo) -> c.src.name) (fun v c -> { c with src = { c.src with name = v }})

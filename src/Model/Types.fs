@@ -50,7 +50,7 @@ type Feature =
 type Equipment = Item of string | LimitedUseItem of string * int
 
 type CharSheet = {
-    originalRolls: int list
+    originalRolls: int*int*int*int*int*int
     name: Name
     sex: Sex
     isNPC: bool
@@ -112,9 +112,9 @@ type Combatant = {
     position: Position
     }
 
-// Persistent, between-encounters character info
-type CharacterInfo = {
-    charSheet: CharSheet
+// Persistent, per-adventure, between-encounters character info. Stuff that is more temporary chan a CharSheet.
+type CharInfo = {
+    src: CharSheet // the CharSheet from which this CharInfo is derived
     usages: Usages
     status: Status
     hp: int
@@ -155,7 +155,7 @@ module Log =
     let extract = flush >> snd >> List.rev
 
 type GameState = {
-    pcs: StatBlock list
+    pcs: CharInfo list
     parEarned: int
     gateNumber: int
     towerNumber: int

@@ -34,3 +34,30 @@ let shuffleCopy =
         let a = Array.map id a // make a copy
         a |> Array.iteri (fun i _ -> swap a i (random.Next(i, Array.length a)))
         a // return the copy
+
+// Lens code based on http://www.fssnip.net/7Pk/title/Polymorphic-lenses by Vesa Karvonen
+
+type Lens<'InState,'ValGet,'ValSet,'OutState> = ('ValGet -> Option<'ValSet>) -> 'InState -> Option<'OutState>
+type SimpleLens<'Outer, 'Inner> = Lens<'Outer, 'Inner, 'Inner, 'Outer>
+type RecursiveOptionLens<'t> = SimpleLens<'t, 't option>
+module Lens =
+  let get (l: Lens<'InState,'ValGet,'ValSet,'OutState>) s =
+    let r = ref Unchecked.defaultof<_>
+    s |> l (fun a -> r := a; None) |> ignore
+    !r
+  let over (l: Lens<'InState,'ValGet,'ValSet,'OutState>) f =
+    l (f >> Some) >> function Some t -> t | _ -> failwith "Impossible"
+  let set (l: Lens<'InState,'ValGet,'ValSet,'OutState>) b = over l <| fun _ -> b
+  let lens get set : Lens<'InState,'ValGet,'ValSet,'OutState> =
+    fun f s ->
+      ((get s |> f : Option<_>) |> Option.map (fun f -> set f s))
+
+
+let emptyString = System.String.Empty
+module String =
+  let join delimiter strings = System.String.Join((delimiter: string), (strings: string seq))
+  let equalsIgnoreCase lhs rhs = System.String.Equals(lhs, rhs, System.StringComparison.InvariantCultureIgnoreCase)
+  let firstWord input =
+    match Option.ofObj input with
+    | Some(v:string) -> v.Trim().Split(' ') |> Seq.head
+    | None -> input

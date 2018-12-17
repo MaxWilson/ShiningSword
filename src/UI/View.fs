@@ -124,12 +124,12 @@ let partySummary =
         if game.pcs.IsEmpty then div[][]
         else
             div[] [
-                yield line <| "The party consists of " + (game.pcs |> List.map (fun pc -> pc.name) |> oxfordJoin)
+                yield line <| "The party consists of " + (game.pcs |> List.map (fun pc -> pc.src.name) |> oxfordJoin)
                 for pc in game.pcs do
                     if pc.hp > 0 then
-                        yield line (sprintf "%s: HP %d XP %d" pc.name pc.hp pc.xp)
+                        yield line (sprintf "%s: HP %d XP %d" pc.src.name pc.hp pc.src.xp)
                     else
-                        yield line (sprintf "(Dead) %s: XP %d" pc.name pc.xp)
+                        yield line (sprintf "(Dead) %s: XP %d" pc.src.name pc.src.xp)
                 yield line <| sprintf "You have %d gold" game.gp
                 ]
 

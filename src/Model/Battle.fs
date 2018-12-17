@@ -56,6 +56,28 @@ module Parse =
         function
         | Word(AnyCase("attacks"), Optional ":" (OWS (AttackList(attacklist, ctx)))) -> Some(attacklist, ctx)
         | _ -> None
+    let (|StatBlock|_|) = pack <| function
+        | Name(name, (Attacks(attacks, ctx))) ->
+            let sb = {
+                name = name()
+                sex = Male
+                hp = 10
+                xp = 0
+                str = 10
+                dex = 10
+                con = 10
+                int = 10
+                wis = 10
+                cha = 10
+                resistances = Set.empty
+                immunities = Set.empty
+                damageResistance = Map.empty
+                conditionExemptions = Set.empty
+                attacks = attacks
+                features = []
+                }
+            Some(sb, ctx)
+        | _ -> None
     let makeCombatantStub name attacks =
         let stats = {
             name = name
@@ -76,14 +98,8 @@ module Parse =
             features = []
             }
         { id = 0; team = 0; usages = Map.empty; status = { conditions = [] }; position = (0,0); stats = stats }
-    let (|Combatant|_|) = pack <| function
-        | Name(name, (Attacks(attacks, ctx))) ->
-            Some(makeCombatantStub (name()) attacks, ctx)
-        | Name(name, ctx) ->
-            Some(makeCombatantStub (name()) [], ctx)
-        | _ -> None
     let attack = parser (|Attack|_|)
     let name = parser (|Name|_|)
-    let combatant = parser (|Combatant|_|)
+    let statblock = parser (|StatBlock|_|)
 
-// Parse.combatant "[male:Mordor]\nattacks: +4 for d12+3"
+// Parse.statblock "[male:Mordor]\nattacks: +4 for d12+3"
