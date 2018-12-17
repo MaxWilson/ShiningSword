@@ -183,7 +183,7 @@ let makeTower pcs parXpEarned nTower =
     let cost = (calculate (lookup monsters) (normalize e))
     let xpEarned = e |> Seq.sumBy (fun (name, i) -> i * (lookup monsters name |> snd))
     let earned = xpEarned/N
-    let gpEarned = rand (Math.Log (float budget) |> int)
+    let gpEarned = rand (Math.Pow (float budget, 2./3.) |> int)
     e, cost, earned, xpEarned, gpEarned
 
 let makeRandom pcs parXpEarned nRandom =
@@ -199,7 +199,7 @@ let makeRandom pcs parXpEarned nRandom =
     let c = (calculate (lookup monsters) (normalize e))
     let xpEarned = e |> Seq.sumBy (fun (name, i) -> i * (lookup monsters name |> snd))
     let earned = xpEarned / N
-    let gpEarned = rand (Math.Log10 (float budget) |> int) // make less money from random encounters
+    let gpEarned = rand (sqrt(float budget) |> int) // make less money from random encounters
     e, c, earned, xpEarned, gpEarned
 
 let battlecry (pcs: StatBlock list) monsters =
