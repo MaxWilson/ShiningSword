@@ -246,23 +246,28 @@ let alert state msg = queryInteraction {
 let retirementMessage state =
     let hirelings, pcs = state.pcs |> List.filter CharSheet.isAlive |> List.partition (fun cs -> cs.src.isNPC)
     let hirelingNames = hirelings |> List.map (Lens.get CharSheet.name) |> oxfordJoin
-    let collectiveVocative =
-        match pcs with
-        | [me]  when state.gp >= 0 ->
-            sprintf "%s, you" me.src.name
-        | me::rest ->
-            sprintf "%s, %s" me.src.name (oxfordJoin ("you"::(List.map (Lens.get CharSheet.name) rest)))
-    if state.gp > 0 then
-        if pcs.Length > 1 then
-            (sprintf "%s happily retire from adventuring and spend the rest of your life living off %d gold pieces that you found, %d gold pieces each!" collectiveVocative state.gp (state.gp/pcs.Length))
-        else
-            (sprintf "%s happily retire from adventuring and spend the rest of your life living off %d gold pieces that you found." collectiveVocative state.gp)
-    elif state.gp = 0 then
-        (sprintf "%s happily retire from adventuring, glad just to be alive." collectiveVocative)
-    elif hirelings.Length > 0 then
-        (sprintf "%s glumly retire from adventuring and spend the rest of your life doing menial labor, paying off the %d gold pieces that you owe to %s." collectiveVocative -state.gp hirelingNames)
+    if pcs.Length = 0 then
+        sprintf "%s retire from adventuring." hirelingNames
     else
-        (sprintf "%s glumly retire from adventuring and spend the rest of your life doing menial labor, paying off the %d gold pieces that you owe." collectiveVocative -state.gp)
+        let collectiveVocative =
+            match pcs with
+            | [me]  when state.gp >= 0 ->
+                sprintf "%s, you" me.src.name
+            | me::rest ->
+                sprintf "%s, %s" me.src.name (oxfordJoin ("you"::(List.map (Lens.get CharSheet.name) rest)))
+            | v -> // everybody still alive is an NPC, should not get here, already handled above
+                matchfail v
+        if state.gp > 0 then
+            if pcs.Length > 1 then
+                (sprintf "%s happily retire from adventuring and spend the rest of your life living off %d gold pieces that you found, %d gold pieces each!" collectiveVocative state.gp (state.gp/pcs.Length))
+            else
+                (sprintf "%s happily retire from adventuring and spend the rest of your life living off %d gold pieces that you found." collectiveVocative state.gp)
+        elif state.gp = 0 then
+            (sprintf "%s happily retire from adventuring, glad just to be alive." collectiveVocative)
+        elif hirelings.Length > 0 then
+            (sprintf "%s glumly retire from adventuring and spend the rest of your life doing menial labor, paying off the %d gold pieces that you owe to %s." collectiveVocative -state.gp hirelingNames)
+        else
+            (sprintf "%s glumly retire from adventuring and spend the rest of your life doing menial labor, paying off the %d gold pieces that you owe." collectiveVocative -state.gp)
 
 // super-simple fight resolver currently
 let fight encounter state =
