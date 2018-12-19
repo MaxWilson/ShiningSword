@@ -70,6 +70,17 @@ document.addEventListener_keyup((fun ev ->
         undoModal()
     obj()), true)
 
+let textbox placeholder answer =
+    let cell = ref ""
+    input [
+        ClassName "input"
+        Type "number"
+        Placeholder placeholder
+        AutoFocus true
+        OnChange (fun ev -> cell := !!ev.target?value)
+        onKeyDown KeyCode.enter (fun _ -> answer !cell ())
+        ]
+
 let confirmQuery txt answer =
     [
         str txt
@@ -102,7 +113,7 @@ let numberQuery prompt state updateState answer =
             onKeyDown KeyCode.enter (answer state)
             ]
         ]
-
+        
 let selectQuery prompt choices answer =
     [
         yield str prompt
@@ -151,10 +162,10 @@ let logOutput =
 
 let root model dispatch =
     undoModal <- thunk1 dispatch UndoModal
-    let contents =
+    let inline answer v _ = match model with { modalDialogs = (op, vm)::_ } -> progress dispatch op v | _ -> ()
+    let ongoingInteraction =
         match model with
         | { modalDialogs = (Operation(q,_) as op, vm)::_ } ->
-            let inline answer v _ = progress dispatch op v
             match q with
             | Query.Alert _ ->
                 onKeypress <- Some(fun ev ->
@@ -187,7 +198,8 @@ let root model dispatch =
                 yield h1 [Style [TextAlign "center"]] [str "Shining Sword: Citadel of the Hundred Gates"]
                 yield Button.button [Button.OnClick startGame; Button.Color Fulma.Color.IsBlack] [str "Start new game"]
                 ]
-    div [] [contents; partySummary model.game; logOutput model.game.log dispatch]
+    let cmdEntry = textbox "Enter a text command" answer
+    div [] [ongoingInteraction; cmdEntry; partySummary model.game; logOutput model.game.log dispatch]
 
 
 // App
