@@ -47,13 +47,6 @@ let progress dispatch (Operation(_:Model.Types.Query, provideAnswer)) answer =
     | Final _ -> ()
     | Intermediate((q,gameState), answer) -> dispatch (UpdateModalOperation (Operation(q, answer), gameState))
 
-let confirmQuery txt answer =
-    div [] [
-        str txt
-        Button.button [Button.OnClick (answer "yes")] [str "Yes"]
-        Button.button [Button.OnClick (answer "no")] [str "No"]
-        ]
-
 module KeyCode =
     let enter = 13.
     let upArrow = 38.
@@ -77,8 +70,15 @@ document.addEventListener_keyup((fun ev ->
         undoModal()
     obj()), true)
 
+let confirmQuery txt answer =
+    [
+        str txt
+        Button.button [Button.OnClick (answer "yes")] [str "Yes"]
+        Button.button [Button.OnClick (answer "no")] [str "No"]
+        ]
+
 let freeTextQuery prompt state updateState answer =
-    div [] [
+    [
         str prompt
         input [
             ClassName "input"
@@ -91,7 +91,7 @@ let freeTextQuery prompt state updateState answer =
         ]
 
 let numberQuery prompt state updateState answer =
-    div [] [
+    [
         str prompt
         input [
             ClassName "input"
@@ -104,7 +104,7 @@ let numberQuery prompt state updateState answer =
         ]
 
 let selectQuery prompt choices answer =
-    div [] [
+    [
         yield str prompt
         yield br[]
         for choice in choices do
@@ -112,7 +112,7 @@ let selectQuery prompt choices answer =
         ]
 
 let alertQuery prompt answer =
-    div [] [
+    [
         yield str prompt
         yield br[]
         yield Button.button [Button.OnClick <| answer "OK" ; Button.Props [AutoFocus true]] [str "OK"]
@@ -121,23 +121,33 @@ let alertQuery prompt answer =
 let partySummary =
     lazyView <| fun (game: GameState) ->
         let line msg = p [] [str msg]
-        if game.pcs.IsEmpty then div[][]
-        else
-            div[] [
-                yield line <| "The party consists of " + (game.pcs |> List.map (fun pc -> pc.src.name) |> oxfordJoin)
-                for pc in game.pcs do
-                    if pc.hp > 0 then
-                        yield line (sprintf "%s: HP %d XP %d" pc.src.name pc.hp pc.src.xp)
-                    else
-                        yield line (sprintf "(Dead) %s: XP %d" pc.src.name pc.src.xp)
-                yield line <| sprintf "You have %d gold" game.gp
-                ]
+        let children =
+            if game.pcs.IsEmpty then []
+            else
+                [
+                    yield line <| "The party consists of " + (game.pcs |> List.map (fun pc -> pc.src.name) |> oxfordJoin)
+                    for pc in game.pcs do
+                        if pc.hp > 0 then
+                            yield line (sprintf "%s: HP %d XP %d" pc.src.name pc.hp pc.src.xp)
+                        else
+                            yield line (sprintf "(Dead) %s: XP %d" pc.src.name pc.src.xp)
+                    yield line <| sprintf "You have %d gold" game.gp
+                    ]
+        div [ClassName "partySummary"] children
 
 let logOutput =
-    lazyView <| fun (log: Log.Data) ->
-        let log = Log.extract log
-        let last = List.last log
-        div[] (last |> List.map (fun line -> p[][str line]))
+    lazyView2 <| fun (log: Log.Data) dispatch ->
+        if log = Log.empty then div[ClassName "logDisplay"][]
+        else
+            let log = Log.extract log
+            let last = List.last log
+            div[ClassName "logDisplay"] [
+                Button.button [][str "<<"]
+                Button.button [][str "<"]
+                Button.button [][str ">"]
+                Button.button [][str ">>"]
+                div [ClassName "logDisplay"](last |> List.map (fun line -> p[][str line]))
+                ]
 
 let root model dispatch =
     undoModal <- thunk1 dispatch UndoModal
@@ -159,16 +169,17 @@ let root model dispatch =
                         true
                     | _ -> false)
             | _ -> onKeypress <- None
-            match q with
-            | Query.Confirm(q) -> confirmQuery q answer
-            | Query.Freetext(q) ->
-                freeTextQuery q vm (dispatch << UpdateModalViewModel) answer
-            | Query.Number(q) ->
-                numberQuery q vm (dispatch << UpdateModalViewModel) answer
-            | Query.Select(prompt, choices) ->
-                selectQuery prompt choices answer
-            | Query.Alert txt ->
-                alertQuery txt answer
+            div [ClassName "queryDialog"] <|
+                match q with
+                | Query.Confirm(q) -> confirmQuery q answer
+                | Query.Freetext(q) ->
+                    freeTextQuery q vm (dispatch << UpdateModalViewModel) answer
+                | Query.Number(q) ->
+                    numberQuery q vm (dispatch << UpdateModalViewModel) answer
+                | Query.Select(prompt, choices) ->
+                    selectQuery prompt choices answer
+                | Query.Alert txt ->
+                    alertQuery txt answer
         | _ ->
             let startGame _ = Model.Gameplay.game() |> modalOperation dispatch "" ignore
 
@@ -176,7 +187,7 @@ let root model dispatch =
                 yield h1 [Style [TextAlign "center"]] [str "Shining Sword: Citadel of the Hundred Gates"]
                 yield Button.button [Button.OnClick startGame; Button.Color Fulma.Color.IsBlack] [str "Start new game"]
                 ]
-    div [] [contents; partySummary model.game; logOutput model.game.log]
+    div [] [contents; partySummary model.game; logOutput model.game.log dispatch]
 
 
 // App
