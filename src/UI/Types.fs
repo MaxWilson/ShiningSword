@@ -10,6 +10,7 @@ type Model = {
     modalDialogs: (Operation * ViewModel) list
     game: GameState
     undo: (GameState * (Operation * ViewModel) list) option
+    logSkip: int option
     }
 
 type Msg =
@@ -18,5 +19,5 @@ type Msg =
     | UpdateModalOperation of Operation * GameState
     | CloseModal
     | UndoModal
-
+    | LogSkip of int
 

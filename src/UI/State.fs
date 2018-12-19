@@ -13,18 +13,26 @@ let urlUpdate (parseResult: Msg option) model =
     model, []
 
 let init parseResult =
-    { modalDialogs = []; game = GameState.empty; undo = None } |> urlUpdate parseResult
+    { modalDialogs = []; game = GameState.empty; undo = None; logSkip = None } |> urlUpdate parseResult
 
 let update msg model =
     match msg with
     | NewModal(op,gameState,viewModel) ->
-        { model with modalDialogs = (op, viewModel) :: model.modalDialogs; game = gameState; undo = Some(model.game, model.modalDialogs) }, Cmd.Empty
+        { model with
+            modalDialogs = (op, viewModel) :: model.modalDialogs
+            game = gameState
+            undo = Some(model.game, model.modalDialogs)
+            logSkip = None }, Cmd.Empty
     | UpdateModalOperation(op, gameState) ->
         let m =
             match model.modalDialogs with
             | (_, st)::rest -> (op, "")::rest
             | _ -> []
-        { model with modalDialogs = m; game = gameState; undo = Some(model.game, model.modalDialogs) }, Cmd.Empty
+        { model with
+            modalDialogs = m
+            game = gameState
+            undo = Some(model.game, model.modalDialogs)
+            logSkip = None }, Cmd.Empty
     | UpdateModalViewModel vm ->
         let m =
             match model.modalDialogs with
@@ -40,3 +48,4 @@ let update msg model =
         | Some(game, stack) ->
             { model with undo = None; game = game; modalDialogs = stack }, Cmd.Empty
         | None -> model, Cmd.Empty
+    | LogSkip n -> { model with logSkip = Some n }, Cmd.Empty

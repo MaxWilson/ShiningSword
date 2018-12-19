@@ -147,17 +147,22 @@ let partySummary =
         div [ClassName "partySummary"] children
 
 let logOutput =
-    lazyView2 <| fun (log: Log.Data) dispatch ->
+    lazyView2 <| fun (log: Log.Data, logSkip) dispatch ->
         if log = Log.empty then div[ClassName "logDisplay"][]
         else
+            let logLength = (snd log).Length
+            let logSkip = (defaultArg logSkip (logLength-1)) // default to most recent
+            let logSkip = max (min (logLength - 1) logSkip) 0 // trim bounds just in case
             let log = Log.extract log
-            let last = List.last log
+            let current = log |> List.skip logSkip |> List.head
+
+            let inline logMove n = Button.OnClick (fun _ -> dispatch (LogSkip (logSkip + n)))
             div[ClassName "logDisplay"] [
-                Button.button [][str "<<"]
-                Button.button [][str "<"]
-                Button.button [][str ">"]
-                Button.button [][str ">>"]
-                div [ClassName "logDisplay"](last |> List.map (fun line -> p[][str line]))
+                Button.button [logMove -logSkip][str "<<"]
+                Button.button [logMove -1][str "<"]
+                Button.button [logMove +1][str ">"]
+                Button.button [logMove (logLength - 1 - logSkip)][str ">>"]
+                div [ClassName "logDisplay"](current |> List.map (fun line -> p[][str line]))
                 ]
 
 let root model dispatch =
@@ -199,7 +204,7 @@ let root model dispatch =
                 yield Button.button [Button.OnClick startGame; Button.Color Fulma.Color.IsBlack] [str "Start new game"]
                 ]
     let cmdEntry = textbox "Enter a text command" answer
-    div [] [ongoingInteraction; cmdEntry; partySummary model.game; logOutput model.game.log dispatch]
+    div [] [ongoingInteraction; cmdEntry; partySummary model.game; logOutput (model.game.log, model.logSkip) dispatch]
 
 
 // App
