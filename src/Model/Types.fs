@@ -49,6 +49,15 @@ type Feature =
 
 type Equipment = Item of string | LimitedUseItem of string * int
 
+type CharTemplate = {
+    name: string
+    statPriorities: int*int*int*int*int*int
+    description: string
+    race: Race option
+    advancementPriorities: CharClass list
+    featurePriorities: Feature list
+    }
+
 type CharSheet = {
     originalRolls: int*int*int*int*int*int
     name: Name
@@ -65,6 +74,8 @@ type CharSheet = {
     features: Feature list // all non-spell choice points derived from race/class: feats, fighting styles, etc.
     xp: int
     equipment: Equipment list
+    template: CharTemplate option
+    description: string
     }
 
 type Usages = Map<string, int>
@@ -153,15 +164,6 @@ module Log =
         match flush log with
         | _, rest -> [], []::rest
     let extract = flush >> snd >> List.rev
-
-type CharTemplate = {
-    name: string
-    statPriorities: int*int*int*int*int*int
-    description: string
-    race: Race option
-    advancementPriorities: CharClass list
-    featurePriorities: Feature list
-    }
 
 type GameState = {
     pcs: CharInfo list

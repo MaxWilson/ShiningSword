@@ -173,11 +173,11 @@ module Workflow =
                 return (name, sex, template)
         }
 
-    let rec getPCs (state: GameState) firstPerson isFriend : Eventual<_,_,_> = queryInteraction {
+    let rec newPC (state: GameState) firstPerson isFriend : Eventual<_,_,_> = queryInteraction {
         let! name, sex, template = getNameSexTemplate state firstPerson isFriend
         let stats =
             let r() = [for _ in 1..4 -> rand 6] |> List.sortDescending |> List.take 3 |> List.sum
             (r(),r(),r(),r(),r(),r())
-        let pc = CharSheet.create name sex stats (not (firstPerson || isFriend))
+        let pc = CharSheet.create name sex stats (not (firstPerson || isFriend)) template
         return pc
     }

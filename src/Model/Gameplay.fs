@@ -136,12 +136,7 @@ let getNameAndSex state firstPerson isFriend : Eventual<_,_,Name * Sex> = queryI
     }
 
 let rec getPCs (state: GameState) firstPerson isFriend : Eventual<_,_,_> = queryInteraction {
-    let! name, sex = getNameAndSex state firstPerson isFriend
-    let stats =
-        let r() = [for _ in 1..4 -> rand 6] |> List.sortDescending |> List.take 3 |> List.sum
-        (r(),r(),r(),r(),r(),r())
-    let pc = CharSheet.create name sex stats (not (firstPerson || isFriend))
-
+    let! pc = Chargen.Workflow.newPC state firstPerson isFriend
     let state = { state with pcs = state.pcs@[pc]; gp = if firstPerson || isFriend then state.gp else state.gp - 100 }
     let! more = Query.choose state (sprintf "Do you want to recruit%shelp? It costs 100 gold pieces up front plus salary." (if state.pcs.Length = 1 then " " else " more "))
                     ["I have a friend"; "Hire help"; "No, I'm ready"]

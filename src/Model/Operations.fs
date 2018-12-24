@@ -97,8 +97,17 @@ module CharSheet =
         let bonus = combatBonus con
         let dieSize characterClass = match characterClass with Champion -> 10 | Battlerager -> 12 | Elemonk -> 8 | PurpleDragonKnight -> 10 | Samurai -> 10
         classList |> Seq.mapi (fun l cl -> if l = 0 then (dieSize cl) + bonus else (dieSize cl)/2 + 1 + bonus) |> Seq.sum
-    let create name sex ((str,dex,con,int,wis,cha) as rolls) isNPC =
+    let prioritize ((r1, r2, r3, r4, r5, r6) as rolls) ((str,dex,con,int,wis,cha) as priorities) =
+        let rolls = Common.shuffleCopy [|r1;r2;r3;r4;r5;r6|] |> Array.sortDescending
+        let priorityIndexes = [|str,0;dex,1;con,2;int,3;wis,4;cha,5|] |> Common.shuffleCopy |> Array.sortBy fst |> Array.map snd
+        let statByIndex ix =
+            let ix = priorityIndexes |> Array.findIndex ((=) ix)
+            rolls.[ix]
+        (statByIndex 0),(statByIndex 1),(statByIndex 2),(statByIndex 3),(statByIndex 4),(statByIndex 5)
+    let create name sex rolls isNPC (template:CharTemplate) =
         let xp = 0
+        let defaultClass = Champion // fallback in the absence of other priorities
+        let (str,dex,con,int,wis,cha) = prioritize rolls template.statPriorities
         let (stats : CharSheet) = {
             originalRolls = rolls
             CharSheet.name = name; sex = sex; xp = xp;
@@ -106,8 +115,10 @@ module CharSheet =
             features = []
             isNPC = isNPC
             race = Human
-            classLevels = List.init (computeLevel xp) (thunk Champion)
+            classLevels = (template.advancementPriorities) @ List.init 20 (thunk defaultClass) |> List.take (computeLevel xp)
             equipment = []
+            template = Some template
+            description = template.description
             }
         { CharInfo.src = stats; usages = Map.empty; status = { conditions = [] }; thp = 0; sp = 0; hp = stats.classLevels |> computeHP stats.con }
     let name = Lens.lens (fun (c:CharInfo) -> c.src.name) (fun v c -> { c with src = { c.src with name = v }})
