@@ -156,12 +156,16 @@ let logOutput =
             let log = Log.extract log
             let current = log |> List.skip logSkip |> List.head
 
-            let inline logMove n = Button.OnClick (fun _ -> dispatch (LogSkip (logSkip + n)))
+            let inline logMove n label =
+                Button.button
+                    [Button.OnClick (fun _ -> dispatch (LogSkip (logSkip + n)));
+                        Button.Disabled (logLength <= 1)]
+                    [str label]
             div[ClassName "logDisplay"] [
-                Button.button [logMove -logSkip][str "<<"]
-                Button.button [logMove -1][str "<"]
-                Button.button [logMove +1][str ">"]
-                Button.button [logMove (logLength - 1 - logSkip)][str ">>"]
+                logMove -logSkip "<<"
+                logMove -1 "<"
+                logMove +1 ">"
+                logMove (logLength - 1 - logSkip) ">>"
                 div [ClassName "logDisplay"](current |> List.map (fun line -> p[][str line]))
                 ]
 
