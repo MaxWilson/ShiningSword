@@ -172,3 +172,4 @@ type Query =
     | Confirm of string
     | Select of prompt: string * choices: string[]
     | Alert of string
+    | BattleQuery

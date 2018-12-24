@@ -196,6 +196,9 @@ let root model dispatch =
                     selectQuery prompt choices answer
                 | Query.Alert txt ->
                     alertQuery txt answer
+                | Query.BattleQuery ->
+                    let cmdEntry = textbox "Enter a text command" answer
+                    [cmdEntry]
         | _ ->
             let startGame _ = Model.Gameplay.game() |> modalOperation dispatch "" ignore
 
@@ -203,8 +206,7 @@ let root model dispatch =
                 yield h1 [Style [TextAlign "center"]] [str "Shining Sword: Citadel of the Hundred Gates"]
                 yield Button.button [Button.OnClick startGame; Button.Color Fulma.Color.IsBlack] [str "Start new game"]
                 ]
-    let cmdEntry = textbox "Enter a text command" answer
-    div [] [ongoingInteraction; cmdEntry; partySummary model.game; logOutput (model.game.log, model.logSkip) dispatch]
+    div [] [ongoingInteraction; partySummary model.game; logOutput (model.game.log, model.logSkip) dispatch]
 
 
 // App
