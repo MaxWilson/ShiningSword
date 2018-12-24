@@ -130,18 +130,24 @@ let alertQuery prompt answer =
         ]
 
 let partySummary =
-    lazyView <| fun (game: GameState) ->
+    lazyView2 <| fun (game: GameState) dispatch ->
         let line msg = p [] [str msg]
         let children =
             if game.pcs.IsEmpty then []
             else
+                let showStatus pc _ =
+                    Model.Gameplay.showPCDetails game pc
+                    |> modalOperation dispatch "" ignore
                 [
                     yield line <| "The party consists of " + (game.pcs |> List.map (fun pc -> pc.src.name) |> oxfordJoin)
                     for pc in game.pcs do
-                        if pc.hp > 0 then
-                            yield line (sprintf "%s: HP %d XP %d" pc.src.name pc.hp pc.src.xp)
-                        else
-                            yield line (sprintf "(Dead) %s: XP %d" pc.src.name pc.src.xp)
+                        let txt =
+                            if pc.hp > 0 then
+                                (sprintf "%s: HP %d XP %d" pc.src.name pc.hp pc.src.xp)
+                            else
+                                (sprintf "(Dead) %s: XP %d" pc.src.name pc.src.xp)
+                        let details = Button.button [Button.OnClick (showStatus pc)] [str txt]
+                        yield p [] [details]
                     yield line <| sprintf "You have %d gold" game.gp
                     ]
         div [ClassName "partySummary"] children
@@ -203,6 +209,15 @@ let root model dispatch =
                 | Query.BattleQuery ->
                     let cmdEntry = textbox "Enter a text command" answer
                     [cmdEntry]
+                | Query.Character pc ->
+                    let ok = Button.button [Button.OnClick <| answer "OK" ; Button.Props [AutoFocus true]] [str "OK"]
+                    [
+                        p[][str pc.src.name]
+                        p[][str (sprintf "%A %A" pc.src.sex pc.src.template.Value.name)]
+                        p[][str (sprintf "Str: %d Dex: %d Con: %d Int: %d Wis: %d Cha: %d HP: %d" pc.src.str pc.src.dex pc.src.con pc.src.int pc.src.wis pc.src.cha pc.hp)]
+                        br[]
+                        ok
+                        ]
         | _ ->
             let startGame _ = Model.Gameplay.game() |> modalOperation dispatch "" ignore
 
@@ -210,7 +225,7 @@ let root model dispatch =
                 yield h1 [Style [TextAlign "center"]] [str "Shining Sword: Citadel of the Hundred Gates"]
                 yield Button.button [Button.OnClick startGame; Button.Color Fulma.Color.IsBlack] [str "Start new game"]
                 ]
-    div [] [ongoingInteraction; partySummary model.game; logOutput (model.game.log, model.logSkip) dispatch]
+    div [] [ongoingInteraction; partySummary model.game dispatch; logOutput (model.game.log, model.logSkip) dispatch]
 
 
 // App

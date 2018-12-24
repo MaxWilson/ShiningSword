@@ -333,6 +333,11 @@ and doTower (state: GameState) : Eventual<_,_,_> = queryInteraction {
             return! alert state (retirementMessage state)
         | _ -> return state
     }
+
+let showPCDetails game pc = queryInteraction {
+    do! Query.character game pc
+    return game
+    }
 let doGate state : Eventual<_,_,_> = queryInteraction {
     return! (doTower state)
     }

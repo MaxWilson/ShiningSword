@@ -184,3 +184,4 @@ type Query =
     | Select of prompt: string * choices: string[]
     | Alert of string
     | BattleQuery
+    | Character of CharInfo

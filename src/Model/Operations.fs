@@ -44,6 +44,8 @@ module Query =
         (Query.Select (prompt, choices |> Seq.map (fun v -> v.ToString()) |> Array.ofSeq), state), tryChoose
     let alert state txt =
         (Query.Alert txt, state), thunk (Some ())
+    let character state char =
+        (Query.Character char, state), thunk (Some ())
 
 module Creature =
     let map f (c: RosterEntry) =
