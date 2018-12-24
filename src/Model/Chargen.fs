@@ -1,5 +1,9 @@
 module Model.Chargen
 open Model.Types
+open Model.Names
+open Model.Operations
+open Interaction
+open Common
 
 let descriptions = function
     | HeavyArmorDamageResistance n ->
@@ -98,3 +102,82 @@ let choices features =
 
 let validate (race, classLevels) features =
     failwith "Not implemented"
+
+module Templates =
+    let charTemplates =
+        [
+        {   name = "Dwarven Einhere"; description = "The stout battleragers of Odin's Halls are famous for three things: their fury in battle, their loyalty to their bearded brethren, and their love of glittering things."
+            statPriorities = (1, 5, 2, 6, 6, 4); race = Some Dwarf; advancementPriorities = List.init 20 (thunk Battlerager); featurePriorities = []
+            }
+        {   name = "Emerald Bodyguard"; description = "From the far north come exotic warriors sworn to protect and preserve. The most honorable are called samurai and deal swift death to their enemies."
+            statPriorities = (3, 1, 2, 4, 4, 4); race = None; advancementPriorities = List.init 20 (thunk Samurai); featurePriorities = []
+            }
+        {   name = "Knight of the Round Table"; description = "From the lands of Albion and far-off Undauntra have come stout allies, armored knights pledged to courage and valor. Some among them can heal the wounded."
+            statPriorities = (1, 3, 2, 4, 4, 4); race = Some Human; advancementPriorities = List.init 20 (thunk PurpleDragonKnight); featurePriorities = [HeavyArmorMaster]
+            }
+        {   name = "Brute"; description = "A hired thug, capable and deadly yet obedient to command."
+            statPriorities = (1, 3, 2, 4, 4, 4); race = Some Human; advancementPriorities = List.init 20 (thunk PurpleDragonKnight); featurePriorities = [HeavyArmorMaster]
+            }
+        {   name = "Wind Warrior"; description = "The Kuzarni clan ninjas of the far north, known as Wind Warriors by southrons, have many strange and mystical abilities. Some of them are able to stun enemies with a blow or even to hurl explosive blasts of flame."
+            statPriorities = (4, 1, 2, 4, 1, 4); race = Some Human; advancementPriorities = List.init 20 (thunk PurpleDragonKnight); featurePriorities = [HeavyArmorMaster]
+            }
+        ]
+        |> List.map (fun t -> t.name, t)
+        |> Map.ofSeq
+    
+module Workflow =
+    let queryInteraction = Interaction.InteractionBuilder<Query * GameState, string>()
+
+    let getNameSexTemplate state firstPerson isFriend : Eventual<_,_,Name * Sex * CharTemplate> = queryInteraction {
+        let charTemplateChoice = ("Don't care"::(Templates.charTemplates |> Map.toList |> List.map fst))
+        let randomTemplate() = chooseRandom (Templates.charTemplates |> Map.toArray |> Array.map snd)
+        let findTemplate key =
+            match Templates.charTemplates.TryFind key with
+            | Some v -> v
+            | None -> randomTemplate()
+        if firstPerson then
+            let! name = Query.text state "What's your name?"
+            let! sex = Query.choose state "What's your sex?" [Male; Female]
+            let! template = Query.choose state "What kind of adventurer are you?" charTemplateChoice
+            return (name, sex, findTemplate template)
+        elif isFriend then
+            let! name = Query.text state "What's your friend's name?"
+            let! sex = Query.choose state "What's their sex?" [Male; Female]
+            let! template = Query.choose state (sprintf "What kind of adventurer is %s?" (match sex with Male -> "he" | Female -> "she")) charTemplateChoice
+            return (name, sex, findTemplate template)
+        else
+            let! sex = Query.choose state "Are you looking for males or females? (This affects which regions you can recruit from.)" ["Don't care";"Male"; "Female"]
+            let sex = match sex with "Don't care" -> chooseRandom [|Male;Female|] | "Male" -> Male | _ -> Female
+            let eligibleLists = Model.Names.names |> List.filter (fun ((n,t),_) -> t = (sex.ToString()))
+            let captions = (eligibleLists |> List.map (fst >> fst))
+            let! nameType = Query.choose state "What region do you want to recruit from?" ("Don't care" :: captions)
+            let nameType = match nameType with "Don't care" -> chooseRandom (Array.ofList captions) | v -> v
+            let chosenList = eligibleLists |> List.pick (fun ((n,_),l) -> if nameType = n then Some l else None)
+            let firstname = chooseRandom chosenList
+            let lastname =
+                match sex, Model.Names.names |> List.tryFind (fun ((n,t),_) -> (t = ("Last" + sex.ToString()) || t = "Last") && n = nameType) with
+                | _, Some (_, lst) -> chooseRandom lst
+                | Male, None -> sprintf "%s%s" (chooseRandom [|" ben ";" son ";" dak ";" s'";" "|]) (chooseRandom chosenList)
+                | Female, None -> (chooseRandom [|" bat " + (chooseRandom chosenList); (chooseRandom chosenList) + "dotter"; "d'"+(chooseRandom chosenList); chooseRandom chosenList|])
+            let template =
+                match nameType with
+                | "Undauntra" -> findTemplate "Knight of the Round Table"
+                | "Mordor" -> findTemplate "Brute"
+                | _ -> randomTemplate()
+            match Model.Names.names |> List.tryFind (fun ((n,t),_) -> t = ("Cognomen" + sex.ToString()) && n = nameType) with
+            | Some (_, cognomens) ->
+                let name = sprintf "%s %s %s" firstname lastname (chooseRandom cognomens)
+                return (name, sex, template)
+            | None ->
+                let name = sprintf "%s %s" firstname lastname
+                return (name, sex, template)
+        }
+
+    let rec getPCs (state: GameState) firstPerson isFriend : Eventual<_,_,_> = queryInteraction {
+        let! name, sex, template = getNameSexTemplate state firstPerson isFriend
+        let stats =
+            let r() = [for _ in 1..4 -> rand 6] |> List.sortDescending |> List.take 3 |> List.sum
+            (r(),r(),r(),r(),r(),r())
+        let pc = CharSheet.create name sex stats (not (firstPerson || isFriend))
+        return pc
+    }

@@ -15,7 +15,7 @@ type Description = string
 type Position = int * int
 type Sex = Male | Female
 
-type CharClass = Champion | Elemonk | PurpleDragonKnight | Battlerager
+type CharClass = Champion | Elemonk | PurpleDragonKnight | Battlerager | Samurai
 type SpellList = Wizard | Cleric
 type Race =
     | Human
@@ -153,6 +153,15 @@ module Log =
         match flush log with
         | _, rest -> [], []::rest
     let extract = flush >> snd >> List.rev
+
+type CharTemplate = {
+    name: string
+    statPriorities: int*int*int*int*int*int
+    description: string
+    race: Race option
+    advancementPriorities: CharClass list
+    featurePriorities: Feature list
+    }
 
 type GameState = {
     pcs: CharInfo list
