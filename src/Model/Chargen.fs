@@ -107,19 +107,19 @@ module Templates =
     let charTemplates =
         [
         {   name = "Dwarven Einhere"; description = "The stout battleragers of Odin's Halls are famous for three things: their fury in battle, their loyalty to their bearded brethren, and their love of glittering things."
-            statPriorities = (1, 5, 2, 6, 6, 4); race = Some Dwarf; advancementPriorities = List.init 20 (thunk Battlerager); featurePriorities = []
+            statPriorities = (1, 5, 2, 6, 6, 4); race = Some Dwarf; advancementPriorities = List.init 20 (thunk Battlerager); featurePriorities = []; homeRegion = Some ["Abyisa";"Ermor"]
             }
         {   name = "Emerald Bodyguard"; description = "From the far north come exotic warriors sworn to protect and preserve. The most honorable are called samurai and deal swift death to their enemies."
-            statPriorities = (3, 1, 2, 4, 4, 4); race = None; advancementPriorities = List.init 20 (thunk Samurai); featurePriorities = []
+            statPriorities = (3, 1, 2, 4, 4, 4); race = None; advancementPriorities = List.init 20 (thunk Samurai); featurePriorities = []; homeRegion = Some ["Kailasa"]
             }
         {   name = "Knight of the Round Table"; description = "From the lands of Albion and far-off Undauntra have come stout allies, armored knights pledged to courage and valor. Some among them can heal the wounded."
-            statPriorities = (1, 3, 2, 4, 4, 4); race = Some Human; advancementPriorities = List.init 20 (thunk PurpleDragonKnight); featurePriorities = [HeavyArmorMaster]
+            statPriorities = (1, 3, 2, 4, 4, 4); race = Some Human; advancementPriorities = List.init 20 (thunk PurpleDragonKnight); featurePriorities = [HeavyArmorMaster]; homeRegion = Some ["Undauntra"]
             }
         {   name = "Brute"; description = "A hired thug, capable and deadly yet obedient to command."
-            statPriorities = (1, 3, 2, 4, 4, 4); race = Some Human; advancementPriorities = List.init 20 (thunk PurpleDragonKnight); featurePriorities = [HeavyArmorMaster]
+            statPriorities = (1, 3, 2, 4, 4, 4); race = Some Human; advancementPriorities = List.init 20 (thunk PurpleDragonKnight); featurePriorities = [HeavyArmorMaster]; homeRegion = None
             }
         {   name = "Wind Warrior"; description = "The Kuzarni clan ninjas of the far north, known as Wind Warriors by southrons, have many strange and mystical abilities. Some of them are able to stun enemies with a blow or even to hurl explosive blasts of flame."
-            statPriorities = (4, 1, 2, 4, 1, 4); race = Some Human; advancementPriorities = List.init 20 (thunk PurpleDragonKnight); featurePriorities = [HeavyArmorMaster]
+            statPriorities = (4, 1, 2, 4, 1, 4); race = Some Human; advancementPriorities = List.init 20 (thunk PurpleDragonKnight); featurePriorities = [HeavyArmorMaster]; homeRegion = Some ["Kailasa"]
             }
         ]
         |> List.map (fun t -> t.name, t)
@@ -128,23 +128,23 @@ module Templates =
 module Workflow =
     let queryInteraction = Interaction.InteractionBuilder<Query * GameState, string>()
 
-    let getNameSexTemplate state firstPerson isFriend : Eventual<_,_,Name * Sex * CharTemplate> = queryInteraction {
+    let getNameSexTemplate state firstPerson isFriend : Eventual<_,_,Name * Sex * CharTemplate * string option> = queryInteraction {
         let charTemplateChoice = ("Don't care"::(Templates.charTemplates |> Map.toList |> List.map fst))
-        let randomTemplate() = chooseRandom (Templates.charTemplates |> Map.toArray |> Array.map snd)
+        let randomTemplate region = chooseRandom (Templates.charTemplates |> Map.filter (fun _ t -> match t.homeRegion with Some regions -> List.contains region regions | _ -> true) |> Map.toArray |> Array.map snd)
         let findTemplate key =
             match Templates.charTemplates.TryFind key with
             | Some v -> v
-            | None -> randomTemplate()
+            | None -> chooseRandom (Templates.charTemplates |> Map.toArray |> Array.map snd)
         if firstPerson then
             let! name = Query.text state "What's your name?"
             let! sex = Query.choose state "What's your sex?" [Male; Female]
             let! template = Query.choose state "What kind of adventurer are you?" charTemplateChoice
-            return (name, sex, findTemplate template)
+            return (name, sex, findTemplate template, None)
         elif isFriend then
             let! name = Query.text state "What's your friend's name?"
             let! sex = Query.choose state "What's their sex?" [Male; Female]
             let! template = Query.choose state (sprintf "What kind of adventurer is %s?" (match sex with Male -> "he" | Female -> "she")) charTemplateChoice
-            return (name, sex, findTemplate template)
+            return (name, sex, findTemplate template, None)
         else
             let! sex = Query.choose state "Are you looking for males or females? (This affects which regions you can recruit from.)" ["Don't care";"Male"; "Female"]
             let sex = match sex with "Don't care" -> chooseRandom [|Male;Female|] | "Male" -> Male | _ -> Female
@@ -160,24 +160,21 @@ module Workflow =
                 | Male, None -> sprintf "%s%s" (chooseRandom [|" ben ";" son ";" dak ";" s'";" "|]) (chooseRandom chosenList)
                 | Female, None -> (chooseRandom [|" bat " + (chooseRandom chosenList); (chooseRandom chosenList) + "dotter"; "d'"+(chooseRandom chosenList); chooseRandom chosenList|])
             let template =
-                match nameType with
-                | "Undauntra" -> findTemplate "Knight of the Round Table"
-                | "Mordor" -> findTemplate "Brute"
-                | _ -> randomTemplate()
+                randomTemplate nameType
             match Model.Names.names |> List.tryFind (fun ((n,t),_) -> t = ("Cognomen" + sex.ToString()) && n = nameType) with
             | Some (_, cognomens) ->
                 let name = sprintf "%s %s %s" firstname lastname (chooseRandom cognomens)
-                return (name, sex, template)
+                return (name, sex, template, Some nameType)
             | None ->
                 let name = sprintf "%s %s" firstname lastname
-                return (name, sex, template)
+                return (name, sex, template, Some nameType)
         }
 
     let rec newPC (state: GameState) firstPerson isFriend : Eventual<_,_,_> = queryInteraction {
-        let! name, sex, template = getNameSexTemplate state firstPerson isFriend
+        let! name, sex, template, region = getNameSexTemplate state firstPerson isFriend
         let stats =
             let r() = [for _ in 1..4 -> rand 6] |> List.sortDescending |> List.take 3 |> List.sum
             (r(),r(),r(),r(),r(),r())
-        let pc = CharSheet.create name sex stats (not (firstPerson || isFriend)) template
+        let pc = CharSheet.create name sex stats (not (firstPerson || isFriend)) region template
         return pc
     }

@@ -106,7 +106,7 @@ module CharSheet =
             let ix = priorityIndexes |> Array.findIndex ((=) ix)
             rolls.[ix]
         (statByIndex 0),(statByIndex 1),(statByIndex 2),(statByIndex 3),(statByIndex 4),(statByIndex 5)
-    let create name sex rolls isNPC (template:CharTemplate) =
+    let create name sex rolls isNPC region (template:CharTemplate) =
         let xp = 0
         let defaultClass = Champion // fallback in the absence of other priorities
         let (str,dex,con,int,wis,cha) = prioritize rolls template.statPriorities
@@ -121,6 +121,7 @@ module CharSheet =
             equipment = []
             template = Some template
             description = template.description
+            homeRegion = region
             }
         { CharInfo.src = stats; usages = Map.empty; status = { conditions = [] }; thp = 0; sp = 0; hp = stats.classLevels |> computeHP stats.con }
     let name = Lens.lens (fun (c:CharInfo) -> c.src.name) (fun v c -> { c with src = { c.src with name = v }})

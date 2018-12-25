@@ -56,6 +56,7 @@ type CharTemplate = {
     race: Race option
     advancementPriorities: CharClass list
     featurePriorities: Feature list
+    homeRegion: string list option
     }
 
 type CharSheet = {
@@ -75,6 +76,7 @@ type CharSheet = {
     xp: int
     equipment: Equipment list
     template: CharTemplate option
+    homeRegion: string option
     description: string
     }
 
