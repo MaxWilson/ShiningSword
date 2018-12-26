@@ -24,6 +24,7 @@ open Common
 open Fulma
 open Fulma.Color
 open Model.Types
+open Model.Operations
 
 module Parse =
     open Packrat
@@ -130,25 +131,55 @@ let alertQuery prompt answer =
         ]
 
 let partySummary =
-    lazyView2 <| fun (game: GameState) dispatch ->
+    lazyView2 <| fun ((game: GameState), isViewingChars: bool) dispatch ->
         let line msg = p [] [str msg]
         let children =
             if game.pcs.IsEmpty then []
             else
                 let showStatus pc _ =
+                    if isViewingChars then
+                        dispatch CloseModal
                     Model.Gameplay.showPCDetails game pc
                     |> modalOperation dispatch "" ignore
                 [
                     yield line <| "The party consists of " + (game.pcs |> List.map (fun pc -> pc.src.name) |> oxfordJoin)
-                    for pc in game.pcs do
-                        let txt =
-                            if pc.hp > 0 then
-                                (sprintf "%s: HP %d XP %d" pc.src.name pc.hp pc.src.xp)
-                            else
-                                (sprintf "(Dead) %s: XP %d" pc.src.name pc.src.xp)
-                        let details = Button.button [Button.OnClick (showStatus pc)] [str txt]
-                        yield p [] [details]
                     yield line <| sprintf "You have %d gold" game.gp
+                    yield table [ClassName "table"] [
+                        thead [] [
+                            tr [] [
+                                th [] [str "Pos"]
+                                th [] [str "Name"]
+                                th [] [str "Status"]
+                                th [] [str "Level"]
+                                th [] [str "Current HP"]
+                                th [] [str "Max HP"]
+                                th [] [str "XP"]
+                                ]
+                            ]
+                        tbody [] (game.pcs |> List.mapi (fun i pc ->
+                                let details =
+                                    if pc.hp > 0 then [
+                                        str (i.ToString())
+                                        Button.button [Button.OnClick (showStatus pc); Button.IsLink] [str pc.src.name]
+                                        str (sprintf " HP %d XP %d" pc.hp pc.src.xp)
+                                        ]
+                                    else
+                                        [
+                                            str "(Dead) "
+                                            Button.button [Button.OnClick (showStatus pc); Button.IsLink] [str pc.src.name]
+                                            str (sprintf " XP %d" pc.src.xp)
+                                            ]
+                                tr [OnClick (showStatus pc)] ([
+                                    str <| (i+1).ToString()
+                                    str pc.src.name
+                                    str <| if pc.hp < 0 then "(Dead)" elif pc.hp < (CharSheet.computeMaxHP pc.src) then "Wounded" else "OK"
+                                    str (pc.src.classLevels.Length.ToString())
+                                    str (pc.hp.ToString())
+                                    str ((CharSheet.computeMaxHP pc.src).ToString())
+                                    str (pc.src.xp.ToString())
+                                    ] |> List.map (fun v -> td [] [v]))
+                            ))
+                        ]
                     ]
         div [ClassName "partySummary"] children
 
@@ -226,7 +257,7 @@ let root model dispatch =
                 yield h1 [Style [TextAlign "center"]] [str "Shining Sword: Citadel of the Hundred Gates"]
                 yield Button.button [Button.OnClick startGame; Button.Color Fulma.Color.IsBlack] [str "Start new game"]
                 ]
-    div [] [ongoingInteraction; partySummary model.game dispatch; logOutput (model.game.log, model.logSkip) dispatch]
+    div [] [ongoingInteraction; partySummary (model.game, (match model.modalDialogs with (Operation(Query.Character _, _),_)::_ -> true | _ -> false)) dispatch; logOutput (model.game.log, model.logSkip) dispatch]
 
 
 // App
