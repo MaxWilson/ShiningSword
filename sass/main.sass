@@ -22,10 +22,6 @@ $black: #202020
 .github
   color: $black !important // Override bulma
   border-color: $black
-
-.mainPage
-  display: grid
-  grid-template-areas: "main log" "summary log"
   
 .queryDialog
   grid-area: main
@@ -35,3 +31,15 @@ $black: #202020
   
 .partySummary
   grid-area: summary
+
+.mainPage
+  display: grid
+
+@media (max-width: 800px)
+  .mainPage
+    grid-template-areas: "main" "summary" "log"
+  
+@media (min-width: 800px)
+  .mainPage
+    grid-template-areas: "main log" "summary log"
+
