@@ -57,8 +57,10 @@ let featureGraph : (Feature * Consequent) [] = [|
     Race HalfElf, Grants NoSleep
     Race Human, ChooseN (2, [ASI (Str, +1); ASI (Dex, +1); ASI (Con, +1); ASI (Int, +1); ASI (Wis, +1); ASI (Cha, +1)])
     Race Human, Grants Feat
-    Feat, Choose [Sharpshooter; GreatWeaponMaster; HeavyArmorMaster; DefensiveDuelist]
+    Feat, Choose [Sharpshooter; GreatWeaponMaster; HeavyArmorMaster; DefensiveDuelist; Mobile]
     HeavyArmorMaster, Grants (ASI (Str, +1))
+    Feature.ClassLevel (Champion, 1), Choose [ArcheryStyle; DefenseStyle; DuelingStyle]
+    Feature.ClassLevel (PurpleDragonKnight, 1), Choose [ArcheryStyle; DefenseStyle; DuelingStyle]
     |]
 
 // do all the auto-grants    
@@ -116,10 +118,13 @@ module Templates =
             statPriorities = (1, 3, 2, 4, 4, 4); race = Some Human; advancementPriorities = List.init 20 (thunk PurpleDragonKnight); featurePriorities = [HeavyArmorMaster]; homeRegion = Some ["Undauntra"]
             }
         {   name = "Brute"; description = "A hired thug, capable and deadly yet obedient to command."
-            statPriorities = (1, 3, 2, 4, 4, 4); race = Some Human; advancementPriorities = List.init 20 (thunk PurpleDragonKnight); featurePriorities = [HeavyArmorMaster]; homeRegion = None
+            statPriorities = (1, 3, 2, 4, 4, 4); race = Some Human; advancementPriorities = List.init 20 (thunk Champion); featurePriorities = [HeavyArmorMaster;DefenseStyle]; homeRegion = None
             }
         {   name = "Wind Warrior"; description = "The Kuzarni clan ninjas of the far north, known as Wind Warriors by southrons, have many strange and mystical abilities. Some of them are able to stun enemies with a blow or even to hurl explosive blasts of flame."
-            statPriorities = (4, 1, 2, 4, 1, 4); race = Some Human; advancementPriorities = List.init 20 (thunk PurpleDragonKnight); featurePriorities = [HeavyArmorMaster]; homeRegion = Some ["Kailasa"]
+            statPriorities = (4, 1, 2, 4, 1, 4); race = Some Human; advancementPriorities = List.init 20 (thunk Elemonk); featurePriorities = [HeavyArmorMaster]; homeRegion = Some ["Kailasa"]
+            }
+        {   name = "Border ranger"; description = "Border rangers rely on mobility and their mighty longbows to protect civilization from the monsters of the Outlands."
+            statPriorities = (4, 1, 2, 4, 3, 4); race = None; advancementPriorities = List.init 20 (thunk Champion); featurePriorities = [Sharpshooter;ArcheryStyle;Mobile]; homeRegion = None
             }
         ]
         |> List.map (fun t -> t.name, t)

@@ -213,7 +213,7 @@ let root model dispatch =
                     let ok = Button.button [Button.OnClick <| answer "OK" ; Button.Props [AutoFocus true]] [str "OK"]
                     [
                         p[][str pc.src.name]
-                        p[][str (sprintf "%A %A%s" pc.src.sex pc.src.template.Value.name (match pc.src.homeRegion with Some v -> " from " + v | _ -> ""))]
+                        p[][str (sprintf "%A %A [%s]%s" pc.src.sex pc.src.template.Value.name (Model.Operations.CharSheet.summarize pc.src.classLevels) (match pc.src.homeRegion with Some v -> " from " + v | _ -> ""))]
                         p[][str (sprintf "Str: %d Dex: %d Con: %d Int: %d Wis: %d Cha: %d HP: %d" pc.src.str pc.src.dex pc.src.con pc.src.int pc.src.wis pc.src.cha pc.hp)]
                         div [](pc.src.description.Split('\n') |> Array.map (fun line -> p [][str line]))
                         br[]

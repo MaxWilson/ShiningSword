@@ -126,3 +126,11 @@ module CharSheet =
         { CharInfo.src = stats; usages = Map.empty; status = { conditions = [] }; thp = 0; sp = 0; hp = stats.classLevels |> computeHP stats.con }
     let name = Lens.lens (fun (c:CharInfo) -> c.src.name) (fun v c -> { c with src = { c.src with name = v }})
     let isAlive (charSheet:CharInfo) = charSheet.hp > 0
+    let normalize (levels: CharClass list) : (CharClass * int) list =
+        levels |> List.groupBy id |> List.map (fun (k, vs) -> k, vs.Length)
+    let className = function
+        | PurpleDragonKnight -> "Purple Dragon Knight"
+        | Elemonk -> "Elemental Monk"
+        | Samurai | Champion | Battlerager as c -> c.ToString()
+    let summarize (levels: CharClass list) : string =
+        normalize levels |> List.map (fun (c,l) -> sprintf "%s %d" (className c) l) |> String.join "/"

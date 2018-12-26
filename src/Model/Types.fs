@@ -46,6 +46,10 @@ type Feature =
     | PoisonResist
     | MediumArmorProficiency
     | Darkvision
+    | DuelingStyle
+    | ArcheryStyle
+    | DefenseStyle
+    | Mobile
 
 type Equipment = Item of string | LimitedUseItem of string * int
 
