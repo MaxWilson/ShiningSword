@@ -172,7 +172,7 @@ let partySummary =
                                 tr [OnClick (showStatus pc)] ([
                                     str <| (i+1).ToString()
                                     str pc.src.name
-                                    str <| if pc.hp < 0 then "(Dead)" elif pc.hp < (CharSheet.computeMaxHP pc.src) then "Wounded" else "OK"
+                                    str <| if pc.hp <= 0 then "(Dead)" elif pc.hp < (CharSheet.computeMaxHP pc.src) then "Wounded" else "OK"
                                     str (pc.src.classLevels.Length.ToString())
                                     str (pc.hp.ToString())
                                     str ((CharSheet.computeMaxHP pc.src).ToString())
