@@ -220,10 +220,23 @@ let battlecry (pcs: CharInfo list) monsters =
         | [] -> []
     cry (monsterDescription monsters |> oxfordJoin)
 
+let paydayMessage pcs = pcs |> List.filter (fun pc -> pc.src.isNPC) |> List.map (fun pc -> sprintf "%s has earned %d gold pieces for %s faithful service." pc.src.name (pc.src.classLevels.Length * 100) (match pc.src.sex with Male -> "his" | Female -> "her"))
+
+let addTime seconds state =
+    let nextTick = state.timeElapsed + seconds;
+    let newDay = state.timeElapsed / (3600 * 24) <> nextTick / (3600 * 24)
+    let state =
+        if newDay then
+            let payday = state.pcs |> List.sumBy(fun pc -> if pc.src.isNPC then pc.src.classLevels.Length * 100 else 0)
+            { state with gp = state.gp - payday }
+            |> GameState.mapLog (Log.logMany (paydayMessage state.pcs))
+        else state
+    { state with timeElapsed = nextTick }
+
 let advance state =
     match state with
-        | { towerNumber = 4 } as state -> { state with gateNumber = state.gateNumber + 1; towerNumber = 1; timeElapsed = state.timeElapsed + 600 }
-        | { towerNumber = n } as state -> { state with towerNumber = n + 1; timeElapsed = state.timeElapsed + 600 }
+        | { towerNumber = 4 } as state -> { state with gateNumber = state.gateNumber + 1; towerNumber = 1 } |> addTime 600
+        | { towerNumber = n } as state -> { state with towerNumber = n + 1 } |> addTime 600
     |> logAdvance
 
 let timeSummary = function
@@ -309,21 +322,14 @@ let healAndAdvance (pc:CharInfo) =
         let goals = match pc.src.template with Some t -> t.advancementPriorities | _ -> List.init 20 (thunk Champion)
         let pc = { pc with src = { pc.src with classLevels = goals |> List.take (CharSheet.computeLevel pc.src.xp) }}
         { pc with hp = CharSheet.computeMaxHP pc.src }
-    
+
 let rec doRest (state: GameState) : Eventual<_,_,_> = queryInteraction {
-    let nextTick = state.timeElapsed + 3600 * 8;
-    let newDay = state.timeElapsed / (3600 * 24) <> nextTick / (3600 * 24)
+    let newDay = state.timeElapsed / (3600 * 24) <> (state.timeElapsed + 3600 * 8)  / (3600 * 24)
     let state =
-        { state with timeElapsed = nextTick; pcs = state.pcs |> List.map (fun pc -> if pc.hp > 0 then healAndAdvance pc else pc) }
+        { state with pcs = state.pcs |> List.map (fun pc -> if pc.hp > 0 then healAndAdvance pc else pc) }
         |> GameState.mapLog (Log.log "The party rests for 8 hours and heals")
-    let paydayMessage() = state.pcs |> List.filter (fun pc -> pc.src.isNPC) |> List.map (fun pc -> sprintf "%s has earned %d gold pieces for %s faithful service." pc.src.name (pc.src.classLevels.Length * 100) (match pc.src.sex with Male -> "his" | Female -> "her"))
-    let state =
-        if newDay then
-            let payday = state.pcs |> List.sumBy(fun pc -> if pc.src.isNPC then pc.src.classLevels.Length * 100 else 0)
-            { state with gp = state.gp - payday }
-            |> GameState.mapLog (Log.logMany (paydayMessage()))
-        else state
-    match! Query.choose state ((if newDay then sprintf "A new day has dawned. %s " <| String.join " " (paydayMessage()) else "") + (sprintf "Through your adventures, you have earned %d XP and %d gold pieces, and you've been adventuring for %s. What do you wish to do next?" state.pcs.[0].src.xp state.gp (timeSummary state.timeElapsed))) ["Advance"; "Rest"; "Return to town"] with
+        |> addTime (3600 * 8)
+    match! Query.choose state ((if newDay then sprintf "A new day has dawned. %s " <| String.join " " (paydayMessage state.pcs) else "") + (sprintf "Through your adventures, you have earned %d XP and %d gold pieces, and you've been adventuring for %s. What do you wish to do next?" state.pcs.[0].src.xp state.gp (timeSummary state.timeElapsed))) ["Advance"; "Rest"; "Return to town"] with
         | "Advance" -> return! doTower (advance state)
         | "Rest" -> return! doRest state
         | "Return to town" ->
