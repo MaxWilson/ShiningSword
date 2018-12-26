@@ -28,6 +28,7 @@ $black: #202020
   
 .logDisplay
   grid-area: log
+  overflow-y: auto
   
 .partySummary
   grid-area: summary
@@ -41,5 +42,5 @@ $black: #202020
   
 @media (min-width: 800px)
   .mainPage
-    grid-template-areas: "main log" "summary log"
+    grid-template-areas: "main log" "summary log" ". log"
 
