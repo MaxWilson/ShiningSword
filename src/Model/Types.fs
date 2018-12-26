@@ -162,6 +162,9 @@ module Log =
     let log msg (log:Data) : Data =
         match log with
         | buffer, log -> msg::buffer, log
+    let logMany msgs (log:Data) =
+        match log with
+        | buffer, log -> msgs@buffer, log
     let flush (log:Data) : Data =
         match log with
         | buffer, (h::rest) -> [], (h@(List.rev buffer))::rest
