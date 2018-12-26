@@ -5,6 +5,8 @@ $black: #202020
 
 @import '../node_modules/bulma/bulma'
 
+
+
 .navbar-bg
   background-color: $black
   .nav
@@ -20,3 +22,16 @@ $black: #202020
 .github
   color: $black !important // Override bulma
   border-color: $black
+
+.mainPage
+  display: grid
+  grid-template-areas: "main log" "summary log"
+  
+.queryDialog
+  grid-area: main
+  
+.logDisplay
+  grid-area: log
+  
+.partySummary
+  grid-area: summary

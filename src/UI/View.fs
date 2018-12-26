@@ -257,7 +257,7 @@ let root model dispatch =
                 yield h1 [Style [TextAlign "center"]] [str "Shining Sword: Citadel of the Hundred Gates"]
                 yield Button.button [Button.OnClick startGame; Button.Color Fulma.Color.IsBlack] [str "Start new game"]
                 ]
-    div [] [ongoingInteraction; partySummary (model.game, (match model.modalDialogs with (Operation(Query.Character _, _),_)::_ -> true | _ -> false)) dispatch; logOutput (model.game.log, model.logSkip) dispatch]
+    div [ClassName "mainPage"] [ongoingInteraction; partySummary (model.game, (match model.modalDialogs with (Operation(Query.Character _, _),_)::_ -> true | _ -> false)) dispatch; logOutput (model.game.log, model.logSkip) dispatch]
 
 
 // App
