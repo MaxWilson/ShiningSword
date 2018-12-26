@@ -300,9 +300,19 @@ let fight encounter state =
         pcs |> List.mapi (fun i pc -> { pc with CharInfo.hp = !(snd goodguys.[i]) })
     { state with log = log; pcs = updateHp state.pcs }
 
+let healAndAdvance (pc:CharInfo) =
+    if pc.src.classLevels.Length >= CharSheet.computeLevel pc.src.xp then
+        // just heal
+        { pc with hp = CharSheet.computeMaxHP pc.src }
+    else
+        // advance to new level
+        let goals = match pc.src.template with Some t -> t.advancementPriorities | _ -> List.init 20 (thunk Champion)
+        let pc = { pc with src = { pc.src with classLevels = goals |> List.take (CharSheet.computeLevel pc.src.xp) }}
+        { pc with hp = CharSheet.computeMaxHP pc.src }
+    
 let rec doRest (state: GameState) : Eventual<_,_,_> = queryInteraction {
     let state =
-        { state with timeElapsed = state.timeElapsed + 3600 * 8; pcs = state.pcs |> List.map (fun pc -> if pc.hp > 0 then { pc with hp = List.init (CharSheet.computeLevel pc.src.xp) (thunk CharClass.Champion) |> CharSheet.computeHP pc.src.con } else pc) }
+        { state with timeElapsed = state.timeElapsed + 3600 * 8; pcs = state.pcs |> List.map (fun pc -> if pc.hp > 0 then healAndAdvance pc else pc) }
         |> GameState.mapLog (Log.log "The party rests for 8 hours and heals")
     match! Query.choose state (sprintf "You have earned %d XP and %d gold pieces, and you've been adventuring for %s. What do you wish to do next?" state.pcs.[0].src.xp state.gp (timeSummary state.timeElapsed)) ["Advance"; "Rest"; "Return to town"] with
         | "Advance" -> return! doTower (advance state)
