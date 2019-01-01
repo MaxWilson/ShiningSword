@@ -27,12 +27,13 @@ let update msg model =
             undo = Some(model.game, model.modalDialogs)
             logSkip = None }, Cmd.Empty
     | UpdateModalOperation(op, gameState) ->
-        let m =
-            match model.modalDialogs with
-            | _::rest -> op::rest
-            | _ -> []
+        let m,vm =
+            match model.modalDialogs, model.viewModel with
+            | _::rest,_::vm -> op::rest, DataEntry ""::vm
+            | _ -> [], []
         { model with
             modalDialogs = m
+            viewModel = vm
             game = gameState
             undo = Some(model.game, model.modalDialogs)
             logSkip = None }, Cmd.Empty

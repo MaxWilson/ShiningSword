@@ -174,7 +174,17 @@ let partySummary =
                                 tr [OnClick (showStatus pc)] ([
                                     str <| (i+1).ToString()
                                     str pc.src.name
-                                    str <| if pc.hp <= 0 then "(Dead)" elif pc.hp < (CharSheet.computeMaxHP pc.src) then "Wounded" else "OK"
+                                    (
+                                        let describe pc =
+                                            let maxHp = (CharSheet.computeMaxHP pc.src)
+                                            match pc.hp with
+                                            | hp when hp <= 0 -> "Dead"
+                                            | hp when hp <= (maxHp / 4) -> "Badly wounded"
+                                            | hp when hp <= (maxHp * 3 / 4) -> "Wounded"
+                                            | hp when hp < maxHp -> "Barely wounded"
+                                            | hp -> "OK"
+                                        str <| describe pc
+                                        )
                                     str (pc.src.classLevels.Length.ToString())
                                     str (pc.hp.ToString())
                                     str ((CharSheet.computeMaxHP pc.src).ToString())
@@ -272,7 +282,8 @@ let root model dispatch =
                 ]]
         | _ ->
             [str "Something went wrong. Please file a bug report (email Max and describe what happened)."]
-    div [ClassName "mainPage"] children
+    let gameHasStarted = List.exists (fun x -> x = Campaign || x = Battle) model.viewModel
+    div [ClassName <| if gameHasStarted then "mainPage" else "startPage"] children
 
 
 // App
