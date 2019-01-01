@@ -254,9 +254,9 @@ let root model dispatch =
                         ]
         | _ ->
             let startGame _ = Model.Gameplay.campaignMode() |> modalOperation dispatch "" ignore
-            let startBattles _ = Browser.window.alert "Sorry, not implemented yet"
-            let loadCampaign _ = Browser.window.alert "Sorry, not implemented yet"
-            let saveCampaign _ = Browser.window.alert "Sorry, not implemented yet"
+            let startBattles _ = Browser.window.alert "Sorry, not implemented yet. Send email to Max and tell him you want this."
+            let loadCampaign _ = Browser.window.alert "Sorry, not implemented yet. Send email to Max and tell him you want this."
+            let saveCampaign _ = Browser.window.alert "Sorry, not implemented yet. Send email to Max and tell him you want this."
             Hero.hero [] [
                 h1 [ClassName "is-size-3"; Style [TextAlign "center"]] [str "Shining Sword: Citadel of the Hundred Gates"]
                 ul [ClassName "menu"; Style [TextAlign "center"]] ([
