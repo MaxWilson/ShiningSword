@@ -42,8 +42,8 @@ module Parse =
 
     let page = locationParser (|Page|_|)
 
-let modalOperation dispatch onSuccess e =
-    e |> Eventual.toOperation (fun (q, gameState) continue' -> dispatch (NewModal(Operation(q, continue'), gameState, DataEntry ""))) (fun () -> dispatch CloseModal) (fun v -> onSuccess v)
+let modalOperation dispatch viewModel onSuccess e =
+    e |> Eventual.toOperation (fun (q, gameState) continue' -> dispatch (NewModal(Operation(q, continue'), gameState, viewModel))) (fun () -> dispatch CloseModal) (fun v -> onSuccess v)
 
 let progress dispatch (Operation(_:Model.Types.Query, provideAnswer)) answer =
     match provideAnswer answer with
@@ -142,7 +142,7 @@ let partySummary =
                     if isViewingChars then
                         dispatch CloseModal
                     Model.Gameplay.showPCDetails game pc
-                    |> modalOperation dispatch ignore
+                    |> modalOperation dispatch (DataEntry "") ignore
                 [
                     yield line <| "The party consists of " + (game.pcs |> List.map (fun pc -> pc.src.name) |> oxfordJoin)
                     yield line <| sprintf "You have %d gold" game.gp
@@ -243,9 +243,9 @@ let root model dispatch =
                     match q with
                     | Query.Confirm(q) -> confirmQuery q answer
                     | Query.Freetext(q) ->
-                        freeTextQuery q vm (dispatch << UpdateCurrentViewModal << DataEntry) answer
+                        freeTextQuery q vm (dispatch << UpdateCurrentViewModel << DataEntry) answer
                     | Query.Number(q) ->
-                        numberQuery q vm (dispatch << UpdateCurrentViewModal << DataEntry) answer
+                        numberQuery q vm (dispatch << UpdateCurrentViewModel << DataEntry) answer
                     | Query.Select(prompt, choices) ->
                         selectQuery prompt choices answer
                     | Query.Alert txt ->
@@ -267,7 +267,7 @@ let root model dispatch =
         | { viewModel = Battle::_ } ->
             [str "Placeholder for battles"]
         | { viewModel = [] } ->
-            let startGame _ = Model.Gameplay.campaignMode() |> modalOperation dispatch ignore
+            let startGame _ = Model.Gameplay.campaignMode() |> modalOperation dispatch Campaign (thunk1 dispatch (EndMode Campaign))
             let startBattles _ = Browser.window.alert "Sorry, not implemented yet. Send email to Max and tell him you want this."
             let loadCampaign _ = Browser.window.alert "Sorry, not implemented yet. Send email to Max and tell him you want this."
             let saveCampaign _ = Browser.window.alert "Sorry, not implemented yet. Send email to Max and tell him you want this."
@@ -280,6 +280,10 @@ let root model dispatch =
                     Button.button [Button.OnClick startBattles; Button.Color Fulma.Color.IsBlack] [str "Run standalone battles"]
                     ] |> List.map (fun x -> li [ClassName "menu-list"] [x]))
                 ]]
+        | { viewModel = Error msg::_ } ->
+            [   str "Something went wrong:  Please file a bug report (email Max and describe what happened)."
+                br []
+                str <| "Details: " + msg]
         | _ ->
             [str "Something went wrong. Please file a bug report (email Max and describe what happened)."]
     let gameHasStarted = List.exists (fun x -> x = Campaign || x = Battle) model.viewModel

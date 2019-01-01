@@ -19,10 +19,16 @@ let init parseResult =
 
 let update msg model =
     match msg with
+    | NewMode(vm) -> { model with viewModel = vm::model.viewModel }, Cmd.Empty
+    | EndMode(vm) ->
+        match model.viewModel with
+        | vm'::rest when vm = vm' -> { model with viewModel = rest }, Cmd.Empty
+        | _ -> { model with viewModel = (Error (sprintf "Unable to pop viewModel: expected %A, found %A" vm model.viewModel))::model.viewModel }, Cmd.Empty
     | NewModal(op,gameState,viewModel) ->
         { model with
             modalDialogs = op :: model.modalDialogs
-            viewModel = viewModel:: model.viewModel
+            viewModel =
+                DataEntry "" :: viewModel :: model.viewModel // kludge: DataEntry to represent the pending operation
             game = gameState
             undo = Some(model.game, model.modalDialogs)
             logSkip = None }, Cmd.Empty
@@ -37,7 +43,7 @@ let update msg model =
             game = gameState
             undo = Some(model.game, model.modalDialogs)
             logSkip = None }, Cmd.Empty
-    | UpdateCurrentViewModal vm ->
+    | UpdateCurrentViewModel vm ->
         let vm =
             match model.viewModel with
             | _::rest -> vm::rest
