@@ -37,13 +37,13 @@ module Parse =
 
     let (|Page|_|) = function
         | Str "battleDebug" ctx ->
-            Some(GameState.empty, ctx)
+            Some((GameState.empty, ViewModel.Battle) , ctx)
         | _ -> None
 
     let page = locationParser (|Page|_|)
 
-let modalOperation dispatch viewModel onSuccess e =
-    e |> Eventual.toOperation (fun (q, gameState) continue' -> dispatch (NewModal(Operation(q, continue'), gameState, viewModel))) (fun () -> dispatch CloseModal) (fun v -> onSuccess v)
+let modalOperation dispatch onSuccess e =
+    e |> Eventual.toOperation (fun (q, gameState) continue' -> dispatch (NewModal(Operation(q, continue'), gameState, DataEntry ""))) (fun () -> dispatch CloseModal) (fun v -> onSuccess v)
 
 let progress dispatch (Operation(_:Model.Types.Query, provideAnswer)) answer =
     match provideAnswer answer with
@@ -142,7 +142,7 @@ let partySummary =
                     if isViewingChars then
                         dispatch CloseModal
                     Model.Gameplay.showPCDetails game pc
-                    |> modalOperation dispatch "" ignore
+                    |> modalOperation dispatch ignore
                 [
                     yield line <| "The party consists of " + (game.pcs |> List.map (fun pc -> pc.src.name) |> oxfordJoin)
                     yield line <| sprintf "You have %d gold" game.gp
@@ -210,54 +210,58 @@ let logOutput =
 
 let root model dispatch =
     undoModal <- thunk1 dispatch UndoModal
-    let inline answer v _ = match model with { modalDialogs = (op, vm)::_ } -> progress dispatch op v | _ -> ()
-    let ongoingInteraction =
+    let inline answer v _ = match model with { modalDialogs = op::_ } -> progress dispatch op v | _ -> ()
+    let children =
         match model with
-        | { modalDialogs = (Operation(q,_) as op, vm)::_ } ->
-            match q with
-            | Query.Alert _ ->
-                onKeypress <- Some(fun ev ->
-                    if ev.keyCode = KeyCode.enter then answer "" (); true
-                    else false)
-            | Query.Select(_, choices) ->
-                onKeypress <- Some(fun ev ->
-                    match System.Int32.TryParse ev.key with
-                    // use one-based choosing for UI purposes: 1 is the first choice, 2 is the second
-                    | true, n when n-1 < choices.Length ->
-                        answer (choices.[n-1])()
-                        true
-                    | _ -> false)
-            | _ -> onKeypress <- None
-            div [ClassName "queryDialog"] <|
+        | { viewModel = DataEntry vm::_; modalDialogs = (Operation(q,_) as op)::_ } ->
+            let ongoingInteraction =
                 match q with
-                | Query.Confirm(q) -> confirmQuery q answer
-                | Query.Freetext(q) ->
-                    freeTextQuery q vm (dispatch << UpdateModalViewModel) answer
-                | Query.Number(q) ->
-                    numberQuery q vm (dispatch << UpdateModalViewModel) answer
-                | Query.Select(prompt, choices) ->
-                    selectQuery prompt choices answer
-                | Query.Alert txt ->
-                    alertQuery txt answer
-                | Query.BattleQuery ->
-                    let cmdEntry = textbox "Enter a text command" answer
-                    [cmdEntry]
-                | Query.Character pc ->
-                    let ok = Button.button [Button.OnClick <| answer "OK" ; Button.Props [AutoFocus true]] [str "OK"]
-                    [
-                        p[][str pc.src.name]
-                        p[][str (sprintf "%A %A [%s]%s" pc.src.sex pc.src.template.Value.name (Model.Operations.CharSheet.summarize pc.src.classLevels) (match pc.src.homeRegion with Some v -> " from " + v | _ -> ""))]
-                        p[][str (sprintf "Str: %d Dex: %d Con: %d Int: %d Wis: %d Cha: %d HP: %d" pc.src.str pc.src.dex pc.src.con pc.src.int pc.src.wis pc.src.cha pc.hp)]
-                        div [](pc.src.description.Split('\n') |> Array.map (fun line -> p [][str line]))
-                        br[]
-                        ok
-                        ]
-        | _ ->
-            let startGame _ = Model.Gameplay.campaignMode() |> modalOperation dispatch "" ignore
+                | Query.Alert _ ->
+                    onKeypress <- Some(fun ev ->
+                        if ev.keyCode = KeyCode.enter then answer "" (); true
+                        else false)
+                | Query.Select(_, choices) ->
+                    onKeypress <- Some(fun ev ->
+                        match System.Int32.TryParse ev.key with
+                        // use one-based choosing for UI purposes: 1 is the first choice, 2 is the second
+                        | true, n when n-1 < choices.Length ->
+                            answer (choices.[n-1])()
+                            true
+                        | _ -> false)
+                | _ -> onKeypress <- None
+                div [ClassName "queryDialog"] <|
+                    match q with
+                    | Query.Confirm(q) -> confirmQuery q answer
+                    | Query.Freetext(q) ->
+                        freeTextQuery q vm (dispatch << UpdateCurrentViewModal << DataEntry) answer
+                    | Query.Number(q) ->
+                        numberQuery q vm (dispatch << UpdateCurrentViewModal << DataEntry) answer
+                    | Query.Select(prompt, choices) ->
+                        selectQuery prompt choices answer
+                    | Query.Alert txt ->
+                        alertQuery txt answer
+                    | Query.BattleQuery ->
+                        let cmdEntry = textbox "Enter a text command" answer
+                        [cmdEntry]
+                    | Query.Character pc ->
+                        let ok = Button.button [Button.OnClick <| answer "OK" ; Button.Props [AutoFocus true]] [str "OK"]
+                        [
+                            p[][str pc.src.name]
+                            p[][str (sprintf "%A %A [%s]%s" pc.src.sex pc.src.template.Value.name (Model.Operations.CharSheet.summarize pc.src.classLevels) (match pc.src.homeRegion with Some v -> " from " + v | _ -> ""))]
+                            p[][str (sprintf "Str: %d Dex: %d Con: %d Int: %d Wis: %d Cha: %d HP: %d" pc.src.str pc.src.dex pc.src.con pc.src.int pc.src.wis pc.src.cha pc.hp)]
+                            div [](pc.src.description.Split('\n') |> Array.map (fun line -> p [][str line]))
+                            br[]
+                            ok
+                            ]
+            [ongoingInteraction; partySummary (model.game, (match model.modalDialogs with (Operation(Query.Character _, _))::_ -> true | _ -> false)) dispatch; logOutput (model.game.log, model.logSkip) dispatch]
+        | { viewModel = Battle::_ } ->
+            [str "Placeholder for battles"]
+        | { viewModel = [] } ->
+            let startGame _ = Model.Gameplay.campaignMode() |> modalOperation dispatch ignore
             let startBattles _ = Browser.window.alert "Sorry, not implemented yet. Send email to Max and tell him you want this."
             let loadCampaign _ = Browser.window.alert "Sorry, not implemented yet. Send email to Max and tell him you want this."
             let saveCampaign _ = Browser.window.alert "Sorry, not implemented yet. Send email to Max and tell him you want this."
-            Hero.hero [] [
+            [Hero.hero [] [
                 h1 [ClassName "is-size-3"; Style [TextAlign "center"]] [str "Shining Sword: Citadel of the Hundred Gates"]
                 ul [ClassName "menu"; Style [TextAlign "center"]] ([
                     Button.button [Button.OnClick startGame; Button.Color Fulma.Color.IsBlack] [str "Start new campaign"]
@@ -265,8 +269,10 @@ let root model dispatch =
                     Button.button [Button.OnClick saveCampaign; Button.Color Fulma.Color.IsBlack] [str "Save campaign"]
                     Button.button [Button.OnClick startBattles; Button.Color Fulma.Color.IsBlack] [str "Run standalone battles"]
                     ] |> List.map (fun x -> li [ClassName "menu-list"] [x]))
-                ]
-    div [ClassName "mainPage"] [ongoingInteraction; partySummary (model.game, (match model.modalDialogs with (Operation(Query.Character _, _),_)::_ -> true | _ -> false)) dispatch; logOutput (model.game.log, model.logSkip) dispatch]
+                ]]
+        | _ ->
+            [str "Something went wrong. Please file a bug report (email Max and describe what happened)."]
+    div [ClassName "mainPage"] children
 
 
 // App
