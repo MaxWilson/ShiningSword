@@ -150,7 +150,7 @@ let rec getPCs (state: GameState) firstPerson isFriend : Eventual<_,_,_> = query
         return state
     }
 
-let makeTower pcs parXpEarned nTower =
+let makeTower parXpEarned nTower =
     let N = 4 // number of ideal PCs
     let avg a b = (a + b)/2
     let isEpic = parXpEarned >= 400000
@@ -309,7 +309,7 @@ let healAndAdvance (pc:CharInfo) =
         let goals = match pc.src.template with Some t -> t.advancementPriorities | _ -> List.init 20 (thunk Champion)
         let pc = { pc with src = { pc.src with classLevels = goals |> List.take (CharSheet.computeLevel pc.src.xp) }}
         { pc with hp = CharSheet.computeMaxHP pc.src }
-    
+
 let rec doRest (state: GameState) : Eventual<_,_,_> = queryInteraction {
     let nextTick = state.timeElapsed + 3600 * 8;
     let newDay = state.timeElapsed / (3600 * 24) <> nextTick / (3600 * 24)
@@ -331,7 +331,7 @@ let rec doRest (state: GameState) : Eventual<_,_,_> = queryInteraction {
         | _ -> return state
         }
 and doTower (state: GameState) : Eventual<_,_,_> = queryInteraction {
-    let e, c, parEarned, totalXpEarned, gp = makeTower state.pcs state.parEarned state.towerNumber
+    let e, c, parEarned, totalXpEarned, gp = makeTower state.parEarned state.towerNumber
     let! state =
         alert state <|
             (sprintf "You have reached the %s tower of Gate #%d. %s" (match state.towerNumber with | 1 -> "first" | 2 -> "second" | 3 -> "inner" | _ -> "final") state.gateNumber
@@ -357,11 +357,12 @@ let showPCDetails game pc = queryInteraction {
     do! Query.character game pc
     return game
     }
+
 let doGate state : Eventual<_,_,_> = queryInteraction {
     return! (doTower state)
     }
 
-let game() : Eventual<_,_,_> = queryInteraction {
+let campaignMode() : Eventual<_,_,_> = queryInteraction {
     let state = GameState.empty
     let! state = getPCs state true false
     let! state = alert state "Before you lies the Wild Country, the Gate of Doom. Prepare yourselves for death and glory!"

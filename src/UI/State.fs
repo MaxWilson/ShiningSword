@@ -9,8 +9,10 @@ open Types
 open Model.Types
 open Model.Operations
 
-let urlUpdate (parseResult: Msg option) model =
-    model, []
+let urlUpdate (parseResult: GameState option) model =
+    match parseResult with
+    | Some state -> { model with game = state }, Cmd.Empty
+    | None -> model, Cmd.Empty
 
 let init parseResult =
     { modalDialogs = []; game = GameState.empty; undo = None; logSkip = None } |> urlUpdate parseResult

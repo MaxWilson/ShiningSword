@@ -36,6 +36,8 @@ module Parse =
         | _ -> None
 
     let (|Page|_|) = function
+        | Str "battleDebug" ctx ->
+            Some(GameState.empty, ctx)
         | _ -> None
 
     let page = locationParser (|Page|_|)
@@ -114,7 +116,7 @@ let numberQuery prompt state updateState answer =
             onKeyDown KeyCode.enter (answer state)
             ]
         ]
-        
+
 let selectQuery prompt choices answer =
     [
         yield str prompt
@@ -251,11 +253,18 @@ let root model dispatch =
                         ok
                         ]
         | _ ->
-            let startGame _ = Model.Gameplay.game() |> modalOperation dispatch "" ignore
-
-            div [Style [TextAlign "center"]] [
-                yield h1 [Style [TextAlign "center"]] [str "Shining Sword: Citadel of the Hundred Gates"]
-                yield Button.button [Button.OnClick startGame; Button.Color Fulma.Color.IsBlack] [str "Start new game"]
+            let startGame _ = Model.Gameplay.campaignMode() |> modalOperation dispatch "" ignore
+            let startBattles _ = Browser.window.alert "Sorry, not implemented yet"
+            let loadCampaign _ = Browser.window.alert "Sorry, not implemented yet"
+            let saveCampaign _ = Browser.window.alert "Sorry, not implemented yet"
+            Hero.hero [] [
+                h1 [ClassName "is-size-3"; Style [TextAlign "center"]] [str "Shining Sword: Citadel of the Hundred Gates"]
+                ul [ClassName "menu"; Style [TextAlign "center"]] ([
+                    Button.button [Button.OnClick startGame; Button.Color Fulma.Color.IsBlack] [str "Start new campaign"]
+                    Button.button [Button.OnClick loadCampaign; Button.Color Fulma.Color.IsBlack] [str "Load campaign"]
+                    Button.button [Button.OnClick saveCampaign; Button.Color Fulma.Color.IsBlack] [str "Save campaign"]
+                    Button.button [Button.OnClick startBattles; Button.Color Fulma.Color.IsBlack] [str "Run standalone battles"]
+                    ] |> List.map (fun x -> li [ClassName "menu-list"] [x]))
                 ]
     div [ClassName "mainPage"] [ongoingInteraction; partySummary (model.game, (match model.modalDialogs with (Operation(Query.Character _, _),_)::_ -> true | _ -> false)) dispatch; logOutput (model.game.log, model.logSkip) dispatch]
 
