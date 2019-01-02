@@ -42,8 +42,8 @@ module Parse =
 
     let page = locationParser (|Page|_|)
 
-let modalOperation dispatch viewModel onSuccess e =
-    e |> Eventual.toOperation (fun (q, gameState) continue' -> dispatch (NewModal(Operation(q, continue'), gameState, viewModel))) (fun () -> dispatch CloseModal) (fun v -> onSuccess v)
+let modalOperation dispatch onSuccess e =
+    e |> Eventual.toOperation (fun (q, gameState) continue' -> dispatch (NewModal(Operation(q, continue'), gameState))) (fun () -> dispatch CloseModal) (fun v -> onSuccess v)
 
 let progress dispatch (Operation(_:Model.Types.Query, provideAnswer)) answer =
     match provideAnswer answer with
@@ -81,7 +81,7 @@ let textbox placeholder answer =
         Placeholder placeholder
         AutoFocus true
         OnChange (fun ev -> cell := !!ev.target?value)
-        onKeyDown KeyCode.enter (fun _ -> answer !cell ())
+        onKeyDown KeyCode.enter (fun _ -> answer !cell)
         ]
 
 let confirmQuery txt answer =
@@ -91,29 +91,36 @@ let confirmQuery txt answer =
         Button.button [Button.OnClick (answer "no")] [str "No"]
         ]
 
-let freeTextQuery prompt state updateState answer =
+/// Helper method: an input which stores state locally in React.state and then calls onEnter when Enter is pressed
+let statefulInput onEnter (props: IHTMLProp list) =
+    Components.stateful "" (=) <| fun txt update ->
+        let props : IHTMLProp list = [
+                yield Value txt
+                yield OnChange (fun ev ->
+                    let v = !!ev.target?value
+                    update (thunk v)
+                    )
+                yield onKeyDown KeyCode.enter (thunk1 onEnter txt)
+                yield! props
+                ]
+        input props
+
+let freeTextQuery prompt answer =
     [
         str prompt
-        input [
+        statefulInput answer [
             ClassName "input"
             Type "text"
-            Value state
             AutoFocus true
-            OnChange (fun ev -> !!ev.target?value |> updateState)
-            onKeyDown KeyCode.enter (answer state)
             ]
         ]
 
-let numberQuery prompt state updateState answer =
-    [
-        str prompt
-        input [
+let numberQuery prompt answer =
+    [   str prompt
+        statefulInput answer [
             ClassName "input"
             Type "number"
-            Value state
             AutoFocus true
-            OnChange (fun ev -> !!ev.target?value |> updateState)
-            onKeyDown KeyCode.enter (answer state)
             ]
         ]
 
@@ -142,7 +149,7 @@ let partySummary =
                     if isViewingChars then
                         dispatch CloseModal
                     Model.Gameplay.showPCDetails game pc
-                    |> modalOperation dispatch (DataEntry "") ignore
+                    |> modalOperation dispatch ignore
                 [
                     yield line <| "The party consists of " + (game.pcs |> List.map (fun pc -> pc.src.name) |> oxfordJoin)
                     yield line <| sprintf "You have %d gold" game.gp
@@ -220,41 +227,41 @@ let logOutput =
 
 let root model dispatch =
     undoModal <- thunk1 dispatch UndoModal
-    let inline answer v _ = match model with { modalDialogs = op::_ } -> progress dispatch op v | _ -> ()
+    let inline answer v = match model with { modalDialogs = op::_ } -> progress dispatch op v | _ -> ()
     let children =
         match model with
-        | { viewModel = DataEntry vm::_; modalDialogs = (Operation(q,_) as op)::_ } ->
+        | { modalDialogs = (Operation(q,_) as op)::_ } ->
             let ongoingInteraction =
                 match q with
                 | Query.Alert _ ->
                     onKeypress <- Some(fun ev ->
-                        if ev.keyCode = KeyCode.enter then answer "" (); true
+                        if ev.keyCode = KeyCode.enter then answer ""; true
                         else false)
                 | Query.Select(_, choices) ->
                     onKeypress <- Some(fun ev ->
                         match System.Int32.TryParse ev.key with
                         // use one-based choosing for UI purposes: 1 is the first choice, 2 is the second
                         | true, n when n-1 < choices.Length ->
-                            answer (choices.[n-1])()
+                            answer (choices.[n-1])
                             true
                         | _ -> false)
                 | _ -> onKeypress <- None
                 div [ClassName "queryDialog"] <|
                     match q with
-                    | Query.Confirm(q) -> confirmQuery q answer
+                    | Query.Confirm(q) -> confirmQuery q (thunk1 answer)
                     | Query.Freetext(q) ->
-                        freeTextQuery q vm (dispatch << UpdateCurrentViewModel << DataEntry) answer
+                        freeTextQuery q answer
                     | Query.Number(q) ->
-                        numberQuery q vm (dispatch << UpdateCurrentViewModel << DataEntry) answer
+                        numberQuery q answer
                     | Query.Select(prompt, choices) ->
-                        selectQuery prompt choices answer
+                        selectQuery prompt choices (thunk1 answer)
                     | Query.Alert txt ->
-                        alertQuery txt answer
+                        alertQuery txt (thunk1 answer)
                     | Query.BattleQuery ->
                         let cmdEntry = textbox "Enter a text command" answer
                         [cmdEntry]
                     | Query.Character pc ->
-                        let ok = Button.button [Button.OnClick <| answer "OK" ; Button.Props [AutoFocus true]] [str "OK"]
+                        let ok = Button.button [Button.OnClick <| thunk1 answer "OK" ; Button.Props [AutoFocus true]] [str "OK"]
                         [
                             p[][str pc.src.name]
                             p[][str (sprintf "%A %A [%s]%s" pc.src.sex pc.src.template.Value.name (Model.Operations.CharSheet.summarize pc.src.classLevels) (match pc.src.homeRegion with Some v -> " from " + v | _ -> ""))]
@@ -264,10 +271,12 @@ let root model dispatch =
                             ok
                             ]
             [ongoingInteraction; partySummary (model.game, (match model.modalDialogs with (Operation(Query.Character _, _))::_ -> true | _ -> false)) dispatch; logOutput (model.game.log, model.logSkip) dispatch]
-        | { viewModel = Battle::_ } ->
+        | { mode = Battle::_ } ->
             [str "Placeholder for battles"]
-        | { viewModel = [] } ->
-            let startGame _ = Model.Gameplay.campaignMode() |> modalOperation dispatch Campaign (thunk1 dispatch (EndMode Campaign))
+        | { mode = [] } ->
+            let startGame _ =
+                dispatch (NewMode Campaign)
+                Model.Gameplay.campaignMode() |> modalOperation dispatch (thunk1 dispatch (EndMode Campaign))
             let startBattles _ = Browser.window.alert "Sorry, not implemented yet. Send email to Max and tell him you want this."
             let loadCampaign _ = Browser.window.alert "Sorry, not implemented yet. Send email to Max and tell him you want this."
             let saveCampaign _ = Browser.window.alert "Sorry, not implemented yet. Send email to Max and tell him you want this."
@@ -280,15 +289,15 @@ let root model dispatch =
                     Button.button [Button.OnClick startBattles; Button.Color Fulma.Color.IsBlack] [str "Run standalone battles"]
                     ] |> List.map (fun x -> li [ClassName "menu-list"] [x]))
                 ]]
-        | { viewModel = Error msg::_ } ->
+        | { mode = Error msg::_ } ->
             [   str "Something went wrong:  Please file a bug report (email Max and describe what happened)."
                 br []
                 str <| "Details: " + msg]
-        | { viewModel = vm } ->
+        | { mode = vm } ->
             [   str "Something went wrong. Please file a bug report (email Max and describe what happened)."
                 br[]
                 str <| sprintf "ViewModel = %A" vm ]
-    let gameHasStarted = List.exists (fun x -> x = Campaign || x = Battle) model.viewModel
+    let gameHasStarted = List.exists (fun x -> x = Campaign || x = Battle) model.mode
     div [ClassName <| if gameHasStarted then "mainPage" else "startPage"] children
 
 

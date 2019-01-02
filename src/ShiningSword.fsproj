@@ -19,6 +19,7 @@
     <Compile Include="UI\Global.fs" />
     <Compile Include="UI\Types.fs" />
     <Compile Include="UI\State.fs" />
+    <Compile Include="UI\Components.fs" />
     <Compile Include="UI\View.fs" />
     <None Include="Script1.fsx" />
     <None Include="NameMaker.fsx" />

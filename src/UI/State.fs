@@ -11,47 +11,45 @@ open Model.Operations
 
 let urlUpdate (parseResult: (GameState * ViewModel) option) model =
     match parseResult with
-    | Some (state, vm) -> { model with game = state; viewModel = [vm]}, Cmd.Empty
+    | Some (state, vm) -> { model with game = state; mode = [vm]}, Cmd.Empty
     | None -> model, Cmd.Empty
 
 let init parseResult =
-    { modalDialogs = []; game = GameState.empty; undo = None; logSkip = None; viewModel = [] } |> urlUpdate parseResult
+    { modalDialogs = []; game = GameState.empty; undo = None; logSkip = None; mode = [] } |> urlUpdate parseResult
 
 let update msg model =
+    printfn "Cmd: %A Modes: %A" msg model.mode
     match msg with
-    | NewMode(vm) -> { model with viewModel = vm::model.viewModel }, Cmd.Empty
+    | NewMode(vm) -> { model with mode = vm::model.mode }, Cmd.Empty
     | EndMode(vm) ->
-        match model.viewModel with
-        | vm'::rest when vm = vm' -> { model with viewModel = rest }, Cmd.Empty
-        | _ -> { model with viewModel = (Error (sprintf "Unable to pop viewModel: expected %A, found %A" vm model.viewModel))::model.viewModel }, Cmd.Empty
-    | NewModal(op,gameState,viewModel) ->
+        match model.mode with
+        | vm'::rest when vm = vm' -> { model with mode = rest }, Cmd.Empty
+        | _ -> { model with mode = (Error (sprintf "Unable to pop viewModel: expected %A, found %A" vm model.mode))::model.mode }, Cmd.Empty
+    | NewModal(op,gameState) ->
         { model with
             modalDialogs = op :: model.modalDialogs
-            viewModel =
-                DataEntry "" :: viewModel :: model.viewModel // kludge: DataEntry to represent the pending operation
             game = gameState
             undo = Some(model.game, model.modalDialogs)
             logSkip = None }, Cmd.Empty
     | UpdateModalOperation(op, gameState) ->
-        let m,vm =
-            match model.modalDialogs, model.viewModel with
-            | _::rest,_::vm -> op::rest, DataEntry ""::vm
-            | _ -> [], []
+        let m =
+            match model.modalDialogs with
+            | _::rest -> op::rest
+            | _ -> []
         { model with
             modalDialogs = m
-            viewModel = vm
             game = gameState
             undo = Some(model.game, model.modalDialogs)
             logSkip = None }, Cmd.Empty
     | UpdateCurrentViewModel vm ->
         let vm =
-            match model.viewModel with
+            match model.mode with
             | _::rest -> vm::rest
             | _ -> []
-        { model with viewModel = vm }, Cmd.Empty
+        { model with mode = vm }, Cmd.Empty
     | CloseModal ->
         let pop = function [] -> [] | _::t -> t
-        { model with modalDialogs = model.modalDialogs |> pop; viewModel = model.viewModel |> pop }, Cmd.Empty
+        { model with modalDialogs = model.modalDialogs |> pop }, Cmd.Empty
     | UndoModal ->
         // support up to one level of undo
         match model.undo with
