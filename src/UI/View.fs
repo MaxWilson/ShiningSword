@@ -284,8 +284,10 @@ let root model dispatch =
             [   str "Something went wrong:  Please file a bug report (email Max and describe what happened)."
                 br []
                 str <| "Details: " + msg]
-        | _ ->
-            [str "Something went wrong. Please file a bug report (email Max and describe what happened)."]
+        | { viewModel = vm } ->
+            [   str "Something went wrong. Please file a bug report (email Max and describe what happened)."
+                br[]
+                str <| sprintf "ViewModel = %A" vm ]
     let gameHasStarted = List.exists (fun x -> x = Campaign || x = Battle) model.viewModel
     div [ClassName <| if gameHasStarted then "mainPage" else "startPage"] children
 

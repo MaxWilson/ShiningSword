@@ -41,7 +41,7 @@ module Eventual =
     let toOperation onRegister onUnregister consumeValue = function
         | Final v -> consumeValue v
         | Intermediate(q, f) ->
-            let next = f >> flip bind (fun v -> consumeValue v; onUnregister(); Final ())
+            let next = f >> flip bind (fun v -> onUnregister(); consumeValue v; Final ())
             onRegister q next
 
 type InteractionBuilder<'query, 'input>() =

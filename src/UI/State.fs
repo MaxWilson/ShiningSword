@@ -51,7 +51,7 @@ let update msg model =
         { model with viewModel = vm }, Cmd.Empty
     | CloseModal ->
         let pop = function [] -> [] | _::t -> t
-        { model with modalDialogs = model.modalDialogs |> pop }, Cmd.Empty
+        { model with modalDialogs = model.modalDialogs |> pop; viewModel = model.viewModel |> pop }, Cmd.Empty
     | UndoModal ->
         // support up to one level of undo
         match model.undo with
