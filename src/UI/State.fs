@@ -57,3 +57,4 @@ let update msg model =
             { model with undo = None; game = game; modalDialogs = stack }, Cmd.Empty
         | None -> model, Cmd.Empty
     | LogSkip n -> { model with logSkip = Some n }, Cmd.Empty
+    | UpdateGameState state -> { model with game = state }, Cmd.Empty

@@ -23,4 +23,5 @@ type Msg =
     | CloseModal
     | UndoModal
     | LogSkip of int
+    | UpdateGameState of GameState
 

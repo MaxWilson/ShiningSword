@@ -284,11 +284,13 @@ let root model dispatch =
             onKeypress <- Some(fun ev ->
                 if ev.keyCode = KeyCode.enter then answer ""; true
                 else false)
+            let rest _ =
+                model.game |> Model.Gameplay.rest |> UpdateGameState |> dispatch
             [   div [ClassName "interaction"] [
                     str msg
                     br[]
                     Button.button [Button.Color Fulma.Color.IsBlack] [str "Advance"]
-                    Button.button [Button.Color Fulma.Color.IsBlack] [str "Rest"]
+                    Button.button [Button.OnClick rest; Button.Color Fulma.Color.IsBlack] [str "Rest"]
                     Button.button [Button.Color Fulma.Color.IsBlack] [str "Return to town"]
                     ]
                 ]

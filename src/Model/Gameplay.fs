@@ -310,6 +310,19 @@ let healAndAdvance (pc:CharInfo) =
         let pc = { pc with src = { pc.src with classLevels = goals |> List.take (CharSheet.computeLevel pc.src.xp) }}
         { pc with hp = CharSheet.computeMaxHP pc.src }
 
+let rest state =
+    let nextTick = state.timeElapsed + 3600 * 8;
+    let newDay = state.timeElapsed / (3600 * 24) <> nextTick / (3600 * 24)
+    let state =
+        { state with timeElapsed = nextTick; pcs = state.pcs |> List.map (fun pc -> if pc.hp > 0 then healAndAdvance pc else pc) }
+        |> GameState.mapLog (Log.log "The party rests for 8 hours and heals")
+    let paydayMessage() = state.pcs |> List.filter (fun pc -> pc.src.isNPC) |> List.map (fun pc -> sprintf "%s has earned %d gold pieces for %s faithful service." pc.src.name (pc.src.classLevels.Length * 100) (match pc.src.sex with Male -> "his" | Female -> "her"))
+    if newDay then
+        let payday = state.pcs |> List.sumBy(fun pc -> if pc.src.isNPC then pc.src.classLevels.Length * 100 else 0)
+        { state with gp = state.gp - payday }
+        |> GameState.mapLog (Log.logMany (paydayMessage()))
+    else state
+
 let rec doRest (state: GameState) : Eventual<_,_,_> = queryInteraction {
     let nextTick = state.timeElapsed + 3600 * 8;
     let newDay = state.timeElapsed / (3600 * 24) <> nextTick / (3600 * 24)
