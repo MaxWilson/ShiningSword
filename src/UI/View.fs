@@ -38,6 +38,10 @@ module Parse =
     let (|Page|_|) = function
         | Str "battleDebug" ctx ->
             Some((GameState.empty, ViewModel.Battle) , ctx)
+        | Str "campaignDebug" ctx ->
+            let template = Model.Chargen.Templates.charTemplates.["Brute"]
+            let pc = Model.Operations.CharSheet.create "Spartacus" Male (14, 16, 9, 13, 11, 13) false None template
+            Some(({ GameState.empty with pcs = [pc] }, ViewModel.Campaign) , ctx)
         | _ -> None
 
     let page = locationParser (|Page|_|)
@@ -232,20 +236,7 @@ let root model dispatch =
         match model with
         | { modalDialogs = (Operation(q,_) as op)::_ } ->
             let ongoingInteraction =
-                match q with
-                | Query.Alert _ ->
-                    onKeypress <- Some(fun ev ->
-                        if ev.keyCode = KeyCode.enter then answer ""; true
-                        else false)
-                | Query.Select(_, choices) ->
-                    onKeypress <- Some(fun ev ->
-                        match System.Int32.TryParse ev.key with
-                        // use one-based choosing for UI purposes: 1 is the first choice, 2 is the second
-                        | true, n when n-1 < choices.Length ->
-                            answer (choices.[n-1])
-                            true
-                        | _ -> false)
-                | _ -> onKeypress <- None
+                onKeypress <- None
                 div [ClassName "queryDialog"] <|
                     match q with
                     | Query.Confirm(q) -> confirmQuery q (thunk1 answer)
@@ -254,8 +245,22 @@ let root model dispatch =
                     | Query.Number(q) ->
                         numberQuery q answer
                     | Query.Select(prompt, choices) ->
+                        onKeypress <- Some(fun ev ->
+                            match System.Int32.TryParse ev.key with
+                            // use one-based choosing for UI purposes: 1 is the first choice, 2 is the second
+                            | true, n when n-1 < choices.Length ->
+                                answer (choices.[n-1])
+                                true
+                            | _ ->
+                                match choices |> Array.tryFind (fun c -> c.StartsWith(ev.key, System.StringComparison.InvariantCultureIgnoreCase)) with
+                                | Some choice -> answer choice; true
+                                | _ -> false
+                            )
                         selectQuery prompt choices (thunk1 answer)
                     | Query.Alert txt ->
+                        onKeypress <- Some(fun ev ->
+                            if ev.keyCode = KeyCode.enter then answer ""; true
+                            else false)
                         alertQuery txt (thunk1 answer)
                     | Query.BattleQuery ->
                         let cmdEntry = textbox "Enter a text command" answer
@@ -273,10 +278,29 @@ let root model dispatch =
             [ongoingInteraction; partySummary (model.game, (match model.modalDialogs with (Operation(Query.Character _, _))::_ -> true | _ -> false)) dispatch; logOutput (model.game.log, model.logSkip) dispatch]
         | { mode = Battle::_ } ->
             [str "Placeholder for battles"]
+        | { mode = Campaign::_ } ->
+            let state = model.game
+            let msg = (sprintf "You have earned %d XP and %d gold pieces, and you've been adventuring for %s. What do you wish to do next?" state.pcs.[0].src.xp state.gp (Model.Gameplay.timeSummary state.timeElapsed))
+            onKeypress <- Some(fun ev ->
+                if ev.keyCode = KeyCode.enter then answer ""; true
+                else false)
+            [   div [ClassName "interaction"] [
+                    str msg
+                    br[]
+                    Button.button [Button.Color Fulma.Color.IsBlack] [str "Advance"]
+                    Button.button [Button.Color Fulma.Color.IsBlack] [str "Rest"]
+                    Button.button [Button.Color Fulma.Color.IsBlack] [str "Return to town"]
+                    ]
+                ]
+            //| "Advance" -> return! doTower (advance state)
+            //| "Rest" -> return! doRest state
+            //| "Return to town" ->
+            //    return! alert state (retirementMessage state)
+            //| _ -> return state
+
         | { mode = [] } ->
             let startGame _ =
-                dispatch (NewMode Campaign)
-                Model.Gameplay.campaignMode() |> modalOperation dispatch (thunk1 dispatch (EndMode Campaign))
+                Model.Gameplay.campaignMode() |> modalOperation dispatch (thunk1 dispatch (NewMode Campaign))
             let startBattles _ = Browser.window.alert "Sorry, not implemented yet. Send email to Max and tell him you want this."
             let loadCampaign _ = Browser.window.alert "Sorry, not implemented yet. Send email to Max and tell him you want this."
             let saveCampaign _ = Browser.window.alert "Sorry, not implemented yet. Send email to Max and tell him you want this."
@@ -293,10 +317,6 @@ let root model dispatch =
             [   str "Something went wrong:  Please file a bug report (email Max and describe what happened)."
                 br []
                 str <| "Details: " + msg]
-        | { mode = vm } ->
-            [   str "Something went wrong. Please file a bug report (email Max and describe what happened)."
-                br[]
-                str <| sprintf "ViewModel = %A" vm ]
     let gameHasStarted = List.exists (fun x -> x = Campaign || x = Battle) model.mode
     div [ClassName <| if gameHasStarted then "mainPage" else "startPage"] children
 
