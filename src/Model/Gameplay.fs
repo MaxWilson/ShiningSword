@@ -324,18 +324,10 @@ let rest state =
     else state
 
 let rec doRest (state: GameState) : Eventual<_,_,_> = queryInteraction {
+    let state = rest state
     let nextTick = state.timeElapsed + 3600 * 8;
     let newDay = state.timeElapsed / (3600 * 24) <> nextTick / (3600 * 24)
-    let state =
-        { state with timeElapsed = nextTick; pcs = state.pcs |> List.map (fun pc -> if pc.hp > 0 then healAndAdvance pc else pc) }
-        |> GameState.mapLog (Log.log "The party rests for 8 hours and heals")
     let paydayMessage() = state.pcs |> List.filter (fun pc -> pc.src.isNPC) |> List.map (fun pc -> sprintf "%s has earned %d gold pieces for %s faithful service." pc.src.name (pc.src.classLevels.Length * 100) (match pc.src.sex with Male -> "his" | Female -> "her"))
-    let state =
-        if newDay then
-            let payday = state.pcs |> List.sumBy(fun pc -> if pc.src.isNPC then pc.src.classLevels.Length * 100 else 0)
-            { state with gp = state.gp - payday }
-            |> GameState.mapLog (Log.logMany (paydayMessage()))
-        else state
     match! Query.choose state ((if newDay then sprintf "A new day has dawned. %s " <| String.join " " (paydayMessage()) else "") + (sprintf "Through your adventures, you have earned %d XP and %d gold pieces, and you've been adventuring for %s. What do you wish to do next?" state.pcs.[0].src.xp state.gp (timeSummary state.timeElapsed))) ["Advance"; "Rest"; "Return to town"] with
         | "Advance" -> return! doTower (advance state)
         | "Rest" -> return! doRest state
@@ -343,6 +335,7 @@ let rec doRest (state: GameState) : Eventual<_,_,_> = queryInteraction {
             return! alert state (retirementMessage state)
         | _ -> return state
         }
+
 and doTower (state: GameState) : Eventual<_,_,_> = queryInteraction {
     let e, c, parEarned, totalXpEarned, gp = makeTower state.parEarned state.towerNumber
     let! state =
