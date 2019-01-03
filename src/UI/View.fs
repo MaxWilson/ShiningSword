@@ -128,12 +128,28 @@ let numberQuery prompt answer =
             ]
         ]
 
+let buttonsWithHotkeys (labelsAndActions: (string * (_ -> unit)) list) =
+    onKeypress <- Some(fun ev ->
+        match System.Int32.TryParse ev.key with
+        // use one-based choosing for UI purposes: 1 is the first choice, 2 is the second
+        | true, n when n-1 < labelsAndActions.Length ->
+            (snd (labelsAndActions |> List.item (n-1)))()
+            true
+        | _ ->
+            match labelsAndActions |> List.tryFind (fun (label, action) -> label.StartsWith(ev.key, System.StringComparison.InvariantCultureIgnoreCase)) with
+            | Some(_,action) ->
+                action()
+                true
+            | _ -> false
+        )
+    labelsAndActions |> List.map (fun (label, action) ->
+        Button.button [Button.OnClick (fun _ -> action()); Button.Color Fulma.Color.IsBlack] [str label])
+
 let selectQuery prompt choices answer =
     [
         yield str prompt
         yield br[]
-        for choice in choices do
-            yield Button.button [Button.OnClick <| answer choice; Button.Color Fulma.Color.IsBlack] [str choice]
+        yield! (choices |> List.map (fun choice -> choice, answer choice) |> buttonsWithHotkeys)
         ]
 
 let alertQuery prompt answer =
@@ -229,6 +245,8 @@ let logOutput =
                 div [ClassName "logDisplay"](current |> List.map (fun line -> p[][str line]))
                 ]
 
+let inline notImpl _ = Browser.window.alert "Sorry, not implemented yet. Send email to Max and tell him you want this."
+
 let root model dispatch =
     undoModal <- thunk1 dispatch UndoModal
     let inline answer v = match model with { modalDialogs = op::_ } -> progress dispatch op v | _ -> ()
@@ -245,18 +263,7 @@ let root model dispatch =
                     | Query.Number(q) ->
                         numberQuery q answer
                     | Query.Select(prompt, choices) ->
-                        onKeypress <- Some(fun ev ->
-                            match System.Int32.TryParse ev.key with
-                            // use one-based choosing for UI purposes: 1 is the first choice, 2 is the second
-                            | true, n when n-1 < choices.Length ->
-                                answer (choices.[n-1])
-                                true
-                            | _ ->
-                                match choices |> Array.tryFind (fun c -> c.StartsWith(ev.key, System.StringComparison.InvariantCultureIgnoreCase)) with
-                                | Some choice -> answer choice; true
-                                | _ -> false
-                            )
-                        selectQuery prompt choices (thunk1 answer)
+                        selectQuery prompt (choices |> List.ofArray) (thunk1 answer)
                     | Query.Alert txt ->
                         onKeypress <- Some(fun ev ->
                             if ev.keyCode = KeyCode.enter then answer ""; true
@@ -287,11 +294,13 @@ let root model dispatch =
             let rest _ =
                 model.game |> Model.Gameplay.rest |> UpdateGameState |> dispatch
             [   div [ClassName "interaction"] [
-                    str msg
-                    br[]
-                    Button.button [Button.Color Fulma.Color.IsBlack] [str "Advance"]
-                    Button.button [Button.OnClick rest; Button.Color Fulma.Color.IsBlack] [str "Rest"]
-                    Button.button [Button.Color Fulma.Color.IsBlack] [str "Return to town"]
+                    yield str msg
+                    yield br[]
+                    yield! buttonsWithHotkeys [
+                        "Advance", notImpl
+                        "Rest", rest
+                        "Return to town", notImpl
+                        ]
                     ]
                 ]
             //| "Advance" -> return! doTower (advance state)
@@ -303,17 +312,19 @@ let root model dispatch =
         | { mode = [] } ->
             let startGame _ =
                 Model.Gameplay.campaignMode() |> modalOperation dispatch (thunk1 dispatch (NewMode Campaign))
-            let startBattles _ = Browser.window.alert "Sorry, not implemented yet. Send email to Max and tell him you want this."
-            let loadCampaign _ = Browser.window.alert "Sorry, not implemented yet. Send email to Max and tell him you want this."
-            let saveCampaign _ = Browser.window.alert "Sorry, not implemented yet. Send email to Max and tell him you want this."
+            let startBattles = notImpl
+            let loadCampaign = notImpl
+            let saveCampaign = notImpl
             [Hero.hero [] [
                 h1 [ClassName "is-size-3"; Style [TextAlign "center"]] [str "Shining Sword: Citadel of the Hundred Gates"]
                 ul [ClassName "menu"; Style [TextAlign "center"]] ([
-                    Button.button [Button.OnClick startGame; Button.Color Fulma.Color.IsBlack] [str "Start new campaign"]
-                    Button.button [Button.OnClick loadCampaign; Button.Color Fulma.Color.IsBlack] [str "Load campaign"]
-                    Button.button [Button.OnClick saveCampaign; Button.Color Fulma.Color.IsBlack] [str "Save campaign"]
-                    Button.button [Button.OnClick startBattles; Button.Color Fulma.Color.IsBlack] [str "Run standalone battles"]
-                    ] |> List.map (fun x -> li [ClassName "menu-list"] [x]))
+                    "Start new campaign", startGame
+                    "Load campaign", loadCampaign
+                    "Save campaign", saveCampaign
+                    "Run standalone battles", startBattles
+                    ]
+                    |> buttonsWithHotkeys
+                    |> List.map (fun x -> li [ClassName "menu-list"] [x]))
                 ]]
         | { mode = Error msg::_ } ->
             [   str "Something went wrong:  Please file a bug report (email Max and describe what happened)."
