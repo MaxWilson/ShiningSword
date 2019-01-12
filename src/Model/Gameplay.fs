@@ -138,7 +138,7 @@ let getNameAndSex state firstPerson isFriend : Eventual<_,_,Name * Sex> = queryI
 let rec getPCs (state: GameState) firstPerson isFriend : Eventual<_,_,_> = queryInteraction {
     let! pc = Chargen.Workflow.newPC state firstPerson isFriend
     let state = { state with pcs = state.pcs@[pc]; gp = if firstPerson || isFriend then state.gp else state.gp - 100 }
-    let! more = Query.choose state (sprintf "Do you want to recruit%shelp? It costs 100 gold pieces up front plus salary." (if state.pcs.Length = 1 then " " else " more "))
+    let! more = Query.choose state (sprintf "Do you want to recruit%shelp? It costs 100 gold pieces up front plus salary (50 gold per day per level)." (if state.pcs.Length = 1 then " " else " more "))
                     ["I have a friend"; "Hire help"; "No, I'm ready"]
     match more with
     | "I have a friend" ->
@@ -316,7 +316,7 @@ let rest state =
     let state =
         { state with timeElapsed = nextTick; pcs = state.pcs |> List.map (fun pc -> if pc.hp > 0 then healAndAdvance pc else pc) }
         |> GameState.mapLog (Log.log "The party rests for 8 hours and heals")
-    let paydayMessage() = state.pcs |> List.filter (fun pc -> pc.src.isNPC) |> List.map (fun pc -> sprintf "%s has earned %d gold pieces for %s faithful service." pc.src.name (pc.src.classLevels.Length * 100) (match pc.src.sex with Male -> "his" | Female -> "her"))
+    let paydayMessage() = state.pcs |> List.filter (fun pc -> pc.src.isNPC) |> List.map (fun pc -> sprintf "%s has earned %d gold pieces for %s faithful service." pc.src.name (pc.src.classLevels.Length * 50) (match pc.src.sex with Male -> "his" | Female -> "her"))
     if newDay then
         let payday = state.pcs |> List.sumBy(fun pc -> if pc.src.isNPC then pc.src.classLevels.Length * 100 else 0)
         { state with gp = state.gp - payday }
@@ -327,7 +327,7 @@ let rec doRest (state: GameState) : Eventual<_,_,_> = queryInteraction {
     let state = rest state
     let nextTick = state.timeElapsed + 3600 * 8;
     let newDay = state.timeElapsed / (3600 * 24) <> nextTick / (3600 * 24)
-    let paydayMessage() = state.pcs |> List.filter (fun pc -> pc.src.isNPC) |> List.map (fun pc -> sprintf "%s has earned %d gold pieces for %s faithful service." pc.src.name (pc.src.classLevels.Length * 100) (match pc.src.sex with Male -> "his" | Female -> "her"))
+    let paydayMessage() = state.pcs |> List.filter (fun pc -> pc.src.isNPC) |> List.map (fun pc -> sprintf "%s has earned %d gold pieces for %s faithful service." pc.src.name (pc.src.classLevels.Length * 50) (match pc.src.sex with Male -> "his" | Female -> "her"))
     match! Query.choose state ((if newDay then sprintf "A new day has dawned. %s " <| String.join " " (paydayMessage()) else "") + (sprintf "Through your adventures, you have earned %d XP and %d gold pieces, and you've been adventuring for %s. What do you wish to do next?" state.pcs.[0].src.xp state.gp (timeSummary state.timeElapsed))) ["Advance"; "Rest"; "Return to town"] with
         | "Advance" -> return! doTower (advance state)
         | "Rest" -> return! doRest state
@@ -371,6 +371,7 @@ let doGate state : Eventual<_,_,_> = queryInteraction {
 let campaignMode() : Eventual<_,_,_> = queryInteraction {
     let state = GameState.empty
     let! state = getPCs state true false
-    return (state |> GameState.mapLog (Log.log "Before you lies the Wild Country, the Gate of Doom. Prepare yourselves for death and glory!"))
+    do! Query.alert state "Before you lies the Wild Country, the Gate of Doom. Prepare yourselves for death and glory!"
+    return state
     }
 
