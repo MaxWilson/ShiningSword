@@ -288,12 +288,22 @@ let root model dispatch =
         | { mode = Campaign::_ } ->
             let state = model.game
             let msg = (sprintf "You have earned %d XP and %d gold pieces, and you've been adventuring for %s. What do you wish to do next?" state.pcs.[0].src.xp state.gp (Model.Gameplay.timeSummary state.timeElapsed))
+            let latest =
+                match model.game.log |> Log.extract |> List.tryLast with
+                | Some entries ->
+                    div [] [
+                        for entry in entries do
+                            yield (str entry)
+                            yield br[]
+                        ]
+                | _ -> div[][]
             onKeypress <- Some(fun ev ->
                 if ev.keyCode = KeyCode.enter then answer ""; true
                 else false)
             let rest _ =
                 model.game |> Model.Gameplay.rest |> UpdateGameState |> dispatch
             [   div [ClassName "interaction"] [
+                    yield latest
                     yield str msg
                     yield br[]
                     yield! buttonsWithHotkeys [
@@ -311,7 +321,7 @@ let root model dispatch =
 
         | { mode = [] } ->
             let startGame _ =
-                Model.Gameplay.campaignMode() |> modalOperation dispatch (thunk1 dispatch (NewMode Campaign))
+                Model.Gameplay.campaignMode() |> modalOperation dispatch (fun state -> dispatch (UpdateGameState state); dispatch (NewMode Campaign))
             let startBattles = notImpl
             let loadCampaign = notImpl
             let saveCampaign = notImpl

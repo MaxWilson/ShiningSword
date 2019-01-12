@@ -370,6 +370,7 @@ let doGate state : Eventual<_,_,_> = queryInteraction {
 
 let campaignMode() : Eventual<_,_,_> = queryInteraction {
     let state = GameState.empty
-    return! getPCs state true false
+    let! state = getPCs state true false
+    return (state |> GameState.mapLog (Log.log "Before you lies the Wild Country, the Gate of Doom. Prepare yourselves for death and glory!"))
     }
 
