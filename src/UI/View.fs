@@ -350,6 +350,8 @@ let root model dispatch =
     let gameHasStarted = List.exists (fun x -> x = Campaign || x = Battle) model.mode
     div [ClassName <| if gameHasStarted then "mainPage" else "startPage"] children
 
+// make sure errors are not silent: show them as Alerts (ugly but better than nothing for now)
+window.onerror <- fun msg _src _lineNo _colNo err -> window.alert (sprintf "Bug alert! Unhandled exception. Email Max and tell him what happened. Error details: %A %A" msg err)
 
 // App
 Program.mkProgram init update root

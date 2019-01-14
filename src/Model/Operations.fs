@@ -143,3 +143,21 @@ module CharSheet =
         | Samurai | Champion | Battlerager as c -> c.ToString()
     let summarize (levels: CharClass list) : string =
         normalize levels |> List.map (fun (c,l) -> sprintf "%s %d" (className c) l) |> String.join "/"
+    let toStatBlock (c:CharSheet) = {
+        name = c.name
+        sex = c.sex
+        hp = computeMaxHP c
+        xp = c.xp / 10 // 10% XP reward for killing levelled PCs
+        str = c.str
+        dex = c.dex
+        con = c.con
+        int = c.int
+        wis = c.wis
+        cha = c.cha
+        resistances = Set.empty
+        immunities = Set.empty
+        damageResistance = Map.empty
+        conditionExemptions = Set.empty
+        attacks = [] // todo: compute attacks
+        features = c.features
+        }

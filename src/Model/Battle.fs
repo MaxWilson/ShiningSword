@@ -4,6 +4,7 @@ open Model.Names
 open Common
 
 open Model.Types
+open Model.Operations
 
 let randomSex() = chooseRandom [|Male;Female|]
 
@@ -24,6 +25,9 @@ let add teamId (sb:StatBlock) (usages:Usages) (status:Status) (battle: Battle) =
 
 let addFreshCombatant teamId statBlockTemplate battle =
     add teamId (statBlockTemplate()) Map.empty { conditions = [] } battle
+
+let addExistingCharacter teamId (c:CharInfo) battle =
+    add teamId (CharSheet.toStatBlock c.src) c.usages c.status battle
 
 #nowarn "40" // recursive references in parse patterns are fine
 module Parse =
