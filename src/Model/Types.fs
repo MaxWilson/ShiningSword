@@ -119,10 +119,12 @@ type TerrainFeature = | Rubble | Undergrowth | Wall | Combatant of Id
 
 type TerrainMap = Map<Position, TerrainFeature> // todo: is map the right data structure to support the right queries?
 
+type TeamId = Blue | Red | Green | Yellow | White | Black
+
 // In-combat character or monster info
 type Combatant = {
     id: Id
-    team: Id
+    team: TeamId
     stats: StatBlock
     usages: Usages
     status: Status
@@ -139,20 +141,12 @@ type CharInfo = {
     sp: int
     }
 
+type Roster = Map<Id, Combatant>
 type Battle = {
     map: TerrainMap
     combatants: Map<Id, Combatant>
     }
 
-type RosterEntry = {
-    original: StatBlock
-    current: StatBlock
-    team: int
-    id: Id
-    position: Position
-    }
-
-type Roster = Map<Id, RosterEntry>
 type Intention = Move of Position | Attack of Id
 type Declarations = (Id * Intention) list
 
@@ -183,7 +177,7 @@ type GameState = {
     timeElapsed: int // seconds
     gp: int
     log: Log.Data
-    roster: Roster option
+    battle: Battle option
     }
 
 type Query =
@@ -192,5 +186,4 @@ type Query =
     | Confirm of string
     | Select of prompt: string * choices: string[]
     | Alert of string
-    | BattleQuery
     | Character of CharInfo

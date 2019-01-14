@@ -10,6 +10,7 @@
 #load @"Model\Tables.fs"
 #load @"Model\Operations.fs"
 #load @"Model\Chargen.fs"
+#load @"Model\Battle.fs"
 #load @"Model\Gameplay.fs"
 #load @"Abstractions\DataStorage.Globals.fs"
 #load @"Abstractions\DataStorage.fs"

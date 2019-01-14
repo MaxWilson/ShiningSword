@@ -269,9 +269,6 @@ let root model dispatch =
                             if ev.keyCode = KeyCode.enter then answer ""; true
                             else false)
                         alertQuery txt (thunk1 answer)
-                    | Query.BattleQuery ->
-                        let cmdEntry = textbox "Enter a text command" answer
-                        [cmdEntry]
                     | Query.Character pc ->
                         let ok = Button.button [Button.OnClick <| thunk1 answer "OK" ; Button.Props [AutoFocus true]] [str "OK"]
                         [
@@ -284,7 +281,14 @@ let root model dispatch =
                             ]
             [ongoingInteraction; partySummary (model.game, (match model.modalDialogs with (Operation(Query.Character _, _))::_ -> true | _ -> false)) dispatch; logOutput (model.game.log, model.logSkip) dispatch]
         | { mode = Battle::_ } ->
-            [str "Placeholder for battles"]
+            match model.game with
+            | { battle = Some b } ->
+                [
+                    for c in b.combatants do
+                        yield p [Style[Color (if c.Value.team = TeamId.Red then "red" else "blue")]][str c.Value.stats.name]
+                    ]
+            | _ ->
+                [str "Placeholder for battles"]
         | { mode = Campaign::_ } ->
             let state = model.game
             let msg = (sprintf "You have earned %d XP and %d gold pieces, and you've been adventuring for %s. What do you wish to do next?" state.pcs.[0].src.xp state.gp (Model.Gameplay.timeSummary state.timeElapsed))
@@ -302,12 +306,15 @@ let root model dispatch =
                 else false)
             let rest _ =
                 model.game |> Model.Gameplay.rest |> UpdateGameState |> dispatch
+            let advance _ =
+                model.game |> Model.Gameplay.startBattle |> UpdateGameState |> dispatch
+                dispatch (NewMode Battle)
             [   div [ClassName "interaction"] [
                     yield latest
                     yield str msg
                     yield br[]
                     yield! buttonsWithHotkeys [
-                        "Advance", notImpl
+                        "Advance", advance
                         "Rest", rest
                         "Return to town", notImpl
                         ]

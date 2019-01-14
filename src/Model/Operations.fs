@@ -1,13 +1,19 @@
 module Model.Operations
 open Model.Types
 open Common
+open System
 
 module Recognizer =
     open Packrat
-    let (|Roster|_|) = ExternalContextOf<GameState> >> Option.bind (fun st -> st.roster)
+    let (|Roster|_|) =
+        ExternalContextOf<GameState> >> function
+        | Some { battle = Some { combatants = c } } -> Some c
+        | _ -> None
     let inRoster pred (roster: Roster) =
         roster |> Map.tryFindKey (fun id v -> pred v)
-    let nameMatches name r = r.original.name = name && r.current.hp > 0
+    let isAlive (c:Combatant) = true // todo: check for liveness
+    let nameMatches name (c:Combatant) =
+        c.stats.name = name && isAlive c
     let (|Name|_|) = function
         | Word (name, ctx) & Roster(roster)
             when inRoster (nameMatches name) roster |> Option.isSome ->
@@ -47,46 +53,47 @@ module Query =
     let character state char =
         (Query.Character char, state), thunk (Some ())
 
-module Creature =
-    let map f (c: RosterEntry) =
-        { c with current = f c.current }
+//module Creature =
+//    let map f (c: Combatant) =
+//        { c with current = f c.current }
 
 module GameState =
     let mapLog f (g:GameState) =
         { g with log = f g.log }
-    let mapRoster f (g:GameState) =
-        { g with roster = Option.map f g.roster }
-    let mapCreatureId id msg f (g:GameState) =
-        match g.roster with
-        | Some roster ->
-            { g with
-                roster = roster |> Map.add id (Creature.map f roster.[id]) |> Some;
-                log = g.log |> Log.log msg }
-        | None -> g
-    let empty = { pcs = []; parEarned = 0; gateNumber = 1; towerNumber = 1; randomNumber = 1; timeElapsed = 0; gp = 0; log = Log.empty; roster = None }
+    //let mapRoster f (g:GameState) =
+    //    { g with roster = Option.map f g.roster }
+    //let mapCreatureId id msg f (g:GameState) =
+    //    match g.roster with
+    //    | Some roster ->
+    //        { g with
+    //            roster = roster |> Map.add id (Creature.map f roster.[id]) |> Some;
+    //            log = g.log |> Log.log msg }
+    //    | None -> g
+    let empty = { pcs = []; parEarned = 0; gateNumber = 1; towerNumber = 1; randomNumber = 1; timeElapsed = 0; gp = 0; log = Log.empty; battle = None }
 
 // executes action declarations in listed order
 let execute (d: Declarations) (g:GameState) : GameState =
     let execute (g:GameState) decl =
-        match g.roster with
+        match g.battle with
         | None -> g
         | Some r ->
-            match decl with
-            | id, Move(x, y) ->
-                let msg = sprintf "%s moves to %A" r.[id].current.name (x,y)
-                { g with roster = r |> Map.add id { r.[id] with position = x, y } |> Some}
-                    |> GameState.mapLog (Log.log msg)
-            | id, Attack(targetId) ->
-                let actor = r.[id]
-                let target = r.[targetId]
-                let roll = rand 20
-                if roll + 4 > 15 then
-                    let dmg = rand 8 + 2
-                    let msg = (sprintf "%s rolls %d and hits %s for %d points of damage!" actor.current.name roll target.current.name dmg)
-                    g |> GameState.mapCreatureId targetId msg (fun (s: StatBlock) -> { s with hp = s.hp - dmg })
-                      |> GameState.mapLog (Log.log msg)
-                else
-                    g |> GameState.mapLog (Log.log (sprintf "%s rolls %d and misses %s." actor.current.name roll target.current.name))
+            failwith "Not implemented"
+            //match decl with
+            //| id, Move(x, y) ->
+            //    let msg = sprintf "%s moves to %A" r.[id].current.name (x,y)
+            //    { g with roster = r |> Map.add id { r.[id] with position = x, y } |> Some}
+            //        |> GameState.mapLog (Log.log msg)
+            //| id, Attack(targetId) ->
+            //    let actor = r.[id]
+            //    let target = r.[targetId]
+            //    let roll = rand 20
+            //    if roll + 4 > 15 then
+            //        let dmg = rand 8 + 2
+            //        let msg = (sprintf "%s rolls %d and hits %s for %d points of damage!" actor.current.name roll target.current.name dmg)
+            //        g |> GameState.mapCreatureId targetId msg (fun (s: StatBlock) -> { s with hp = s.hp - dmg })
+            //          |> GameState.mapLog (Log.log msg)
+            //    else
+            //        g |> GameState.mapLog (Log.log (sprintf "%s rolls %d and misses %s." actor.current.name roll target.current.name))
 
     d |> List.fold execute g
 

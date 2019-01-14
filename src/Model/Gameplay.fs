@@ -368,6 +368,14 @@ let doGate state : Eventual<_,_,_> = queryInteraction {
     return! (doTower state)
     }
 
+let startBattle state =
+    let battle = Battle.create
+    let orc = Battle.Parse.statblock "[male:Mordor]\nattacks: +4 for d12+3"
+    let battle = [1..6] |> List.fold (fun b _ -> b |> Battle.addFreshCombatant TeamId.Blue orc) battle
+    let battle = [1..6] |> List.fold (fun b _ -> b |> Battle.addFreshCombatant TeamId.Red orc) battle
+    let state = { state with battle = Some battle }
+    state
+
 let campaignMode() : Eventual<_,_,_> = queryInteraction {
     let state = GameState.empty
     let! state = getPCs state true false

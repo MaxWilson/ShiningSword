@@ -9,7 +9,9 @@ let randomSex() = chooseRandom [|Male;Female|]
 
 let create = { Battle.map = Map.empty; combatants = Map.empty }
 let add teamId (sb:StatBlock) (usages:Usages) (status:Status) (battle: Battle) =
-    let nextId = 1 + (battle.combatants |> Map.toSeq |> Seq.maxBy fst |> fst)
+    let nextId =
+        if battle.combatants.IsEmpty then 1
+        else 1 + (battle.combatants |> Map.toSeq |> Seq.maxBy fst |> fst)
     let rec freshPosition candidate =
         // look for a random empty square
         if battle.map.ContainsKey(candidate) then
@@ -19,6 +21,9 @@ let add teamId (sb:StatBlock) (usages:Usages) (status:Status) (battle: Battle) =
     let newPosition = freshPosition (0,0)
     let combatant = { id = nextId; team = teamId; stats = sb; usages = usages; status = status; position = newPosition }
     { battle with combatants = Map.add nextId combatant battle.combatants; map = Map.add newPosition (Combatant nextId) battle.map }
+
+let addFreshCombatant teamId statBlockTemplate battle =
+    add teamId (statBlockTemplate()) Map.empty { conditions = [] } battle
 
 #nowarn "40" // recursive references in parse patterns are fine
 module Parse =
@@ -58,7 +63,7 @@ module Parse =
         | _ -> None
     let (|StatBlock|_|) = pack <| function
         | Name(name, (Attacks(attacks, ctx))) ->
-            let sb = {
+            let sb() = {
                 name = name()
                 sex = Male
                 hp = 10
@@ -97,9 +102,9 @@ module Parse =
             attacks = attacks
             features = []
             }
-        { id = 0; team = 0; usages = Map.empty; status = { conditions = [] }; position = (0,0); stats = stats }
+        { id = 0; team = Blue; usages = Map.empty; status = { conditions = [] }; position = (0,0); stats = stats }
     let attack = parser (|Attack|_|)
     let name = parser (|Name|_|)
     let statblock = parser (|StatBlock|_|)
 
-// Parse.statblock "[male:Mordor]\nattacks: +4 for d12+3"
+// Parse.statblock "[male:Mordor]\nattacks: +4 for d12+3"()
