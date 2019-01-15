@@ -224,3 +224,8 @@ let chooseName sex nameType =
         sprintf "%s %s %s" firstname lastname (chooseRandom cognomens)
     | None ->
         sprintf "%s %s" firstname lastname
+
+let chooseFirstName sex nameType =
+    let eligibleLists = names |> List.filter (fun ((n,t),_) -> t = (sex.ToString()))
+    let chosenList = eligibleLists |> List.pick (fun ((n,_),l) -> if nameType = n then Some l else None)
+    chooseRandom chosenList

@@ -52,10 +52,11 @@ module Parse =
         | Optional "+" (Int(toHit, Word(AnyCase("for"), Dmg(dmg, ctx)))) -> Some ({ tohit = toHit; damage = dmg}, ctx)
         | _ -> None
     let (|Name|_|) = pack <| function
-        | Str "[male:" (OWS(CharsExcept (Set.ofSeq [']']) (nameList, Str "]" ctx))) -> Some((fun() -> chooseName Male nameList), ctx)
-        | Str "[female:" (OWS(CharsExcept (Set.ofSeq [']']) (nameList, Str "]" ctx))) -> Some((fun() -> chooseName Male nameList), ctx)
-        | Str "[" (CharsExcept (Set.ofSeq [']']) (nameList, Str "]" ctx)) -> Some((fun() -> chooseName (randomSex()) nameList), ctx)
-        | Any(txt, ctx) -> Some(thunk txt, ctx)
+        | Str "[male:" (OWS(CharsExcept (Set.ofSeq [']']) (nameList, Str "]" ctx))) -> Some((fun() -> chooseFirstName Male nameList), ctx)
+        | Str "[female:" (OWS(CharsExcept (Set.ofSeq [']']) (nameList, Str "]" ctx))) -> Some((fun() -> chooseFirstName Female nameList), ctx)
+        | Str "[" (CharsExcept (Set.ofSeq [']']) (nameList, Str "]" ctx)) ->
+            Some((fun() -> chooseFirstName (randomSex()) nameList), ctx)
+        | Str "'" (CharsExcept (Set.ofSeq [''']) (name, Str "'" ctx)) -> Some((fun() -> name), ctx)
         | _ -> None
     let (|Attacks|_|) =
         let rec (|AttackList|_|) = pack <| function
