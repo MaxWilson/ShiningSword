@@ -103,6 +103,7 @@ type StatBlock = {
     int: int
     wis: int
     cha: int
+    ac: int
     resistances: Set<DamageType>
     immunities: Set<DamageType>
     damageResistance: Map<DamageType, int>
@@ -119,7 +120,7 @@ type TerrainFeature = | Rubble | Undergrowth | Wall | Combatant of Id
 
 type TerrainMap = Map<Position, TerrainFeature> // todo: is map the right data structure to support the right queries?
 
-type TeamId = Blue | Red | Green | Yellow | White | Black
+type TeamId = Blue | White | Red | Green | Yellow | Black
 
 // In-combat character or monster info
 type Combatant = {

@@ -14,8 +14,6 @@
 #load @"Model\Gameplay.fs"
 #load @"Abstractions\DataStorage.Globals.fs"
 #load @"Abstractions\DataStorage.fs"
-#load @"Model\Types.fs"
-#load @"Model\Tables.fs"
 
 
 open System

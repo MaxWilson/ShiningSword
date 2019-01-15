@@ -25,6 +25,7 @@ open Fulma
 open Fulma.Color
 open Model.Types
 open Model.Operations
+open Fable.PowerPack.Keyboard
 
 module Parse =
     open Packrat
@@ -162,6 +163,53 @@ let alertQuery prompt answer =
         yield Button.button [Button.OnClick <| answer "OK" ; Button.Props [AutoFocus true]] [str "OK"]
         ]
 
+let battleSummary fullInfo (combatants:Combatant seq) =
+    // fullInfo: controls whether full info is displayed in the UI for this creature e.g. exact HP totals, current orders
+    let giveOrders pc _ = ()
+    let describeStatus hp maxHp =
+        match hp with
+        | hp when hp <= 0 -> "Dead"
+        | hp when hp <= (maxHp / 4) -> "Badly wounded"
+        | hp when hp <= (maxHp * 3 / 4) -> "Wounded"
+        | hp when hp < maxHp -> "Barely wounded"
+        | hp -> "OK"
+    let describeAC ac =
+        if fullInfo then ac.ToString()
+        elif ac <= 8 then "Target practice"
+        elif ac <= 11 then "Unarmored"
+        elif ac <= 13 then "Lightly armored"
+        elif ac <= 15 then "Moderately armored"
+        elif ac <= 17 then "Heavily armored"
+        elif ac <= 20 then "Very heavily armored"
+        else "Walking fortress"
+    table [ClassName "table"] [
+        thead [] [
+            tr [] [
+                yield th [] [str "Name"]
+                yield th [] [str "Status"]
+                yield th [] [str "AC"]
+                if fullInfo then yield th [] [str "Current HP"]
+                yield th [] [str "Last Round"]
+                if fullInfo then yield th [] [str "This Round"]
+                ]
+            ]
+        tbody [] (combatants |> Seq.map (fun npc ->
+                let maxHp = npc.stats.hp
+                let hp =
+                    match npc.usages.TryGetValue("HP") with
+                    | true, v -> v
+                    | _ -> maxHp
+                tr [OnClick (giveOrders npc); Style[Color (sprintf "%A" npc.team)]] ([
+                    yield str npc.stats.name
+                    yield str <| describeStatus hp maxHp
+                    yield str (describeAC npc.stats.ac)
+                    if fullInfo then yield str (hp.ToString())
+                    yield str "???"
+                    if fullInfo then yield str "???"
+                    ] |> List.map (fun v -> td [] [v]))
+            ))
+        ]
+
 let partySummary =
     lazyView2 <| fun ((game: GameState), isViewingChars: bool) dispatch ->
         let line msg = p [] [str msg]
@@ -189,18 +237,6 @@ let partySummary =
                                 ]
                             ]
                         tbody [] (game.pcs |> List.mapi (fun i pc ->
-                                let details =
-                                    if pc.hp > 0 then [
-                                        str (i.ToString())
-                                        Button.button [Button.OnClick (showStatus pc); Button.IsLink] [str pc.src.name]
-                                        str (sprintf " HP %d XP %d" pc.hp pc.src.xp)
-                                        ]
-                                    else
-                                        [
-                                            str "(Dead) "
-                                            Button.button [Button.OnClick (showStatus pc); Button.IsLink] [str pc.src.name]
-                                            str (sprintf " XP %d" pc.src.xp)
-                                            ]
                                 tr [OnClick (showStatus pc)] ([
                                     str <| (i+1).ToString()
                                     str pc.src.name
@@ -286,9 +322,12 @@ let root model dispatch =
         | { mode = Battle::_ } ->
             match model.game with
             | { battle = Some b } ->
-                [
-                    for c in b.combatants do
-                        yield p [Style[Color (if c.Value.team = TeamId.Red then "red" else "blue")]][str c.Value.stats.name]
+                let teams = b.combatants |> Seq.map (function KeyValue(_,(c:Combatant)) -> c) |> Seq.groupBy (fun c -> c.team) |> Map.ofSeq
+                [   div[ClassName "battleSummary"][
+                        for team in teams do
+                            yield div [ClassName "heading"] [str (match team.Key with TeamId.Blue -> "Friendlies" | TeamId.White as teamId -> "Neutrals" | _ -> "Hostiles")]
+                            yield battleSummary (match team.Key with Blue | White -> true | _ -> false) team.Value
+                        ]
                     ]
             | _ ->
                 [str "Placeholder for battles"]

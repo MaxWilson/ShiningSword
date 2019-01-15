@@ -370,9 +370,11 @@ let doGate state : Eventual<_,_,_> = queryInteraction {
 
 let startBattle (state:GameState) =
     let battle = Battle.create
-    let orc = Battle.Parse.statblock "[male:Mordor]\nattacks: +4 for d12+3"
+    let orc = Battle.Parse.statblock "[male:Mordor] ac:13 attacks: +4 for d12+3"
+    let gargoyle = Battle.Parse.statblock "[male:Mordor] ac:15 attacks: +4 for d8+2 +4 for d8+2"
     let battle = state.pcs |> List.fold (flip (Battle.addExistingCharacter TeamId.Blue)) battle
-    let battle = [1..6] |> List.fold (fun b _ -> b |> Battle.addFreshCombatant TeamId.Red orc) battle
+    let enemies = (List.init 6 (thunk orc))@(List.init 4 (thunk gargoyle))
+    let battle = enemies |> List.fold (fun b e -> b |> Battle.addFreshCombatant TeamId.Red e) battle
     let state = { state with battle = Some battle }
     state
 
