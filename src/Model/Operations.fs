@@ -145,6 +145,7 @@ module CharSheet =
         normalize levels |> List.map (fun (c,l) -> sprintf "%s %d" (className c) l) |> String.join "/"
     let toStatBlock (c:CharSheet) = {
         name = c.name
+        typeName = c.template |> Option.map (fun t -> t.name)
         sex = c.sex
         str = c.str
         dex = c.dex

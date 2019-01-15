@@ -185,7 +185,9 @@ let battleSummary fullInfo (combatants:Combatant seq) =
     table [ClassName "table"] [
         thead [] [
             tr [] [
+                yield th [] [str "ID"]
                 yield th [] [str "Name"]
+                yield th [] [str "Type"]
                 yield th [] [str "Status"]
                 yield th [] [str "AC"]
                 if fullInfo then yield th [] [str "Current HP"]
@@ -200,10 +202,12 @@ let battleSummary fullInfo (combatants:Combatant seq) =
                     | true, v -> v
                     | _ -> maxHp
                 tr [OnClick (giveOrders npc); Style[Color (sprintf "%A" npc.team)]] ([
+                    yield str <| npc.id.ToString()
                     yield str npc.stats.name
+                    yield str <| defaultArg npc.stats.typeName ""
                     yield str <| describeStatus hp maxHp
                     yield str (describeAC npc.stats.ac)
-                    if fullInfo then yield str (hp.ToString())
+                    if fullInfo then yield str <| hp.ToString()
                     yield str "???"
                     if fullInfo then yield str "???"
                     ] |> List.map (fun v -> td [] [v]))

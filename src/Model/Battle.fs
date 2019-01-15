@@ -69,10 +69,15 @@ module Parse =
         function
         | Word(AnyCase("ac"), Optional ":" (Int(ac, ctx))) -> (ac, ctx)
         | ctx -> (10, ctx)
+    let (|TypeName|) =
+        function
+        | Words(typeName, ctx) -> (Some typeName, ctx)
+        | ctx -> (None, ctx)
     let (|StatBlock|_|) = pack <| function
-        | Name(name, ArmorClass(ac, (Attacks(attacks, ctx)))) ->
+        | TypeName(typeName, Name(name, ArmorClass(ac, (Attacks(attacks, ctx))))) ->
             let sb() = {
                 name = name()
+                typeName = typeName
                 sex = Male
                 str = 10
                 dex = 10
@@ -95,6 +100,7 @@ module Parse =
     let makeCombatantStub name attacks =
         let stats = {
             name = name
+            typeName = None
             sex = Male
             str = 10
             dex = 10
@@ -117,5 +123,5 @@ module Parse =
     let name = parser (|Name|_|)
     let statblock = parser (|StatBlock|_|)
 
-// Parse.statblock "[male:Mordor]\nac:13 attacks: +4 for d12+3"()
+// Parse.statblock "Orc [male:Mordor]\nac:13 attacks: +4 for d12+3"()
 // Parse.statblock "[male:Mordor] attacks: +4 for d12+3"()

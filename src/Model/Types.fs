@@ -94,6 +94,7 @@ type Condition =
 
 type StatBlock = {
     name: Name
+    typeName: Name option // Name of species/class/etc. Used for UI display
     sex: Sex
     hp: int
     xp: int
