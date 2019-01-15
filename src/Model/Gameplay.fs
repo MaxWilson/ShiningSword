@@ -323,26 +323,19 @@ let rest state =
         |> GameState.mapLog (Log.logMany (paydayMessage()))
     else state
 
-let rec doRest (state: GameState) : Eventual<_,_,_> = queryInteraction {
-    let state = rest state
-    let nextTick = state.timeElapsed + 3600 * 8;
-    let newDay = state.timeElapsed / (3600 * 24) <> nextTick / (3600 * 24)
-    let paydayMessage() = state.pcs |> List.filter (fun pc -> pc.src.isNPC) |> List.map (fun pc -> sprintf "%s has earned %d gold pieces for %s faithful service." pc.src.name (pc.src.classLevels.Length * 50) (match pc.src.sex with Male -> "his" | Female -> "her"))
-    match! Query.choose state ((if newDay then sprintf "A new day has dawned. %s " <| String.join " " (paydayMessage()) else "") + (sprintf "Through your adventures, you have earned %d XP and %d gold pieces, and you've been adventuring for %s. What do you wish to do next?" state.pcs.[0].src.xp state.gp (timeSummary state.timeElapsed))) ["Advance"; "Rest"; "Return to town"] with
-        | "Advance" -> return! doTower (advance state)
-        | "Rest" -> return! doRest state
-        | "Return to town" ->
-            return! alert state (retirementMessage state)
-        | _ -> return state
-        }
+let retire state : Eventual<_,_,_> = queryInteraction {
+    return! alert state (retirementMessage state)
+    }
 
-and doTower (state: GameState) : Eventual<_,_,_> = queryInteraction {
-    let e, c, parEarned, totalXpEarned, gp = makeTower state.parEarned state.towerNumber
+let enterTower (e, c, parEarned, totalXpEarned, gp, state: GameState) : Eventual<_,_,_> = queryInteraction {
     let! state =
         alert state <|
             (sprintf "You have reached the %s tower of Gate #%d. %s" (match state.towerNumber with | 1 -> "first" | 2 -> "second" | 3 -> "inner" | _ -> "final") state.gateNumber
             (battlecry state.pcs e))
-    let state = fight e state
+    return state, e, c, parEarned, totalXpEarned, gp
+    }
+
+let finishTower (e, c, parEarned, totalXpEarned, gp, state:GameState) : Eventual<_,_,_> = queryInteraction {
     if state.pcs |> List.exists (fun pc -> pc.hp > 0) |> not then
         // everyone is dead
         return! alert state "You have died!"
@@ -351,12 +344,7 @@ and doTower (state: GameState) : Eventual<_,_,_> = queryInteraction {
         let xp = totalXpEarned / livePCs
         let state = { state with gp = state.gp + gp; pcs = state.pcs |> List.map (fun pc -> if pc.hp <= 0 then pc else { pc with src = { pc.src with xp = pc.src.xp + xp } }) |> List.sortByDescending (fun pc -> pc.hp > 0); parEarned = state.parEarned + parEarned }
         let! state = alert state (sprintf "You have found %d gold pieces and earned %d experience points." gp xp)
-        match! Query.choose state (sprintf "You have earned %d XP and %d gold pieces, and you've been adventuring for %s. What do you wish to do next?" state.pcs.[0].src.xp state.gp (timeSummary state.timeElapsed)) ["Advance"; "Rest"; "Return to town"] with
-        | "Advance" -> return! doTower (advance state)
-        | "Rest" -> return! doRest state
-        | "Return to town" ->
-            return! alert state (retirementMessage state)
-        | _ -> return state
+        return state
     }
 
 let showPCDetails game pc = queryInteraction {
@@ -364,11 +352,8 @@ let showPCDetails game pc = queryInteraction {
     return game
     }
 
-let doGate state : Eventual<_,_,_> = queryInteraction {
-    return! (doTower state)
-    }
-
 let startBattle (state:GameState) =
+    let monsters, c, parEarned, totalXpEarned, gp = makeTower state.parEarned state.towerNumber
     let battle = Battle.create
     let orc = Battle.Parse.statblock "Orc [male:Mordor] ac:13 attacks: +4 for d12+3"
     let gargoyle = Battle.Parse.statblock "Gargoyle 'Gargoyle' ac:15 attacks: +4 for d8+2 +4 for d8+2"
@@ -382,6 +367,6 @@ let campaignMode() : Eventual<_,_,_> = queryInteraction {
     let state = GameState.empty
     let! state = getPCs state true false
     do! Query.alert state "Before you lies the Wild Country, the Gate of Doom. Prepare yourselves for death and glory!"
-    return state
+    return! enterTower state
     }
 

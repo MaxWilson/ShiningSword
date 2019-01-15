@@ -41,7 +41,7 @@ module Parse =
             let pcs = [
                 CharSheet.create "Max the Mighty" Male (18,12,14,15,9,11) false None Model.Chargen.Templates.charTemplates.["Brute"]
                 ]
-            Some(({ GameState.empty with pcs = pcs }|> Model.Gameplay.startBattle, ViewModel.Battle) , ctx)
+            Some(({ GameState.empty with pcs = pcs }|> Model.Gameplay.startBattle ["orc", 6; "gargoyle", 4], ViewModel.Battle) , ctx)
         | Str "campaignDebug" ctx ->
             let template = Model.Chargen.Templates.charTemplates.["Brute"]
             let pc = Model.Operations.CharSheet.create "Spartacus" Male (14, 16, 9, 13, 11, 13) false None template
@@ -374,7 +374,7 @@ let root model dispatch =
 
         | { mode = [] } ->
             let startGame _ =
-                Model.Gameplay.campaignMode() |> modalOperation dispatch (fun state -> dispatch (UpdateGameState state); dispatch (NewMode Campaign))
+                Model.Gameplay.campaignMode() |> modalOperation dispatch (fun state -> dispatch (UpdateGameState state); dispatch (NewMode Campaign); dispatch (NewMode Battle))
             let startBattles = notImpl
             let loadCampaign = notImpl
             let saveCampaign = notImpl
