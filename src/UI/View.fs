@@ -37,7 +37,10 @@ module Parse =
 
     let (|Page|_|) = function
         | Str "battleDebug" ctx ->
-            Some((GameState.empty, ViewModel.Battle) , ctx)
+            let pcs = [
+                CharSheet.create "Max the Mighty" Male (18,12,14,15,9,11) false None Model.Chargen.Templates.charTemplates.["Brute"]
+                ]
+            Some(({ GameState.empty with pcs = pcs }|> Model.Gameplay.startBattle, ViewModel.Battle) , ctx)
         | Str "campaignDebug" ctx ->
             let template = Model.Chargen.Templates.charTemplates.["Brute"]
             let pc = Model.Operations.CharSheet.create "Spartacus" Male (14, 16, 9, 13, 11, 13) false None template
