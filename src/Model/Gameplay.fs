@@ -181,7 +181,7 @@ let makeTower parXpEarned nTower =
     let xpEarned = e |> Seq.sumBy (fun (name, i) -> i * (lookup monsters name |> snd))
     let earned = xpEarned/N
     let gpEarned = rand (Math.Pow (float budget, 2./3.) |> int)
-    e, cost, earned, xpEarned, gpEarned
+    e, earned, xpEarned, gpEarned
 
 let makeRandom pcs parXpEarned nRandom =
     let N = pcs |> Seq.length // number of ideal PCs
@@ -328,12 +328,12 @@ let retire state : Eventual<_,_,_> = queryInteraction {
     }
 
 let startBattle (state:GameState) =
-    let monsters, cost, parEarned, totalXpEarned, gp = makeTower state.parEarned state.towerNumber
+    let monsters, parEarned, totalXpEarned, gp = makeTower state.parEarned state.towerNumber
     let battle = { Battle.create with stakes = Some <| Stakes(parEarned, totalXpEarned, gp) }
-    let orc = Battle.Parse.statblock "Orc [male:Mordor] ac:13 attacks: +4 for d12+3"
-    let gargoyle = Battle.Parse.statblock "Gargoyle 'Gargoyle' ac:15 attacks: +4 for d8+2 +4 for d8+2"
+    let enemies = monsters |> List.collect (fun (name, n) ->
+        let ctor = MonsterManual.lookup name;
+        List.init n (thunk ctor))
     let battle = state.pcs |> List.fold (flip (Battle.addExistingCharacter TeamId.Blue)) battle
-    let enemies = (List.init 6 (thunk orc))@(List.init 4 (thunk gargoyle))
     let battle = enemies |> List.fold (fun b e -> b |> Battle.addFreshCombatant TeamId.Red e) battle
     let state = { state with battle = Some battle }
     monsters, state

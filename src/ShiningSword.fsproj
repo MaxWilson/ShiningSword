@@ -15,6 +15,7 @@
     <Compile Include="Model\Operations.fs" />
     <Compile Include="Model\Chargen.fs" />
     <Compile Include="Model\Battle.fs" />
+    <Compile Include="Model\MonsterManual.fs" />
     <Compile Include="Model\Gameplay.fs" />
     <Compile Include="UI\Global.fs" />
     <Compile Include="UI\Types.fs" />

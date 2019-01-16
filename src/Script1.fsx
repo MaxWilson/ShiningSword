@@ -11,13 +11,7 @@
 #load @"Model\Operations.fs"
 #load @"Model\Chargen.fs"
 #load @"Model\Battle.fs"
+#load @"Model\MonsterManual.fs"
 #load @"Model\Gameplay.fs"
 #load @"Abstractions\DataStorage.Globals.fs"
 #load @"Abstractions\DataStorage.fs"
-
-
-open System
-open Common
-open Interaction
-open Model.Types
-open Model.Tables
