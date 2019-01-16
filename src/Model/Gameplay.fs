@@ -308,7 +308,7 @@ let fight state =
                         let toHit = target.stats.ac - att.tohit
                         match rand 20 with
                         | 20 ->
-                            let dmg = 2 * (Roll.resolve (fst att.damage))
+                            let dmg = (Roll.resolve (fst att.damage |> Roll.double))
                             inflict true c.stats.name target dmg
                         | n when n >= toHit ->
                             let dmg = (Roll.resolve (fst att.damage))

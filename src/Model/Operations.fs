@@ -56,6 +56,7 @@ module Query =
 module Roll =
     let resolve (r:Roll) =
         r.bonus + (List.init r.n (thunk1 rand r.die) |> List.sum)
+    let double (r:Roll) = { r with n = r.n * 2 }
 
 //module Creature =
 //    let map f (c: Combatant) =
@@ -112,6 +113,8 @@ module CharSheet =
         classList |> Seq.mapi (fun l cl -> if l = 0 then (dieSize cl) + bonus else (dieSize cl)/2 + 1 + bonus) |> Seq.sum
     let computeMaxHP (char:CharSheet) =
         computeHP char.con char.classLevels
+    let computeAC (char:CharSheet) =
+        14 + combatBonus char.dex // todo: account for equipment properly
     let prioritize ((r1, r2, r3, r4, r5, r6) as rolls) ((str,dex,con,int,wis,cha) as priorities) =
         let rolls = Common.shuffleCopy [|r1;r2;r3;r4;r5;r6|] |> Array.sortDescending
         let priorityIndexes = [|str,0;dex,1;con,2;int,3;wis,4;cha,5|] |> Common.shuffleCopy |> Array.sortBy fst |> Array.map snd
@@ -161,7 +164,7 @@ module CharSheet =
         wis = c.wis
         cha = c.cha
         hp = computeMaxHP c
-        ac = 10 + combatBonus c.dex // todo: account for equipment
+        ac = computeAC c
         xp = c.xp / 10 // 10% XP reward for killing levelled PCs
         resistances = Set.empty
         immunities = Set.empty

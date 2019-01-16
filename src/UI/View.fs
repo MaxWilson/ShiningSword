@@ -163,6 +163,17 @@ let alertQuery prompt answer =
         yield Button.button [Button.OnClick <| answer "OK" ; Button.Props [AutoFocus true]] [str "OK"]
         ]
 
+let describeAC fullInfo ac =
+    let descr =
+        if ac <= 8 then "Target practice"
+        elif ac <= 11 then "Unarmored"
+        elif ac <= 13 then "Lightly armored"
+        elif ac <= 15 then "Moderately armored"
+        elif ac <= 17 then "Heavily armored"
+        elif ac <= 20 then "Very heavily armored"
+        else "Walking fortress"
+    if fullInfo then sprintf "%d (%s)" ac descr else descr
+
 let battleSummary fullInfo (combatants:Combatant seq) =
     // fullInfo: controls whether full info is displayed in the UI for this creature e.g. exact HP totals, current orders
     let giveOrders pc _ = ()
@@ -173,16 +184,6 @@ let battleSummary fullInfo (combatants:Combatant seq) =
         | hp when hp <= (maxHp * 3 / 4) -> "Wounded"
         | hp when hp < maxHp -> "Barely wounded"
         | hp -> "OK"
-    let describeAC ac =
-        let descr =
-            if ac <= 8 then "Target practice"
-            elif ac <= 11 then "Unarmored"
-            elif ac <= 13 then "Lightly armored"
-            elif ac <= 15 then "Moderately armored"
-            elif ac <= 17 then "Heavily armored"
-            elif ac <= 20 then "Very heavily armored"
-            else "Walking fortress"
-        if fullInfo then sprintf "%d (%s)" ac descr else descr
     table [ClassName "table"] [
         thead [] [
             tr [] [
@@ -207,7 +208,7 @@ let battleSummary fullInfo (combatants:Combatant seq) =
                     yield str npc.stats.name
                     yield str <| defaultArg npc.stats.typeName ""
                     yield str <| describeStatus hp maxHp
-                    yield str (describeAC npc.stats.ac)
+                    yield str (describeAC fullInfo npc.stats.ac)
                     if fullInfo then yield str <| hp.ToString() else yield str <| sprintf "About %d" (5. * (System.Math.Round (float hp / 5.)) |> int)
                     yield str "Attack!"
                     if fullInfo then yield str "Attack!"
@@ -320,7 +321,7 @@ let root model dispatch =
                         [
                             p[][str pc.src.name]
                             p[][str (sprintf "%A %A [%s]%s" pc.src.sex pc.src.template.Value.name (Model.Operations.CharSheet.summarize pc.src.classLevels) (match pc.src.homeRegion with Some v -> " from " + v | _ -> ""))]
-                            p[][str (sprintf "Str: %d Dex: %d Con: %d Int: %d Wis: %d Cha: %d HP: %d" pc.src.str pc.src.dex pc.src.con pc.src.int pc.src.wis pc.src.cha pc.hp)]
+                            p[][str (sprintf "Str: %d Dex: %d Con: %d Int: %d Wis: %d Cha: %d AC: %s HP: %d" pc.src.str pc.src.dex pc.src.con pc.src.int pc.src.wis pc.src.cha (describeAC true (CharSheet.computeAC pc.src)) pc.hp)]
                             div [](pc.src.description.Split('\n') |> Array.map (fun line -> p [][str line]))
                             br[]
                             ok
@@ -375,6 +376,12 @@ let root model dispatch =
                     dispatch (UpdateGameState state)
                     dispatch (NewMode Battle)
                     )
+            let returnToTown _ =
+                model.game |> Model.Gameplay.retire
+                |> modalOperation dispatch (fun state ->
+                    dispatch (UpdateGameState state)
+                    dispatch (EndMode Campaign)
+                    )
             [   div [ClassName "interaction"] [
                     yield latest
                     yield str msg
@@ -382,7 +389,7 @@ let root model dispatch =
                     yield! buttonsWithHotkeys [
                         "Advance", advance
                         "Rest", rest
-                        "Return to town", notImpl
+                        "Return to town", returnToTown
                         ]
                     ]
                 partySummary (model.game, true) dispatch
