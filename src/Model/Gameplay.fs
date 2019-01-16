@@ -378,14 +378,16 @@ let finishTower (state:GameState) : Eventual<_,_,_> = queryInteraction {
         match state.battle with
         | Some { stakes = Some (Stakes(parEarned, totalXpEarned, gp)) } -> (parEarned, totalXpEarned, gp)
         | _ -> failwith "Should never finish a battle that wasn't started with some stakes"
-    if state.pcs |> List.exists (fun pc -> pc.hp > 0) |> not then
+    if state.pcs |> List.exists (fun pc -> (CharInfo.getCurrentHP pc) > 0) |> not then
         // everyone is dead
-        return! alert state "You have died!"
+        return! alert state "You have all died!"
     else
         let livePCs = state.pcs |> List.sumBy (fun pc -> if pc.hp > 0 then 1 else 0)
         let xp = totalXpEarned / livePCs
         let state = { state with gp = state.gp + gp; pcs = state.pcs |> List.map (fun pc -> if pc.hp <= 0 then pc else { pc with src = { pc.src with xp = pc.src.xp + xp } }) |> List.sortByDescending (fun pc -> pc.hp > 0); parEarned = state.parEarned + parEarned }
-        return state |> GameState.mapLog (Log.log (sprintf "You have found %d gold pieces and earned %d experience points." gp xp))
+        let msg = (sprintf "You have found %d gold pieces and earned %d experience points." gp xp)
+        do! Query.alert state msg
+        return state |> GameState.mapLog (Log.log msg)
     }
 
 let showPCDetails game pc = queryInteraction {
