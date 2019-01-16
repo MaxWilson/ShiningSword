@@ -334,8 +334,11 @@ let root model dispatch =
                         )
                 let fightOneRound _ =
                     let state = model.game |> Model.Gameplay.fight
-                    dispatch (UpdateGameState state)
-                    dispatch (EndMode Battle)
+                    state |> Model.Gameplay.finishTower
+                        |> modalOperation dispatch (fun state ->
+                            dispatch (UpdateGameState state)
+                            dispatch (EndMode Battle)
+                            )
                 let teams = b.combatants |> Seq.map (function KeyValue(_,(c:Combatant)) -> c) |> Seq.groupBy (fun c -> c.team) |> Map.ofSeq
                 [   div[ClassName "battleSummary"][
                         for team in teams do
