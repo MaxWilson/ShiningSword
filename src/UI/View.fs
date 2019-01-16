@@ -332,12 +332,16 @@ let root model dispatch =
                         dispatch (UpdateGameState state)
                         dispatch (EndMode Battle)
                         )
+                let fightOneRound _ =
+                    let state = model.game |> Model.Gameplay.fight
+                    dispatch (UpdateGameState state)
+                    dispatch (EndMode Battle)
                 let teams = b.combatants |> Seq.map (function KeyValue(_,(c:Combatant)) -> c) |> Seq.groupBy (fun c -> c.team) |> Map.ofSeq
                 [   div[ClassName "battleSummary"][
                         for team in teams do
                             yield div [ClassName "heading"] [str (match team.Key with TeamId.Blue -> "Friendlies" | TeamId.White as teamId -> "Neutrals" | _ -> "Hostiles")]
                             yield battleSummary (match team.Key with Blue | White -> true | _ -> false) team.Value
-                        yield! buttonsWithHotkeys ["Win", winBattle]
+                        yield! buttonsWithHotkeys ["Fight", fightOneRound; "Win", winBattle]
                         ]
                     logOutput (model.game.log, model.logSkip) dispatch
                     ]
@@ -375,6 +379,7 @@ let root model dispatch =
                         "Return to town", notImpl
                         ]
                     ]
+                partySummary (model.game, true) dispatch
                 logOutput (model.game.log, model.logSkip) dispatch
                 ]
             //| "Advance" -> return! doTower (advance state)

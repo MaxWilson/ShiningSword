@@ -264,40 +264,64 @@ let retirementMessage state =
         else
             (sprintf "%s glumly retire from adventuring and spend the rest of your life doing menial labor, paying off the %d gold pieces that you owe." collectiveVocative -state.gp)
 
-// super-simple fight resolver currently
-let fight encounter state =
-    let goodguys = state.pcs |> Seq.map (fun pc -> pc.src.name, ref <| pc.hp) |> Array.ofSeq
-    let badguys = normalize encounter |> Seq.map (fun name -> name, ref <| rand 10) |> Array.ofSeq // random number of HP
+let fight state =
+    let mutable hpMap =
+        state.battle.Value.combatants
+        |> Seq.map (function
+            KeyValue(id, c) ->
+                id, match c.usages.TryGetValue("HP") with
+                    | true, v -> v
+                    | _ -> c.stats.hp)
+        |> Map.ofSeq
+    let combatants = state.battle.Value.combatants
+    let guys = state.battle.Value.combatants |> Map.toArray |> Array.map snd
+
     let mutable log = state.log
-    let inflict (me, _) (targetName, hp) dmg =
-        hp := !hp - dmg
-        if !hp > 0 then
-            log <- Log.log (sprintf "%s hits %s for %d points of damage! (%d HP remaining)" me targetName dmg !hp) log
+    let logMsg msg =
+        log <- Log.log msg log
+    let inflict isCrit me (target:Combatant) dmg =
+        // deduct dmg from hp
+        let hp' = (hpMap.[target.id] - dmg)
+        hpMap <- hpMap |> Map.add target.id hp'
+        // now do logging
+        let verb = if isCrit then "crits" else "hits"
+        let targetName = sprintf "%s (%d)" target.stats.name target.id
+        if hp' > 0 then
+            (sprintf "%s %s %s for %d points of damage! (%d HP remaining)" me verb targetName dmg hp') |> logMsg
         else
-            log <- Log.log (sprintf "%s hits %s for %d points of damage! %s dies!" me targetName dmg targetName) log
-    let randomTarget targets =
-        let liveTargets = targets |> Array.filter (fun (name, hp) -> !hp > 0)
-        if liveTargets.Length > 0 then
-            Some <| chooseRandom liveTargets
+            (sprintf "%s %s %s for %d points of damage! %s dies!" me verb targetName dmg targetName) |> logMsg
+    let randomTarget (actor:Combatant) =
+        let liveEnemies = guys |> Array.filter (fun c -> c.team <> actor.team) |> Array.filter (fun c -> hpMap.[c.id] > 0)
+        if liveEnemies.Length > 0 then
+            Some <| chooseRandom liveEnemies
         else None
-    let alive guys =
-        guys |> Array.filter (fun (name, hp) -> !hp > 0)
-    while goodguys |> alive |> Array.exists (thunk true)
-            && badguys |> alive |> Array.exists (thunk true) do
-        for g in goodguys |> alive |> shuffleCopy do
-            match badguys |> randomTarget with
-            | Some target ->
-                let dmg = rand 10
-                inflict g target dmg
-            | None -> ()
-        for b in badguys |> alive |> shuffleCopy do
-            match goodguys |> randomTarget with
-            | Some target ->
-                let dmg = rand 10
-                inflict b target dmg
-            | None -> ()
+    let numberOfTeams () =
+        guys |> Seq.filter (fun c -> hpMap.[c.id] > 0) |> Seq.groupBy (fun c -> c.team) |> Seq.length
+    while numberOfTeams () > 1 do
+        let liveIds = hpMap |> Map.filter (fun _ hp -> hp > 0) |> Map.toArray |> Array.map fst |> shuffleCopy
+        for id in liveIds do
+            if hpMap.[id] > 0 then // if still alive
+                let c = combatants.[id]
+                match randomTarget c with
+                | Some target ->
+                    for att in c.stats.attacks do
+                        let toHit = target.stats.ac - att.tohit
+                        match rand 20 with
+                        | 20 ->
+                            let dmg = 2 * (Roll.resolve (fst att.damage))
+                            inflict true c.stats.name target dmg
+                        | n when n >= toHit ->
+                            let dmg = 2 * (Roll.resolve (fst att.damage))
+                            inflict true c.stats.name target dmg
+                        | _ ->
+                            let targetName = sprintf "%s (%d)" target.stats.name target.id
+                            logMsg (sprintf "%s misses %s" c.stats.name targetName)
+                | None ->
+                    ()
     let updateHp pcs =
-        pcs |> List.mapi (fun i pc -> { pc with CharInfo.hp = !(snd goodguys.[i]) })
+        pcs |> List.map (fun (pc:CharInfo) ->
+            let c = guys |> Array.find (fun c -> c.team = Blue && c.stats.name = pc.src.name)
+            { pc with CharInfo.hp = hpMap.[c.id] })
     { state with log = log; pcs = updateHp state.pcs }
 
 let healAndAdvance (pc:CharInfo) =

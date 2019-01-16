@@ -53,6 +53,10 @@ module Query =
     let character state char =
         (Query.Character char, state), thunk (Some ())
 
+module Roll =
+    let resolve (r:Roll) =
+        r.bonus + (List.init r.n (thunk1 rand r.die) |> List.sum)
+
 //module Creature =
 //    let map f (c: Combatant) =
 //        { c with current = f c.current }
@@ -143,7 +147,10 @@ module CharSheet =
         | Samurai | Champion | Battlerager as c -> c.ToString()
     let summarize (levels: CharClass list) : string =
         normalize levels |> List.map (fun (c,l) -> sprintf "%s %d" (className c) l) |> String.join "/"
-    let toStatBlock (c:CharSheet) = {
+    let toStatBlock (c:CharSheet) =
+        let profBonus = 1 + ((c.classLevels.Length - 3)/4)
+        let toHit = profBonus + combatBonus (max c.str c.dex)
+        {
         name = c.name
         typeName = c.template |> Option.map (fun t -> t.name)
         sex = c.sex
@@ -160,6 +167,6 @@ module CharSheet =
         immunities = Set.empty
         damageResistance = Map.empty
         conditionExemptions = Set.empty
-        attacks = [] // todo: compute attacks
+        attacks = [{Attack.tohit = toHit; Attack.damage = {Roll.n = 1; Roll.die = 8; bonus = combatBonus (max c.str c.dex) }, DamageType.Weapon }] // todo: compute attacks
         features = c.features
         }
