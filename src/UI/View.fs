@@ -174,14 +174,15 @@ let battleSummary fullInfo (combatants:Combatant seq) =
         | hp when hp < maxHp -> "Barely wounded"
         | hp -> "OK"
     let describeAC ac =
-        if fullInfo then ac.ToString()
-        elif ac <= 8 then "Target practice"
-        elif ac <= 11 then "Unarmored"
-        elif ac <= 13 then "Lightly armored"
-        elif ac <= 15 then "Moderately armored"
-        elif ac <= 17 then "Heavily armored"
-        elif ac <= 20 then "Very heavily armored"
-        else "Walking fortress"
+        let descr =
+            if ac <= 8 then "Target practice"
+            elif ac <= 11 then "Unarmored"
+            elif ac <= 13 then "Lightly armored"
+            elif ac <= 15 then "Moderately armored"
+            elif ac <= 17 then "Heavily armored"
+            elif ac <= 20 then "Very heavily armored"
+            else "Walking fortress"
+        if fullInfo then sprintf "%d (%s)" ac descr else descr
     table [ClassName "table"] [
         thead [] [
             tr [] [
