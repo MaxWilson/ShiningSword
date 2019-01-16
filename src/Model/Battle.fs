@@ -66,6 +66,10 @@ module Parse =
         function
         | Word(AnyCase("attacks"), Optional ":" (OWS (AttackList(attacklist, ctx)))) -> Some(attacklist, ctx)
         | _ -> None
+    let (|HitPoints|) =
+        function
+        | Word(AnyCase("hp"), Optional ":" (Int(hp, ctx))) -> (hp, ctx)
+        | ctx -> (10, ctx)
     let (|ArmorClass|) =
         function
         | Word(AnyCase("ac"), Optional ":" (Int(ac, ctx))) -> (ac, ctx)
@@ -75,7 +79,7 @@ module Parse =
         | Words(typeName, ctx) -> (Some typeName, ctx)
         | ctx -> (None, ctx)
     let (|StatBlock|_|) = pack <| function
-        | TypeName(typeName, Name(name, ArmorClass(ac, (Attacks(attacks, ctx))))) ->
+        | TypeName(typeName, Name(name, HitPoints(hp, ArmorClass(ac, (Attacks(attacks, ctx)))))) ->
             let sb() = {
                 name = name()
                 typeName = typeName
@@ -86,7 +90,7 @@ module Parse =
                 int = 10
                 wis = 10
                 cha = 10
-                hp = 10
+                hp = hp
                 ac = ac
                 xp = 0
                 resistances = Set.empty
@@ -124,5 +128,5 @@ module Parse =
     let name = parser (|Name|_|)
     let statblock = parser (|StatBlock|_|)
 
-// Parse.statblock "Orc [male:Mordor]\nac:13 attacks: +4 for d12+3"()
+// Parse.statblock "Orc [male:Mordor]\nhp: 12 ac: 13 attacks: +4 for d12+3"()
 // Parse.statblock "[male:Mordor] attacks: +4 for d12+3"()

@@ -190,7 +190,7 @@ let battleSummary fullInfo (combatants:Combatant seq) =
                 yield th [] [str "Type"]
                 yield th [] [str "Status"]
                 yield th [] [str "AC"]
-                if fullInfo then yield th [] [str "Current HP"]
+                yield th [] [str "Current HP"]
                 yield th [] [str "Last Round"]
                 if fullInfo then yield th [] [str "This Round"]
                 ]
@@ -207,9 +207,9 @@ let battleSummary fullInfo (combatants:Combatant seq) =
                     yield str <| defaultArg npc.stats.typeName ""
                     yield str <| describeStatus hp maxHp
                     yield str (describeAC npc.stats.ac)
-                    if fullInfo then yield str <| hp.ToString()
-                    yield str "???"
-                    if fullInfo then yield str "???"
+                    if fullInfo then yield str <| hp.ToString() else yield str <| sprintf "About %d" (5. * (System.Math.Round (float hp / 5.)) |> int)
+                    yield str "Attack!"
+                    if fullInfo then yield str "Attack!"
                     ] |> List.map (fun v -> td [] [v]))
             ))
         ]
