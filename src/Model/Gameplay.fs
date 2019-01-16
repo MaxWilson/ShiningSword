@@ -279,7 +279,7 @@ let fight state =
     let mutable log = state.log
     let logMsg msg =
         log <- Log.log msg log
-    let targetName target = match target.stats.typeName with Some tn -> sprintf "%s the %s" target.stats.name tn | None -> target.stats.name
+    let targetName target = match target.stats.typeName with Some tn when not (String.equalsIgnoreCase tn target.stats.name) -> sprintf "%s the %s" target.stats.name tn | _ -> target.stats.name
     let inflict isCrit me (target:Combatant) dmg =
         // deduct dmg from hp
         let hp' = (hpMap.[target.id] - dmg)
