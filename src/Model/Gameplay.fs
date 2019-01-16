@@ -327,15 +327,31 @@ let retire state : Eventual<_,_,_> = queryInteraction {
     return! alert state (retirementMessage state)
     }
 
-let enterTower (e, c, parEarned, totalXpEarned, gp, state: GameState) : Eventual<_,_,_> = queryInteraction {
+let startBattle (state:GameState) =
+    let monsters, cost, parEarned, totalXpEarned, gp = makeTower state.parEarned state.towerNumber
+    let battle = { Battle.create with stakes = Some <| Stakes(parEarned, totalXpEarned, gp) }
+    let orc = Battle.Parse.statblock "Orc [male:Mordor] ac:13 attacks: +4 for d12+3"
+    let gargoyle = Battle.Parse.statblock "Gargoyle 'Gargoyle' ac:15 attacks: +4 for d8+2 +4 for d8+2"
+    let battle = state.pcs |> List.fold (flip (Battle.addExistingCharacter TeamId.Blue)) battle
+    let enemies = (List.init 6 (thunk orc))@(List.init 4 (thunk gargoyle))
+    let battle = enemies |> List.fold (fun b e -> b |> Battle.addFreshCombatant TeamId.Red e) battle
+    let state = { state with battle = Some battle }
+    monsters, state
+
+let enterTower (state: GameState) : Eventual<_,_,_> = queryInteraction {
+    let monsters, state = startBattle state
     let! state =
         alert state <|
             (sprintf "You have reached the %s tower of Gate #%d. %s" (match state.towerNumber with | 1 -> "first" | 2 -> "second" | 3 -> "inner" | _ -> "final") state.gateNumber
-            (battlecry state.pcs e))
-    return state, e, c, parEarned, totalXpEarned, gp
+            (battlecry state.pcs monsters))
+    return state
     }
 
-let finishTower (e, c, parEarned, totalXpEarned, gp, state:GameState) : Eventual<_,_,_> = queryInteraction {
+let finishTower (state:GameState) : Eventual<_,_,_> = queryInteraction {
+    let (parEarned, totalXpEarned, gp) =
+        match state.battle with
+        | Some { stakes = Some (Stakes(parEarned, totalXpEarned, gp)) } -> (parEarned, totalXpEarned, gp)
+        | _ -> failwith "Should never finish a battle that wasn't started with some stakes"
     if state.pcs |> List.exists (fun pc -> pc.hp > 0) |> not then
         // everyone is dead
         return! alert state "You have died!"
@@ -343,25 +359,13 @@ let finishTower (e, c, parEarned, totalXpEarned, gp, state:GameState) : Eventual
         let livePCs = state.pcs |> List.sumBy (fun pc -> if pc.hp > 0 then 1 else 0)
         let xp = totalXpEarned / livePCs
         let state = { state with gp = state.gp + gp; pcs = state.pcs |> List.map (fun pc -> if pc.hp <= 0 then pc else { pc with src = { pc.src with xp = pc.src.xp + xp } }) |> List.sortByDescending (fun pc -> pc.hp > 0); parEarned = state.parEarned + parEarned }
-        let! state = alert state (sprintf "You have found %d gold pieces and earned %d experience points." gp xp)
-        return state
+        return state |> GameState.mapLog (Log.log (sprintf "You have found %d gold pieces and earned %d experience points." gp xp))
     }
 
 let showPCDetails game pc = queryInteraction {
     do! Query.character game pc
     return game
     }
-
-let startBattle (state:GameState) =
-    let monsters, c, parEarned, totalXpEarned, gp = makeTower state.parEarned state.towerNumber
-    let battle = Battle.create
-    let orc = Battle.Parse.statblock "Orc [male:Mordor] ac:13 attacks: +4 for d12+3"
-    let gargoyle = Battle.Parse.statblock "Gargoyle 'Gargoyle' ac:15 attacks: +4 for d8+2 +4 for d8+2"
-    let battle = state.pcs |> List.fold (flip (Battle.addExistingCharacter TeamId.Blue)) battle
-    let enemies = (List.init 6 (thunk orc))@(List.init 4 (thunk gargoyle))
-    let battle = enemies |> List.fold (fun b e -> b |> Battle.addFreshCombatant TeamId.Red e) battle
-    let state = { state with battle = Some battle }
-    state
 
 let campaignMode() : Eventual<_,_,_> = queryInteraction {
     let state = GameState.empty

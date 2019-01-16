@@ -41,7 +41,7 @@ module Parse =
             let pcs = [
                 CharSheet.create "Max the Mighty" Male (18,12,14,15,9,11) false None Model.Chargen.Templates.charTemplates.["Brute"]
                 ]
-            Some(({ GameState.empty with pcs = pcs }|> Model.Gameplay.startBattle ["orc", 6; "gargoyle", 4], ViewModel.Battle) , ctx)
+            Some(({ GameState.empty with pcs = pcs } |> Model.Gameplay.startBattle |> snd, ViewModel.Battle) , ctx)
         | Str "campaignDebug" ctx ->
             let template = Model.Chargen.Templates.charTemplates.["Brute"]
             let pc = Model.Operations.CharSheet.create "Spartacus" Male (14, 16, 9, 13, 11, 13) false None template
@@ -326,15 +326,22 @@ let root model dispatch =
         | { mode = Battle::_ } ->
             match model.game with
             | { battle = Some b } ->
+                let winBattle _ =
+                    model.game |> Model.Gameplay.finishTower
+                    |> modalOperation dispatch (fun state ->
+                        dispatch (UpdateGameState state)
+                        dispatch (EndMode Battle)
+                        )
                 let teams = b.combatants |> Seq.map (function KeyValue(_,(c:Combatant)) -> c) |> Seq.groupBy (fun c -> c.team) |> Map.ofSeq
                 [   div[ClassName "battleSummary"][
                         for team in teams do
                             yield div [ClassName "heading"] [str (match team.Key with TeamId.Blue -> "Friendlies" | TeamId.White as teamId -> "Neutrals" | _ -> "Hostiles")]
                             yield battleSummary (match team.Key with Blue | White -> true | _ -> false) team.Value
+                        yield! buttonsWithHotkeys ["Win", winBattle]
                         ]
+                    logOutput (model.game.log, model.logSkip) dispatch
                     ]
-            | _ ->
-                [str "Placeholder for battles"]
+            | _ -> failwith "Should never be in Battle mode without a battle"
         | { mode = Campaign::_ } ->
             let state = model.game
             let msg = (sprintf "You have earned %d XP and %d gold pieces, and you've been adventuring for %s. What do you wish to do next?" state.pcs.[0].src.xp state.gp (Model.Gameplay.timeSummary state.timeElapsed))
@@ -353,8 +360,11 @@ let root model dispatch =
             let rest _ =
                 model.game |> Model.Gameplay.rest |> UpdateGameState |> dispatch
             let advance _ =
-                model.game |> Model.Gameplay.startBattle |> UpdateGameState |> dispatch
-                dispatch (NewMode Battle)
+                model.game |> Model.Gameplay.advance |> Model.Gameplay.enterTower
+                |> modalOperation dispatch (fun state ->
+                    dispatch (UpdateGameState state)
+                    dispatch (NewMode Battle)
+                    )
             [   div [ClassName "interaction"] [
                     yield latest
                     yield str msg
@@ -365,6 +375,7 @@ let root model dispatch =
                         "Return to town", notImpl
                         ]
                     ]
+                logOutput (model.game.log, model.logSkip) dispatch
                 ]
             //| "Advance" -> return! doTower (advance state)
             //| "Rest" -> return! doRest state

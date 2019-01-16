@@ -8,7 +8,7 @@ open Model.Operations
 
 let randomSex() = chooseRandom [|Male;Female|]
 
-let create = { Battle.map = Map.empty; combatants = Map.empty }
+let create = { Battle.map = Map.empty; combatants = Map.empty; stakes = None }
 let add teamId (sb:StatBlock) (usages:Usages) (status:Status) (battle: Battle) =
     let nextId =
         if battle.combatants.IsEmpty then 1

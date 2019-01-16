@@ -144,9 +144,11 @@ type CharInfo = {
     }
 
 type Roster = Map<Id, Combatant>
+type Stakes = Stakes of parEarned: int * xpReward: int * gp: int
 type Battle = {
     map: TerrainMap
     combatants: Map<Id, Combatant>
+    stakes: Stakes option
     }
 
 type Intention = Move of Position | Attack of Id
