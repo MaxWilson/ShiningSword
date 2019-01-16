@@ -27,7 +27,7 @@ let addFreshCombatant teamId statBlockTemplate battle =
     add teamId (statBlockTemplate()) Map.empty { conditions = [] } battle
 
 let addExistingCharacter teamId (c:CharInfo) battle =
-    add teamId (CharSheet.toStatBlock c.src) c.usages c.status battle
+    add teamId (CharInfo.toStatBlock c) c.usages c.status battle
 
 #nowarn "40" // recursive references in parse patterns are fine
 module Parse =

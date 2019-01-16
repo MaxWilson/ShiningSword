@@ -279,13 +279,14 @@ let fight state =
     let mutable log = state.log
     let logMsg msg =
         log <- Log.log msg log
+    let targetName target = match target.stats.typeName with Some tn -> sprintf "%s the %s" target.stats.name tn | None -> target.stats.name
     let inflict isCrit me (target:Combatant) dmg =
         // deduct dmg from hp
         let hp' = (hpMap.[target.id] - dmg)
         hpMap <- hpMap |> Map.add target.id hp'
         // now do logging
         let verb = if isCrit then "crits" else "hits"
-        let targetName = sprintf "%s (%d)" target.stats.name target.id
+        let targetName = targetName target
         if hp' > 0 then
             (sprintf "%s %s %s for %d points of damage! (%d HP remaining)" me verb targetName dmg hp') |> logMsg
         else
@@ -314,31 +315,32 @@ let fight state =
                             let dmg = (Roll.resolve (fst att.damage))
                             inflict false c.stats.name target dmg
                         | _ ->
-                            let targetName = sprintf "%s (%d)" target.stats.name target.id
-                            logMsg (sprintf "%s misses %s" c.stats.name targetName)
+                            logMsg (sprintf "%s misses %s" c.stats.name (targetName target))
                 | None ->
                     ()
     let updateHp pcs =
         pcs |> List.map (fun (pc:CharInfo) ->
             let c = guys |> Array.find (fun c -> c.team = Blue && c.stats.name = pc.src.name)
-            { pc with CharInfo.hp = hpMap.[c.id] })
+            { pc with CharInfo.usages = pc.usages |> Map.add "HP" hpMap.[c.id] })
     { state with log = log; pcs = updateHp state.pcs }
 
 let healAndAdvance (pc:CharInfo) =
+    let heal pc =
+        { pc with CharInfo.usages = pc.usages |> Map.remove "HP" }
     if pc.src.classLevels.Length >= CharSheet.computeLevel pc.src.xp then
         // just heal
-        { pc with hp = CharSheet.computeMaxHP pc.src }
+        heal pc
     else
         // advance to new level
         let goals = match pc.src.template with Some t -> t.advancementPriorities | _ -> List.init 20 (thunk Champion)
         let pc = { pc with src = { pc.src with classLevels = goals |> List.take (CharSheet.computeLevel pc.src.xp) }}
-        { pc with hp = CharSheet.computeMaxHP pc.src }
+        { heal pc with hp = CharSheet.computeMaxHP pc.src }
 
 let rest state =
     let nextTick = state.timeElapsed + 3600 * 8;
     let newDay = state.timeElapsed / (3600 * 24) <> nextTick / (3600 * 24)
     let state =
-        { state with timeElapsed = nextTick; pcs = state.pcs |> List.map (fun pc -> if pc.hp > 0 then healAndAdvance pc else pc) }
+        { state with timeElapsed = nextTick; pcs = state.pcs |> List.map (fun pc -> if (CharInfo.getCurrentHP pc) > 0 then healAndAdvance pc else pc) }
         |> GameState.mapLog (Log.log "The party rests for 8 hours and heals")
     let paydayMessage() = state.pcs |> List.filter (fun pc -> pc.src.isNPC) |> List.map (fun pc -> sprintf "%s has earned %d gold pieces for %s faithful service." pc.src.name (pc.src.classLevels.Length * 50) (match pc.src.sex with Male -> "his" | Female -> "her"))
     if newDay then

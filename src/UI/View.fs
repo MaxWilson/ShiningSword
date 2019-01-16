@@ -174,16 +174,17 @@ let describeAC fullInfo ac =
         else "Walking fortress"
     if fullInfo then sprintf "%d (%s)" ac descr else descr
 
+let describeStatus hp maxHp =
+    match hp with
+    | hp when hp <= 0 -> "Dead"
+    | hp when hp <= (maxHp / 4) -> "Badly wounded"
+    | hp when hp <= (maxHp * 3 / 4) -> "Wounded"
+    | hp when hp < maxHp -> "Barely wounded"
+    | hp -> "OK"
+
 let battleSummary fullInfo (combatants:Combatant seq) =
     // fullInfo: controls whether full info is displayed in the UI for this creature e.g. exact HP totals, current orders
     let giveOrders pc _ = ()
-    let describeStatus hp maxHp =
-        match hp with
-        | hp when hp <= 0 -> "Dead"
-        | hp when hp <= (maxHp / 4) -> "Badly wounded"
-        | hp when hp <= (maxHp * 3 / 4) -> "Wounded"
-        | hp when hp < maxHp -> "Barely wounded"
-        | hp -> "OK"
     table [ClassName "table"] [
         thead [] [
             tr [] [
@@ -192,24 +193,24 @@ let battleSummary fullInfo (combatants:Combatant seq) =
                 yield th [] [str "Type"]
                 yield th [] [str "Status"]
                 yield th [] [str "AC"]
-                yield th [] [str "Current HP"]
+                yield th [] [str "HP"]
                 yield th [] [str "Last Round"]
                 if fullInfo then yield th [] [str "This Round"]
                 ]
             ]
         tbody [] (combatants |> Seq.map (fun npc ->
-                let maxHp = npc.stats.hp
+                let maxHP = npc.stats.hp
                 let hp =
                     match npc.usages.TryGetValue("HP") with
                     | true, v -> v
-                    | _ -> maxHp
+                    | _ -> maxHP
                 tr [OnClick (giveOrders npc); Style[Color (sprintf "%A" npc.team)]] ([
                     yield str <| npc.id.ToString()
                     yield str npc.stats.name
                     yield str <| defaultArg npc.stats.typeName ""
-                    yield str <| describeStatus hp maxHp
+                    yield str <| describeStatus hp maxHP
                     yield str (describeAC fullInfo npc.stats.ac)
-                    if fullInfo then yield str <| hp.ToString() else yield str <| sprintf "About %d" (5. * (System.Math.Round (float hp / 5.)) |> int)
+                    if fullInfo then yield str <| (sprintf "%d/%d" hp maxHP) else yield str <| sprintf "About %d" (5. * (System.Math.Round (float hp / 5.)) |> int)
                     yield str "Attack!"
                     if fullInfo then yield str "Attack!"
                     ] |> List.map (fun v -> td [] [v]))
@@ -248,20 +249,10 @@ let partySummary =
                                     str <| (i+1).ToString()
                                     str pc.src.name
                                     str <| (match pc.src.template with Some (v) -> v.name | None -> emptyString)
-                                    (
-                                        let describe pc =
-                                            let maxHp = (CharSheet.computeMaxHP pc.src)
-                                            match pc.hp with
-                                            | hp when hp <= 0 -> "Dead"
-                                            | hp when hp <= (maxHp / 4) -> "Badly wounded"
-                                            | hp when hp <= (maxHp * 3 / 4) -> "Wounded"
-                                            | hp when hp < maxHp -> "Barely wounded"
-                                            | hp -> "OK"
-                                        str <| describe pc
-                                        )
+                                    str <| describeStatus (CharInfo.getCurrentHP pc) pc.hp
                                     str (pc.src.classLevels.Length.ToString())
+                                    str ((CharInfo.getCurrentHP pc).ToString())
                                     str (pc.hp.ToString())
-                                    str ((CharSheet.computeMaxHP pc.src).ToString())
                                     str (pc.src.xp.ToString())
                                     ] |> List.map (fun v -> td [] [v]))
                             ))
@@ -321,7 +312,7 @@ let root model dispatch =
                         [
                             p[][str pc.src.name]
                             p[][str (sprintf "%A %A [%s]%s" pc.src.sex pc.src.template.Value.name (Model.Operations.CharSheet.summarize pc.src.classLevels) (match pc.src.homeRegion with Some v -> " from " + v | _ -> ""))]
-                            p[][str (sprintf "Str: %d Dex: %d Con: %d Int: %d Wis: %d Cha: %d AC: %s HP: %d" pc.src.str pc.src.dex pc.src.con pc.src.int pc.src.wis pc.src.cha (describeAC true (CharSheet.computeAC pc.src)) pc.hp)]
+                            p[][str (sprintf "Str: %d Dex: %d Con: %d Int: %d Wis: %d Cha: %d AC: %s HP: %d/%d" pc.src.str pc.src.dex pc.src.con pc.src.int pc.src.wis pc.src.cha (describeAC true (CharSheet.computeAC pc.src)) (CharInfo.getCurrentHP pc) pc.hp)]
                             div [](pc.src.description.Split('\n') |> Array.map (fun line -> p [][str line]))
                             br[]
                             ok
