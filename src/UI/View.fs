@@ -234,6 +234,7 @@ let partySummary =
                             tr [] [
                                 th [] [str "Pos"]
                                 th [] [str "Name"]
+                                th [] [str "Type"]
                                 th [] [str "Status"]
                                 th [] [str "Level"]
                                 th [] [str "Current HP"]
@@ -245,6 +246,7 @@ let partySummary =
                                 tr [OnClick (showStatus pc)] ([
                                     str <| (i+1).ToString()
                                     str pc.src.name
+                                    str <| (match pc.src.template with Some (v) -> v.name | None -> emptyString)
                                     (
                                         let describe pc =
                                             let maxHp = (CharSheet.computeMaxHP pc.src)
