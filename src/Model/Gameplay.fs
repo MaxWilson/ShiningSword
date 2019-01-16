@@ -311,8 +311,8 @@ let fight state =
                             let dmg = 2 * (Roll.resolve (fst att.damage))
                             inflict true c.stats.name target dmg
                         | n when n >= toHit ->
-                            let dmg = 2 * (Roll.resolve (fst att.damage))
-                            inflict true c.stats.name target dmg
+                            let dmg = (Roll.resolve (fst att.damage))
+                            inflict false c.stats.name target dmg
                         | _ ->
                             let targetName = sprintf "%s (%d)" target.stats.name target.id
                             logMsg (sprintf "%s misses %s" c.stats.name targetName)
