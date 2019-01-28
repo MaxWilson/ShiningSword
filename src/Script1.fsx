@@ -21,3 +21,14 @@ open Model
 open Model.Types
 let me = Model.Operations.CharSheet.create "Max" Male (18,18,18,14,12,13) false None (Model.Chargen.Templates.charTemplates.["Brute"])
 let b = Battle.create |> Battle.addExistingCharacter TeamId.Blue (Model.Operations.CharInfo.ofCharSheet me)
+
+type Intention =
+    | Attack of Attack option * Id option
+    | Dodge
+    | Move of Position
+type Effect = Log | Hit | Miss
+
+let exec (intentions: (Id * Intention) list) (battle: Battle) : Effect list =
+    Common.notImpl()
+
+let apply effects (battle: Battle) : Battle = Common.notImpl()

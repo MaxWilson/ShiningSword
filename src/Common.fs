@@ -9,6 +9,7 @@ let thunk2 f arg1 arg2 _ = f arg1 arg2
 let thunk3 f arg1 arg2 arg3 _ = f arg1 arg2 arg3
 let ignore1 f _ = f()
 let matchfail v = failwithf "No match found for %A. This is a bug." v
+let notImpl() = failwith "Not implemented yet. Email Max if you want this feature."
 
 let chooseRandom (lst: _ []) =
     lst.[random.Next lst.Length]
