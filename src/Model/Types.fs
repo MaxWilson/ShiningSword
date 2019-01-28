@@ -113,9 +113,7 @@ type StatBlock = {
     features: Feature list
     }
 
-type Status = {
-    conditions: Condition list
-    }
+type Status = Status of conditions: Condition list
 
 type TerrainFeature = | Rubble | Undergrowth | Wall | Combatant of Id
 

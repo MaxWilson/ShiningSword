@@ -139,7 +139,7 @@ module CharSheet =
             description = template.description
             homeRegion = region
             }
-        { CharInfo.src = stats; usages = Map.empty; status = { conditions = [] }; thp = 0; sp = 0; hp = stats.classLevels |> computeHP stats.con }
+        stats
     let name = Lens.lens (fun (c:CharInfo) -> c.src.name) (fun v c -> { c with src = { c.src with name = v }})
     let isAlive (charSheet:CharInfo) = charSheet.hp > 0
     let normalize (levels: CharClass list) : (CharClass * int) list =
@@ -154,6 +154,8 @@ module CharInfo =
     open CharSheet
     let getCurrentHP char =
         match char.usages.TryGetValue("HP") with true, v -> v | _ -> char.hp
+    let ofCharSheet (c:CharSheet) =
+        { CharInfo.src = c; CharInfo.usages = Map.empty; CharInfo.hp = CharSheet.computeMaxHP c; CharInfo.thp = 0; sp = 0; CharInfo.status = Status([]) }
     let toStatBlock (char:CharInfo) =
         let c = char.src
         let profBonus = 1 + ((c.classLevels.Length - 3)/4)

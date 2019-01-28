@@ -24,7 +24,7 @@ let add teamId (sb:StatBlock) (usages:Usages) (status:Status) (battle: Battle) =
     { battle with combatants = Map.add nextId combatant battle.combatants; map = Map.add newPosition (Combatant nextId) battle.map }
 
 let addFreshCombatant teamId statBlockTemplate battle =
-    add teamId (statBlockTemplate()) Map.empty { conditions = [] } battle
+    add teamId (statBlockTemplate()) Map.empty (Status []) battle
 
 let addExistingCharacter teamId (c:CharInfo) battle =
     add teamId (CharInfo.toStatBlock c) c.usages c.status battle
@@ -123,7 +123,7 @@ module Parse =
             attacks = attacks
             features = []
             }
-        { id = 0; team = Blue; usages = Map.empty; status = { conditions = [] }; position = (0,0); stats = stats }
+        { id = 0; team = Blue; usages = Map.empty; status = Status []; position = (0,0); stats = stats }
     let attack = parser (|Attack|_|)
     let name = parser (|Name|_|)
     let statblock = parser (|StatBlock|_|)

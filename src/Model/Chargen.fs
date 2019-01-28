@@ -63,9 +63,9 @@ let featureGraph : (Feature * Consequent) [] = [|
     Feature.ClassLevel (PurpleDragonKnight, 1), Choose [ArcheryStyle; DefenseStyle; DuelingStyle]
     |]
 
-// do all the auto-grants    
+// do all the auto-grants
 let grants features =
-    let rec fixpoint features = 
+    let rec fixpoint features =
         let notAlreadyChosen feature =
             features |> List.contains feature |> not
         let grants =
@@ -78,7 +78,7 @@ let grants features =
                     | GrantsAll features ->
                         for feature in features do
                             if notAlreadyChosen feature then yield feature
-                    | _ -> ()                
+                    | _ -> ()
                 ]
         if grants = features then features
         else fixpoint grants
@@ -98,7 +98,7 @@ let choices features =
                 | ChooseN(n, choices) when chosen choices < n ->
                      for c in choices do
                         yield c
-                | _ -> ()                
+                | _ -> ()
             ]
     (grants features |> getChoices) |> List.distinct
 
@@ -129,7 +129,7 @@ module Templates =
         ]
         |> List.map (fun t -> t.name, t)
         |> Map.ofSeq
-    
+
 module Workflow =
     let queryInteraction = Interaction.InteractionBuilder<Query * GameState, string>()
 
@@ -180,6 +180,6 @@ module Workflow =
         let stats =
             let r() = [for _ in 1..4 -> rand 6] |> List.sortDescending |> List.take 3 |> List.sum
             (r(),r(),r(),r(),r(),r())
-        let pc = CharSheet.create name sex stats (not (firstPerson || isFriend)) region template
+        let pc = CharSheet.create name sex stats (not (firstPerson || isFriend)) region template |> CharInfo.ofCharSheet
         return pc
     }

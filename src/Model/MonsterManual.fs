@@ -11,4 +11,4 @@ let lookup name =
     // ugly, inefficient hack: lookup in list using StartsWith. TODO: find something more elegant
     match menagerie |> List.tryFind(fun t -> t.StartsWith name) with
     | Some t -> Battle.Parse.statblock t
-    | _ -> Battle.Parse.statblock "Unknown 'Unknown' ac:13 attacks: +4 for d12+3"
+    | _ -> Battle.Parse.statblock (sprintf "Unknown '%s' ac:13 attacks: +4 for d12+3" name)

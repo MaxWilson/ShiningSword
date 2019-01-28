@@ -5,11 +5,11 @@ open System.Net.Http
 
 let jsonConverter = Fable.JsonConverter() :> JsonConverter
 let getAuthToken() = InteractionBuilder<string, string>() {
-    match DataStorage.Globals._token with
+    match Globals._token with
     | Some token -> return token
     | None ->
         let! token = "Please enter a WilsonData auth token (from e.g. F12 on https://maxwilson.github.io/ThingTracker/)", Some
-        DataStorage.Globals._token <- Some token
+        Globals._token <- Some token
         return token
     }
 
