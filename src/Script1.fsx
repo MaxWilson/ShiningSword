@@ -57,7 +57,7 @@ let exec (declarations: Declarations) (battle: Battle) : ExecOutcome =
 
 combineOutcomes [
     { effects = [Move(1, (0,0))]; status = Success; log = ["Bob charges over to the orc"] }
-    { effects = [Hit(1,(Damage(2,10))); Miss(1, 2); Chatter (Some 1, "Kreeeagh! Bob Bundolo!")]; status = Incomplete [Declaration(1, [Kill(None, Some 2)])]; log = [] }
+    { effects = [Hit(1,(Damage(2,10))); Miss(1, 2); Chatter (Some 1, "Kreeegah! Bob Bundolo!")]; status = Incomplete [Declaration(1, [Kill(None, Some 2)])]; log = [] }
     { effects = [Miss(2, 1); Chatter (None, "The orc looks nervously around")]; status = Incomplete [Declaration(2, [Kill(None, None)])]; log = [] }
     ]
 
