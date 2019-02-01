@@ -41,10 +41,19 @@ let combineOutcomes (outcomes: Outcome list) : ExecOutcome =
     { ExecOutcome.effects = outcomes |> List.collect (fun o -> o.effects);
         unresolvedDeclarations = outcomes |> List.collect (function { status = Incomplete(i) } -> i | _ -> [])}
 
+let apply effects (battle: Battle) : Battle = Common.notImpl()
+
 let exec (declarations: Declarations) (battle: Battle) : ExecOutcome =
     let exec (Declaration(id, intentions)) battle: Outcome =
         Common.notImpl()
-    Common.notImpl()
+    let rec loop declarations priorOutcomes battle =
+        match declarations with
+        | [] -> combineOutcomes priorOutcomes
+        | d::rest ->
+            let outcome = exec d battle
+            let battle = apply outcome.effects battle
+            loop rest (outcome::priorOutcomes) battle
+    loop declarations [] battle
 
 combineOutcomes [
     { effects = [Move(1, (0,0))]; status = Success; log = ["Bob charges over to the orc"] }
@@ -52,4 +61,3 @@ combineOutcomes [
     { effects = [Miss(2, 1); Chatter (None, "The orc looks nervously around")]; status = Incomplete [Declaration(2, [Kill(None, None)])]; log = [] }
     ]
 
-let apply effects (battle: Battle) : Battle = Common.notImpl()
