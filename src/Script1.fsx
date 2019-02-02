@@ -22,14 +22,15 @@ open Model.Types
 let me = Model.Operations.CharSheet.create "Max" Male (18,18,18,14,12,13) false None (Model.Chargen.Templates.charTemplates.["Brute"])
 let b = Battle.create |> Battle.addExistingCharacter TeamId.Blue (Model.Operations.CharInfo.ofCharSheet me)
 
-type Intention =
-    | Attack of Attack option * Id option
-    | Dodge
-    | Move of Position
-    | Kill of Attack option * Id option
-type Intentions = Intention list
 type ActorId = Id
 type TargetId = Id
+type Target = Pos of Position | Creature of TargetId
+type Intention =
+    | Attack of Attack option * TargetId option
+    | Dodge
+    | Move of Target
+    | Kill of Attack option * TargetId option
+type Intentions = Intention list
 type Declaration = Declaration of ActorId * Intentions
 type Declarations = Declaration list
 type DeclarationStatus = Success | Failure | Incomplete of Declarations
@@ -45,7 +46,29 @@ let apply effects (battle: Battle) : Battle = Common.notImpl()
 
 let exec (declarations: Declarations) (battle: Battle) : ExecOutcome =
     let exec (Declaration(id, intentions)) battle: Outcome =
-        Common.notImpl()
+        let resolve (battle: Battle) intention : Effect list * DeclarationStatus =
+            match intention with
+            | Attack(attack, target) ->
+                Common.notImpl()
+            | Dodge -> Common.notImpl()
+            | Intention.Move(target) -> Common.notImpl()
+            | Kill(attack, target) -> Common.notImpl()
+        let rec exec battle effects = function
+            | [] ->
+                { effects = effects; status = Success; log = [] }
+            | intention::rest ->
+                let effects', status = resolve battle intention
+                match status with
+                | Success ->
+                    exec (apply effects' battle) (effects'@effects) rest
+                | Failure ->
+                    // abort further processing on failure
+                    { effects = effects; status = Failure; log = [] }
+                | Incomplete(_) as st ->
+                    // delay further processing on failure
+                    { effects = effects; status = st; log = [] }                    
+        exec battle [] intentions
+
     let rec loop declarations priorOutcomes battle =
         match declarations with
         | [] -> combineOutcomes priorOutcomes
