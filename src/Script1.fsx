@@ -84,3 +84,10 @@ combineOutcomes [
     { effects = [Miss(2, 1); Chatter (None, "The orc looks nervously around")]; status = Incomplete [Declaration(2, [Kill(None, None)])]; log = [] }
     ]
 
+let decls = [
+    Declaration(1, [Intention.Move(Target.Creature(2))])
+    Declaration(1, [Kill(None, Some 2)])
+    Declaration(2, [Kill(None, None)])
+    ]
+
+exec decls b
