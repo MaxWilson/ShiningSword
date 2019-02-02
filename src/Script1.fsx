@@ -29,7 +29,7 @@ type Intention =
     | Attack of Attack option * TargetId option
     | Dodge
     | Move of Target
-    | Kill of Attack option * TargetId option
+    | Kill of Attack option * TargetId option // todo: this should probably be some kind of composability abstraction over Intentions, like "repeat until condition" or something
 type Intentions = Intention list
 type Declaration = Declaration of ActorId * Intentions
 type Declarations = Declaration list
