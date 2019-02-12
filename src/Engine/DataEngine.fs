@@ -17,15 +17,15 @@ This should evaluate to 'alive'. A slightly more complex program including actio
 
 module 5E =
   declare number hp, dmg default 0, ac, tohit
-  declare weaponDamage
+  declare weaponDamage, extra crit dice
   define status = when dmg >= hp then dead when dmg > 0 then wounded else alive
   whenever hit:
     let dmg = roll me.weaponDamage
     change target.dmg add dmg
   whenever hit is crit:
-    dmg = roll me.weaponDamage * 2
+    change dmg add (roll (diceOnly me.weaponDamage))
   whenever hit is crit and me has extra crit dice:
-    dmg = roll (me.weaponDamage * 2 + me.extra crit dice)
+    change dmg add (roll me.extra crit dice)
   whenever attack target:
     let attackRoll = roll d20
     when attackRoll = 20 then hit (crit)
