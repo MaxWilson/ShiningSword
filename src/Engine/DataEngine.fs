@@ -17,7 +17,7 @@ This should evaluate to 'alive'. A slightly more complex program including actio
 
 module 5E =
   declare number hp, dmg default 0, ac, tohit
-  declare weaponDamage, extra crit dice
+  declare dice weaponDamage, extra crit dice
   define status = when dmg >= hp then dead when dmg > 0 then wounded else alive
   whenever hit:
     let dmg = roll me.weaponDamage
