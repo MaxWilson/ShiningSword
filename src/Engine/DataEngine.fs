@@ -32,6 +32,14 @@ module 5E =
     when attackRoll + me.toHit >= target.AC then hit
     else miss
 
+add bob, john
+bob.hp = 10, ac = 12, tohit = 4, weaponDamage = 2d8+4
+john.hp = 10
+
+bob attack john
+
+At the end of this program, if rolls are [d20 => 18, 2d8+4 => 12], john.status should evaluate to "dead".
+
 *)
 
 module DataEngine
