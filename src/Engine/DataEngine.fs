@@ -31,11 +31,15 @@ module 5E =
     else miss
   whenever hit:
     let dmg = roll weapon.damage
+    log [me.name] hits [target.name] for [dmg] points of damage!
     damage target dmg weapon.damageType
   whenever hit is crit:
+    log Critical hit!
     change dmg add (roll (diceOnly me.weaponDamage))
   whenever hit is crit and me has extraCritDice:
     change dmg add (roll me.extraCritDice)
+  whenever miss:
+    log [me.name] misses [target.name].    
   whenever damage target damage:
     change target.dmg add damage
     when target is concentrating:
@@ -50,7 +54,7 @@ module 5E =
     let targetNumber = max(damage / 2 round down, 10)
     let roll = roll d20
     when roll + me.savingThrow constitution < targetNumber then
-        log "[me.name] has lost concentration on [me.concentrating]!"
+        log [me.name] has lost concentration on [me.concentrating]!
         change me.concentrating nothing
 
 import 5E
