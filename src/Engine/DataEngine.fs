@@ -20,7 +20,8 @@ This should evaluate to 'alive'. A slightly more complex program including actio
 ```
 module 5E =
   declare number hp, dmg default 0, ac, tohit
-  declare dice weaponDamage, extraCritDice
+  declare dice damage, extraCritDice
+  declare flag damageType, resistances, immunities, vulnerabilities
   define status = when dmg >= hp then dead when dmg > 0 then wounded else alive
   whenever attack target [with weapon]:
     let weapon = weapon or me.defaultAttack
@@ -29,8 +30,8 @@ module 5E =
     when attackRoll + weapon.toHit >= target.AC then hit
     else miss
   whenever hit:
-    let dmg = roll weapon.Damage
-    change target.dmg add dmg
+    let dmg = roll weapon.damage
+    damage target dmg weapon.damageType
   whenever hit is crit:
     change dmg add (roll (diceOnly me.weaponDamage))
   whenever hit is crit and me has extraCritDice:
@@ -39,11 +40,11 @@ module 5E =
     change target.dmg add damage
     when target is concentrating:
         target checkConcentration damage
-  whenever damage target.resistances has type:
+  whenever damage type and target.resistances has type:
     change damage / 2 round down
-  whenever damage target.immune has type:
+  whenever damage type and target.immunities has type:
     change damage 0
-  whenever damage target.vulnerabilities has type:
+  whenever damage type and target.vulnerabilities has type:
     change damage * 2
   whenever checkConcentration damage:
     let targetNumber = max(damage / 2 round down, 10)
