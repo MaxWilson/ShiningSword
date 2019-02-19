@@ -39,7 +39,7 @@ module 5E =
   whenever hit is crit and me has extraCritDice:
     change dmg add (roll me.extraCritDice)
   whenever miss:
-    log [me.name] misses [target.name].    
+    log [me.name] misses [target.name].
   whenever damage target damage:
     change target.dmg add damage
     when target is concentrating:
@@ -72,3 +72,69 @@ At the end of this program, if rolls are [d20 => 18, 2d8+4 => 12], john.status s
 
 module DataEngine
 
+type Callback<'T> = unit -> 'T
+type Label = string
+
+type IDataStorage =
+    abstract member Save: 'T -> Label -> Callback<unit>
+    abstract member Load: Label -> Callback<'T>
+
+type Model = string list
+type Cmd = Quit | Log of string | Roll of Model.Types.Roll
+open Packrat
+open Model
+open Common
+open Interaction
+
+let (|Cmd|) = function
+    | Battle.Parse.Roll(r, End) -> Roll r
+    | Str "q" End -> Quit
+    | Str "quit" End -> Quit
+    | Any(msg, End) -> Log(msg)
+    | _ -> failwith "Should never get here--Any() should match everything"
+
+module Roll =
+    let eval (r:Model.Types.Roll) = r.bonus + List.sum (List.init r.n (thunk1 rand r.die))
+    let render (r:Model.Types.Roll) =
+        if r.bonus = 0 then sprintf "%dd%d" r.n r.die
+        elif r.bonus < 0 then sprintf "%dd%d%d" r.n r.die r.bonus
+        else sprintf "%dd%d+%d" r.n r.die r.bonus
+
+module DataModel =
+    type State = string list
+    type Input = string
+    type Response = string option * State
+    let log state msg = List.append state [msg]
+    type GameLoop = Eventual<Input, Response, State>
+
+open DataModel
+let gameLoop (storage: IDataStorage) : GameLoop =
+    let rec consume (state: DataModel.State) input =
+        match Packrat.ParseArgs.Init input with
+        | Cmd c ->
+            match c with
+            | Quit -> Eventual.Final state
+            | Log msg -> Eventual.Intermediate((None,state), (consume (log state msg))) // todo: append efficiently
+            | Roll r ->
+                let result = (Roll.eval r)
+                let logEntry = (sprintf "%s: %d" (Roll.render r) result)
+                Eventual.Intermediate((Some (sprintf "%d" result), state), (consume (log state logEntry)))
+    Interaction.Intermediate((None,[]), consume [])
+
+let consoleExecute (gameLoop: GameLoop) =
+    let rec loop = function
+        | Intermediate((responseText,logs), answer) ->
+            match responseText with
+            | Some msg -> printfn "%s" msg
+            | None -> ()
+            let cmd = System.Console.ReadLine()
+            loop (answer cmd)
+        | Final logs ->
+            ()
+    loop gameLoop
+
+type LocalStorage() =
+    interface IDataStorage with
+        member this.Save label d = Common.notImpl()
+        member this.Load label = Common.notImpl()
+gameLoop (LocalStorage()) |> consoleExecute

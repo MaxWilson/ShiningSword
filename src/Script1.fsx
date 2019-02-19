@@ -13,6 +13,7 @@
 #load @"Model\Battle.fs"
 #load @"Model\MonsterManual.fs"
 #load @"Model\Gameplay.fs"
+#load @"Engine\DataEngine.fs"
 #load @"Abstractions\DataStorage.Globals.fs"
 #load @"Abstractions\DataStorage.fs"
 
@@ -66,7 +67,7 @@ let exec (declarations: Declarations) (battle: Battle) : ExecOutcome =
                     { effects = effects; status = Failure; log = [] }
                 | Incomplete(_) as st ->
                     // delay further processing on failure
-                    { effects = effects; status = st; log = [] }                    
+                    { effects = effects; status = st; log = [] }
         exec battle [] intentions
 
     let rec loop declarations priorOutcomes battle =
