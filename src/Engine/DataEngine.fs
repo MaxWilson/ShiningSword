@@ -110,7 +110,7 @@ let gameLoop (storage: IDataStorage) : GameLoop =
             | Log msg -> Eventual.Intermediate((None,state), (consume (log state msg))) // todo: append efficiently
             | Roll r ->
                 let result = (Dice.Roll.eval r)
-                let logEntry = (sprintf "%s: %d" (Dice.Roll.render r) result.value)
+                let logEntry = (sprintf "%s: %d" (Dice.Roll.render (Common.String.join "\n  ") r) result.value) // todo: is newline + spaces the right separator for roll outputs?
                 Eventual.Intermediate((Some (sprintf "%d" result.value), state), (consume (log state logEntry)))
     Interaction.Intermediate((None,[]), consume [])
 

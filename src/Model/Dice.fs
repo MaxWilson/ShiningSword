@@ -1,7 +1,7 @@
 module Model.Dice
+open Common
 
 module Roll =
-    open Common
     open Model.Types.Roll
     open System.Numerics
     let betweenInclusive bound1 bound2 x = (min bound1 bound2) <= x && x <= (max bound1 bound2)
@@ -201,19 +201,69 @@ module Roll =
                     |> List.reduce (fun (count, total) (count', total') -> count + count', total + total')
                 Fraction.ratio 4 total count
 
-    let rec render (r:Model.Types.Roll) =
-        let renderAgg = function
-        | AggregateRequest.Aggregate(reqs) -> Common.notImpl()
-        | Repeat(n, req)-> Common.notImpl()
-        | Best(n:int, req) -> Common.notImpl()
-        match r with
-        | Dice(n:int, die:int) -> sprintf "%dd%d" n die
-        | StaticValue n -> n.ToString()
-        | Combine(Aggregation.Sum, req) -> renderAgg req
-        | Combine(Aggregation.Min, req) -> renderAgg req
-        | Combine(Aggregation.Max, req) -> renderAgg req
-        | Branch(baseRollPlusMods, branches) -> Common.notImpl()
-        | Transform(req, transform) -> Common.notImpl()
+    let render combineLines (r:Model.Types.Roll) =
+        let rec renderRoll r = 
+            let renderAgg = function
+            | AggregateRequest.Aggregate(reqs) -> List.map renderRoll reqs
+            | Repeat(n, req)-> Common.notImpl()
+            | Best(n:int, req) -> Common.notImpl()
+            match r with
+            | Dice(1, die:int) -> sprintf "d%d" die
+            | Dice(n:int, die:int) -> sprintf "%dd%d" n die
+            | StaticValue n -> n.ToString()
+            | Combine(Aggregation.Sum, req) ->
+                let rec renderSum req =
+                    match req with
+                    | AggregateRequest.Aggregate(reqs) ->
+                        // we would use String.join here except that we need to special-case two cases
+                        let rec renderSums = function
+                        | [] -> []
+                        | StaticValue n::rest when n < 0 -> n.ToString()::(renderSums rest) // special case to prevent d12-4 from showing up as d12+-4
+                        | StaticValue n::rest when n = 0 -> renderSums rest // filter out irrelevant +0
+                        | r::rest -> "+" :: renderRoll r :: renderSums rest
+                        match reqs with
+                            | [] -> []
+                            | [first] -> [renderRoll first]
+                            | first::rest -> renderRoll first :: renderSums rest
+                        |> Common.String.join ""
+                    | AggregateRequest.Repeat(n, req) -> sprintf "%d x %s" n (renderRoll req)
+                    | Best(k, Repeat(n, Dice(1, d))) -> sprintf "%dd%d keep %d" n d k
+                    | Best(n, req) -> Common.matchfail r
+                renderSum req
+            | Combine(Aggregation.Min | Aggregation.Max as op, req) ->
+                let rec renderAgg req =
+                    match req with
+                    | AggregateRequest.Aggregate(reqs) ->
+                        sprintf "min(%s)" (Common.String.join "," (List.map renderRoll reqs))
+                    | AggregateRequest.Repeat(n, req) ->
+                        let rendered = renderRoll req
+                        sprintf "min(%s)" (List.init n (thunk rendered) |> Common.String.join ",")
+                    | Best(n, req) -> Common.matchfail r
+                renderAgg req
+            | Branch((baseRoll,mods), branches) ->
+                let operand = renderRoll <| Combine(Sum, (AggregateRequest.Aggregate [baseRoll; mods]))
+                let renderBranch isFirst pred req =
+                    if pred = Else then
+                        sprintf "otherwise %s" <| renderRoll req
+                    else
+                        let renderPredicate = function
+                            | AtLeast n -> sprintf ">= %d" n
+                            | AtMost n -> sprintf "<= %d" n
+                            | Natural(n, m) ->
+                                if n = m then
+                                    sprintf "has natural %d" n
+                                else
+                                    sprintf "has natural %d-%d" n m
+                            | Else as v -> Common.matchfail v
+                        if isFirst then
+                            sprintf "when %s %s then %s" operand (renderPredicate pred) (renderRoll req)
+                        else
+                            sprintf "else when %s then %s" (renderPredicate pred) (renderRoll req)
+                let branches = branches |> List.mapi (fun i (pred, req) -> renderBranch (i=0) pred req)
+                sprintf "%s" <| combineLines branches
+            | Transform(req, transform) -> Common.matchfail r
+        renderRoll r
+    // Dev string: Packrat.parser Parse.(|Roll|_|) "att 18 +4a 2d8+2+d6" |> render (Common.String.join " ") |> printfn "%s"
 
 #nowarn "40" // suppress warning 40--reference loops are not a problem for packrat parsing
 module Parse =
