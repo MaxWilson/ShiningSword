@@ -53,11 +53,6 @@ module Query =
     let character state char =
         (Query.Character char, state), thunk (Some ())
 
-module Roll =
-    let resolve (r:Roll) =
-        r.bonus + (List.init r.n (thunk1 rand r.die) |> List.sum)
-    let double (r:Roll) = { r with n = r.n * 2 }
-
 //module Creature =
 //    let map f (c: Combatant) =
 //        { c with current = f c.current }
@@ -152,6 +147,7 @@ module CharSheet =
         normalize levels |> List.map (fun (c,l) -> sprintf "%s %d" (className c) l) |> String.join "/"
 module CharInfo =
     open CharSheet
+    open Roll
     let getCurrentHP char =
         match char.usages.TryGetValue("HP") with true, v -> v | _ -> char.hp
     let ofCharSheet (c:CharSheet) =
@@ -172,11 +168,11 @@ module CharInfo =
         cha = c.cha
         hp = getCurrentHP char
         ac = computeAC c
-        xp = c.xp / 10 // 10% XP reward for killing levelled PCs
+        xp = c.xp / 10 // 10% XP reward for killing leveled PCs
         resistances = Set.empty
         immunities = Set.empty
         damageResistance = Map.empty
         conditionExemptions = Set.empty
-        attacks = [{Attack.tohit = toHit; Attack.damage = {Roll.n = 1; Roll.die = 8; bonus = combatBonus (max c.str c.dex) }, DamageType.Weapon }] // todo: compute attacks
+        attacks = [{Attack.tohit = toHit; Attack.damage = (Combine(Sum, Aggregate[Dice(1, 8); StaticValue (max c.str c.dex)]), DamageType.Weapon) }] // todo: compute attacks
         features = c.features
         }

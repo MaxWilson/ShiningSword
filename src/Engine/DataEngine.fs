@@ -93,13 +93,6 @@ let (|Cmd|) = function
     | Any(msg, End) -> Log(msg)
     | _ -> failwith "Should never get here--Any() should match everything"
 
-module Roll =
-    let eval (r:Model.Types.Roll) = r.bonus + List.sum (List.init r.n (thunk1 rand r.die))
-    let render (r:Model.Types.Roll) =
-        if r.bonus = 0 then sprintf "%dd%d" r.n r.die
-        elif r.bonus < 0 then sprintf "%dd%d%d" r.n r.die r.bonus
-        else sprintf "%dd%d+%d" r.n r.die r.bonus
-
 module DataModel =
     type State = string list
     type Input = string
@@ -116,9 +109,9 @@ let gameLoop (storage: IDataStorage) : GameLoop =
             | Quit -> Eventual.Final state
             | Log msg -> Eventual.Intermediate((None,state), (consume (log state msg))) // todo: append efficiently
             | Roll r ->
-                let result = (Roll.eval r)
-                let logEntry = (sprintf "%s: %d" (Roll.render r) result)
-                Eventual.Intermediate((Some (sprintf "%d" result), state), (consume (log state logEntry)))
+                let result = (Dice.Roll.eval r)
+                let logEntry = (sprintf "%s: %d" (Dice.Roll.render r) result.value)
+                Eventual.Intermediate((Some (sprintf "%d" result.value), state), (consume (log state logEntry)))
     Interaction.Intermediate((None,[]), consume [])
 
 let consoleExecute (gameLoop: GameLoop) =

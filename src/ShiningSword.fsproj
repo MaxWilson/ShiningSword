@@ -10,6 +10,7 @@
     <Compile Include="Abstractions\DataStorage.Globals.fs" />
     <Compile Include="Abstractions\DataStorage.fs" />
     <Compile Include="Model\Types.fs" />
+    <Compile Include="Model\Dice.fs" />
     <Compile Include="Model\Names.fs" />
     <Compile Include="Model\Tables.fs" />
     <Compile Include="Model\Operations.fs" />

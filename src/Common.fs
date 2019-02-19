@@ -8,7 +8,8 @@ let thunk1 f arg _ = f arg
 let thunk2 f arg1 arg2 _ = f arg1 arg2
 let thunk3 f arg1 arg2 arg3 _ = f arg1 arg2 arg3
 let ignore1 f _ = f()
-let matchfail v = failwithf "No match found for %A. This is a bug." v
+type MatchFailException(msg) = inherit System.InvalidOperationException(msg)
+let matchfail v = sprintf "No match found for %A. This is a bug." v |> MatchFailException |> raise
 let notImpl() = failwith "Not implemented yet. Email Max if you want this feature."
 
 let chooseRandom (lst: _ []) =
@@ -55,7 +56,6 @@ module Lens =
     fun f s ->
       ((get s |> f : Option<_>) |> Option.map (fun f -> set f s))
 
-
 let emptyString = System.String.Empty
 module String =
   let join delimiter strings = System.String.Join((delimiter: string), (strings: string seq))
@@ -64,3 +64,16 @@ module String =
     match Option.ofObj input with
     | Some(v:string) -> v.Trim().Split(' ') |> Seq.head
     | None -> input
+
+module Fraction =
+  open System.Numerics
+
+  let expn (base' : BigInteger) power = // workaround for ** not functioning right in Fable, https://github.com/fable-compiler/Fable/issues/1517
+    List.init power (thunk base') |> List.fold (*) 1I
+
+  let ratio precision (m:BigInteger) (n:BigInteger) = (m*(expn 10I precision)/n |> float)/(float (expn 10I precision))
+
+  type Fraction = { numerator: BigInteger; denominator: BigInteger }
+  let create n m = { numerator = n; denominator = m }
+  let toFloat { numerator = n; denominator = m } = ratio 3 n m
+  let toPercent { numerator = n; denominator = m } = ratio 1 (n*100I) m

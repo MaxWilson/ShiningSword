@@ -32,12 +32,7 @@ let addExistingCharacter teamId (c:CharInfo) battle =
 #nowarn "40" // recursive references in parse patterns are fine
 module Parse =
     open Packrat
-    let (|Roll|_|) = pack <| function
-        | Int(n, Str "d" (Int(d, Str "+" (Int (plus, ctx))))) -> Some({ Roll.n = n; die = d; bonus = plus }, ctx)
-        | Int(n, Str "d" (Int(d, ctx))) -> Some({ Roll.n = n; die = d; bonus = 0 }, ctx)
-        | Str "d" (Int(d, Str "+" (Int (plus, ctx)))) -> Some({ Roll.n = 1; die = d; bonus = plus }, ctx)
-        | Str "d" (Int(d, ctx)) -> Some({ Roll.n = 1; die = d; bonus = 0 }, ctx)
-        | _ -> None
+    let (|Roll|_|) = Model.Dice.Parse.(|Roll|_|)
     let (|DamageType|_|) = pack <| function
         | Word(AnyCase("weapon"), ctx) -> Some(Weapon, ctx)
         | Word(AnyCase("fire"), ctx) -> Some(Fire, ctx)

@@ -300,6 +300,7 @@ let fight state =
         guys |> Seq.filter (fun c -> hpMap.[c.id] > 0) |> Seq.groupBy (fun c -> c.team) |> Seq.length
     while numberOfTeams () > 1 do
         let liveIds = hpMap |> Map.filter (fun _ hp -> hp > 0) |> Map.toArray |> Array.map fst |> shuffleCopy
+        let resolve = Model.Dice.Roll.eval >> (fun v -> v.value)
         for id in liveIds do
             if hpMap.[id] > 0 then // if still alive
                 let c = combatants.[id]
@@ -309,10 +310,10 @@ let fight state =
                         let toHit = target.stats.ac - att.tohit
                         match rand 20 with
                         | 20 ->
-                            let dmg = (Roll.resolve (fst att.damage |> Roll.double))
+                            let dmg = (resolve (fst att.damage |> Model.Dice.Roll.multiplyResultDice 2))
                             inflict true c.stats.name target dmg
                         | n when n >= toHit ->
-                            let dmg = (Roll.resolve (fst att.damage))
+                            let dmg = (resolve (fst att.damage))
                             inflict false c.stats.name target dmg
                         | _ ->
                             logMsg (sprintf "%s misses %s" c.stats.name (targetName target))

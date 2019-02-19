@@ -1,6 +1,31 @@
 module Model.Types
 
-type Roll = { n: int; die: int; bonus: int }
+
+module Roll =
+    open System.Numerics
+    type Predicate = AtLeast of int | AtMost of int | Natural of min: int * max: int | Else
+    type Transform = Div of int | Times of int
+    type Aggregation = Sum | Max | Min
+    type Request =
+        | Dice of n:int * die:int
+        | StaticValue of n:int
+        | Combine of Aggregation * AggregateRequest
+        | Branch of baseRollPlusMods: (Request * Request) * branches: (Predicate * Request) list
+        | Transform of Request * transform: Transform
+    and AggregateRequest =
+        | Aggregate of Request list
+        | Repeat of n: int * Request
+        | Best of n:int * AggregateRequest
+    type ResultValue = int
+    type Result =
+        { value: ResultValue; source: Request; sublog: Result list }
+    and AggregateResult =
+        { value: Result list; source: AggregateRequest; sublog: Result list }
+    type DistributionResult =
+        DistributionResult of Map<ResultValue, BigInteger>
+type FractionalResult = float
+
+type Roll = Roll.Request
 
 type DamageType = Weapon | Fire | Cold | Poison
 
@@ -148,6 +173,14 @@ type Battle = {
     combatants: Map<Id, Combatant>
     stakes: Stakes option
     }
+
+module Battle2 =
+    type Expression = Roll of Roll | Repeat
+    type Command = Log of string | Quit | Roll of Expression
+    type Battle = {
+        log: string list
+        lastCommand: (string * Command) option
+        }
 
 type Intention = Move of Position | Attack of Id
 type Declarations = (Id * Intention) list
