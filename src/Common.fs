@@ -40,40 +40,47 @@ let shuffleCopy =
         a // return the copy
 
 // Lens code based on http://www.fssnip.net/7Pk/title/Polymorphic-lenses by Vesa Karvonen
-
-type Lens<'InState,'ValGet,'ValSet,'OutState> = ('ValGet -> Option<'ValSet>) -> 'InState -> Option<'OutState>
+type LensValue<'T> = Option<'T>
+type Lens<'InState,'ValGet,'ValSet,'OutState> = ('ValGet -> LensValue<'ValSet>) -> 'InState -> LensValue<'OutState>
 type SimpleLens<'Outer, 'Inner> = Lens<'Outer, 'Inner, 'Inner, 'Outer>
 type RecursiveOptionLens<'t> = SimpleLens<'t, 't option>
 module Lens =
-  let get (l: Lens<'InState,'ValGet,'ValSet,'OutState>) s =
-    let r = ref Unchecked.defaultof<_>
-    s |> l (fun a -> r := a; None) |> ignore
-    !r
-  let over (l: Lens<'InState,'ValGet,'ValSet,'OutState>) f =
-    l (f >> Some) >> function Some t -> t | _ -> failwith "Impossible"
-  let set (l: Lens<'InState,'ValGet,'ValSet,'OutState>) b = over l <| fun _ -> b
-  let lens get set : Lens<'InState,'ValGet,'ValSet,'OutState> =
-    fun f s ->
-      ((get s |> f : Option<_>) |> Option.map (fun f -> set f s))
+    let get (l: Lens<'InState,'ValGet,'ValSet,'OutState>) s =
+        let r = ref Unchecked.defaultof<_>
+        s |> l (fun a -> r := a; None) |> ignore
+        !r
+    let over (l: Lens<'InState,'ValGet,'ValSet,'OutState>) f =
+        l (f >> Some) >> function Some t -> t | _ -> failwith "Impossible"
+    let set (l: Lens<'InState,'ValGet,'ValSet,'OutState>) b = over l <| fun _ -> b
+    let lens get set : Lens<'InState,'ValGet,'ValSet,'OutState> =
+        fun f s ->
+            ((get s |> f : LensValue<_>) |> Option.map (fun f -> set f s))
 
 let emptyString = System.String.Empty
 module String =
-  let join delimiter strings = System.String.Join((delimiter: string), (strings: string seq))
-  let equalsIgnoreCase lhs rhs = System.String.Equals(lhs, rhs, System.StringComparison.InvariantCultureIgnoreCase)
-  let firstWord input =
-    match Option.ofObj input with
-    | Some(v:string) -> v.Trim().Split(' ') |> Seq.head
-    | None -> input
+    let join delimiter strings = System.String.Join((delimiter: string), (strings: string seq))
+    let equalsIgnoreCase lhs rhs = System.String.Equals(lhs, rhs, System.StringComparison.InvariantCultureIgnoreCase)
+    let firstWord input =
+        match Option.ofObj input with
+        | Some(v:string) -> v.Trim().Split(' ') |> Seq.head
+        | None -> input
 
 module Fraction =
-  open System.Numerics
+    open System.Numerics
 
-  let expn (base' : BigInteger) power = // workaround for ** not functioning right in Fable, https://github.com/fable-compiler/Fable/issues/1517
-    List.init power (thunk base') |> List.fold (*) 1I
+    let expn (base' : BigInteger) power = // workaround for ** not functioning right in Fable, https://github.com/fable-compiler/Fable/issues/1517
+        List.init power (thunk base') |> List.fold (*) 1I
 
-  let ratio precision (m:BigInteger) (n:BigInteger) = (m*(expn 10I precision)/n |> float)/(float (expn 10I precision))
+    let ratio precision (m:BigInteger) (n:BigInteger) = (m*(expn 10I precision)/n |> float)/(float (expn 10I precision))
 
-  type Fraction = { numerator: BigInteger; denominator: BigInteger }
-  let create n m = { numerator = n; denominator = m }
-  let toFloat { numerator = n; denominator = m } = ratio 3 n m
-  let toPercent { numerator = n; denominator = m } = ratio 1 (n*100I) m
+    type Fraction = { numerator: BigInteger; denominator: BigInteger }
+    let create n m = { numerator = n; denominator = m }
+    let toFloat { numerator = n; denominator = m } = ratio 3 n m
+    let toPercent { numerator = n; denominator = m } = ratio 1 (n*100I) m
+
+module Tuple =
+    let mapfst f (x,y) = (f x, y)
+    let mapsnd f (x,y) = (f y, x)
+    let lfst f = Lens.lens fst (fun v (_,x) -> (v,x)) f
+    let lsnd f = Lens.lens snd (fun v (x,_) -> (x,v)) f
+    

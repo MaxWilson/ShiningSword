@@ -1,6 +1,7 @@
 module Model.Gameplay
 open Interaction
 open Model.Types
+open Model.Functions
 open Model.Operations
 open Model.Tables
 open Common

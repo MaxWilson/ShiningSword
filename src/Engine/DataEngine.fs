@@ -79,55 +79,37 @@ type IDataStorage =
     abstract member Save: 'T -> Label -> Callback<unit>
     abstract member Load: Label -> Callback<'T>
 
-type Model = string list
-type Cmd = Quit | Log of string | Roll of Model.Types.Roll
 open Packrat
 open Model
 open Common
 open Interaction
+open Model.Types.Battle2
+open Model.Functions.Battle2
 
-let (|Cmd|) = function
-    | Battle.Parse.Roll(r, End) -> Roll r
-    | Str "q" End -> Quit
-    | Str "quit" End -> Quit
-    | Any(msg, End) -> Log(msg)
+let (|Cmd|_|) = function
+    | Battle.Parse.Roll(r, End) -> Some (Roll r)
+    | Str "q" End -> Some Quit
+    | Str "quit" End -> Some Quit
+    | OWS(End) -> None
+    | Any(msg, End) -> Some (Log(msg))
     | _ -> failwith "Should never get here--Any() should match everything"
 
-module DataModel =
-    type State = string list
-    type Input = string
-    type Response = string option * State
-    let log state msg = List.append state [msg]
-    type GameLoop = Eventual<Input, Response, State>
-
-open DataModel
-let gameLoop (storage: IDataStorage) : GameLoop =
-    let rec consume (state: DataModel.State) input =
-        match Packrat.ParseArgs.Init input with
-        | Cmd c ->
-            match c with
-            | Quit -> Eventual.Final state
-            | Log msg -> Eventual.Intermediate((None,state), (consume (log state msg))) // todo: append efficiently
-            | Roll r ->
-                let result = (Dice.Roll.eval r)
-                let logEntry = (sprintf "%s: %d" (Dice.Roll.render (Common.String.join "\n  ") r) result.value) // todo: is newline + spaces the right separator for roll outputs?
-                Eventual.Intermediate((Some (sprintf "%d" result.value), state), (consume (log state logEntry)))
-    Interaction.Intermediate((None,[]), consume [])
-
-let consoleExecute (gameLoop: GameLoop) =
-    let rec loop = function
-        | Intermediate((responseText,logs), answer) ->
-            match responseText with
-            | Some msg -> printfn "%s" msg
-            | None -> ()
-            let cmd = System.Console.ReadLine()
-            loop (answer cmd)
-        | Final logs ->
-            ()
-    loop gameLoop
-
-type LocalStorage() =
-    interface IDataStorage with
-        member this.Save label d = Common.notImpl()
-        member this.Load label = Common.notImpl()
-gameLoop (LocalStorage()) |> consoleExecute
+let execute combineLines (storage: IDataStorage) (state:State) input: State =
+    match Packrat.ParseArgs.Init input with
+    | Cmd c ->
+        match c with
+        | Quit -> state |> Lens.over lview (fun s -> { s with finished = true })
+        | Log msg -> state |> log msg
+        | Roll r ->
+            let result = (Dice.Roll.eval r)
+            let logEntry = (sprintf "%s: %d" (Dice.Roll.render combineLines r) result.value) // todo: is newline + spaces the right separator for roll outputs?
+            let resultTxt = Model.Dice.Roll.renderExplanation result
+            { state with
+                data = state.data |> Lens.over llog (Model.Functions.Log.log logEntry)
+                view = { state.view with lastCommand = Some c; lastInput = Some input; lastOutput = Some resultTxt }
+                }
+    | _ ->
+        // invalid command (probably pure whitespace)
+        { state with
+            view = { state.view with lastInput = Some input }
+            }

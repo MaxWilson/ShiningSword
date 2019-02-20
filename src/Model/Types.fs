@@ -1,6 +1,5 @@
 module Model.Types
 
-
 module Roll =
     open System.Numerics
     type Predicate = AtLeast of int | AtMost of int | Natural of min: int * max: int | Else
@@ -174,34 +173,33 @@ type Battle = {
     stakes: Stakes option
     }
 
-module Battle2 =
-    type Expression = Roll of Roll | Repeat
-    type Command = Log of string | Quit | Roll of Expression
-    type Battle = {
-        log: string list
-        lastCommand: (string * Command) option
-        }
-
 type Intention = Move of Position | Attack of Id
 type Declarations = (Id * Intention) list
 
 module Log =
     type Data = string list * string list list
-    let empty = [], []
-    let log msg (log:Data) : Data =
-        match log with
-        | buffer, log -> msg::buffer, log
-    let logMany msgs (log:Data) =
-        match log with
-        | buffer, log -> msgs@buffer, log
-    let flush (log:Data) : Data =
-        match log with
-        | buffer, (h::rest) -> [], (h@(List.rev buffer))::rest
-        | buffer, [] -> [], [List.rev buffer]
-    let advance (log:Data) : Data =
-        match flush log with
-        | _, rest -> [], []::rest
-    let extract = flush >> snd >> List.rev
+
+module Battle2 =
+    module Property =
+        type Name = string
+        type Value = Int of int | String of string
+    type Command = Log of string | Quit | Roll of Roll
+
+    // "real" state, stuff that is worth saving/loading
+    type Data = {
+        log: Log.Data
+        properties: Map<(Id*Property.Name), Property.Value>
+        }
+    // Stuff to show to the user
+    type ViewState = {
+        lastInput: string option // last user input
+        lastCommand: Command option // last VALID command entered
+        lastOutput: string option // response to last command, if any
+        selected: Id option
+        finished: bool // is the battle done, i.e. one side all dead?
+        }
+
+    type State = { data: Data; view: ViewState }
 
 type GameState = {
     pcs: CharInfo list

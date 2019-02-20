@@ -265,6 +265,24 @@ module Roll =
         renderRoll r
     // Dev string: Packrat.parser Parse.(|Roll|_|) "att 18 +4a 2d8+2+d6" |> render (Common.String.join " ") |> printfn "%s"
 
+    let rec renderExplanation (result: Result) : string =
+        let renderExplanation = renderExplanation
+        match result.source with
+        | Combine(Sum, (Aggregate(_) | Repeat(_))) ->
+            sprintf "[%s] => %d" (String.join ", " (result.sublog |> List.map renderExplanation)) result.value
+        | Combine(Max, (Aggregate(_) | Repeat(_))) ->
+            sprintf "max(%s) => %d" (String.join ", " (result.sublog |> List.map renderExplanation)) result.value
+        | Combine(Min, (Aggregate(_) | Repeat(_))) ->
+            sprintf "min(%s) => %d" (String.join ", " (result.sublog |> List.map renderExplanation)) result.value
+        | Transform(roll, t) ->
+            sprintf "(%s) -> %d" (renderExplanation (result.sublog.Head)) result.value
+        | Branch((_,mods),_) ->
+            let b,m,v = match result.sublog with [b;m;v] -> b,m,v | v -> failwithf "No match for %A" v
+            let test = match mods with StaticValue 0 -> renderExplanation b | _ -> (sprintf "%s+%s" (renderExplanation b) (renderExplanation m))
+            sprintf "(%s) -> %s" test (renderExplanation v)
+        | _ ->
+            result.value.ToString()
+
 #nowarn "40" // suppress warning 40--reference loops are not a problem for packrat parsing
 module Parse =
     open Packrat

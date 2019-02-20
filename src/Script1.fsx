@@ -6,6 +6,7 @@
 #load @"Abstractions\Parsing.fs"
 #load @"Abstractions\Interaction.fs"
 #load @"Model\Types.fs"
+#load @"Model\Functions.fs"
 #load @"Model\Dice.fs"
 #load @"Model\Names.fs"
 #load @"Model\Tables.fs"

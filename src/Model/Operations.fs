@@ -1,5 +1,6 @@
 module Model.Operations
 open Model.Types
+open Model.Functions
 open Common
 open System
 

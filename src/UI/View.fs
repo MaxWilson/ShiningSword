@@ -24,6 +24,7 @@ open Common
 open Fulma
 open Fulma.Color
 open Model.Types
+open Model.Functions
 open Model.Operations
 open Fable.PowerPack.Keyboard
 
