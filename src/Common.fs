@@ -50,7 +50,7 @@ module Lens =
         s |> l (fun a -> r := a; None) |> ignore
         !r
     let over (l: Lens<'InState,'ValGet,'ValSet,'OutState>) f =
-        l (f >> Some) >> function Some t -> t | _ -> failwith "Impossible"
+        l (f >> Some) >> Option.get
     let set (l: Lens<'InState,'ValGet,'ValSet,'OutState>) b = over l <| fun _ -> b
     let lens get set : Lens<'InState,'ValGet,'ValSet,'OutState> =
         fun f s ->
