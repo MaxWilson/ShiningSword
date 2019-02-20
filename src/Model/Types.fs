@@ -183,7 +183,7 @@ module Battle2 =
     module Property =
         type Name = string
         type Value = Int of int | String of string
-    type Command = Log of string | Quit | Roll of Roll
+    type Command = Log of string | Quit | Roll of Roll | ShowLog of numberOfLines: int option
 
     // "real" state, stuff that is worth saving/loading
     type Data = {

@@ -83,11 +83,15 @@ open Packrat
 open Model
 open Common
 open Interaction
+open Model
 open Model.Types.Battle2
 open Model.Functions.Battle2
 
 let (|Cmd|_|) = function
     | Battle.Parse.Roll(r, End) -> Some (Roll r)
+    | Word("show", End) -> Some (ShowLog <| Some 3)
+    | Word("show", (Int(n, End))) -> Some (ShowLog <| Some n)
+    | Word("show", Word("all", End)) -> Some (ShowLog None)
     | Str "q" End -> Some Quit
     | Str "quit" End -> Some Quit
     | OWS(End) -> None
@@ -97,17 +101,27 @@ let (|Cmd|_|) = function
 let execute combineLines (storage: IDataStorage) (state:State) input: State =
     match Packrat.ParseArgs.Init input with
     | Cmd c ->
+        let state =
+            { state with
+                view = { state.view with lastCommand = Some c; lastInput = Some input }
+                }
         match c with
         | Quit -> state |> Lens.over lview (fun s -> { s with finished = true })
         | Log msg -> state |> log msg
+        | ShowLog n ->
+            let log = state.data.log |> Functions.Log.extract
+            let lines = log |> List.collect id
+            let txt = (match n with Some n when n < lines.Length -> lines.[(lines.Length - n)..] | _ -> lines) |> String.join "\n"
+            { state with
+                view = { state.view with lastOutput = Some txt }
+                }
         | Roll r ->
             let result = (Dice.Roll.eval r)
-            let logEntry = (sprintf "%s: %d" (Dice.Roll.render combineLines r) result.value) // todo: is newline + spaces the right separator for roll outputs?
             let resultTxt = Model.Dice.Roll.renderExplanation result
+            let logEntry = (sprintf "%s: %s" input resultTxt) // todo: is newline + spaces the right separator for roll outputs?
             { state with
-                data = state.data |> Lens.over llog (Model.Functions.Log.log logEntry)
-                view = { state.view with lastCommand = Some c; lastInput = Some input; lastOutput = Some resultTxt }
-                }
+                view = { state.view with lastOutput = Some resultTxt }
+                } |> log logEntry
     | _ ->
         // invalid command (probably pure whitespace)
         { state with
