@@ -130,11 +130,13 @@ let execute combineLines (storage: IDataStorage) (state:State) (input: string) :
                 let mainText = (String.join emptyString (chunks' |> List.map fst))
                 let explanations = chunks' |> List.collect snd
                 let resultText = String.join "\n" (mainText :: explanations)
-                let logEntry = String.join "\n" [input; resultText]
-                let state = state |> log logEntry // log the substituted values
                 match chunks with
-                | [LogChunk.Text _] -> state, None // if they just logged text, don't echo the log entry to output
-                | _ -> state, Some resultText
+                | [LogChunk.Text _] ->
+                    // if they just logged text, don't echo the log entry to output, and don't double log the text
+                    state |> log resultText, None 
+                | _ ->
+                    let logEntry = String.join "\n" [input; resultText] // log the substituted values
+                    state |> log logEntry, Some resultText
             | ShowLog n ->
                 let log = state.data.log |> Functions.Log.extract
                 let lines = log |> List.collect id
