@@ -65,6 +65,13 @@ module String =
         | Some(v:string) -> v.Trim().Split(' ') |> Seq.head
         | None -> input
 
+module List =
+    let join delimiter (lst: _ list) =
+        match lst with
+        | [] | [_] -> lst
+        | head::tail ->
+            head :: (tail |> List.collect (fun x -> [delimiter; x]))
+
 module Fraction =
     open System.Numerics
 

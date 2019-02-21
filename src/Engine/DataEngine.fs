@@ -92,9 +92,11 @@ let (|LogWithEmbeddedRolls|_|) =
     let openBracket = Set.ofList ['[']
     let questionMark = Set.ofList ['?']    
     let rec (|Chunkify|_|) = pack <| function
-        | CharsExcept openBracket (prefix, Str "[" (Battle.Parse.Roll(roll, (OWS(Str "]" (Chunkify(chunks, ctx))))))) -> Some([LogChunk.Text prefix; LogChunk.Roll roll] @ chunks, ctx)
-        | Str "[" (Battle.Parse.Roll(roll, (OWS(Str "]" (Chunkify(chunks, ctx)))))) -> Some([LogChunk.Roll roll] @ chunks, ctx)
-        | CharsExcept questionMark (prefix, Str "?" (Battle.Parse.Roll(roll, ctx))) -> Some([LogChunk.Text (prefix + "? "); LogChunk.Roll roll], ctx)
+        | CharsExcept openBracket (prefix, Str "[" (Dice.Parse.Roll(roll, (OWS(Str "]" (Chunkify(chunks, ctx))))))) -> Some([LogChunk.Text prefix; LogChunk.Roll roll] @ chunks, ctx)
+        | CharsExcept openBracket (prefix, Str "[" (Dice.Parse.CommaSeparatedRolls(rolls, (OWS(Str "]" (Chunkify(chunks, ctx))))))) -> Some(LogChunk.Text prefix::((rolls |> List.map LogChunk.Roll) |> List.join (LogChunk.Text ", ")) @ chunks, ctx)
+        | Str "[" (Dice.Parse.Roll(roll, (OWS(Str "]" (Chunkify(chunks, ctx)))))) -> Some([LogChunk.Roll roll] @ chunks, ctx)
+        | Str "[" (Dice.Parse.CommaSeparatedRolls(rolls, (OWS(Str "]" (Chunkify(chunks, ctx)))))) -> Some((rolls |> List.map LogChunk.Roll) @ chunks, ctx)
+        | CharsExcept questionMark (prefix, Str "?" (Dice.Parse.Roll(roll, ctx))) -> Some([LogChunk.Text (prefix + "? "); LogChunk.Roll roll], ctx)
         | Any(msg, ctx) -> Some ((if System.String.IsNullOrWhiteSpace msg then [] else [LogChunk.Text msg]), ctx)
         | v -> matchfail v
     function
@@ -102,7 +104,7 @@ let (|LogWithEmbeddedRolls|_|) =
     | _ -> None
 
 let (|Cmd|_|) = pack <| function
-    | Battle.Parse.Roll(r, (End as ctx)) -> Some (Roll r, ctx)
+    | Dice.Parse.Roll(r, (End as ctx)) -> Some (Roll r, ctx)
     | Word("show", (End as ctx)) -> Some (ShowLog <| Some 3, ctx)
     | Word("show", (Int(n, (End as ctx)))) -> Some (ShowLog <| Some n, ctx)
     | Word("show", Word("all", (End as ctx))) -> Some (ShowLog None, ctx)
