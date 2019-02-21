@@ -157,5 +157,5 @@ let execute combineLines (storage: IDataStorage) (state:State) (input: string) :
     | _ ->
         // invalid command (probably pure whitespace)
         { state with
-            view = { state.view with lastInput = Some input }
+            view = { state.view with lastInput = Some input; lastOutput = None }
             }
