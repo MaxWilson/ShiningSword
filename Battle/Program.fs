@@ -19,14 +19,12 @@ let consoleLoop (initialState: State) =
             | Some v -> printfn "%s" v
             | None -> ()
             match state.view.lastCommand, state.view.lastOutput with
-            | Some (Log _), _ -> // don't echo log to the console
-                ()
             | Some _cmd, Some response ->
                 printfn "%s" response
-            | Some _cmd, None ->
-                printfn "OK\n"
+            | Some _cmd, None -> ()
+            | None, _ when state.view.lastInput.IsSome -> printfn "Come again?" // probably shouldn't happen
             | _ -> ()
-            let answer = execute (String.join "\n\t") (LocalStorage()) state
+            let answer = execute (String.join "\n  ") (LocalStorage()) state
             printf ">> "
             let cmd = System.Console.ReadLine()
             loop (answer cmd)

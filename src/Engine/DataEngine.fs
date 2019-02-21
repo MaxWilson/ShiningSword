@@ -87,41 +87,69 @@ open Model
 open Model.Types.Battle2
 open Model.Functions.Battle2
 
-let (|Cmd|_|) = function
-    | Battle.Parse.Roll(r, End) -> Some (Roll r)
-    | Word("show", End) -> Some (ShowLog <| Some 3)
-    | Word("show", (Int(n, End))) -> Some (ShowLog <| Some n)
-    | Word("show", Word("all", End)) -> Some (ShowLog None)
-    | Str "q" End -> Some Quit
-    | Str "quit" End -> Some Quit
-    | OWS(End) -> None
-    | Any(msg, End) -> Some (Log(msg))
-    | _ -> failwith "Should never get here--Any() should match everything"
+#nowarn "40"
+let (|LogWithEmbeddedRolls|_|) =
+    let openBracket = Set.ofList ['[']
+    let questionMark = Set.ofList ['?']    
+    let rec (|Chunkify|_|) = pack <| function
+        | CharsExcept openBracket (prefix, Str "[" (Battle.Parse.Roll(roll, (OWS(Str "]" (Chunkify(chunks, ctx))))))) -> Some([LogChunk.Text prefix; LogChunk.Roll roll] @ chunks, ctx)
+        | Str "[" (Battle.Parse.Roll(roll, (OWS(Str "]" (Chunkify(chunks, ctx)))))) -> Some([LogChunk.Roll roll] @ chunks, ctx)
+        | CharsExcept questionMark (prefix, Str "?" (Battle.Parse.Roll(roll, ctx))) -> Some([LogChunk.Text (prefix + "? "); LogChunk.Roll roll], ctx)
+        | Any(msg, ctx) -> Some ((if System.String.IsNullOrWhiteSpace msg then [] else [LogChunk.Text msg]), ctx)
+        | v -> matchfail v
+    function
+    | Chunkify(chunks, ctx) -> Some(Log chunks, ctx)
+    | _ -> None
 
-let execute combineLines (storage: IDataStorage) (state:State) input: State =
-    match Packrat.ParseArgs.Init input with
-    | Cmd c ->
+let (|Cmd|_|) = pack <| function
+    | Battle.Parse.Roll(r, (End as ctx)) -> Some (Roll r, ctx)
+    | Word("show", (End as ctx)) -> Some (ShowLog <| Some 3, ctx)
+    | Word("show", (Int(n, (End as ctx)))) -> Some (ShowLog <| Some n, ctx)
+    | Word("show", Word("all", (End as ctx))) -> Some (ShowLog None, ctx)
+    | Word(AnyCase("q" | "quit"), (End as ctx)) -> Some (Quit, ctx)
+    | OWS(End) -> None
+    | LogWithEmbeddedRolls(cmd, (End as ctx)) -> Some(cmd, ctx)
+    | v -> matchfail v
+
+let execute combineLines (storage: IDataStorage) (state:State) (input: string) : State =
+    let exec state c =
         let state =
             { state with
                 view = { state.view with lastCommand = Some c; lastInput = Some input }
                 }
-        match c with
-        | Quit -> state |> Lens.over lview (fun s -> { s with finished = true })
-        | Log msg -> state |> log msg
-        | ShowLog n ->
-            let log = state.data.log |> Functions.Log.extract
-            let lines = log |> List.collect id
-            let txt = (match n with Some n when n < lines.Length -> lines.[(lines.Length - n)..] | _ -> lines) |> String.join "\n"
-            { state with
-                view = { state.view with lastOutput = Some txt }
-                }
-        | Roll r ->
-            let result = (Dice.Roll.eval r)
-            let resultTxt = Model.Dice.Roll.renderExplanation result
-            let logEntry = (sprintf "%s: %s" input resultTxt) // todo: is newline + spaces the right separator for roll outputs?
-            { state with
-                view = { state.view with lastOutput = Some resultTxt }
-                } |> log logEntry
+        let state, output =
+            match c with
+            | Quit -> state |> Lens.over lview (fun s -> { s with finished = true }), None
+            | Log chunks ->
+                let eval = function
+                    | LogChunk.Text msg -> msg, []
+                    | LogChunk.Roll r ->
+                        let result = Dice.Roll.eval r
+                        result.value.ToString(), [(result |> Dice.Roll.renderExplanation).Trim()]
+                let chunks' = chunks |> List.map eval
+                let mainText = (String.join emptyString (chunks' |> List.map fst))
+                let explanations = chunks' |> List.collect snd
+                let resultText = String.join "\n" (mainText :: explanations)
+                let logEntry = String.join "\n" [input; resultText]
+                let state = state |> log logEntry // log the substituted values
+                match chunks with
+                | [LogChunk.Text _] -> state, None // if they just logged text, don't echo the log entry to output
+                | _ -> state, Some resultText
+            | ShowLog n ->
+                let log = state.data.log |> Functions.Log.extract
+                let lines = log |> List.collect id
+                let txt = (match n with Some n when n < lines.Length -> lines.[(lines.Length - n)..] | _ -> lines) |> String.join "\n"
+                state, Some txt
+            | Roll r ->
+                let result = Dice.Roll.eval r
+                let resultTxt = Dice.Roll.renderExplanation result
+                let logEntry = (sprintf "%s: %s" input resultTxt) // todo: is newline + spaces the right separator for roll outputs?
+                (state |> log logEntry), Some resultTxt
+        { state with
+            view = { state.view with lastOutput = output }
+            }
+    match Packrat.ParseArgs.Init input with
+    | Cmd(cmd, End) -> exec state cmd
     | _ ->
         // invalid command (probably pure whitespace)
         { state with
