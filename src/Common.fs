@@ -90,4 +90,7 @@ module Tuple =
     let mapsnd f (x,y) = (f y, x)
     let lfst f = Lens.lens fst (fun v (_,x) -> (v,x)) f
     let lsnd f = Lens.lens snd (fun v (x,_) -> (x,v)) f
-    
+    let get1of3 (x, _, _) = x
+    let get2of3 (_, x, _) = x
+    let get3of3 (_, _, x) = x
+

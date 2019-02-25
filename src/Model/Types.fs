@@ -22,6 +22,7 @@ module Roll =
         { value: Result list; source: AggregateRequest; sublog: Result list }
     type DistributionResult =
         DistributionResult of Map<ResultValue, BigInteger>
+    type Explanation = Explanation of result: ResultValue * summary: string * details: Explanation list
 type FractionalResult = float
 
 type Roll = Roll.Request

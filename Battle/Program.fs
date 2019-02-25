@@ -35,6 +35,11 @@ type LocalStorage() =
         member this.Load label callback =
             DataStorage.load (accessToken()) "battle" label |> callback
 
+let formatExplanation (explanation: Model.Types.Roll.Explanation) =
+    let rec helper indent (Model.Types.Roll.Explanation(_, summary, children)) =
+        String.join "\n" (sprintf "%s%s" indent summary::(children |> List.map (helper (indent+"  "))))
+    helper emptyString explanation
+
 let consoleLoop (initialState: State) =
     let rec loop (state: State) =
         if state.view.finished then
@@ -46,7 +51,7 @@ let consoleLoop (initialState: State) =
             | Some _cmd, None -> ()
             | None, _ when state.view.lastInput.IsSome -> printfn "Come again?" // probably shouldn't happen
             | _ -> ()
-            let answer = execute (String.join "\n  ") (LocalStorage()) state
+            let answer = execute (String.join "\n") formatExplanation (LocalStorage()) state
             printf ">> "
             let cmd = System.Console.ReadLine()
             answer cmd loop

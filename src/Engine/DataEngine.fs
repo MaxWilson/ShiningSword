@@ -116,7 +116,7 @@ let (|Cmd|_|) = pack <| function
     | LogWithEmbeddedRolls(cmd, (End as ctx)) -> Some(cmd, ctx)
     | v -> matchfail v
 
-let execute combineLines (storage: IDataStorage) (state:State) (input: string) (return': Callback<State>): unit =
+let execute combineLines (explanationToString: Model.Types.Roll.Explanation -> string) (storage: IDataStorage) (state:State) (input: string) (return': Callback<State>): unit =
     let rec exec state c return' =
         let state =
             { state with
@@ -129,26 +129,27 @@ let execute combineLines (storage: IDataStorage) (state:State) (input: string) (
                 | LogChunk.Text msg -> msg, []
                 | LogChunk.Roll r ->
                     let result = Dice.Roll.eval r
-                    result.value.ToString(), [(result |> Dice.Roll.renderExplanation).Trim()]
+                    let getSummary (Model.Types.Roll.Explanation(_, summary, _)) = summary
+                    result.value.ToString(), [(result |> Dice.Roll.renderExplanation |> explanationToString).Trim()]
             let chunks' = chunks |> List.map eval
             let mainText = (String.join emptyString (chunks' |> List.map fst))
             let explanations = chunks' |> List.collect snd
-            let resultText = String.join "\n" (mainText :: explanations)
+            let resultText = combineLines (explanations @ [mainText])
             match chunks with
             | [LogChunk.Text _] ->
                 // if they just logged text, don't echo the log entry to output, and don't double log the text
                 return' (state |> log resultText, None)
             | _ ->
-                let logEntry = String.join "\n" [input; resultText] // log the substituted values
+                let logEntry = combineLines [input; resultText] // log the substituted values
                 return' (state |> log logEntry, Some resultText)
         | ShowLog n ->
             let log = state.data.log |> Functions.Log.extract
             let lines = log |> List.collect id
-            let txt = (match n with Some n when n < lines.Length -> lines.[(lines.Length - n)..] | _ -> lines) |> String.join "\n"
+            let txt = (match n with Some n when n < lines.Length -> lines.[(lines.Length - n)..] | _ -> lines) |> combineLines
             return' (state, Some txt)
         | Roll r ->
             let result = Dice.Roll.eval r
-            let resultTxt = Dice.Roll.renderExplanation result
+            let resultTxt = Dice.Roll.renderExplanation result |> explanationToString
             let logEntry = (sprintf "%s: %s" input resultTxt) // todo: is newline + spaces the right separator for roll outputs?
             return' ((state |> log logEntry), Some resultTxt)
         | Save label ->
