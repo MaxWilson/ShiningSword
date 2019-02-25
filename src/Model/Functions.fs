@@ -29,16 +29,18 @@ module Battle2 =
     let logCmd (msg: string) = Log [LogChunk.Text msg]
     let log (msg:string) (state:State) : State =
         state |> Lens.over (ldata << llog) (Log.log msg)
+    let emptyView =
+        {
+            lastInput = None
+            lastCommand = None
+            lastOutput = None
+            selected = None
+            finished = false
+            }
     let init() =
         {   data = {
                 log = Log.empty
                 properties = Map.empty
                 }
-            view = {
-                lastInput = None
-                lastCommand = None
-                lastOutput = None
-                selected = None
-                finished = false
-                }
+            view = emptyView
             }

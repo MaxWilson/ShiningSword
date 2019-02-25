@@ -184,7 +184,9 @@ module Battle2 =
         type Name = string
         type Value = Int of int | String of string
     type LogChunk = Text of string | Roll of Roll
-    type Command = Log of LogChunk list | Quit | Roll of Roll | ShowLog of numberOfLines: int option
+    type Command =
+        | Log of LogChunk list | Quit | Roll of Roll | ShowLog of numberOfLines: int option
+        | Save of string | Load of string | Clear
 
     // "real" state, stuff that is worth saving/loading
     type Data = {

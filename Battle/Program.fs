@@ -6,20 +6,42 @@ open DataEngine
 open Model.Types.Battle2
 
 type LocalStorage() =
+    let folderPath = IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "shiningsword")
+    let accessTokenPath = IO.Path.Combine(folderPath, "accessToken.txt")
+    let mutable _accessToken = None
+    let accessToken() =
+        match _accessToken with
+        | Some v -> v
+        | None ->
+            let token =
+                if IO.File.Exists(accessTokenPath) then
+                    IO.File.ReadAllText(accessTokenPath)
+                else
+                    let rec loop() =
+                        printf "Enter WilsonData access token: "
+                        let token = Console.ReadLine().Trim()
+                        if token.Length > 0 then
+                            printfn "Storing '%s' in %s" token accessTokenPath
+                            IO.Directory.CreateDirectory(folderPath) |> ignore
+                            IO.File.WriteAllText(accessTokenPath, token)
+                            token
+                        else loop()
+                    loop()
+            _accessToken <- Some token
+            token
     interface IDataStorage with
-        member this.Save label d = Common.notImpl()
-        member this.Load label = Common.notImpl()
+        member this.Save (label:Label) data callback =
+           DataStorage.save (accessToken()) "battle" label data |> callback
+        member this.Load label callback =
+            DataStorage.load (accessToken()) "battle" label |> callback
 
 let consoleLoop (initialState: State) =
     let rec loop (state: State) =
         if state.view.finished then
             ()
         else
-            let maybePrint = function
-            | Some v -> printfn "%s" v
-            | None -> ()
             match state.view.lastCommand, state.view.lastOutput with
-            | Some _cmd, Some response ->
+            | _, Some response ->
                 printfn "%s" response
             | Some _cmd, None -> ()
             | None, _ when state.view.lastInput.IsSome -> printfn "Come again?" // probably shouldn't happen
@@ -27,7 +49,7 @@ let consoleLoop (initialState: State) =
             let answer = execute (String.join "\n  ") (LocalStorage()) state
             printf ">> "
             let cmd = System.Console.ReadLine()
-            loop (answer cmd)
+            answer cmd loop
     loop initialState
 
 [<EntryPoint>]

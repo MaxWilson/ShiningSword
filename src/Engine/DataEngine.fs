@@ -72,12 +72,12 @@ At the end of this program, if rolls are [d20 => 18, 2d8+4 => 12], john.status s
 
 module DataEngine
 
-type Callback<'T> = unit -> 'T
+type Callback<'T> = 'T -> unit
 type Label = string
 
 type IDataStorage =
-    abstract member Save: 'T -> Label -> Callback<unit>
-    abstract member Load: Label -> Callback<'T>
+    abstract member Save: Label -> 'T -> Callback<Result<unit, string>> -> unit
+    abstract member Load: Label -> Callback<Result<'t, string>> -> unit
 
 open Packrat
 open Model
@@ -90,7 +90,7 @@ open Model.Functions.Battle2
 #nowarn "40"
 let (|LogWithEmbeddedRolls|_|) =
     let openBracket = Set.ofList ['[']
-    let questionMark = Set.ofList ['?']    
+    let questionMark = Set.ofList ['?']
     let rec (|Chunkify|_|) = pack <| function
         | CharsExcept openBracket (prefix, Str "[" (Dice.Parse.Roll(roll, (OWS(Str "]" (Chunkify(chunks, ctx))))))) -> Some([LogChunk.Text prefix; LogChunk.Roll roll] @ chunks, ctx)
         | CharsExcept openBracket (prefix, Str "[" (Dice.Parse.CommaSeparatedRolls(rolls, (OWS(Str "]" (Chunkify(chunks, ctx))))))) -> Some(LogChunk.Text prefix::((rolls |> List.map LogChunk.Roll) |> List.join (LogChunk.Text ", ")) @ chunks, ctx)
@@ -109,53 +109,64 @@ let (|Cmd|_|) = pack <| function
     | Word("show", (Int(n, (End as ctx)))) -> Some (ShowLog <| Some n, ctx)
     | Word("show", Word("all", (End as ctx))) -> Some (ShowLog None, ctx)
     | Word(AnyCase("q" | "quit"), (End as ctx)) -> Some (Quit, ctx)
+    | Word("save", Words(label, (End as ctx))) -> Some (Save label, ctx)
+    | Word("load", Words(label, (End as ctx))) -> Some (Load label, ctx)
+    | Word("clear", (End as ctx)) -> Some(Clear, ctx)
     | OWS(End) -> None
     | LogWithEmbeddedRolls(cmd, (End as ctx)) -> Some(cmd, ctx)
     | v -> matchfail v
 
-let execute combineLines (storage: IDataStorage) (state:State) (input: string) : State =
-    let exec state c =
+let execute combineLines (storage: IDataStorage) (state:State) (input: string) (return': Callback<State>): unit =
+    let rec exec state c return' =
         let state =
             { state with
                 view = { state.view with lastCommand = Some c; lastInput = Some input }
                 }
-        let state, output =
-            match c with
-            | Quit -> state |> Lens.over lview (fun s -> { s with finished = true }), None
-            | Log chunks ->
-                let eval = function
-                    | LogChunk.Text msg -> msg, []
-                    | LogChunk.Roll r ->
-                        let result = Dice.Roll.eval r
-                        result.value.ToString(), [(result |> Dice.Roll.renderExplanation).Trim()]
-                let chunks' = chunks |> List.map eval
-                let mainText = (String.join emptyString (chunks' |> List.map fst))
-                let explanations = chunks' |> List.collect snd
-                let resultText = String.join "\n" (mainText :: explanations)
-                match chunks with
-                | [LogChunk.Text _] ->
-                    // if they just logged text, don't echo the log entry to output, and don't double log the text
-                    state |> log resultText, None 
-                | _ ->
-                    let logEntry = String.join "\n" [input; resultText] // log the substituted values
-                    state |> log logEntry, Some resultText
-            | ShowLog n ->
-                let log = state.data.log |> Functions.Log.extract
-                let lines = log |> List.collect id
-                let txt = (match n with Some n when n < lines.Length -> lines.[(lines.Length - n)..] | _ -> lines) |> String.join "\n"
-                state, Some txt
-            | Roll r ->
-                let result = Dice.Roll.eval r
-                let resultTxt = Dice.Roll.renderExplanation result
-                let logEntry = (sprintf "%s: %s" input resultTxt) // todo: is newline + spaces the right separator for roll outputs?
-                (state |> log logEntry), Some resultTxt
-        { state with
-            view = { state.view with lastOutput = output }
-            }
+        match c with
+        | Quit -> return' (state |> Lens.over lview (fun s -> { s with finished = true }), None)
+        | Log chunks ->
+            let eval = function
+                | LogChunk.Text msg -> msg, []
+                | LogChunk.Roll r ->
+                    let result = Dice.Roll.eval r
+                    result.value.ToString(), [(result |> Dice.Roll.renderExplanation).Trim()]
+            let chunks' = chunks |> List.map eval
+            let mainText = (String.join emptyString (chunks' |> List.map fst))
+            let explanations = chunks' |> List.collect snd
+            let resultText = String.join "\n" (mainText :: explanations)
+            match chunks with
+            | [LogChunk.Text _] ->
+                // if they just logged text, don't echo the log entry to output, and don't double log the text
+                return' (state |> log resultText, None)
+            | _ ->
+                let logEntry = String.join "\n" [input; resultText] // log the substituted values
+                return' (state |> log logEntry, Some resultText)
+        | ShowLog n ->
+            let log = state.data.log |> Functions.Log.extract
+            let lines = log |> List.collect id
+            let txt = (match n with Some n when n < lines.Length -> lines.[(lines.Length - n)..] | _ -> lines) |> String.join "\n"
+            return' (state, Some txt)
+        | Roll r ->
+            let result = Dice.Roll.eval r
+            let resultTxt = Dice.Roll.renderExplanation result
+            let logEntry = (sprintf "%s: %s" input resultTxt) // todo: is newline + spaces the right separator for roll outputs?
+            return' ((state |> log logEntry), Some resultTxt)
+        | Save label ->
+            storage.Save label state.data (function Ok _ -> return' (state, sprintf "Saved '%s'" label |> Some) | Error err -> return' (state, sprintf "Could not save '%s': '%s'" label err |> Some))
+        | Load label ->
+            storage.Load<Data> label (function Ok data -> exec { state with data = data; view = emptyView } (ShowLog None) return' | Error err -> return' (state, sprintf "Could not save '%s': '%s'" label err |> Some))
+        | Clear ->
+            return' (Model.Functions.Battle2.init(), None)
     match Packrat.ParseArgs.Init input with
-    | Cmd(cmd, End) -> exec state cmd
+    | Cmd(cmd, End) ->
+        let callback (state, output) =
+            return' { state with
+                        view = { state.view with lastOutput = output }
+                        }
+        exec state cmd callback
     | _ ->
         // invalid command (probably pure whitespace)
-        { state with
-            view = { state.view with lastInput = Some input; lastOutput = None }
-            }
+        return'
+            { state with
+                view = { state.view with lastInput = Some input; lastOutput = None }
+                }
