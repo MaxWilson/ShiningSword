@@ -59,5 +59,6 @@ let consoleLoop (initialState: State) =
 
 [<EntryPoint>]
 let main argv =
+    Console.SetIn(new System.IO.StreamReader(Console.OpenStandardInput(8192))) // allow more than 256 characters of input
     Model.Functions.Battle2.init() |> consoleLoop
     0
