@@ -97,7 +97,7 @@ let (|LogWithEmbeddedRolls|_|) =
         | Str "[" (Dice.Parse.Roll(roll, (OWS(Str "]" (Chunkify(chunks, ctx)))))) -> Some([LogChunk.Roll roll] @ chunks, ctx)
         | Str "[" (Dice.Parse.CommaSeparatedRolls(rolls, (OWS(Str "]" (Chunkify(chunks, ctx)))))) ->
             Some((rolls |> List.map LogChunk.Roll |> List.join (LogChunk.Text ",")) @ chunks, ctx)
-        | CharsExcept questionMark (prefix, Str "?" (Dice.Parse.Roll(roll, ctx))) -> Some([LogChunk.Text (prefix + "? "); LogChunk.Roll roll], ctx)
+        | CharsExcept questionMark (prefix, Str "?" (Dice.Parse.Roll(roll, (End as ctx)))) -> Some([LogChunk.Text (prefix + "? "); LogChunk.Roll roll], ctx)
         | Any(msg, ctx) -> Some ((if System.String.IsNullOrWhiteSpace msg then [] else [LogChunk.Text msg]), ctx)
         | v -> matchfail v
     function

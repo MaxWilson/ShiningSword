@@ -8,6 +8,7 @@
     <Compile Include="Parsing.Unit.fs" />
     <Compile Include="Interaction.Unit.fs" />
     <Compile Include="Parsing.Battle.Unit.fs" />
+    <Compile Include="Parsing.DataEngine.Unit.fs" />
   </ItemGroup>
 
   <ItemGroup />

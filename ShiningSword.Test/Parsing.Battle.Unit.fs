@@ -104,3 +104,4 @@ let VerifyAnalyze() =
     ()
   | ParseInput.FailureAnalysis(_, analysis) ->
     Assert.Contains("<<<4d+  d12 + d6 +2d4>>>z Combine (Sum,Aggregate [Dice (4,6); Dice (1,12); Dice (1,6); Dice (2,4)])", analysis)
+
