@@ -117,6 +117,9 @@ let (|Cmd|_|) = pack <| function
     | v -> matchfail v
 
 let execute combineLines (explanationToString: Model.Types.Roll.Explanation -> string) (storage: IDataStorage) (state:State) (input: string) (return': Callback<State>): unit =
+    let cmdPrefix txt = "* " + txt // Visually distinguish commands from log outputs in the output log.
+                                    // May eventually lift this distinction to higher levels so
+                                    // web view can italizicize or something instead.
     let rec exec state c return' =
         let state =
             { state with
@@ -140,7 +143,7 @@ let execute combineLines (explanationToString: Model.Types.Roll.Explanation -> s
                 // if they just logged text, don't echo the log entry to output, and don't double log the text
                 return' (state |> log resultText, None)
             | _ ->
-                let logEntry = combineLines [input; resultText] // log the substituted values
+                let logEntry = combineLines [cmdPrefix input; resultText] // log the substituted values
                 return' (state |> log logEntry, Some resultText)
         | ShowLog n ->
             let log = state.data.log |> Functions.Log.extract
@@ -150,7 +153,7 @@ let execute combineLines (explanationToString: Model.Types.Roll.Explanation -> s
         | Roll r ->
             let result = Dice.Roll.eval r
             let resultTxt = Dice.Roll.renderExplanation result |> explanationToString
-            let logEntry = (sprintf "%s: %s" input resultTxt) // todo: is newline + spaces the right separator for roll outputs?
+            let logEntry = (cmdPrefix (sprintf "%s: %s" input resultTxt)) // todo: is newline + spaces the right separator for roll outputs?
             return' ((state |> log logEntry), Some resultTxt)
         | Save label ->
             storage.Save label state.data (function Ok _ -> return' (state, sprintf "Saved '%s'" label |> Some) | Error err -> return' (state, sprintf "Could not save '%s': '%s'" label err |> Some))
