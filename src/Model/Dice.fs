@@ -266,10 +266,11 @@ module Roll =
     // Dev string: Packrat.parser Parse.(|Roll|_|) "att 18 +4a 2d8+2+d6" |> render (Common.String.join " ") |> printfn "%s"
 
     let rec renderExplanation (result: Result) : Explanation =
+        let omitBoring = List.filter (function Explanation(value, summary, children) -> value.ToString() <> summary || not <| List.isEmpty children)
         let details result txtTemplate lst =
             let children = List.map renderExplanation lst
             let getResult = List.map (function (Explanation(result, _, _)) -> result.ToString())
-            Explanation(result, txtTemplate (getResult children), children)
+            Explanation(result, txtTemplate (getResult children), children |> omitBoring)
         match result.source with
         | Combine(Sum, (Aggregate(_) | Repeat(_))) ->
             details result.value (fun children -> sprintf "[%s] => %d" (String.join "+" children) result.value) result.sublog
@@ -285,14 +286,10 @@ module Roll =
             let test =
                 match mods with
                 | StaticValue 0 -> renderExplanation b
-                | StaticValue _ ->
-                    let explainBase = renderExplanation b
-                    let explainMods = renderExplanation m
-                    Explanation(b.value + m.value, sprintf "%d+%d" (getValue explainBase) (getValue explainMods), [explainBase]) // omit detailed explanation of static modifier--it's enough for it to show up in the summary
                 | _ ->
                     let explainBase = renderExplanation b
                     let explainMods = renderExplanation m
-                    Explanation(b.value + m.value, sprintf "%d+%d" (getValue explainBase) (getValue explainMods), [explainBase; explainMods])
+                    Explanation(b.value + m.value, sprintf "%d+%d" (getValue explainBase) (getValue explainMods), [explainBase; explainMods] |> omitBoring) // omit detailed explanation of boring stuff like "+0" or "d8"--it's enough for it to show up in the summary
             Explanation(v.value, sprintf "(%d) -> %d" (getValue test) v.value, [test; renderExplanation v])
         | _ ->
             let explain result = Explanation(result, result.ToString(), [])
