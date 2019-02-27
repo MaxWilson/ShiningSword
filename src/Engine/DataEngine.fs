@@ -88,24 +88,32 @@ open Model.Types.Battle2
 open Model.Functions.Battle2
 
 #nowarn "40"
-let (|LogWithEmbeddedRolls|_|) =
+let (|LogWithEmbeddedExpressions|_|) =
     let openBracket = Set.ofList ['[']
     let questionMark = Set.ofList ['?']
+    let (|Expression|_|) = pack <| function
+        | Dice.Parse.Roll(r, ctx) -> Some(Expression.Roll r, ctx)
+        | Word(("avg" | "average"), Dice.Parse.Roll(r, ctx)) -> Some(Expression.Average r, ctx)
+        | _ -> None
+    let rec (|CommaSeparatedExpressions|_|) = pack <| function
+        | CommaSeparatedExpressions(exprs, OWS(Str "," (OWS (Expression(e, rest))))) -> Some(exprs @ [e], rest)
+        | Expression(e, rest) -> Some([e], rest)
+        | _ -> None
     let rec (|Chunkify|_|) = pack <| function
-        | CharsExcept openBracket (prefix, Str "[" (Dice.Parse.Roll(roll, (OWS(Str "]" (Chunkify(chunks, ctx))))))) -> Some([LogChunk.Text prefix; LogChunk.Roll roll] @ chunks, ctx)
-        | CharsExcept openBracket (prefix, Str "[" (Dice.Parse.CommaSeparatedRolls(rolls, (OWS(Str "]" (Chunkify(chunks, ctx))))))) -> Some(LogChunk.Text prefix::((rolls |> List.map LogChunk.Roll) |> List.join (LogChunk.Text ", ")) @ chunks, ctx)
-        | Str "[" (Dice.Parse.Roll(roll, (OWS(Str "]" (Chunkify(chunks, ctx)))))) -> Some([LogChunk.Roll roll] @ chunks, ctx)
-        | Str "[" (Dice.Parse.CommaSeparatedRolls(rolls, (OWS(Str "]" (Chunkify(chunks, ctx)))))) ->
-            Some((rolls |> List.map LogChunk.Roll |> List.join (LogChunk.Text ",")) @ chunks, ctx)
-        | CharsExcept questionMark (prefix, Str "?" (Dice.Parse.Roll(roll, (End as ctx)))) -> Some([LogChunk.Text (prefix + "? "); LogChunk.Roll roll], ctx)
-        | Any(msg, ctx) -> Some ((if System.String.IsNullOrWhiteSpace msg then [] else [LogChunk.Text msg]), ctx)
+        | CharsExcept openBracket (prefix, Str "[" (Expression(e, (OWS(Str "]" (Chunkify(chunks, ctx))))))) -> Some([Expression.Text prefix; e] @ chunks, ctx)
+        | CharsExcept openBracket (prefix, Str "[" (CommaSeparatedExpressions(exprs, (OWS(Str "]" (Chunkify(chunks, ctx))))))) -> Some(Expression.Text prefix::(exprs |> List.join (Expression.Text ", ")) @ chunks, ctx)
+        | Str "[" (Expression(e, (OWS(Str "]" (Chunkify(chunks, ctx)))))) -> Some([e] @ chunks, ctx)
+        | Str "[" (CommaSeparatedExpressions(exprs, (OWS(Str "]" (Chunkify(chunks, ctx)))))) ->
+            Some((exprs |> List.join (Expression.Text ",")) @ chunks, ctx)
+        | CharsExcept questionMark (prefix, Str "?" (Expression(e, (End as ctx)))) -> Some([Expression.Text (prefix + "? "); e], ctx)
+        | Any(msg, ctx) -> Some ((if System.String.IsNullOrWhiteSpace msg then [] else [Expression.Text msg]), ctx)
         | v -> matchfail v
     function
     | Chunkify(chunks, ctx) -> Some(Log chunks, ctx)
     | _ -> None
 
 let (|Cmd|_|) = pack <| function
-    | Dice.Parse.Roll(r, (End as ctx)) -> Some (Roll r, ctx)
+    | Dice.Parse.Roll(r, (End as ctx)) -> Some (Expression (Roll r), ctx)
     | Word("show", (End as ctx)) -> Some (ShowLog <| Some 3, ctx)
     | Word("show", (Int(n, (End as ctx)))) -> Some (ShowLog <| Some n, ctx)
     | Word("show", Word("all", (End as ctx))) -> Some (ShowLog None, ctx)
@@ -114,13 +122,25 @@ let (|Cmd|_|) = pack <| function
     | Word("load", Words(label, (End as ctx))) -> Some (Load label, ctx)
     | Word("clear", (End as ctx)) -> Some(Clear, ctx)
     | OWS(End) -> None
-    | LogWithEmbeddedRolls(cmd, (End as ctx)) -> Some(cmd, ctx)
+    | LogWithEmbeddedExpressions(cmd, (End as ctx)) -> Some(cmd, ctx)
     | v -> matchfail v
 
 let execute combineLines (explanationToString: Model.Types.Roll.Explanation -> string) (storage: IDataStorage) (state:State) (input: string) (return': Callback<State>): unit =
     let cmdPrefix txt = "* " + txt // Visually distinguish commands from log outputs in the output log.
                                     // May eventually lift this distinction to higher levels so
                                     // web view can italizicize or something instead.
+    let eval e: string * string option =
+        // returns expression value as string + optional detailed explanation
+        match e with
+        | Expression.Text msg -> msg, None
+        | Expression.Number n -> n.ToString(), None
+        | Expression.Roll r ->
+            let result = Dice.Roll.eval r
+            result.value.ToString(), (result |> Dice.Roll.renderExplanation |> explanationToString).Trim() |> Some
+        | Expression.Average r ->
+            let result = Dice.Roll.mean r
+            result.ToString(), None
+        | Expression.GetValue (id, prop) -> Common.notImpl()
     let rec exec state c return' =
         let state =
             { state with
@@ -129,18 +149,12 @@ let execute combineLines (explanationToString: Model.Types.Roll.Explanation -> s
         match c with
         | Quit -> return' (state |> Lens.over lview (fun s -> { s with finished = true }), None)
         | Log chunks ->
-            let eval = function
-                | LogChunk.Text msg -> msg, []
-                | LogChunk.Roll r ->
-                    let result = Dice.Roll.eval r
-                    let getSummary (Model.Types.Roll.Explanation(_, summary, _)) = summary
-                    result.value.ToString(), [(result |> Dice.Roll.renderExplanation |> explanationToString).Trim()]
             let chunks' = chunks |> List.map eval
             let mainText = (String.join emptyString (chunks' |> List.map fst))
-            let explanations = chunks' |> List.collect snd
+            let explanations = chunks' |> List.collect (snd >> List.ofOption)
             let resultText = combineLines (explanations @ [mainText])
             match chunks with
-            | [LogChunk.Text _] ->
+            | [Expression.Text _] ->
                 // if they just logged text, don't echo the log entry to output, and don't double log the text
                 return' (state |> log resultText, None)
             | _ ->
@@ -151,11 +165,10 @@ let execute combineLines (explanationToString: Model.Types.Roll.Explanation -> s
             let lines = log |> List.collect id
             let txt = (match n with Some n when n < lines.Length -> lines.[(lines.Length - n)..] | _ -> lines) |> combineLines
             return' (state, Some txt)
-        | Roll r ->
-            let result = Dice.Roll.eval r
-            let resultTxt = Dice.Roll.renderExplanation result |> explanationToString
-            let logEntry = (cmdPrefix (sprintf "%s: %s" input resultTxt)) // todo: is newline + spaces the right separator for roll outputs?
-            return' ((state |> log logEntry), Some resultTxt)
+        | Expression e ->
+            let result, explanation = eval e
+            let logEntry = cmdPrefix (sprintf "%s: %s" input (match explanation with None -> result | Some v -> v))
+            return' ((state |> log logEntry), (Some result))
         | Save label ->
             storage.Save label state.data (function Ok _ -> return' (state, sprintf "Saved '%s'" label |> Some) | Error err -> return' (state, sprintf "Could not save '%s': '%s'" label err |> Some))
         | Load label ->

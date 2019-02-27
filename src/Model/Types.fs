@@ -184,10 +184,19 @@ module Battle2 =
     module Property =
         type Name = string
         type Value = Int of int | String of string
-    type LogChunk = Text of string | Roll of Roll
+    type Expression =
+        | Roll of Roll
+        | Average of Roll
+        | GetValue of Id * Property.Name
+        | Number of int
+        | Text of string
+    type Statement =
+        | Expression of Expression
+        | SetValue of Id * Property.Name * Expression
     type Command =
-        | Log of LogChunk list | Quit | Roll of Roll | ShowLog of numberOfLines: int option
+        | Log of Expression list | Quit | ShowLog of numberOfLines: int option
         | Save of string | Load of string | Clear
+        | Expression of Expression
 
     // "real" state, stuff that is worth saving/loading
     type Data = {

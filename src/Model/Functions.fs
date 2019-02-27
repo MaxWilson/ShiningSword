@@ -26,7 +26,7 @@ module Battle2 =
     let lview = Lens.lens (fun (s:State) -> s.view) (fun v s -> { s with view = v })
     let llog f = Lens.lens (fun (s:Data) -> s.log) (fun v s -> { s with log = v }) f
     let lfinished f = Lens.lens (fun (s:ViewState) -> s.finished) (fun v s -> { s with finished = v }) f
-    let logCmd (msg: string) = Log [LogChunk.Text msg]
+    let logCmd (msg: string) = Log [Expression.Text msg]
     let log (msg:string) (state:State) : State =
         state |> Lens.over (ldata << llog) (Log.log msg)
     let emptyView =

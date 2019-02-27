@@ -71,6 +71,9 @@ module List =
         | [] | [_] -> lst
         | head::tail ->
             head :: (tail |> List.collect (fun x -> [delimiter; x]))
+    let ofOption = function
+        | None -> []
+        | Some v -> [v]
 
 module Fraction =
     open System.Numerics
