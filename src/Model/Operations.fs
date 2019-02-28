@@ -10,7 +10,7 @@ module Recognizer =
         ExternalContextOf<GameState> >> function
         | Some { battle = Some { combatants = c } } -> Some c
         | _ -> None
-    let inRoster pred (roster: Roster) =
+    let inRoster pred (roster: Battle1.Roster1) =
         roster |> Map.tryFindKey (fun id v -> pred v)
     let isAlive (c:Combatant) = true // todo: check for liveness
     let nameMatches name (c:Combatant) =

@@ -166,13 +166,14 @@ type CharInfo = {
     sp: int
     }
 
-type Roster = Map<Id, Combatant>
-type Stakes = Stakes of parEarned: int * xpReward: int * gp: int
-type Battle = {
-    map: TerrainMap
-    combatants: Map<Id, Combatant>
-    stakes: Stakes option
-    }
+module Battle1 = // obsolete
+    type Roster1 = Map<Id, Combatant>
+    type Stakes = Stakes of parEarned: int * xpReward: int * gp: int
+    type State1 = {
+        map: TerrainMap
+        combatants: Map<Id, Combatant>
+        stakes: Stakes option
+        }
 
 type Intention = Move of Position | Attack of Id
 type Declarations = (Id * Intention) list
@@ -181,19 +182,17 @@ module Log =
     type Data = string list * string list list
 
 module Battle2 =
-    module Property =
-        type Name = string
-        type Value = Number of int | Text of string
+    type PropertyName = string
+    type Value = Number of int | Text of string
     type Expression =
         | Roll of Roll
         | Average of Roll
-        | GetValue of Id * Property.Name
-        | Number of int
-        | Text of string
+        | GetValue of Id * PropertyName
+        | Value of Value
     type Statement =
         | Expression of Expression
-        | SetValue of Id * Property.Name * Expression
-        | AddToValue of Id * Property.Name * Expression
+        | SetValue of Id * PropertyName * Expression
+        | AddToValue of Id * PropertyName * Expression
     type Command =
         | Log of Expression list | Quit | ShowLog of numberOfLines: int option
         | Save of string | Load of string | Clear
@@ -205,7 +204,7 @@ module Battle2 =
     // "real" state, stuff that is worth saving/loading
     type Data = {
         log: Log.Data
-        properties: Map<(Id*Property.Name), Property.Value>
+        properties: Map<(Id*PropertyName), Value>
         roster: Roster
         }
     // Stuff to show to the user
@@ -228,7 +227,7 @@ type GameState = {
     timeElapsed: int // seconds
     gp: int
     log: Log.Data
-    battle: Battle option
+    battle: Battle1.State1 option
     }
 
 type Query =

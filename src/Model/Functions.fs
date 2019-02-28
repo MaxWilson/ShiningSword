@@ -22,15 +22,17 @@ module Log =
     let extract = flush >> snd >> List.rev
 module Battle2 =
     open Model.Types.Battle2
+    module Value =
+        let toString = function
+            | Value.Number n -> n.ToString()
+            | Value.Text v -> v
     module Property =
-        module Value =
-            let toString = function
-                | Property.Value.Number n -> n.ToString()
-                | Property.Value.Text v -> v
-        let set id (propertyName: Property.Name) value (data:Data) =
+        let set id (propertyName: PropertyName) value (data:Data) =
             { data with properties = data.properties |> Map.add (id, propertyName.ToLowerInvariant()) value }
-        let get id (propertyName: Property.Name) data =
+        let get id (propertyName: PropertyName) data =
             data.properties |> Map.tryFind (id, propertyName.ToLowerInvariant())
+    module Expression =
+        let text txt = Expression.Value(Value.Text txt)
     module Roster =
         let tryId id (roster: Roster) =
             (fst roster) |> Map.tryFind id
@@ -52,7 +54,7 @@ module Battle2 =
     let llog f = Lens.lens (fun (s:Data) -> s.log) (fun v s -> { s with log = v }) f
     let lroster = Lens.lens (fun (s:Data) -> s.roster) (fun v s -> { s with roster = v })
     let lfinished f = Lens.lens (fun (s:ViewState) -> s.finished) (fun v s -> { s with finished = v }) f
-    let logCmd (msg: string) = Log [Expression.Text msg]
+    let logCmd (msg: string) = Log [Expression.text msg]
     let log (msg:string) (state:State) : State =
         state |> Lens.over (ldata << llog) (Log.log msg)
     let emptyView =

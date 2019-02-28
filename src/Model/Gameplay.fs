@@ -265,7 +265,7 @@ let retirementMessage state =
         else
             (sprintf "%s glumly retire from adventuring and spend the rest of your life doing menial labor, paying off the %d gold pieces that you owe." collectiveVocative -state.gp)
 
-let fight state =
+let fight (state: GameState) =
     let mutable hpMap =
         state.battle.Value.combatants
         |> Seq.map (function
@@ -357,12 +357,12 @@ let retire state : Eventual<_,_,_> = queryInteraction {
 
 let startBattle (state:GameState) =
     let monsters, parEarned, totalXpEarned, gp = makeTower state.parEarned state.towerNumber
-    let battle = { Battle.create with stakes = Some <| Stakes(parEarned, totalXpEarned, gp) }
+    let battle = { Battle1.create with stakes = Some <| Battle1.Stakes(parEarned, totalXpEarned, gp) }
     let enemies = monsters |> List.collect (fun (name, n) ->
         let ctor = MonsterManual.lookup name;
         List.init n (thunk ctor))
-    let battle = state.pcs |> List.fold (flip (Battle.addExistingCharacter TeamId.Blue)) battle
-    let battle = enemies |> List.fold (fun b e -> b |> Battle.addFreshCombatant TeamId.Red e) battle
+    let battle = state.pcs |> List.fold (flip (Battle1.addExistingCharacter TeamId.Blue)) battle
+    let battle = enemies |> List.fold (fun b e -> b |> Battle1.addFreshCombatant TeamId.Red e) battle
     let state = { state with battle = Some battle }
     monsters, state
 
@@ -378,7 +378,7 @@ let enterTower (state: GameState) : Eventual<_,_,_> = queryInteraction {
 let finishTower (state:GameState) : Eventual<_,_,_> = queryInteraction {
     let (parEarned, totalXpEarned, gp) =
         match state.battle with
-        | Some { stakes = Some (Stakes(parEarned, totalXpEarned, gp)) } -> (parEarned, totalXpEarned, gp)
+        | Some { stakes = Some (Battle1.Stakes(parEarned, totalXpEarned, gp)) } -> (parEarned, totalXpEarned, gp)
         | _ -> failwith "Should never finish a battle that wasn't started with some stakes"
     if state.pcs |> List.exists (fun pc -> (CharInfo.getCurrentHP pc) > 0) |> not then
         // everyone is dead

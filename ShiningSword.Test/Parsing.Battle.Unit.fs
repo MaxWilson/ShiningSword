@@ -24,7 +24,6 @@ let DieInputs =
     "(d8+1)/2", Transform(d 1 8 +1, Div 2), None
     "4.3.14d?3d6+1:((3d6+1)/2)", Combine(Sum, Repeat(4, Combine(Sum, Repeat(3, Branch(disadv +0, [AtLeast 14, d 3 6 +1; Else, Transform(d 3 6 +1, Div 2)]))))), None
     "att 12 2d4+7", Branch(normal 0, [Crit, d 4 4 7; AtLeast 12, d 2 4 7]), None
-    "att 12a 2d4+7", Branch(adv 0, [Crit, d 4 4 7; AtLeast 12, d 2 4 7]), None
     "att 12 +7 2d4+7", Branch(normal +7, [Crit, d 4 4 7; AtLeast 12, d 2 4 7]), None
     "12.att 12 2d4+7", Combine(Sum, Repeat(12, Branch(normal 0, [Crit, d 4 4 7; AtLeast 12, d 2 4 7]))), None
     "11a?", Branch(adv 0, [AtLeast 11, StaticValue 1]), None
@@ -34,7 +33,6 @@ let DieInputs =
     "best 3 of 4.d6", Combine(Sum, Best(3, Repeat(4, Dice(1,6)))), None
     "d20a", Combine(Max, Repeat(2, d20)), None
     "(d20d + 7 at least 17)?", Branch(disadv 7, [AtLeast 17, StaticValue 1]), None
-    "att 12d +7 2d8+4", Branch(disadv 7, [Crit, d 4 8 4; AtLeast 12, d 2 8 4]), None
     "att 12 +7a 2d8+4", Branch(adv 7, [Crit, d 4 8 4; AtLeast 12, d 2 8 4]), None
     "att 25 +4 d100", Branch(normal 4, [Crit, Dice(2,100); AtLeast 25, Dice(1,100)]), None
     "att 25 4 d100", Branch(normal 4, [Crit, Dice(2,100); AtLeast 25, Dice(1,100)]), None

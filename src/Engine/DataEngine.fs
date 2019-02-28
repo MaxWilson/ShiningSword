@@ -135,13 +135,13 @@ module Parse =
         let openBracket = Set.ofList ['[']
         let questionMark = Set.ofList ['?']
         let rec (|Chunkify|_|) = pack <| function
-            | CharsExcept openBracket (prefix, Str "[" (Expression(e, (OWS(Str "]" (Chunkify(chunks, ctx))))))) -> Some([Expression.Text prefix; e] @ chunks, ctx)
-            | CharsExcept openBracket (prefix, Str "[" (CommaSeparatedExpressions(exprs, (OWS(Str "]" (Chunkify(chunks, ctx))))))) -> Some(Expression.Text prefix::(exprs |> List.join (Expression.Text ", ")) @ chunks, ctx)
+            | CharsExcept openBracket (prefix, Str "[" (Expression(e, (OWS(Str "]" (Chunkify(chunks, ctx))))))) -> Some([Expression.text prefix; e] @ chunks, ctx)
+            | CharsExcept openBracket (prefix, Str "[" (CommaSeparatedExpressions(exprs, (OWS(Str "]" (Chunkify(chunks, ctx))))))) -> Some(Expression.text prefix::(exprs |> List.join (Expression.text ", ")) @ chunks, ctx)
             | Str "[" (Expression(e, (OWS(Str "]" (Chunkify(chunks, ctx)))))) -> Some([e] @ chunks, ctx)
             | Str "[" (CommaSeparatedExpressions(exprs, (OWS(Str "]" (Chunkify(chunks, ctx)))))) ->
-                Some((exprs |> List.join (Expression.Text ",")) @ chunks, ctx)
-            | CharsExcept questionMark (prefix, Str "?" (Expression(e, (End as ctx)))) -> Some([Expression.Text (prefix + "? "); e], ctx)
-            | Any(msg, ctx) -> Some ((if System.String.IsNullOrWhiteSpace msg then [] else [Expression.Text msg]), ctx)
+                Some((exprs |> List.join (Expression.text ",")) @ chunks, ctx)
+            | CharsExcept questionMark (prefix, Str "?" (Expression(e, (End as ctx)))) -> Some([Expression.text (prefix + "? "); e], ctx)
+            | Any(msg, ctx) -> Some ((if System.String.IsNullOrWhiteSpace msg then [] else [Expression.text msg]), ctx)
             | v -> matchfail v
         function
         | Chunkify(chunks, ctx) -> Some(Log chunks, ctx)
@@ -166,17 +166,16 @@ let execute combineLines (explanationToString: Model.Types.Roll.Explanation -> s
                                     // May eventually lift this distinction to higher levels so
                                     // web view can italizicize or something instead.
     let rec exec (state: State) c return' =
-        let eval e: Property.Value * string option =
+        let eval e: Value * string option =
             // returns expression value as string + optional detailed explanation
             match e with
-            | Expression.Text msg -> Property.Value.Text msg, None
-            | Expression.Number n -> Property.Value.Number n, None
+            | Expression.Value(v) -> v, None
             | Expression.Roll r ->
                 let result = Dice.Roll.eval r
-                Property.Value.Number(result.value), (result |> Dice.Roll.renderExplanation |> explanationToString).Trim() |> Some
+                Value.Number(result.value), (result |> Dice.Roll.renderExplanation |> explanationToString).Trim() |> Some
             | Expression.Average r ->
                 let result = Dice.Roll.mean r
-                Property.Text(result.ToString()), None
+                Value.Text(result.ToString()), None
             | Expression.GetValue(id, property) ->
                 match state.data |> Property.get id property with
                 | Some v -> v, None
@@ -188,12 +187,12 @@ let execute combineLines (explanationToString: Model.Types.Roll.Explanation -> s
         match c with
         | Quit -> return' (state |> Lens.over lview (fun s -> { s with finished = true }), None)
         | Log chunks ->
-            let chunks' = chunks |> List.map (eval >> Tuple.mapfst Property.Value.toString)
+            let chunks' = chunks |> List.map (eval >> Tuple.mapfst Value.toString)
             let mainText = (String.join emptyString (chunks' |> List.map fst))
             let explanations = chunks' |> List.collect (snd >> List.ofOption)
             let resultText = combineLines (explanations @ [mainText])
             match chunks with
-            | [Expression.Text _] ->
+            | [Expression.Value(Text _)] ->
                 // if they just logged text, don't echo the log entry to output, and don't double log the text
                 return' (state |> log resultText, None)
             | _ ->
@@ -211,23 +210,23 @@ let execute combineLines (explanationToString: Model.Types.Roll.Explanation -> s
                 | Error(e) -> state, Some e
         | Statement(Expression e) ->
             let result, explanation = eval e
-            let logEntry = cmdPrefix (sprintf "%s: %s" input (match explanation with None -> result |> Property.Value.toString | Some v -> v))
+            let logEntry = cmdPrefix (sprintf "%s: %s" input (match explanation with None -> result |> Value.toString | Some v -> v))
             return' ((state |> log logEntry), (Some logEntry))
         | Statement(SetValue(id, propertyName, expr)) ->
             let result, explanation = eval expr
             let name = Roster.tryId id state.data.roster |> Option.get
-            let logEntry = cmdPrefix (combineLines ((sprintf "%s's new %s: %s" name propertyName (Property.Value.toString result))::(List.ofOption explanation)))
+            let logEntry = cmdPrefix (combineLines ((sprintf "%s's new %s: %s" name propertyName (Value.toString result))::(List.ofOption explanation)))
             let state = state |> Lens.over ldata (Property.set id propertyName result)
-            return' ((state |> log logEntry), (Some (result |> Property.Value.toString)))
+            return' ((state |> log logEntry), (Some (result |> Value.toString)))
         | Statement(AddToValue(id, propertyName, expr)) ->
-            let currentValue = state.data |> Property.get id propertyName |> Option.defaultValue (Property.Value.Number 0)
+            let currentValue = state.data |> Property.get id propertyName |> Option.defaultValue (Value.Number 0)
             let result, explanation = eval expr
             let newValue =
                 match currentValue, result with
-                | Property.Value.Number lhs, Property.Value.Number rhs -> Property.Value.Number(lhs + rhs)
+                | Value.Number lhs, Value.Number rhs -> Value.Number(lhs + rhs)
                 | _ -> Common.notImpl() // todo: implement strong typing or something
             let name = Roster.tryId id state.data.roster |> Option.get
-            let shortLog = sprintf "%s's %s changed from %s to %s" name propertyName (Property.Value.toString currentValue) (Property.Value.toString newValue)
+            let shortLog = sprintf "%s's %s changed from %s to %s" name propertyName (Value.toString currentValue) (Value.toString newValue)
             let logEntry = cmdPrefix (combineLines ((List.ofOption explanation)@[shortLog]))
             let state = state |> Lens.over ldata (Property.set id propertyName newValue)
             return' ((state |> log logEntry), (Some shortLog))

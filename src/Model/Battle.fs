@@ -1,4 +1,4 @@
-module Model.Battle
+module Model.Battle1
 open Model.Chargen
 open Model.Names
 open Common
@@ -8,8 +8,8 @@ open Model.Operations
 
 let randomSex() = chooseRandom [|Male;Female|]
 
-let create = { Battle.map = Map.empty; combatants = Map.empty; stakes = None }
-let add teamId (sb:StatBlock) (usages:Usages) (status:Status) (battle: Battle) =
+let create = { Battle1.State1.map = Map.empty; Battle1.State1.combatants = Map.empty; Battle1.State1.stakes = None }
+let add teamId (sb:StatBlock) (usages:Usages) (status:Status) (battle: Battle1.State1) =
     let nextId =
         if battle.combatants.IsEmpty then 1
         else 1 + (battle.combatants |> Map.toSeq |> Seq.maxBy fst |> fst)

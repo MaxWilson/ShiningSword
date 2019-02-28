@@ -8,8 +8,7 @@ let thunk1 f arg _ = f arg
 let thunk2 f arg1 arg2 _ = f arg1 arg2
 let thunk3 f arg1 arg2 arg3 _ = f arg1 arg2 arg3
 let ignore1 f _ = f()
-type MatchFailException(msg) = inherit System.InvalidOperationException(msg)
-let matchfail v = sprintf "No match found for %A. This is a bug." v |> MatchFailException |> raise
+let matchfail v = sprintf "No match found for %A. This is a bug." v |> invalidOp
 let notImpl() = failwith "Not implemented yet. Email Max if you want this feature."
 
 let chooseRandom (lst: _ []) =
