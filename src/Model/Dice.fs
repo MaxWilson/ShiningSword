@@ -55,26 +55,15 @@ let rec render (r:Model.Types.RollType) = Common.notImpl()
 module Parse =
     open Packrat
     let rec (|SumOfSimpleRolls|_|) = pack <| function
-        | SumOfSimpleRolls(lhs, OWS(Char('+', OWS(SimpleRoll(r, rest))))) -> Some(lhs@[r], rest)
-        | SumOfSimpleRolls(lhs, OWS(Char('+', OWS(Int(n, rest))))) -> Some(lhs@[StaticValue n], rest)
-        | SumOfSimpleRolls(lhs, OWS(Char('-', OWS(Int(n, rest))))) -> Some(lhs@[StaticValue -n], rest)
         | SimpleRoll(roll, rest) -> Some([roll], rest)
         | _ -> None
     and (|SimpleRoll|_|) = pack <| function
-        | OWS(IntNoWhitespace(n, Char ('d', IntNoWhitespace(d, Char ('k', IntNoWhitespace(m, rest)))))) -> Some (Combine(Sum, Best(m, (Repeat(n, Dice(1, d))))), rest)
-        | OWS(IntNoWhitespace(n, Char ('d', IntNoWhitespace(d, rest)))) -> Some (Dice(n, d), rest)
-        | OWS(IntNoWhitespace(n, Char ('d', rest))) -> Some (Dice(n, 6), rest)
-        | OWS(Char ('d', IntNoWhitespace(d, Char('a', rest)))) -> Some (Combine(Max, Repeat(2, Dice(1,d))), rest)
-        | OWS(Char ('d', IntNoWhitespace(d, Char('d', rest)))) -> Some (Combine(Min, Repeat(2, Dice(1,d))), rest)
-        | OWS(Char ('d', IntNoWhitespace(d, rest))) -> Some (Dice(1,d), rest)
         | OWS(IntNoWhitespace(n, rest)) -> Some(StaticValue n, rest)
         | _ -> None
     let (|RollsWithModifiers|_|) = pack <| function
         | SumOfSimpleRolls([v], rest) -> Some(v, rest)
-        | SumOfSimpleRolls(rolls, rest) -> Some(Combine(Sum, Aggregate rolls), rest)
         | _ -> None
     let rec (|CommaSeparatedRolls|_|) = pack <| function
-        | CommaSeparatedRolls(rolls, OWS(Str "," (OWS (Roll(r, rest))))) -> Some(rolls @ [r], rest)
         | Roll(r, rest) -> Some([r], rest)
         | _ -> None
     and (|PlusSeparatedRolls|_|) = pack <| function
