@@ -75,10 +75,6 @@ module Parse =
             match System.Int32.TryParse(v) with
             | true, v -> Some(v, rest)
             | _ -> None
-        | OWS(Str "-" (Chars numeric (v, rest))) ->
-            match System.Int32.TryParse(v) with
-            | true, v -> Some(-v, rest)
-            | _ -> None
         | _ -> None
     and (|Advantage|_|) = function
         | Char('a', rest) -> Some rest
