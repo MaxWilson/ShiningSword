@@ -1,7 +1,7 @@
 module Model.Types
 
 
-module Roll =
+module RollModule =
     open System.Numerics
     type Predicate = AtLeast of int | AtMost of int | Natural of min: int * max: int | Else
     type Transform = Div of int | Times of int
@@ -25,13 +25,13 @@ module Roll =
         DistributionResult of Map<ResultValue, BigInteger>
 type FractionalResult = float
 
-type Roll = Roll.Request
+type RollType = RollModule.Request
 
 type DamageType = Weapon | Fire | Cold | Poison
 
 type Attack = {
     tohit: int
-    damage: Roll * DamageType
+    damage: RollType * DamageType
     }
 
 type Id = int
@@ -175,7 +175,7 @@ type Battle = {
     }
 
 module Battle2 =
-    type Expression = Roll of Roll | Repeat
+    type Expression = Roll of RollType | Repeat
     type Command = Log of string | Quit | Roll of Expression
     type Battle = {
         log: string list

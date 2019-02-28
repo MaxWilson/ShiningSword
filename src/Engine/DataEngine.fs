@@ -80,7 +80,7 @@ type IDataStorage =
     abstract member Load: Label -> Callback<'T>
 
 type Model = string list
-type Cmd = Quit | Log of string | Roll of Model.Types.Roll
+type Cmd = Quit | Log of string | Roll of Model.Types.RollType
 open Packrat
 open Model
 open Common

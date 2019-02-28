@@ -2,7 +2,7 @@ module Model.Dice
 
 module Roll =
     open Common
-    open Model.Types.Roll
+    open Model.Types.RollModule
     open System.Numerics
     let betweenInclusive bound1 bound2 x = (min bound1 bound2) <= x && x <= (max bound1 bound2)
     module Predicate =
@@ -201,7 +201,7 @@ module Roll =
                     |> List.reduce (fun (count, total) (count', total') -> count + count', total + total')
                 Fraction.ratio 4 total count
 
-    let rec render (r:Model.Types.Roll) =
+    let rec render (r:Model.Types.RollType) =
         let renderAgg = function
         | AggregateRequest.Aggregate(reqs) -> Common.notImpl()
         | Repeat(n, req)-> Common.notImpl()
@@ -218,7 +218,7 @@ module Roll =
 #nowarn "40" // suppress warning 40--reference loops are not a problem for packrat parsing
 module Parse =
     open Packrat
-    open Model.Types.Roll
+    open Model.Types.RollModule
     open Roll
     let rec (|SumOfSimpleRolls|_|) = pack <| function
         | SumOfSimpleRolls(lhs, OWS(Char('+', OWS(SimpleRoll(r, rest))))) -> Some(lhs@[r], rest)

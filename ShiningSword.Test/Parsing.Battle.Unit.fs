@@ -1,5 +1,5 @@
 module Parsing.Battle.Unit
-open Model.Types.Roll
+open Model.Types.RollModule
 open Model.Dice.Roll
 open Xunit
 open Model.Types
@@ -45,7 +45,7 @@ let DieInputs =
   |> Array.ofList
 [<Theory>]
 [<MemberData("DieInputs")>]
-let DieParsingTest(txt: string, expected: Roll.Request) =
+let DieParsingTest(txt: string, expected: RollModule.Request) =
   match ParseArgs.Init txt with
   | Model.Dice.Parse.Roll(roll, End) ->
     Assert.Equal(expected, roll)
@@ -61,7 +61,7 @@ let AggregateDieInputs =
   |> Array.ofList
 [<Theory>]
 [<MemberData("AggregateDieInputs")>]
-let AggregateParsingTest(txt: string, expected: Roll.AggregateRequest) =
+let AggregateParsingTest(txt: string, expected: RollModule.AggregateRequest) =
   match ParseArgs.Init txt with
   | Model.Dice.Parse.Aggregate(roll, End) ->
     Assert.Equal(expected, roll)
@@ -80,9 +80,9 @@ let AggregateParsingTest(txt: string, expected: Roll.AggregateRequest) =
 let DieRollTests(txt: string, expectedAverage: float, expectedMin: int, expectedMax: int) =
   match ParseArgs.Init txt with
   | Model.Dice.Parse.Roll(roll, End) ->
-    Assert.Equal(expectedAverage, Roll.mean roll)
+    Assert.Equal(expectedAverage, RollModule.mean roll)
     for _ in 1..100 do
-      let v = (Roll.eval roll |> Result.getValue)
+      let v = (RollModule.eval roll |> Result.getValue)
       Assert.True(betweenInclusive expectedMin expectedMax v, sprintf "Expected result between %d and %d, got %d" expectedMin expectedMax v)
   | ParseInput.FailureAnalysis(_, analysis) ->
     failwithf "Could not parse '%s'\nSuccessful matches: %s" txt (String.join "\n" analysis)
