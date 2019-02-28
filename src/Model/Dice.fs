@@ -41,6 +41,7 @@ module Roll =
             | Best(n, agg) -> Best(n, mapAgg agg)
         mapRoll roll
     let doubleDice = multiplyResultDice 2
+    let invert r = Transform(r, Times -1)
 
     let rec evaluate (r: int -> int) roll =
         let toResult priors v = { Result.value = v; source = roll; sublog = priors }

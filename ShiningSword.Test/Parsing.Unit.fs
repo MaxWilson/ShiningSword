@@ -111,3 +111,20 @@ let VerifyContextSensitiveGrammarUsage() =
   Assert.Equal("Look, it's a Eraser", parse "Eraser")
   Assert.Equal("Hello, Ann", parse "Ann")
   Assert.Equal("Look, it's a Bob", parseBase ([]:string list) "Bob")
+
+[<Theory(DisplayName = "[Packrat] Verify non-trivial helper function LongestSubstringWhere")>]
+[<InlineData("zzabcdzzzzefg", "zz", 12, "abcdzzzz")>]
+[<InlineData("zzabcdzzzzefg", "zz", 9, "abcdzzzz")>]
+[<InlineData("zzabcdzzzzefg", "zz", 8, "abcdzzzz")>]
+[<InlineData("zzabcdzzzzefg", "zz", 6, "abcdzz")>]
+[<InlineData("zzabcdzzzzefg", "zz", 5, "abcdz")>]
+[<InlineData("zzabcdzzzzefg", "zz", 4, "No match")>]
+[<InlineData("zzabcdz", "zz", 5, "abcdz")>]
+[<InlineData("abcdz", "", 5, "abcdz")>]
+let VerifyLongestSubstringWhere(input, prefix, maxLen, expected) =
+    let pred = (fun (s:string) -> s.EndsWith("z"))
+    let actual =
+        match ParseArgs.Init input with // initial zz to make sure LongestSubstringWhere is testing the matched substring and not the whole string
+        | Str prefix (LongestSubstringWhere pred maxLen (v, ctx)) -> v
+        | _ -> "No match"
+    Assert.Equal(expected, actual)

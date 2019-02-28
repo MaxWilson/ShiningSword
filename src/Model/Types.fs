@@ -183,7 +183,7 @@ module Log =
 module Battle2 =
     module Property =
         type Name = string
-        type Value = Int of int | String of string
+        type Value = Number of int | Text of string
     type Expression =
         | Roll of Roll
         | Average of Roll
@@ -193,15 +193,20 @@ module Battle2 =
     type Statement =
         | Expression of Expression
         | SetValue of Id * Property.Name * Expression
+        | AddToValue of Id * Property.Name * Expression
     type Command =
         | Log of Expression list | Quit | ShowLog of numberOfLines: int option
         | Save of string | Load of string | Clear
-        | Expression of Expression
+        | AddCombatant of Name
+        | Statement of Statement
+
+    type Roster = Map<Id, Name> * Map<Name, Id>
 
     // "real" state, stuff that is worth saving/loading
     type Data = {
         log: Log.Data
         properties: Map<(Id*Property.Name), Property.Value>
+        roster: Roster
         }
     // Stuff to show to the user
     type ViewState = {

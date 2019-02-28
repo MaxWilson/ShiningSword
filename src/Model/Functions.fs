@@ -22,9 +22,35 @@ module Log =
     let extract = flush >> snd >> List.rev
 module Battle2 =
     open Model.Types.Battle2
+    module Property =
+        module Value =
+            let toString = function
+                | Property.Value.Number n -> n.ToString()
+                | Property.Value.Text v -> v
+        let set id (propertyName: Property.Name) value (data:Data) =
+            { data with properties = data.properties |> Map.add (id, propertyName.ToLowerInvariant()) value }
+        let get id (propertyName: Property.Name) data =
+            data.properties |> Map.tryFind (id, propertyName.ToLowerInvariant())
+    module Roster =
+        let tryId id (roster: Roster) =
+            (fst roster) |> Map.tryFind id
+        let tryName (name:string) (roster: Roster) =
+            (snd roster) |> Map.tryFind (name.ToLowerInvariant()) // name lookup is normalized in lowercase
+        let empty = Map.empty, Map.empty
+        let add name ((idLookup, nameLookup) as roster : Roster) : Result<Roster, string> =
+            match tryName name roster with
+            | Some v -> Error (sprintf "%s already exists" name)
+            | None ->
+                let newId =
+                    let ids = fst roster |> Map.toSeq
+                    if Seq.isEmpty ids then 1
+                    else 1 + (ids |> Seq.map fst |> Seq.min)
+                Ok((idLookup |> Map.add newId name), (nameLookup |> Map.add (name.ToLowerInvariant()) newId))
+
     let ldata = Lens.lens (fun (s:State) -> s.data) (fun v s -> { s with data = v })
     let lview = Lens.lens (fun (s:State) -> s.view) (fun v s -> { s with view = v })
     let llog f = Lens.lens (fun (s:Data) -> s.log) (fun v s -> { s with log = v }) f
+    let lroster = Lens.lens (fun (s:Data) -> s.roster) (fun v s -> { s with roster = v })
     let lfinished f = Lens.lens (fun (s:ViewState) -> s.finished) (fun v s -> { s with finished = v }) f
     let logCmd (msg: string) = Log [Expression.Text msg]
     let log (msg:string) (state:State) : State =
@@ -41,6 +67,8 @@ module Battle2 =
         {   data = {
                 log = Log.empty
                 properties = Map.empty
+                roster = Roster.empty
                 }
             view = emptyView
             }
+

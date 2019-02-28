@@ -97,3 +97,7 @@ module Tuple =
     let get2of3 (_, x, _) = x
     let get3of3 (_, _, x) = x
 
+module Result =
+    let OkOnly = function
+        | Ok(v) -> v
+        | v -> matchfail v

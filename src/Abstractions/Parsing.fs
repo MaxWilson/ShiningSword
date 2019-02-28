@@ -159,6 +159,23 @@ let (|CharsExcept|_|) exclusions ((ctx, ix): ParseInput) =
   | endpos when endpos > ix -> Some(ctx.input.Substring(ix, endpos - ix), (ctx, endpos))
   | _ -> None
 
+let (|LongestSubstringWhere|_|) pred maxLength ((ctx, ix): ParseInput) =
+    let start = ix
+    let rec seek i biggestMatch =
+        let isMatch() = ctx.input.Substring(start, i - start) |> pred
+        if i <= ctx.input.Length && (i - start) <= maxLength then
+            if isMatch() then seek (i+1) (Some i)
+            else
+                // if we've already found a match, quit as soon as we fail to find another
+                if biggestMatch |> Option.isSome then biggestMatch
+                // if we haven't found one yet, keep going until we run out of inputs or exceed maxLength
+                else seek (i+1) biggestMatch
+        else
+            biggestMatch
+    match seek ix None with
+    | Some endpos -> Some(ctx.input.Substring(ix, endpos - ix), (ctx, endpos))
+    | _ -> None
+
 let (|AnyCase|) (input: string) = input.ToLowerInvariant()
 
 let (|Any|) ((ctx, ix): ParseInput) =
@@ -215,3 +232,12 @@ let parser (recognizerRoot: ParseRule<_>) txt =
   | Root(v, End) -> v
   | ParseInput.FailureAnalysis(_, analysis) ->
     failwithf "Could not parse '%s'\nSuccessful matches: %s" txt (System.String.Join("\n", analysis))
+
+// helper function for dynamically creating parsers from root rules. May be useful for scripting.
+let parserWithExternalContext (recognizerRoot: ParseRule<_>) ctx txt =
+  let (|Root|_|) = recognizerRoot
+  match ParseArgs.Init(txt, ctx) with
+  | Root(v, End) -> v
+  | ParseInput.FailureAnalysis(_, analysis) ->
+    failwithf "Could not parse '%s'\nSuccessful matches: %s" txt (System.String.Join("\n", analysis))
+
