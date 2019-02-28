@@ -212,7 +212,7 @@ let execute combineLines (explanationToString: Model.Types.Roll.Explanation -> s
         | Statement(Expression e) ->
             let result, explanation = eval e
             let logEntry = cmdPrefix (sprintf "%s: %s" input (match explanation with None -> result |> Property.Value.toString | Some v -> v))
-            return' ((state |> log logEntry), (Some (result |> Property.Value.toString)))
+            return' ((state |> log logEntry), (Some logEntry))
         | Statement(SetValue(id, propertyName, expr)) ->
             let result, explanation = eval expr
             let name = Roster.tryId id state.data.roster |> Option.get
