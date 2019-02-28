@@ -123,9 +123,9 @@ module Parse =
     let (|Statement|_|) = pack <| function
         | Keyword "set" (CombatantProperty((id,property), Keyword "to" ((Expression(e, ctx))))) -> Some(SetValue(id, property, e), ctx)
         | CombatantProperty((id,property), OWS(Str "=" (OWS(Expression(e, ctx))))) -> Some(SetValue(id, property, e), ctx)
-        | ValidName(id, Keyword "has" (Dice.Parse.Roll(r, Word(propertyName, ctx)))) -> Some(SetValue(id, propertyName, Expression.Roll r), ctx)
-        | ValidName(id, Keyword "gains" (Dice.Parse.Roll(r, Word(propertyName, ctx)))) -> Some(AddToValue(id, propertyName, Expression.Roll r), ctx)
-        | ValidName(id, AnyCaseWord(("loses"|"spends"), (Dice.Parse.Roll(r, Word(propertyName, ctx))))) -> Some(AddToValue(id, propertyName, Expression.Roll (Dice.Roll.invert r)), ctx)
+        | ValidName(id, Keyword "has" (Dice.Parse.Roll(r, Word(propertyName, Optional "." (Optional "!" ctx))))) -> Some(SetValue(id, propertyName, Expression.Roll r), ctx)
+        | ValidName(id, Keyword "gains" (Dice.Parse.Roll(r, Word(propertyName, Optional "." (Optional "!" ctx))))) -> Some(AddToValue(id, propertyName, Expression.Roll r), ctx)
+        | ValidName(id, AnyCaseWord(("loses"|"spends"), (Dice.Parse.Roll(r, Word(propertyName, Optional "." (Optional "!" ctx)))))) -> Some(AddToValue(id, propertyName, Expression.Roll (Dice.Roll.invert r)), ctx)
         | Expression(e, ctx) -> Some(Expression e, ctx)
         | _ -> None
 
