@@ -85,10 +85,8 @@ module Parse =
     and (|Attack|_|) = pack <| function
         // multiple shorthands for specifying advantage and disadvantage
         | Word(AnyCase("att" | "attack"), IntNoWhitespace(ac, NumericBonus(toHit, WS (Roll(dmg, rest))))) -> Some(Branch(normal toHit, [Crit, doubleDice dmg; AtLeast ac, dmg]), rest)
-        | Word(AnyCase("att" | "attack"), IntNoWhitespace(ac, Advantage(Roll(dmg, rest)))) -> Some(Branch(adv 0, [Crit, doubleDice dmg; AtLeast ac, dmg]), rest)
-        | Word(AnyCase("att" | "attack"), IntNoWhitespace(ac, Disadvantage(Roll(dmg, rest)))) -> Some(Branch(disadv 0, [Crit, doubleDice dmg; AtLeast ac, dmg]), rest)
-        | Word(AnyCase("att" | "attack"), IntNoWhitespace(ac, Advantage(NumericBonus(toHit, WS(Roll(dmg, rest)))))) -> Some(Branch(adv toHit, [Crit, doubleDice dmg; AtLeast ac, dmg]), rest)
-        | Word(AnyCase("att" | "attack"), IntNoWhitespace(ac, Disadvantage(NumericBonus(toHit, WS(Roll(dmg, rest)))))) -> Some(Branch(disadv toHit, [Crit, doubleDice dmg; AtLeast ac, dmg]), rest)
+        | Word(AnyCase("att" | "attack"), IntNoWhitespace(ac, NumericBonus(toHit, Advantage(WS(Roll(dmg, rest)))))) -> Some(Branch(adv toHit, [Crit, doubleDice dmg; AtLeast ac, dmg]), rest)
+        | Word(AnyCase("att" | "attack"), IntNoWhitespace(ac, NumericBonus(toHit, Disadvantage(WS(Roll(dmg, rest)))))) -> Some(Branch(disadv toHit, [Crit, doubleDice dmg; AtLeast ac, dmg]), rest)
         | Word(AnyCase("att" | "attack"), IntNoWhitespace(ac, Roll(dmg, rest))) -> Some(Branch(normal 0, [Crit, doubleDice dmg; AtLeast ac, dmg]), rest)
         | _ -> None
     and (|TestVariable|_|) =
