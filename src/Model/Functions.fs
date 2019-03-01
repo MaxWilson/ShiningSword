@@ -46,7 +46,7 @@ module Battle2 =
                 let newId =
                     let ids = fst roster |> Map.toSeq
                     if Seq.isEmpty ids then 1
-                    else 1 + (ids |> Seq.map fst |> Seq.min)
+                    else 1 + (ids |> Seq.map fst |> Seq.max)
                 Ok((idLookup |> Map.add newId name), (nameLookup |> Map.add (name.ToLowerInvariant()) newId))
 
     let ldata = Lens.lens (fun (s:State) -> s.data) (fun v s -> { s with data = v })
