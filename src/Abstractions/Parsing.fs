@@ -111,6 +111,11 @@ let pack (rule: ParseRule<'t>) : ParseRule<'t> =
           Some(v, output)
   eval // return eval function
 
+let packrec parseRule =
+    let mutable f = Unchecked.defaultof<_>
+    f <- pack (parseRule f)
+    f
+
 // Here's some basic parser primitives that might be useful for anything
 
 let (|End|_|) ((ctx, ix): ParseInput) =
@@ -214,9 +219,8 @@ let (|Word|_|) = pack <| function
   | OWS(Chars alphanumeric (v, OWS rest)) -> Some(v, rest)
   | _ -> None
 
-#nowarn "40"
-let rec (|Words|_|) =
-  pack <| function
+let (|Words|_|) =
+  packrec <| fun (|Words|_|) -> function
   | Words(_, Word(_, ((_, endix) as rest))) & (ctx, ix) ->
     // instead of just accepting the output from Word, we'll re-derive and trim it in order to preserve the interior whitespace
     let txt = ctx.input.Substring(ix, (endix - ix)).Trim()
