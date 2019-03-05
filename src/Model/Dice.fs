@@ -301,39 +301,46 @@ module Roll =
                 explain result.value
         renderExplanation true result
 
-#nowarn "40" // suppress warning 40--reference loops are not a problem for packrat parsing
 module Parse =
     open Packrat
     open Model.Types.Roll
     open Roll
-    let rec (|SumOfSimpleRolls|_|) = pack <| function
+
+    let uninitialized<'t> : ParseRule<'t> = Common.shouldntHappen
+    let mutable (|SimpleRoll|_|) = uninitialized<_>
+    let (|SumOfSimpleRolls|_|) = packrec <| fun (|SumOfSimpleRolls|_|) -> function
         | SumOfSimpleRolls(lhs, OWS(Char('+', OWS(SimpleRoll(r, rest))))) -> Some(lhs@[r], rest)
         | SumOfSimpleRolls(lhs, OWS(Char('+', OWS(Int(n, rest))))) -> Some(lhs@[StaticValue n], rest)
         | SumOfSimpleRolls(lhs, OWS(Char('-', OWS(Int(n, rest))))) -> Some(lhs@[StaticValue -n], rest)
         | SimpleRoll(roll, rest) -> Some([roll], rest)
         | _ -> None
-    and (|SimpleRoll|_|) = pack <| function
-        | OWS(IntNoWhitespace(n, Char ('d', IntNoWhitespace(d, Char ('k', IntNoWhitespace(m, rest)))))) -> Some (Combine(Sum, Best(m, (Repeat(n, Dice(1, d))))), rest)
-        | OWS(IntNoWhitespace(n, Char ('d', IntNoWhitespace(d, rest)))) -> Some (Dice(n, d), rest)
+
+    (|SimpleRoll|_|) <-
+        let (|LongSimpleRoll|_|) = function OWS(IntNoWhitespace(n, Char ('d', IntNoWhitespace(d, Char ('k', IntNoWhitespace(m, rest)))))) -> Some (Combine(Sum, Best(m, (Repeat(n, Dice(1, d))))), rest) | _ -> None
+        let (|MidSimpleRoll|_|) = function | OWS(IntNoWhitespace(n, Char ('d', IntNoWhitespace(d, rest)))) -> Some (Dice(n, d), rest) | _ -> None
+        pack <| function
+        | LongSimpleRoll(roll, ctx) -> Some(roll, ctx)
+        | MidSimpleRoll(roll, ctx) -> Some(roll, ctx)
         | OWS(IntNoWhitespace(n, Char ('d', rest))) -> Some (Dice(n, 6), rest)
         | OWS(Char ('d', IntNoWhitespace(d, Char('a', rest)))) -> Some (Combine(Max, Repeat(2, Dice(1,d))), rest)
         | OWS(Char ('d', IntNoWhitespace(d, Char('d', rest)))) -> Some (Combine(Min, Repeat(2, Dice(1,d))), rest)
         | OWS(Char ('d', IntNoWhitespace(d, rest))) -> Some (Dice(1,d), rest)
         | OWS(IntNoWhitespace(n, rest)) -> Some(StaticValue n, rest)
         | _ -> None
+    let mutable (|Roll|_|) = uninitialized<Model.Types.Roll.Request>
     let (|RollsWithModifiers|_|) = pack <| function
         | SumOfSimpleRolls([v], rest) -> Some(v, rest)
         | SumOfSimpleRolls(rolls, rest) -> Some(Combine(Sum, Aggregate rolls), rest)
         | _ -> None
-    let rec (|CommaSeparatedRolls|_|) = pack <| function
+    let (|CommaSeparatedRolls|_|) = packrec <| fun (|CommaSeparatedRolls|_|) -> function
         | CommaSeparatedRolls(rolls, OWS(Str "," (OWS (Roll(r, rest))))) -> Some(rolls @ [r], rest)
         | Roll(r, rest) -> Some([r], rest)
         | _ -> None
-    and (|PlusSeparatedRolls|_|) = pack <| function
+    let (|PlusSeparatedRolls|_|) = packrec <| fun (|PlusSeparatedRolls|_|) -> function
         | PlusSeparatedRolls(rolls, OWS(Str "+" (OWS (Roll(r, rest))))) -> Some(rolls @ [r], rest)
         | Roll(r, rest) -> Some([r], rest)
         | _ -> None
-    and (|NumericBonus|_|) = pack <| function
+    let (|NumericBonus|_|) = pack <| function
         | OWS(Optional "+" (Chars numeric (v, rest))) ->
             match System.Int32.TryParse(v) with
             | true, v -> Some(v, rest)
@@ -343,20 +350,26 @@ module Parse =
             | true, v -> Some(-v, rest)
             | _ -> None
         | _ -> None
-    and (|Advantage|_|) = function
+    let (|Advantage|_|) = function
         | Char('a', rest) -> Some rest
         | _ -> None
-    and (|Disadvantage|_|) = function
+    let (|Disadvantage|_|) = function
         | Char('d', LookaheadStr " " rest) -> Some rest // "d 4" denotes disadvantage, "d4" does NOT
         | _ -> None
-    and (|Attack|_|) = pack <| function
+    let (|Attack|_|) =
+        let (|Attack|_|) = function | Word(AnyCase("att" | "attack"), ctx) -> Some ctx | _ -> None
+        let (|Attack|_|) = function | Attack(IntNoWhitespace(ac, ctx)) -> Some(ac, ctx) | _ -> None
+        let (|ToHit|_|) = function
+            | NumericBonus(toHit, Advantage(WS(ctx))) -> Some(adv toHit, ctx)
+            | NumericBonus(toHit, Disadvantage(WS(ctx))) -> Some(disadv toHit, ctx)
+            | NumericBonus(toHit, (WS(ctx))) -> Some(normal toHit, ctx)
+            | _ -> None
+        pack <| function
         // multiple shorthands for specifying advantage and disadvantage
-        | Word(AnyCase("att" | "attack"), IntNoWhitespace(ac, NumericBonus(toHit, Advantage(WS(Roll(dmg, rest)))))) -> Some(Branch(adv toHit, [Crit, doubleDice dmg; AtLeast ac, dmg]), rest)
-        | Word(AnyCase("att" | "attack"), IntNoWhitespace(ac, NumericBonus(toHit, Disadvantage(WS(Roll(dmg, rest)))))) -> Some(Branch(disadv toHit, [Crit, doubleDice dmg; AtLeast ac, dmg]), rest)
-        | Word(AnyCase("att" | "attack"), IntNoWhitespace(ac, NumericBonus(toHit, WS (Roll(dmg, rest))))) -> Some(Branch(normal toHit, [Crit, doubleDice dmg; AtLeast ac, dmg]), rest)
-        | Word(AnyCase("att" | "attack"), IntNoWhitespace(ac, Roll(dmg, rest))) -> Some(Branch(normal 0, [Crit, doubleDice dmg; AtLeast ac, dmg]), rest)
+        | Attack(ac, ToHit(toHit, Roll(dmg, rest))) -> Some(Branch(toHit, [Crit, doubleDice dmg; AtLeast ac, dmg]), rest)
+        | Attack(ac, Roll(dmg, rest)) -> Some(Branch(normal 0, [Crit, doubleDice dmg; AtLeast ac, dmg]), rest)
         | _ -> None
-    and (|TestVariable|_|) =
+    let (|TestVariable|_|) =
         let toBaseMods = function
             | Combine(Sum, AggregateRequest.Aggregate [b; mods]) -> b, mods // optimize this representation
             | r -> r, StaticValue 0
@@ -367,27 +380,33 @@ module Parse =
         | Str "(" (Roll(r, Word("at", Word("least", Int(n, Str ")?" rest))))) -> Some((r |> toBaseMods, AtLeast n), rest)
         | Str "(" (Roll(r, Word("at", Word("most", Int(n, Str ")?" rest))))) -> Some((r |> toBaseMods, AtMost n), rest)
         | _ -> None
-    and (|Branch|_|) = pack <| function
-        | TestVariable((tv,condition), Roll(r1, Str ":"(Roll(r2, rest)))) -> Some(Request.Branch(tv, [condition, r1; Else, r2]), rest)
-        | TestVariable((tv,condition), Roll(r, rest)) -> Some(Request.Branch(tv, [condition, r]), rest)
-        | TestVariable((tv,condition), rest) -> Some(Request.Branch(tv, [condition, StaticValue 1]), rest)
+    let (|Branch|_|) = pack <| function
+        | TestVariable((tv,condition), Roll(r1, Str ":"(Roll(r2, rest)))) -> Some(Model.Types.Roll.Request.Branch(tv, [condition, r1; Else, r2]), rest)
+        | TestVariable((tv,condition), Roll(r, rest)) -> Some(Model.Types.Roll.Request.Branch(tv, [condition, r]), rest)
+        | TestVariable((tv,condition), rest) -> Some(Model.Types.Roll.Request.Branch(tv, [condition, StaticValue 1]), rest)
         | _ -> None
-    and (|Repeat|_|) = pack <| function
+    let (|Repeat|_|) = pack <| function
         | Int(n, Str "." (Roll(r, rest))) -> Some(AggregateRequest.Repeat(n, r), rest)
         | Int(n, Str "x" (Roll(r, rest))) -> Some(AggregateRequest.Repeat(n, r), rest)
         | _ -> None
-    and (|Aggregate|_|) = pack <| function
+    let (|Aggregate|_|) = pack <| function
         | CommaSeparatedRolls(rolls, rest) when rolls.Length >= 2 -> Some(AggregateRequest.Aggregate rolls, rest)
         | _ -> None
-    and (|Best|_|) = pack <| function
+    let mutable (|Aggregatation|_|) = uninitialized<AggregateRequest>
+    let (|Best|_|) = pack <| function
         | Word (AnyCase "best", (Int(n, Word(AnyCase "of", Aggregatation(rolls, rest))))) -> Some(AggregateRequest.Best(n, rolls), rest)
         | _ -> None
-    and (|Aggregatation|_|) = pack <| function
+    (|Aggregatation|_|) <- pack <| function
         | Best(rolls, rest) -> Some(rolls, rest)
         | Repeat(r, rest) -> Some(r, rest)
         | Aggregate(r, rest) -> Some(r, rest)
         | _ -> None
-    and (|Roll|_|) = pack <| function
+    (|Roll|_|) <-
+        let (|Parens|_|) (|Inner|_|) =
+            function
+            | Str "(" (OWS(Inner(v, OWS (Str ")" ctx)))) -> Some(v, ctx)
+            | _ -> None
+        packrec <| fun (|Roll|_|) -> function
         | Roll(r, Str "/" (Int(rhs, rest))) -> Some(Transform(r, Div rhs), rest)
         | Roll(r, Str "*" (Int(rhs, rest))) -> Some(Transform(r, Times rhs), rest)
         | PlusSeparatedRolls(rolls, rest) when rolls.Length >= 2 -> Some(Combine(Sum,Aggregate rolls), rest)
@@ -395,10 +414,8 @@ module Parse =
         | Best(rolls, rest) -> Some(Combine(Sum, rolls), rest)
         | Branch(r, rest) -> Some(r, rest)
         | RollsWithModifiers(r, rest) -> Some(r, rest)
-        | Str "(" (OWS (Roll(r, OWS(Str ")" rest)))) -> Some(r, rest)
-        | Word(AnyCase("max"), Str "(" (Aggregatation(rolls, (Str ")" rest)))) ->
-            Some(Combine(Max, rolls), rest)
-        | Word(AnyCase("min"), Str "(" (Aggregatation(rolls, (Str ")" rest)))) ->
-            Some(Combine(Min, rolls), rest)
+        | Parens (|Roll|_|) (roll, rest) -> Some(roll, rest)
+        | Str "max" (Parens (|Aggregatation|_|) (rolls, rest)) -> Some(Combine(Max, rolls), rest)
+        | Str "min" (Parens (|Aggregatation|_|) (rolls, rest)) -> Some(Combine(Min, rolls), rest)
         | Attack(roll, rest) -> Some(roll, rest)
         | _ -> None
