@@ -112,8 +112,11 @@ let pack (rule: ParseRule<'t>) : ParseRule<'t> =
   eval // return eval function
 
 let packrec parseRule =
-    let mutable f = Unchecked.defaultof<_>
-    f <- pack (parseRule f)
+    // work around issue w/ recursive data structures without requiring #nowarn "40"
+    // by leveraging local state. This lets you declare recursive active patterns. See examples
+    // in Dice.fs
+    let mutable f = function _ -> None
+    f <- pack (parseRule (fun x -> f x))
     f
 
 // Here's some basic parser primitives that might be useful for anything

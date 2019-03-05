@@ -306,14 +306,14 @@ module Parse =
     open Model.Types.Roll
     open Roll
 
-    let mutable (|SimpleRoll|_|) = Unchecked.defaultof<ParseRule<Model.Types.Roll.Request>>
+    let uninitialized<'t> : ParseRule<'t> = Common.shouldntHappen
+    let mutable (|SimpleRoll|_|) = uninitialized<_>
     let (|SumOfSimpleRolls|_|) = packrec <| fun (|SumOfSimpleRolls|_|) -> function
         | SumOfSimpleRolls(lhs, OWS(Char('+', OWS(SimpleRoll(r, rest))))) -> Some(lhs@[r], rest)
         | SumOfSimpleRolls(lhs, OWS(Char('+', OWS(Int(n, rest))))) -> Some(lhs@[StaticValue n], rest)
         | SumOfSimpleRolls(lhs, OWS(Char('-', OWS(Int(n, rest))))) -> Some(lhs@[StaticValue -n], rest)
         | SimpleRoll(roll, rest) -> Some([roll], rest)
         | _ -> None
-
 
     (|SimpleRoll|_|) <-
         let (|LongSimpleRoll|_|) = function OWS(IntNoWhitespace(n, Char ('d', IntNoWhitespace(d, Char ('k', IntNoWhitespace(m, rest)))))) -> Some (Combine(Sum, Best(m, (Repeat(n, Dice(1, d))))), rest) | _ -> None
@@ -327,7 +327,7 @@ module Parse =
         | OWS(Char ('d', IntNoWhitespace(d, rest))) -> Some (Dice(1,d), rest)
         | OWS(IntNoWhitespace(n, rest)) -> Some(StaticValue n, rest)
         | _ -> None
-    let mutable (|Roll|_|) = Unchecked.defaultof<ParseRule<Model.Types.Roll.Request>>
+    let mutable (|Roll|_|) = uninitialized<Model.Types.Roll.Request>
     let (|RollsWithModifiers|_|) = pack <| function
         | SumOfSimpleRolls([v], rest) -> Some(v, rest)
         | SumOfSimpleRolls(rolls, rest) -> Some(Combine(Sum, Aggregate rolls), rest)
@@ -392,7 +392,7 @@ module Parse =
     let (|Aggregate|_|) = pack <| function
         | CommaSeparatedRolls(rolls, rest) when rolls.Length >= 2 -> Some(AggregateRequest.Aggregate rolls, rest)
         | _ -> None
-    let mutable (|Aggregatation|_|) = Unchecked.defaultof<ParseRule<_>>
+    let mutable (|Aggregatation|_|) = uninitialized<AggregateRequest>
     let (|Best|_|) = pack <| function
         | Word (AnyCase "best", (Int(n, Word(AnyCase "of", Aggregatation(rolls, rest))))) -> Some(AggregateRequest.Best(n, rolls), rest)
         | _ -> None
