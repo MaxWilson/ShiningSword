@@ -1,4 +1,4 @@
-module Components
+module UI.Components
 
 type StateHolder<'model> = StateHolder of 'model
 type StatefulProps<'model> = {
@@ -18,3 +18,4 @@ type Stateful<'t>(props) as this =
 
 let stateful initState eq render =
     Fable.Helpers.React.ofType<Stateful<'t>, _, _>({initial = initState; equal = eq; render = render})[]
+

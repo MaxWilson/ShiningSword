@@ -1,4 +1,4 @@
-module App.Types
+module UI.Types
 
 open Global
 open Interaction
@@ -14,6 +14,10 @@ type Model = {
     logSkip: int option
     }
 
+module Battle =
+    type Msg =
+        | Finish of GameState
+
 type Msg =
     | NewMode of ViewModel
     | UpdateCurrentViewModel of ViewModel
@@ -24,4 +28,5 @@ type Msg =
     | UndoModal
     | LogSkip of int
     | UpdateGameState of GameState
+    | BattleUpdate of Battle.Msg
 

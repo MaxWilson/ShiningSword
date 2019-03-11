@@ -1,4 +1,4 @@
-module App.State
+module UI.State
 
 open Elmish
 open Elmish.Browser.Navigation

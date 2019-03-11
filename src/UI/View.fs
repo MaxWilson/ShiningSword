@@ -1,14 +1,18 @@
-module App.View
+module UI.View
 
+open Common
+open Interaction
+open Model.Types
+open Model.Functions
+open Model.Operations
+open UI.Global
+open Types
+open UI.State
 open Elmish
 open Elmish.Browser.Navigation
-open Elmish.Browser.UrlParser
-open Fable.Core
 open Fable.Core.JsInterop
 open Fable.Import
 open Fable.Import.Browser
-open Types
-open App.State
 
 importAll "../../sass/main.sass"
 
@@ -19,14 +23,8 @@ open Elmish.Debug
 #if DEBUG
 open Elmish.HMR
 #endif
-open Interaction
-open Common
 open Fulma
 open Fulma.Color
-open Model.Types
-open Model.Functions
-open Model.Operations
-open Fable.PowerPack.Keyboard
 
 module Parse =
     open Packrat
@@ -165,60 +163,6 @@ let alertQuery prompt answer =
         yield Button.button [Button.OnClick <| answer "OK" ; Button.Props [AutoFocus true]] [str "OK"]
         ]
 
-let describeAC fullInfo ac =
-    let descr =
-        if ac <= 8 then "Target practice"
-        elif ac <= 11 then "Unarmored"
-        elif ac <= 13 then "Lightly armored"
-        elif ac <= 15 then "Moderately armored"
-        elif ac <= 17 then "Heavily armored"
-        elif ac <= 20 then "Very heavily armored"
-        else "Walking fortress"
-    if fullInfo then sprintf "%d (%s)" ac descr else descr
-
-let describeStatus hp maxHp =
-    match hp with
-    | hp when hp <= 0 -> "Dead"
-    | hp when hp <= (maxHp / 4) -> "Badly wounded"
-    | hp when hp <= (maxHp * 3 / 4) -> "Wounded"
-    | hp when hp < maxHp -> "Barely wounded"
-    | hp -> "OK"
-
-let battleSummary fullInfo (combatants:Combatant seq) =
-    // fullInfo: controls whether full info is displayed in the UI for this creature e.g. exact HP totals, current orders
-    let giveOrders pc _ = ()
-    table [ClassName "table"] [
-        thead [] [
-            tr [] [
-                yield th [] [str "ID"]
-                yield th [] [str "Name"]
-                yield th [] [str "Type"]
-                yield th [] [str "Status"]
-                yield th [] [str "AC"]
-                yield th [] [str "HP"]
-                yield th [] [str "Last Round"]
-                if fullInfo then yield th [] [str "This Round"]
-                ]
-            ]
-        tbody [] (combatants |> Seq.map (fun npc ->
-                let maxHP = npc.stats.hp
-                let hp =
-                    match npc.usages.TryGetValue("HP") with
-                    | true, v -> v
-                    | _ -> maxHP
-                tr [OnClick (giveOrders npc); Style[Color (sprintf "%A" npc.team)]] ([
-                    yield str <| npc.id.ToString()
-                    yield str npc.stats.name
-                    yield str <| defaultArg npc.stats.typeName ""
-                    yield str <| describeStatus hp maxHP
-                    yield str (describeAC fullInfo npc.stats.ac)
-                    if fullInfo then yield str <| (sprintf "%d/%d" hp maxHP) else yield str <| sprintf "About %d" (5. * (System.Math.Round (float hp / 5.)) |> int)
-                    yield str "Attack!"
-                    if fullInfo then yield str "Attack!"
-                    ] |> List.map (fun v -> td [] [v]))
-            ))
-        ]
-
 let partySummary =
     lazyView2 <| fun ((game: GameState), isViewingChars: bool) dispatch ->
         let line msg = p [] [str msg]
@@ -320,31 +264,8 @@ let root model dispatch =
                             ok
                             ]
             [ongoingInteraction; partySummary (model.game, (match model.modalDialogs with (Operation(Query.Character _, _))::_ -> true | _ -> false)) dispatch; logOutput (model.game.log, model.logSkip) dispatch]
-        | { mode = Battle::_ } ->
-            match model.game with
-            | { battle = Some b } ->
-                let winBattle _ =
-                    model.game |> Model.Gameplay.finishTower
-                    |> modalOperation dispatch (fun state ->
-                        dispatch (UpdateGameState state)
-                        dispatch (EndMode Battle)
-                        )
-                let fightOneRound _ =
-                    let state = model.game |> Model.Gameplay.fight
-                    state |> Model.Gameplay.finishTower
-                        |> modalOperation dispatch (fun state ->
-                            dispatch (UpdateGameState state)
-                            dispatch (EndMode Battle)
-                            )
-                let teams = b.combatants |> Seq.map (function KeyValue(_,(c:Combatant)) -> c) |> Seq.groupBy (fun c -> c.team) |> Map.ofSeq
-                [   div[ClassName "battleSummary"][
-                        for team in teams do
-                            yield div [ClassName "heading"] [str (match team.Key with TeamId.Blue -> "Friendlies" | TeamId.White as teamId -> "Neutrals" | _ -> "Hostiles")]
-                            yield battleSummary (match team.Key with Blue | White -> true | _ -> false) team.Value
-                        yield! buttonsWithHotkeys ["Fight", fightOneRound; "Win", winBattle]
-                        ]
-                    logOutput (model.game.log, model.logSkip) dispatch
-                    ]
+        | { mode = Battle::_; game = { battle = Some battle } } ->
+            Battle.view dispatch modalOperation buttonsWithHotkeys (logOutput (model.game.log, model.logSkip) dispatch) model.game battle
             | _ -> failwith "Should never be in Battle mode without a battle"
         | { mode = Campaign::_ } ->
             let state = model.game
