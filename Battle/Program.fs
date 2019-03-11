@@ -5,7 +5,7 @@ open Common
 open DataEngine
 open Model.Types.Battle2
 
-type LocalStorage() =
+type CloudStorage() =
     let folderPath = IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "shiningsword")
     let accessTokenPath = IO.Path.Combine(folderPath, "accessToken.txt")
     let mutable _accessToken = None
@@ -51,7 +51,7 @@ let consoleLoop (initialState: State) =
             | Some _cmd, None -> ()
             | None, _ when state.view.lastInput.IsSome -> printfn "Come again?" // probably shouldn't happen
             | _ -> ()
-            let answer = execute (String.join "\n") formatExplanation (LocalStorage()) state
+            let answer = execute (String.join "\n") formatExplanation (CloudStorage()) state
             printf ">> "
             let cmd = System.Console.ReadLine()
             answer cmd loop

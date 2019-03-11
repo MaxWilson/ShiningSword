@@ -16,7 +16,10 @@ type Model = {
 
 module Battle =
     type Msg =
-        | Finish of GameState
+        | Update of Battle2.State
+
+module Battle1 =
+    type Msg = Finish of GameState
 
 type Msg =
     | NewMode of ViewModel
@@ -28,5 +31,6 @@ type Msg =
     | UndoModal
     | LogSkip of int
     | UpdateGameState of GameState
+    | Battle1Update of Battle1.Msg
     | BattleUpdate of Battle.Msg
 

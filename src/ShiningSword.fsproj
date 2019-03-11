@@ -20,8 +20,8 @@
     <Compile Include="Model\MonsterManual.fs" />
     <Compile Include="Model\Gameplay.fs" />
     <Compile Include="Engine\DataEngine.fs" />
-    <Compile Include="UI\Global.fs" />
     <Compile Include="UI\Components.fs" />
+    <Compile Include="UI\Global.fs" />
     <Compile Include="UI\Types.fs" />
     <Compile Include="UI\Battle.fs" />
     <Compile Include="UI\State.fs" />

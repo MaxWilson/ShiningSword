@@ -1,4 +1,5 @@
 module UI.Battle
+open Common
 open Model.Types
 open UI.Global
 open UI.Types
@@ -44,11 +45,11 @@ let battleSummary fullInfo (combatants:Combatant seq) =
 let view1 dispatch modalOperation buttonsWithHotkeys logOutput (game:GameState) (battle: Battle1.State1) =
     let winBattle _ =
         game |> Model.Gameplay.finishTower
-            |> modalOperation dispatch (Finish >> BattleUpdate >> dispatch)
+            |> modalOperation dispatch (Battle1.Finish >> Battle1Update >> dispatch)
     let fightOneRound _ =
         let state = game |> Model.Gameplay.fight
         state |> Model.Gameplay.finishTower
-            |> modalOperation dispatch (Finish >> BattleUpdate >> dispatch)
+            |> modalOperation dispatch (Battle1.Finish >> Battle1Update >> dispatch)
     let teams = battle.combatants |> Seq.map (function KeyValue(_,(c:Combatant)) -> c) |> Seq.groupBy (fun c -> c.team) |> Map.ofSeq
     [   div [ClassName "battleSummary"][
             for team in teams do
@@ -59,5 +60,33 @@ let view1 dispatch modalOperation buttonsWithHotkeys logOutput (game:GameState) 
         logOutput
         ]
 
-let view battle =
-    [div [] [str "Battle placeholder"]]
+type CloudStorage() =
+    interface DataEngine.IDataStorage with
+        member this.Save (label:DataEngine.Label) data callback = notImpl()
+        member this.Load label callback = notImpl()
+
+let update (model: Model) = function
+    | Battle.Msg.Update state ->
+        { model with game = { model.game with battle = Some state } }
+
+
+let respond state continuation txt =
+    let formatExplanation (explanation: Model.Types.Roll.Explanation) =
+        let rec helper indent (Model.Types.Roll.Explanation(_, summary, children)) =
+            String.join "\n" (sprintf "%s%s" indent summary::(children |> List.map (helper (indent+"  "))))
+        helper emptyString explanation
+    DataEngine.execute (String.join "\n") formatExplanation (CloudStorage()) state txt continuation
+
+let view respond (battle: Battle2.State) =
+    [
+        match battle.view.lastOutput with
+        | Some v ->
+            yield ul[ClassName "battleSummary"][
+                for x in v.Split('\n') do
+                    yield li [] [str x]
+                ]
+        | None -> ()
+        yield div[ClassName "interaction"] [
+            statefulInput respond [Placeholder "Enter a command"]
+            ]
+        ]

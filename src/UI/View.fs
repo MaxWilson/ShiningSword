@@ -266,11 +266,11 @@ let root model dispatch =
                             ok
                             ]
             [ongoingInteraction; partySummary (model.game, (match model.modalDialogs with (Operation(Query.Character _, _))::_ -> true | _ -> false)) dispatch; logOutput (model.game.log, model.logSkip) dispatch]
-        | { mode = Battle::_; game = { battle = Some battle } } ->
-            Battle.view battle
-        | { mode = Battle::_; game = { battle1 = Some battle } } ->
+        | { mode = ViewModel.Battle::_; game = { battle = Some battle } } ->
+            let respond = Battle.respond battle (Battle.Msg.Update >> BattleUpdate >> dispatch)
+            Battle.view respond battle
+        | { mode = ViewModel.Battle::_; game = { battle1 = Some battle } } ->
             Battle.view1 dispatch modalOperation buttonsWithHotkeys (logOutput (model.game.log, model.logSkip) dispatch) model.game battle
-            | _ -> failwith "Should never be in Battle mode without a battle"
         | { mode = Campaign::_ } ->
             let state = model.game
             let msg = (sprintf "You have earned %d XP and %d gold pieces, and you've been adventuring for %s. What do you wish to do next?" state.pcs.[0].src.xp state.gp (Model.Gameplay.timeSummary state.timeElapsed))
