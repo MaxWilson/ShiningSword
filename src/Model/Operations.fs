@@ -8,7 +8,7 @@ module Recognizer =
     open Packrat
     let (|Roster|_|) =
         ExternalContextOf<GameState> >> function
-        | Some { battle = Some { combatants = c } } -> Some c
+        | Some { battle1 = Some { combatants = c } } -> Some c
         | _ -> None
     let inRoster pred (roster: Battle1.Roster1) =
         roster |> Map.tryFindKey (fun id v -> pred v)
@@ -70,12 +70,12 @@ module GameState =
     //            roster = roster |> Map.add id (Creature.map f roster.[id]) |> Some;
     //            log = g.log |> Log.log msg }
     //    | None -> g
-    let empty = { pcs = []; parEarned = 0; gateNumber = 1; towerNumber = 1; randomNumber = 1; timeElapsed = 0; gp = 0; log = Log.empty; battle = None }
+    let empty = { pcs = []; parEarned = 0; gateNumber = 1; towerNumber = 1; randomNumber = 1; timeElapsed = 0; gp = 0; log = Log.empty; battle1 = None }
 
 // executes action declarations in listed order
 let execute (d: Declarations) (g:GameState) : GameState =
     let execute (g:GameState) decl =
-        match g.battle with
+        match g.battle1 with
         | None -> g
         | Some r ->
             failwith "Not implemented"

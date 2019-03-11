@@ -227,7 +227,8 @@ type GameState = {
     timeElapsed: int // seconds
     gp: int
     log: Log.Data
-    battle: Battle1.State1 option
+    battle1: Battle1.State1 option
+    battle: Battle2.State option
     }
 
 type Query =

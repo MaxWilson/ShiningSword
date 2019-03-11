@@ -41,11 +41,13 @@ module Parse =
                 CharSheet.create "Max the Mighty" Male (18,12,14,15,9,11) false None Model.Chargen.Templates.charTemplates.["Brute"]
                     |> CharInfo.ofCharSheet
                 ]
-            Some(({ GameState.empty with pcs = pcs } |> Model.Gameplay.startBattle |> snd, ViewModel.Battle) , ctx)
+            Some(({ GameState.empty with pcs = pcs } |> Model.Gameplay.startBattle |> snd, ViewModel.Battle), ctx)
+        | Str "battle" ctx ->
+            Some(({ GameState.empty with battle = Some (Model.Functions.Battle2.init()) }, ViewModel.Battle), ctx)
         | Str "campaignDebug" ctx ->
             let template = Model.Chargen.Templates.charTemplates.["Brute"]
             let pc = Model.Operations.CharSheet.create "Spartacus" Male (14, 16, 9, 13, 11, 13) false None template
-            Some(({ GameState.empty with pcs = [CharInfo.ofCharSheet pc] }, ViewModel.Campaign) , ctx)
+            Some(({ GameState.empty with pcs = [CharInfo.ofCharSheet pc] }, ViewModel.Campaign), ctx)
         | _ -> None
 
     let page = locationParser (|Page|_|)
@@ -265,7 +267,9 @@ let root model dispatch =
                             ]
             [ongoingInteraction; partySummary (model.game, (match model.modalDialogs with (Operation(Query.Character _, _))::_ -> true | _ -> false)) dispatch; logOutput (model.game.log, model.logSkip) dispatch]
         | { mode = Battle::_; game = { battle = Some battle } } ->
-            Battle.view dispatch modalOperation buttonsWithHotkeys (logOutput (model.game.log, model.logSkip) dispatch) model.game battle
+            Battle.view battle
+        | { mode = Battle::_; game = { battle1 = Some battle } } ->
+            Battle.view1 dispatch modalOperation buttonsWithHotkeys (logOutput (model.game.log, model.logSkip) dispatch) model.game battle
             | _ -> failwith "Should never be in Battle mode without a battle"
         | { mode = Campaign::_ } ->
             let state = model.game

@@ -41,7 +41,7 @@ let battleSummary fullInfo (combatants:Combatant seq) =
             ))
         ]
 
-let view dispatch modalOperation buttonsWithHotkeys logOutput (game:GameState) (battle: Battle1.State1) =
+let view1 dispatch modalOperation buttonsWithHotkeys logOutput (game:GameState) (battle: Battle1.State1) =
     let winBattle _ =
         game |> Model.Gameplay.finishTower
             |> modalOperation dispatch (Finish >> BattleUpdate >> dispatch)
@@ -58,3 +58,6 @@ let view dispatch modalOperation buttonsWithHotkeys logOutput (game:GameState) (
             ]
         logOutput
         ]
+
+let view battle =
+    [div [] [str "Battle placeholder"]]

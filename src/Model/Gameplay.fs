@@ -267,15 +267,15 @@ let retirementMessage state =
 
 let fight (state: GameState) =
     let mutable hpMap =
-        state.battle.Value.combatants
+        state.battle1.Value.combatants
         |> Seq.map (function
             KeyValue(id, c) ->
                 id, match c.usages.TryGetValue("HP") with
                     | true, v -> v
                     | _ -> c.stats.hp)
         |> Map.ofSeq
-    let combatants = state.battle.Value.combatants
-    let guys = state.battle.Value.combatants |> Map.toArray |> Array.map snd
+    let combatants = state.battle1.Value.combatants
+    let guys = state.battle1.Value.combatants |> Map.toArray |> Array.map snd
 
     let mutable log = state.log
     let logMsg msg =
@@ -363,7 +363,7 @@ let startBattle (state:GameState) =
         List.init n (thunk ctor))
     let battle = state.pcs |> List.fold (flip (Battle1.addExistingCharacter TeamId.Blue)) battle
     let battle = enemies |> List.fold (fun b e -> b |> Battle1.addFreshCombatant TeamId.Red e) battle
-    let state = { state with battle = Some battle }
+    let state = { state with battle1 = Some battle }
     monsters, state
 
 let enterTower (state: GameState) : Eventual<_,_,_> = queryInteraction {
@@ -377,7 +377,7 @@ let enterTower (state: GameState) : Eventual<_,_,_> = queryInteraction {
 
 let finishTower (state:GameState) : Eventual<_,_,_> = queryInteraction {
     let (parEarned, totalXpEarned, gp) =
-        match state.battle with
+        match state.battle1 with
         | Some { stakes = Some (Battle1.Stakes(parEarned, totalXpEarned, gp)) } -> (parEarned, totalXpEarned, gp)
         | _ -> failwith "Should never finish a battle that wasn't started with some stakes"
     if state.pcs |> List.exists (fun pc -> (CharInfo.getCurrentHP pc) > 0) |> not then
