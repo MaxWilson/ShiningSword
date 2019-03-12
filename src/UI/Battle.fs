@@ -1,11 +1,14 @@
 module UI.Battle
 open Common
 open Model.Types
+open Model.Functions
 open UI.Global
 open UI.Types
-open UI.Types.Battle
+
 open Fable.Helpers.React
 open Fable.Helpers.React.Props
+open Elmish.React
+open Fulma
 
 let battleSummary fullInfo (combatants:Combatant seq) =
     // fullInfo: controls whether full info is displayed in the UI for this creature e.g. exact HP totals, current orders
@@ -77,6 +80,15 @@ let respond state continuation txt =
         helper emptyString explanation
     DataEngine.execute (String.join "\n") formatExplanation (CloudStorage()) state txt continuation
 
+let logOutput =
+    lazyView <| fun (log: Log.Data) ->
+        if log = Log.empty then div[ClassName "logDisplay"][]
+        else
+            let log = Log.extract log |> List.collect id
+            div[ClassName "logDisplay"] [
+                div [ClassName "logDisplay"](log |> List.map (fun line -> p[][str line]))
+                ]
+
 let view respond (battle: Battle2.State) =
     [
         match battle.view.lastOutput with
@@ -88,5 +100,8 @@ let view respond (battle: Battle2.State) =
         | None -> ()
         yield div[ClassName "interaction"] [
             statefulInput respond [Placeholder "Enter a command"]
+            ]
+        yield div[ClassName "logDisplay"] [
+            battle.data.log |> logOutput
             ]
         ]
