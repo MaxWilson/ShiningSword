@@ -59,3 +59,4 @@ let update msg model =
     | LogSkip n -> { model with logSkip = Some n }, Cmd.Empty
     | UpdateGameState state -> { model with game = state }, Cmd.Empty
     | BattleUpdate msg -> Battle.update model msg, Cmd.Empty
+    | Battle1Update (Battle1.Msg.Finish state) -> { model with game = state }, Cmd.Empty

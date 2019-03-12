@@ -99,7 +99,7 @@ let view respond (battle: Battle2.State) =
                 ]
         | None -> ()
         yield div[ClassName "interaction"] [
-            statefulInput respond [Placeholder "Enter a command"]
+            statefulInput respond [Placeholder "Enter a command"; AutoFocus true; ClassName "prompt"]
             ]
         yield div[ClassName "logDisplay"] [
             battle.data.log |> logOutput

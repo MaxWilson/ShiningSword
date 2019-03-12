@@ -340,6 +340,10 @@ let root model dispatch =
             [   str "Something went wrong:  Please file a bug report (email Max and describe what happened)."
                 br []
                 str <| "Details: " + msg]
+        | _ ->
+            [   str "Something went wrong:  Please file a bug report (email Max and describe what happened)."
+                br []
+                str <| "Details: no modal stack found in View.root pattern match!"]
     let gameHasStarted = List.exists (fun x -> x = Campaign || x = Battle) model.mode
     div [ClassName <| if gameHasStarted then "mainPage" else "startPage"] children
 
