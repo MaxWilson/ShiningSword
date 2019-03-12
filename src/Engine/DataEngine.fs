@@ -233,7 +233,7 @@ let execute combineLines (explanationToString: Model.Types.Roll.Explanation -> s
         | Save label ->
             storage.Save label state.data (function Ok _ -> return' (state, sprintf "Saved '%s'" label |> Some) | Error err -> return' (state, sprintf "Could not save '%s': '%s'" label err |> Some))
         | Load label ->
-            storage.Load<Data> label (function Ok data -> exec { state with data = data; view = emptyView } (ShowLog None) return' | Error err -> return' (state, sprintf "Could not save '%s': '%s'" label err |> Some))
+            storage.Load<Data> label (function Ok data -> exec { state with data = data; view = emptyView } (ShowLog None) return' | Error err -> return' (state, sprintf "Could not load '%s': '%s'" label err |> Some))
         | Clear ->
             return' (Model.Functions.Battle2.init(), None)
     match Packrat.ParseArgs.Init(input, state.data.roster) with
