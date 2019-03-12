@@ -62,7 +62,8 @@ let statefulInput onEnter (props: IHTMLProp list) =
                     let v = !!ev.target?value
                     update (thunk v)
                     )
-                yield onKeyDown KeyCode.enter (thunk1 onEnter txt)
+                yield onKeyDown KeyCode.enter (fun _ -> onEnter txt; update (thunk emptyString))
+                yield AutoFocus true // Open question? Would we ever want this NOT to be true? For now it's hard-wired.
                 yield! props
                 ]
         React.input props

@@ -13,7 +13,7 @@ type Stateful<'t>(props) as this =
     override this.shouldComponentUpdate(_nextProps, nextState) =
         not <| this.props.equal (extract this.state) (extract nextState)
     override this.render() =
-        let doUpdate = (fun updater -> printfn "Update"; this.setState(fun (StateHolder st) _props -> StateHolder (updater st)))
+        let doUpdate = (fun updater -> this.setState(fun (StateHolder st) _props -> StateHolder (updater st)))
         this.props.render (extract this.state) doUpdate
 
 let stateful initState eq render =
