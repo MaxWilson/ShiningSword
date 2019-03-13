@@ -2,8 +2,10 @@
 
 open System
 open Common
-open DataEngine
+open Common.Hierarchy
+open Model.Functions
 open Model.Types.Battle2
+open DataEngine
 
 type CloudStorage() =
     let folderPath = IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "shiningsword")
@@ -35,10 +37,14 @@ type CloudStorage() =
         member this.Load label callback =
             DataStorage.load (accessToken()) "battle" label |> callback
 
-let formatExplanation (explanation: Model.Types.Roll.Explanation) =
-    let rec helper indent (Model.Types.Roll.Explanation(_, summary, children)) =
-        String.join "\n" (sprintf "%s%s" indent summary::(children |> List.map (helper (indent+"  "))))
-    helper emptyString explanation
+let display detailLevel logEntries =
+    let rec help currentDepth logEntry =
+        printfn "%s%s" (String.replicate currentDepth "  ") (Log.getText logEntry)
+        match logEntry with
+        | Nested(_, children) when detailLevel > currentDepth -> // if detailLevel = 2, last recursion will happen when currentDepth = 1.
+            children |> List.iter (help <| currentDepth + 1)
+        | _ -> ()
+    logEntries |> List.iter (help 0)
 
 let consoleLoop (initialState: State) =
     let rec loop (state: State) =
@@ -46,12 +52,12 @@ let consoleLoop (initialState: State) =
             ()
         else
             match state.view.lastCommand, state.view.lastOutput with
-            | _, Some response ->
-                printfn "%s" response
-            | Some _cmd, None -> ()
+            | Some (Log _), [Leaf _] -> () // if they just logged some simple text, don't echo it to output
+            | _, outputs->
+                display state.view.logDetailLevel outputs
             | None, _ when state.view.lastInput.IsSome -> printfn "Come again?" // probably shouldn't happen
             | _ -> ()
-            let answer = execute (String.join "\n") formatExplanation (CloudStorage()) state
+            let answer = execute (CloudStorage()) state
             printf ">> "
             let cmd = System.Console.ReadLine()
             answer cmd loop

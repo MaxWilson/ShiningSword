@@ -2,6 +2,7 @@ module Model.Dice
 open Common
 
 module Roll =
+    open Common.Hierarchy
     open Model.Types.Roll
     open System.Numerics
     let betweenInclusive bound1 bound2 x = (min bound1 bound2) <= x && x <= (max bound1 bound2)
@@ -267,13 +268,13 @@ module Roll =
     // Dev string: Packrat.parser Parse.(|Roll|_|) "att 18 +4a 2d8+2+d6" |> render (Common.String.join " ") |> printfn "%s"
 
     let renderExplanation (result: Result) : Explanation =
-        let omitBoring = List.filter (function Explanation(value, summary, children) -> value.ToString() <> summary || not <| List.isEmpty children)
+        let omitBoring = List.filter (function Hierarchy.Leaf(v) -> false | Hierarchy.Nested((sum, msg), _) -> msg <> sum.ToString())
         // We use a parameter "simplify" that gets transmitted recursively to signal that certain branches are interesting all the way down. E.g. "6.4d6k3" is more interesting than its individual components
-        let rec renderExplanation simplify (result: Result) =
-            let details simplify result txtTemplate lst =
+        let rec renderExplanation simplify (result: Result) : Explanation =
+            let details simplify result (txtTemplate: string list -> string) lst : Explanation =
                 let children = List.map (renderExplanation simplify) lst
-                let getResult = List.map (function (Explanation(result, _, _)) -> result.ToString())
-                Explanation(result, txtTemplate (getResult children), if simplify then children |> omitBoring else children)
+                let getText = function Leaf(v) -> v.ToString() | Nested((v, _), _) -> v.ToString()
+                Hierarchy.Nested((result, txtTemplate (children |> List.map getText)), if simplify then children |> omitBoring else children)
             match result.source with
             | Combine(Sum, (Repeat(_, (Combine(Sum, Best(_)) | Dice(_))))) -> // 4.d6 and 4.6.4d6k3 are both interesting all the way down
                 details false result.value (fun children -> sprintf "[%s] => %d" (String.join "+" children) result.value) result.sublog
@@ -287,19 +288,21 @@ module Roll =
                 details simplify result.value (fun children -> sprintf "%s becomes %d" (children.Head) result.value) result.sublog
             | Branch((_,mods),_) ->
                 let b,m,v = match result.sublog with [b;m;v] -> b,m,v | v -> failwithf "No match for %A" v
-                let getValue (Explanation(v, _, _)) = v
+                let getValue = function Hierarchy.Leaf(v) | Hierarchy.Nested((v, _),_) -> v
                 let test =
                     match mods with
                     | StaticValue 0 -> renderExplanation simplify b
                     | _ ->
                         let explainBase = renderExplanation simplify b
                         let explainMods = renderExplanation simplify m
-                        Explanation(b.value + m.value, sprintf "%d+%d" (getValue explainBase) (getValue explainMods), [explainBase; explainMods] |> omitBoring) // omit detailed explanation of boring stuff like "+0" or "d8"--it's enough for it to show up in the summary
-                Explanation(v.value, sprintf "(%d) -> %d" (getValue test) v.value, [test; renderExplanation simplify v] |> omitBoring)
+                        Hierarchy.Nested((b.value + m.value, sprintf "%d+%d" (getValue explainBase) (getValue explainMods)), [explainBase; explainMods] |> omitBoring) // omit detailed explanation of boring stuff like "+0" or "d8"--it's enough for it to show up in the summary
+                Hierarchy.Nested((v.value, sprintf "(%d) -> %d" (getValue test) v.value), [test; renderExplanation simplify v] |> omitBoring)
             | _ ->
-                let explain result = Explanation(result, result.ToString(), [])
-                explain result.value
+                Hierarchy.Leaf(result.value)
         renderExplanation true result
+    // dev string: Packrat.parser Model.Dice.Parse.(|Roll|_|) "3.att 18 8 d4+4" |> eval |> renderExplanation
+    let toLogChunk (explanation: Explanation) : Types.Log.Chunk =
+        explanation |> Common.Hierarchy.map (sprintf "%d") snd
 
 module Parse =
     open Packrat

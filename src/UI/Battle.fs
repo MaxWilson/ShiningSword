@@ -74,34 +74,34 @@ let update (model: Model) = function
 
 
 let respond state continuation txt =
-    let formatExplanation (explanation: Model.Types.Roll.Explanation) =
-        let rec helper indent (Model.Types.Roll.Explanation(_, summary, children)) =
-            String.join "\n" (sprintf "%s%s" indent summary::(children |> List.map (helper (indent+"  "))))
-        helper emptyString explanation
-    DataEngine.execute (String.join "\n") formatExplanation (CloudStorage()) state txt continuation
+    DataEngine.execute (CloudStorage()) state txt continuation
+
+let display detailLevel (logEntries: Log.Chunk list) =
+    let rec help currentDepth logEntry =
+        match logEntry with
+        | Hierarchy.Nested(_, children) when detailLevel > currentDepth -> // if detailLevel = 2, last recursion will happen when currentDepth = 1.
+            let children' = children |> List.map (help <| currentDepth + 1)
+            li [] [str (Log.getText logEntry); ul [] children']
+        | _ -> li [] [str (Log.getText logEntry)]
+    logEntries |> List.map (help 0)
 
 let logOutput =
-    lazyView <| fun (log: Log.Data) ->
+    lazyView <| fun (detailLevel, log: Log.Data) ->
         if log = Log.empty then div[ClassName "logDisplay"][]
         else
-            let log = Log.extract log |> List.collect id
-            div[ClassName "logDisplay"] [
-                div [ClassName "logDisplay"](log |> List.map (fun line -> p[][str line]))
-                ]
+            let log = Log.extractEntries log |> List.collect id
+            ul [ClassName "logDisplay"] (display detailLevel log)
 
 let view respond (battle: Battle2.State) =
     [
         match battle.view.lastOutput with
-        | Some v ->
-            yield ul[ClassName "battleSummary"][
-                for x in v.Split('\n') do
-                    yield li [] [str x]
-                ]
-        | None -> ()
+        | [] -> ()
+        | outputs ->
+            yield ul[ClassName "battleSummary content"](outputs |> (display battle.view.logDetailLevel))
         yield div[ClassName "interaction"] [
             statefulInput respond [Placeholder "Enter a command"; AutoFocus true; ClassName "prompt"]
             ]
-        yield div[ClassName "logDisplay"] [
-            battle.data.log |> logOutput
+        yield div[ClassName "logDisplay content"] [
+            (battle.view.logDetailLevel, battle.data.log) |> logOutput
             ]
         ]

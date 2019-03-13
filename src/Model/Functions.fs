@@ -2,16 +2,20 @@
 module Model.Functions
 open Model.Types
 open Common
+open Common.Hierarchy
 
 module Log =
     open Model.Types.Log
     let empty = [], []
-    let log msg (log: Data) : Data =
+    let log (msg:string) (log: Data) : Data =
         match log with
-        | buffer, log -> msg::buffer, log
-    let logMany msgs (log:Data) =
+        | buffer, log -> (Leaf msg)::buffer, log
+    let logDetailed logEntry (log:Data) : Data =
         match log with
-        | buffer, log -> msgs@buffer, log
+        | buffer, log -> logEntry::buffer, log
+    let logMany (msgs:string list) (log:Data) =
+        match log with
+        | buffer, log -> (msgs |> List.map Leaf)@buffer, log
     let flush (log:Data) : Data =
         match log with
         | buffer, (h::rest) -> [], (h@(List.rev buffer))::rest
@@ -19,7 +23,29 @@ module Log =
     let advance (log:Data) : Data =
         match flush log with
         | _, rest -> [], []::rest
-    let extract = flush >> snd >> List.rev
+    let getText = (function Leaf txt | Nested(txt, _) -> txt)
+    let extractEntries : Log.Data -> Log.Entries = flush >> snd >> List.rev
+    let mapEntries f (d: Log.Entries) = List.map (List.map f) d
+    let page nth entries =
+        match nth with
+        | None -> entries |> List.collect id
+        | Some n ->
+            let pageCount = entries.Length
+            if betweenInclusive 1 pageCount n |> not then []
+            elif n < 0 then // support negative indexing: -1 is last, -pageCount is first
+                entries.[pageCount+n]
+            else entries.[n-1]
+    let truncateDetail detailLevel entries =
+        let rec getEntry detailLevel = function
+            | Nested(txt, children) ->
+                if detailLevel > 0 then
+                    Nested(txt, children |> List.map (getEntry (detailLevel - 1)))
+                else
+                    Leaf(txt)
+            | chunk -> chunk
+        entries |> mapEntries (getEntry detailLevel)
+    let getEntriesAsText = extractEntries >> mapEntries getText // code smell: this feels like not quite the right abstraction to expose
+
 module Battle2 =
     open Model.Types.Battle2
     module Value =
@@ -55,13 +81,14 @@ module Battle2 =
     let lroster = Lens.lens (fun (s:Data) -> s.roster) (fun v s -> { s with roster = v })
     let lfinished f = Lens.lens (fun (s:ViewState) -> s.finished) (fun v s -> { s with finished = v }) f
     let logCmd (msg: string) = Log [Expression.text msg]
-    let log (msg:string) (state:State) : State =
-        state |> Lens.over (ldata << llog) (Log.log msg)
+    let log (logEntry:Log.Chunk) (state:State) : State =
+        state |> Lens.over (ldata << llog) (Log.logDetailed logEntry)
     let emptyView =
         {
             lastInput = None
             lastCommand = None
-            lastOutput = None
+            lastOutput = []
+            logDetailLevel = 0
             selected = None
             finished = false
             }

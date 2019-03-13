@@ -215,7 +215,7 @@ let logOutput =
             let logLength = (snd log).Length
             let logSkip = (defaultArg logSkip (logLength-1)) // default to most recent
             let logSkip = max (min (logLength - 1) logSkip) 0 // trim bounds just in case
-            let log = Log.extract log
+            let log = Log.getEntriesAsText log
             let current = log |> List.skip logSkip |> List.head
 
             let inline logMove n label =
@@ -275,7 +275,7 @@ let root model dispatch =
             let state = model.game
             let msg = (sprintf "You have earned %d XP and %d gold pieces, and you've been adventuring for %s. What do you wish to do next?" state.pcs.[0].src.xp state.gp (Model.Gameplay.timeSummary state.timeElapsed))
             let latest =
-                match model.game.log |> Log.extract |> List.tryLast with
+                match model.game.log |> Log.getEntriesAsText |> List.tryLast with
                 | Some entries ->
                     div [] [
                         for entry in entries do

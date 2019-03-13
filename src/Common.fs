@@ -10,6 +10,7 @@ let thunk3 f arg1 arg2 arg3 _ = f arg1 arg2 arg3
 let ignore1 f _ = f()
 let matchfail v = sprintf "No match found for %A. This is a bug." v |> invalidOp
 let notImpl() = failwith "Not implemented yet. Email Max if you want this feature."
+let betweenInclusive a b n = min a b <= n && n <= max a b
 
 let chooseRandom (lst: _ []) =
     lst.[random.Next lst.Length]
@@ -100,3 +101,17 @@ module Result =
     let OkOnly = function
         | Ok(v) -> v
         | v -> matchfail v
+
+module Hierarchy =
+    type Hierarchy<'leaf, 'interior> = Leaf of 'leaf | Nested of 'interior * children: (Hierarchy<'leaf, 'interior> list)
+    let rec map fleaf fnested = function
+        | Leaf(v) -> Leaf (fleaf v)
+        | Nested(v, children) -> Nested(fnested v, children |> List.map (map fleaf fnested))
+    let mapReduce map reduce hierarchy =
+        let rec help parents = function
+            | Leaf v -> map parents v
+            | Nested(v, children) as node ->
+                let ctx = node::parents
+                let children' = children |> List.map (help ctx)
+                reduce v children'
+        help [] hierarchy

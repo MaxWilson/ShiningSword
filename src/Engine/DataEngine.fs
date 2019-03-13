@@ -148,10 +148,11 @@ module Parse =
         | _ -> None
 
     let (|Cmd|_|) = pack <| function
+        | Word(AnyCase("q" | "quit"), (End as ctx)) -> Some (Quit, ctx)
         | Word("show", (End as ctx)) -> Some (ShowLog <| Some 3, ctx)
         | Word("show", (Int(n, (End as ctx)))) -> Some (ShowLog <| Some n, ctx)
         | Word("show", Word("all", (End as ctx))) -> Some (ShowLog None, ctx)
-        | Word(AnyCase("q" | "quit"), (End as ctx)) -> Some (Quit, ctx)
+        | Word("detail", Int(n, (End as ctx))) -> Some(SetLogDetail n, ctx)
         | Word("save", Words(label, (End as ctx))) -> Some (Save label, ctx)
         | Word("load", Words(label, (End as ctx))) -> Some (Load label, ctx)
         | Word("clear", (End as ctx)) -> Some(Clear, ctx)
@@ -161,18 +162,18 @@ module Parse =
         | LogWithEmbeddedExpressions(cmd, (End as ctx)) -> Some(cmd, ctx)
         | v -> matchfail v
 
-let execute combineLines (explanationToString: Model.Types.Roll.Explanation -> string) (storage: IDataStorage) (state:State) (input: string) (return': Callback<State>): unit =
-    let cmdPrefix txt = "* " + txt // Visually distinguish commands from log outputs in the output log.
-                                    // May eventually lift this distinction to higher levels so
-                                    // web view can italizicize or something instead.
+open Common.Hierarchy
+open Model.Types
+open Model.Functions
+let execute (storage: IDataStorage) (state:State) (input: string) (return': Callback<State>): unit =
     let rec exec (state: State) c return' =
-        let eval e: Value * string option =
+        let eval e: Value * Log.Chunk option =
             // returns expression value as string + optional detailed explanation
             match e with
             | Expression.Value(v) -> v, None
             | Expression.Roll r ->
                 let result = Dice.Roll.eval r
-                Value.Number(result.value), (result |> Dice.Roll.renderExplanation |> explanationToString).Trim() |> Some
+                Value.Number(result.value), (result |> Dice.Roll.renderExplanation |> Dice.Roll.toLogChunk) |> Some
             | Expression.Average r ->
                 let result = Dice.Roll.mean r
                 Value.Text(result.ToString()), None
@@ -185,39 +186,40 @@ let execute combineLines (explanationToString: Model.Types.Roll.Explanation -> s
                 view = { state.view with lastCommand = Some c; lastInput = Some input }
                 }
         match c with
-        | Quit -> return' (state |> Lens.over lview (fun s -> { s with finished = true }), None)
+        | Quit -> return' (state |> Lens.over lview (fun s -> { s with finished = true }), [])
         | Log chunks ->
-            let chunks' = chunks |> List.map (eval >> Tuple.mapfst Value.toString)
-            let mainText = (String.join emptyString (chunks' |> List.map fst))
-            let explanations = chunks' |> List.collect (snd >> List.ofOption)
-            let resultText = combineLines (explanations @ [mainText])
-            match chunks with
-            | [Expression.Value(Text _)] ->
-                // if they just logged text, don't echo the log entry to output, and don't double log the text
-                return' (state |> log resultText, None)
-            | _ ->
-                let logEntry = combineLines [cmdPrefix input; resultText] // log the substituted values
-                return' (state |> log logEntry, Some resultText)
+            let valuesAndExplanations = chunks |> List.map eval
+            let logEntry: Log.Chunk =
+                match valuesAndExplanations with
+                | [Value.Text txt, None] ->
+                    Leaf(txt) // collapse simple text into a leaf entry
+                | _ ->
+                    // otherwise, log the whole thing
+                    let mainText = String.join emptyString (valuesAndExplanations |> List.map (fst >> Value.toString))
+                    let explanations = valuesAndExplanations |> List.collect (snd >> List.ofOption)
+                    Nested(mainText, Leaf input::explanations)
+            return' (state |> log logEntry, [logEntry])
         | ShowLog n ->
-            let log = state.data.log |> Functions.Log.extract
+            let log = state.data.log |> Log.extractEntries
             let lines = log |> List.collect id
-            let txt = (match n with Some n when n < lines.Length -> lines.[(lines.Length - n)..] | _ -> lines) |> combineLines
-            return' (state, Some txt)
+            return' (state, (match n with Some n when n < lines.Length -> lines.[(lines.Length - n)..] | _ -> lines))
+        | SetLogDetail n ->
+            return' (state |> Lens.over lview (fun v -> { v with logDetailLevel = n } ), state.view.lastOutput) // repeat last output with new detail level
         | AddCombatant name ->
             return' <|
                 match state.data.roster |> Roster.add name with
-                | Ok(roster) -> state |> Lens.set (ldata << lroster) roster, Some (sprintf "Added %s" name)
-                | Error(e) -> state, Some e
+                | Ok(roster) -> state |> Lens.set (ldata << lroster) roster, [Leaf (sprintf "Added %s" name)]
+                | Error(e) -> state, [Leaf e]
         | Statement(Expression e) ->
             let result, explanation = eval e
-            let logEntry = cmdPrefix (sprintf "%s: %s" input (match explanation with None -> result |> Value.toString | Some v -> v))
-            return' ((state |> log logEntry), (Some logEntry))
+            let logEntry = Nested(sprintf "%s: %s" input (match explanation with None -> result |> Value.toString | Some v -> v |> Log.getText), explanation |> List.ofOption)
+            return' (state |> log logEntry, [logEntry])
         | Statement(SetValue(id, propertyName, expr)) ->
             let result, explanation = eval expr
             let name = Roster.tryId id state.data.roster |> Option.get
-            let logEntry = cmdPrefix (combineLines ((sprintf "%s's new %s: %s" name propertyName (Value.toString result))::(List.ofOption explanation)))
+            let logEntry = Nested(sprintf "%s's new %s: %s" name propertyName (Value.toString result), explanation |> List.ofOption)
             let state = state |> Lens.over ldata (Property.set id propertyName result)
-            return' ((state |> log logEntry), (Some (result |> Value.toString)))
+            return' ((state |> log logEntry), [logEntry])
         | Statement(AddToValue(id, propertyName, expr)) ->
             let currentValue = state.data |> Property.get id propertyName |> Option.defaultValue (Value.Number 0)
             let result, explanation = eval expr
@@ -226,19 +228,18 @@ let execute combineLines (explanationToString: Model.Types.Roll.Explanation -> s
                 | Value.Number lhs, Value.Number rhs -> Value.Number(lhs + rhs)
                 | _ -> Common.notImpl() // todo: implement strong typing or something
             let name = Roster.tryId id state.data.roster |> Option.get
-            let shortLog = sprintf "%s's %s changed from %s to %s" name propertyName (Value.toString currentValue) (Value.toString newValue)
-            let logEntry = cmdPrefix (combineLines ((List.ofOption explanation)@[shortLog]))
+            let logEntry = Nested(sprintf "%s's %s changed from %s to %s" name propertyName (Value.toString currentValue) (Value.toString newValue), explanation |> List.ofOption)
             let state = state |> Lens.over ldata (Property.set id propertyName newValue)
-            return' ((state |> log logEntry), (Some shortLog))
+            return' ((state |> log logEntry), [logEntry])
         | Save label ->
-            storage.Save label state.data (function Ok _ -> return' (state, sprintf "Saved '%s'" label |> Some) | Error err -> return' (state, sprintf "Could not save '%s': '%s'" label err |> Some))
+            storage.Save label state.data (function Ok _ -> return' (state, [sprintf "Saved '%s'" label |> Leaf]) | Error err -> return' (state, [sprintf "Could not save '%s': '%s'" label err |> Leaf]))
         | Load label ->
-            storage.Load<Data> label (function Ok data -> exec { state with data = data; view = emptyView } (ShowLog None) return' | Error err -> return' (state, sprintf "Could not load '%s': '%s'" label err |> Some))
+            storage.Load<Data> label (function Ok data -> exec { state with data = data; view = emptyView } (ShowLog None) return' | Error err -> return' (state, [sprintf "Could not load '%s': '%s'" label err |> Leaf]))
         | Clear ->
-            return' (Model.Functions.Battle2.init(), None)
+            return' (Model.Functions.Battle2.init(), [])
     match Packrat.ParseArgs.Init(input, state.data.roster) with
     | Parse.Cmd(cmd, End) ->
-        let callback (state, output) =
+        let callback (state: State, output: Log.Chunk list) =
             return' { state with
                         view = { state.view with lastOutput = output }
                         }
@@ -247,5 +248,5 @@ let execute combineLines (explanationToString: Model.Types.Roll.Explanation -> s
         // invalid command (probably pure whitespace)
         return'
             { state with
-                view = { state.view with lastInput = Some input; lastOutput = None }
+                view = { state.view with lastInput = Some input; lastOutput = [] }
                 }

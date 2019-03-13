@@ -1,4 +1,5 @@
 module Model.Types
+open Common
 
 module Roll =
     open System.Numerics
@@ -22,7 +23,7 @@ module Roll =
         { value: Result list; source: AggregateRequest; sublog: Result list }
     type DistributionResult =
         DistributionResult of Map<ResultValue, BigInteger>
-    type Explanation = Explanation of result: ResultValue * summary: string * details: Explanation list
+    type Explanation = Hierarchy.Hierarchy<ResultValue, (ResultValue * string)>
 type FractionalResult = float
 
 type Roll = Roll.Request
@@ -179,7 +180,10 @@ type Intention = Move of Position | Attack of Id
 type Declarations = (Id * Intention) list
 
 module Log =
-    type Data = string list * string list list
+    type Chunk = Hierarchy.Hierarchy<string, string>
+    type Page = Chunk list
+    type Entries = Page list
+    type Data = Page * Entries
 
 module Battle2 =
     type PropertyName = string
@@ -194,7 +198,7 @@ module Battle2 =
         | SetValue of Id * PropertyName * Expression
         | AddToValue of Id * PropertyName * Expression
     type Command =
-        | Log of Expression list | Quit | ShowLog of numberOfLines: int option
+        | Log of Expression list | Quit | ShowLog of numberOfLines: int option | SetLogDetail of int
         | Save of string | Load of string | Clear
         | AddCombatant of Name
         | Statement of Statement
@@ -211,7 +215,8 @@ module Battle2 =
     type ViewState = {
         lastInput: string option // last user input
         lastCommand: Command option // last VALID command entered
-        lastOutput: string option // response to last command, if any
+        lastOutput: Log.Chunk list // response to last command, if any
+        logDetailLevel: int
         selected: Id option
         finished: bool // is the battle done, i.e. one side all dead?
         }
