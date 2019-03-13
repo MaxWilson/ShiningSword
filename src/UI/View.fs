@@ -235,12 +235,12 @@ let inline notImpl _ = Browser.window.alert "Sorry, not implemented yet. Send em
 
 let root model dispatch =
     undoModal <- thunk1 dispatch UndoModal
+    onKeypress <- None
     let inline answer v = match model with { modalDialogs = op::_ } -> progress dispatch op v | _ -> ()
     let children =
         match model with
         | { modalDialogs = (Operation(q,_) as op)::_ } ->
             let ongoingInteraction =
-                onKeypress <- None
                 div [ClassName "queryDialog"] <|
                     match q with
                     | Query.Confirm(q) -> confirmQuery q (thunk1 answer)
