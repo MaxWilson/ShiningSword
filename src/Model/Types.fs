@@ -181,9 +181,10 @@ type Declarations = (Id * Intention) list
 
 module Log =
     type Chunk = Hierarchy.Hierarchy<string, string>
-    type Page = Chunk list
-    type Entries = Page list
-    type Data = Page * Entries
+    type Entry<'t> = 't * Chunk
+    type Page<'t> = Entry<'t> list
+    type Entries<'t> = Page<'t> list
+    type Data<'t> = Page<'t> * Entries<'t>
 
 module Battle2 =
     type PropertyName = string
@@ -207,7 +208,7 @@ module Battle2 =
 
     // "real" state, stuff that is worth saving/loading
     type Data = {
-        log: Log.Data
+        log: Log.Data<Command>
         properties: Map<(Id*PropertyName), Value>
         roster: Roster
         }
@@ -215,7 +216,7 @@ module Battle2 =
     type ViewState = {
         lastInput: string option // last user input
         lastCommand: Command option // last VALID command entered
-        lastOutput: Log.Chunk list // response to last command, if any
+        lastOutput: Log.Entry<Command> list // response to last command, if any
         logDetailLevel: int
         selected: Id option
         finished: bool // is the battle done, i.e. one side all dead?
@@ -231,7 +232,7 @@ type GameState = {
     randomNumber: int
     timeElapsed: int // seconds
     gp: int
-    log: Log.Data
+    log: Log.Data<unit>
     battle1: Battle1.State1 option
     battle: Battle2.State option
     }

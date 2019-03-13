@@ -38,13 +38,17 @@ type CloudStorage() =
             DataStorage.load (accessToken()) "battle" label |> callback
 
 let display detailLevel logEntries =
-    let rec help currentDepth logEntry =
-        printfn "%s%s" (String.replicate currentDepth "  ") (Log.getText logEntry)
-        match logEntry with
-        | Nested(_, children) when detailLevel > currentDepth -> // if detailLevel = 2, last recursion will happen when currentDepth = 1.
-            children |> List.iter (help <| currentDepth + 1)
-        | _ -> ()
-    logEntries |> List.iter (help 0)
+    for (cmd, e) in logEntries do
+        let rec help currentDepth logEntry =
+            match cmd with
+            | Log(_) when currentDepth = 0 -> printf "* " // visually distinguish log entries from commands, among other things so that a user can recognize commands that failed to parse
+            | _ -> ()
+            printfn "%s%s" (String.replicate currentDepth "  ") (Log.getText logEntry)
+            match logEntry with
+            | Nested(_, children) when detailLevel > currentDepth -> // if detailLevel = 2, last recursion will happen when currentDepth = 1.
+                children |> List.iter (help <| currentDepth + 1)
+            | _ -> ()
+        help 0 e
 
 let consoleLoop (initialState: State) =
     let rec loop (state: State) =
@@ -52,7 +56,7 @@ let consoleLoop (initialState: State) =
             ()
         else
             match state.view.lastCommand, state.view.lastOutput with
-            | Some (Log _), [Leaf _] -> () // if they just logged some simple text, don't echo it to output
+            | Some (Log _), [_, Leaf _] -> () // if they just logged some simple text, don't echo it to output
             | _, outputs->
                 display state.view.logDetailLevel outputs
             | None, _ when state.view.lastInput.IsSome -> printfn "Come again?" // probably shouldn't happen

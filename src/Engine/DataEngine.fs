@@ -185,11 +185,12 @@ let execute (storage: IDataStorage) (state:State) (input: string) (return': Call
             { state with
                 view = { state.view with lastCommand = Some c; lastInput = Some input }
                 }
+        let log logChunk state = state |> log (c, logChunk)
         match c with
         | Quit -> return' (state |> Lens.over lview (fun s -> { s with finished = true }), [])
         | Log chunks ->
             let valuesAndExplanations = chunks |> List.map eval
-            let logEntry: Log.Chunk =
+            let logChunk: Log.Chunk =
                 match valuesAndExplanations with
                 | [Value.Text txt, None] ->
                     Leaf(txt) // collapse simple text into a leaf entry
@@ -198,7 +199,7 @@ let execute (storage: IDataStorage) (state:State) (input: string) (return': Call
                     let mainText = String.join emptyString (valuesAndExplanations |> List.map (fst >> Value.toString))
                     let explanations = valuesAndExplanations |> List.collect (snd >> List.ofOption)
                     Nested(mainText, Leaf input::explanations)
-            return' (state |> log logEntry, [logEntry])
+            return' (state |> log logChunk, [c, logChunk])
         | ShowLog n ->
             let log = state.data.log |> Log.extractEntries
             let lines = log |> List.collect id
@@ -208,18 +209,18 @@ let execute (storage: IDataStorage) (state:State) (input: string) (return': Call
         | AddCombatant name ->
             return' <|
                 match state.data.roster |> Roster.add name with
-                | Ok(roster) -> state |> Lens.set (ldata << lroster) roster, [Leaf (sprintf "Added %s" name)]
-                | Error(e) -> state, [Leaf e]
+                | Ok(roster) -> state |> Lens.set (ldata << lroster) roster, [c, Leaf (sprintf "Added %s" name)]
+                | Error(e) -> state, [c, Leaf e]
         | Statement(Expression e) ->
             let result, explanation = eval e
-            let logEntry = Nested(sprintf "%s: %s" input (match explanation with None -> result |> Value.toString | Some v -> v |> Log.getText), explanation |> List.ofOption)
-            return' (state |> log logEntry, [logEntry])
+            let logChunk = Nested(sprintf "%s: %s" input (match explanation with None -> result |> Value.toString | Some v -> v |> Log.getText), explanation |> List.ofOption)
+            return' (state |> log logChunk, [c, logChunk])
         | Statement(SetValue(id, propertyName, expr)) ->
             let result, explanation = eval expr
             let name = Roster.tryId id state.data.roster |> Option.get
-            let logEntry = Nested(sprintf "%s's new %s: %s" name propertyName (Value.toString result), explanation |> List.ofOption)
+            let logChunk = Nested(sprintf "%s's new %s: %s" name propertyName (Value.toString result), explanation |> List.ofOption)
             let state = state |> Lens.over ldata (Property.set id propertyName result)
-            return' ((state |> log logEntry), [logEntry])
+            return' ((state |> log logChunk), [c, logChunk])
         | Statement(AddToValue(id, propertyName, expr)) ->
             let currentValue = state.data |> Property.get id propertyName |> Option.defaultValue (Value.Number 0)
             let result, explanation = eval expr
@@ -228,18 +229,18 @@ let execute (storage: IDataStorage) (state:State) (input: string) (return': Call
                 | Value.Number lhs, Value.Number rhs -> Value.Number(lhs + rhs)
                 | _ -> Common.notImpl() // todo: implement strong typing or something
             let name = Roster.tryId id state.data.roster |> Option.get
-            let logEntry = Nested(sprintf "%s's %s changed from %s to %s" name propertyName (Value.toString currentValue) (Value.toString newValue), explanation |> List.ofOption)
+            let logChunk = Nested(sprintf "%s's %s changed from %s to %s" name propertyName (Value.toString currentValue) (Value.toString newValue), explanation |> List.ofOption)
             let state = state |> Lens.over ldata (Property.set id propertyName newValue)
-            return' ((state |> log logEntry), [logEntry])
+            return' ((state |> log logChunk), [c, logChunk])
         | Save label ->
-            storage.Save label state.data (function Ok _ -> return' (state, [sprintf "Saved '%s'" label |> Leaf]) | Error err -> return' (state, [sprintf "Could not save '%s': '%s'" label err |> Leaf]))
+            storage.Save label state.data (function Ok _ -> return' (state, [c, sprintf "Saved '%s'" label |> Leaf]) | Error err -> return' (state, [c, sprintf "Could not save '%s': '%s'" label err |> Leaf]))
         | Load label ->
-            storage.Load<Data> label (function Ok data -> exec { state with data = data; view = emptyView } (ShowLog None) return' | Error err -> return' (state, [sprintf "Could not load '%s': '%s'" label err |> Leaf]))
+            storage.Load<Data> label (function Ok data -> exec { state with data = data; view = emptyView } (ShowLog None) return' | Error err -> return' (state, [c, sprintf "Could not load '%s': '%s'" label err |> Leaf]))
         | Clear ->
             return' (Model.Functions.Battle2.init(), [])
     match Packrat.ParseArgs.Init(input, state.data.roster) with
     | Parse.Cmd(cmd, End) ->
-        let callback (state: State, output: Log.Chunk list) =
+        let callback (state: State, output: Log.Entry<_> list) =
             return' { state with
                         view = { state.view with lastOutput = output }
                         }

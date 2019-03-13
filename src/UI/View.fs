@@ -209,7 +209,7 @@ let partySummary =
         div [ClassName "partySummary"] children
 
 let logOutput =
-    lazyView2 <| fun (log: Log.Data, logSkip) dispatch ->
+    lazyView2 <| fun (log: Log.Data<_>, logSkip) dispatch ->
         if log = Log.empty then div[ClassName "logDisplay"][]
         else
             let logLength = (snd log).Length

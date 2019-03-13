@@ -7,25 +7,25 @@ open Common.Hierarchy
 module Log =
     open Model.Types.Log
     let empty = [], []
-    let log (msg:string) (log: Data) : Data =
+    let log (msg:string) (log: Data<_>) : Data<_> =
         match log with
-        | buffer, log -> (Leaf msg)::buffer, log
-    let logDetailed logEntry (log:Data) : Data =
+        | buffer, log -> ((), Leaf msg)::buffer, log
+    let logDetailed logEntry (log : Data<_>) : Data<_> =
         match log with
         | buffer, log -> logEntry::buffer, log
-    let logMany (msgs:string list) (log:Data) =
+    let logMany (msgs:string list) (log : Data<_>) =
         match log with
-        | buffer, log -> (msgs |> List.map Leaf)@buffer, log
-    let flush (log:Data) : Data =
+        | buffer, log -> (msgs |> List.map (fun x -> (), Leaf x))@buffer, log
+    let flush (log : Data<_>) : Data<_> =
         match log with
         | buffer, (h::rest) -> [], (h@(List.rev buffer))::rest
         | buffer, [] -> [], [List.rev buffer]
-    let advance (log:Data) : Data =
+    let advance (log : Data<_>) : Data<_> =
         match flush log with
         | _, rest -> [], []::rest
     let getText = (function Leaf txt | Nested(txt, _) -> txt)
-    let extractEntries : Log.Data -> Log.Entries = flush >> snd >> List.rev
-    let mapEntries f (d: Log.Entries) = List.map (List.map f) d
+    let extractEntries (x : Log.Data<_>) : Log.Entries<_> = x |> flush |> snd |> List.rev
+    let mapEntries f (d: Log.Entries<_>) = List.map (List.map f) d
     let page nth entries =
         match nth with
         | None -> entries |> List.collect id
@@ -43,8 +43,8 @@ module Log =
                 else
                     Leaf(txt)
             | chunk -> chunk
-        entries |> mapEntries (getEntry detailLevel)
-    let getEntriesAsText = extractEntries >> mapEntries getText // code smell: this feels like not quite the right abstraction to expose
+        entries |> mapEntries (Tuple.mapsnd (getEntry detailLevel))
+    let getEntriesAsText x = x |> (extractEntries >> mapEntries (snd >> getText)) // code smell: this feels like not quite the right abstraction to expose
 
 module Battle2 =
     open Model.Types.Battle2
@@ -70,9 +70,11 @@ module Battle2 =
             | Some v -> Error (sprintf "%s already exists" name)
             | None ->
                 let newId =
-                    let ids = fst roster |> Map.toSeq
-                    if Seq.isEmpty ids then 1
-                    else 1 + (ids |> Seq.map fst |> Seq.max)
+                    let ids = fst roster |> Map.toSeq |> Array.ofSeq // workaround for Fable bug: use Array instead of seq, because Seq.isEmpty sometimes incorrectly returns false the first time it is called on ids
+                    if Array.isEmpty ids then 1
+                    else
+                        let biggest = Seq.maxBy fst ids
+                        1 + fst biggest
                 Ok((idLookup |> Map.add newId name), (nameLookup |> Map.add (name.ToLowerInvariant()) newId))
 
     let ldata = Lens.lens (fun (s:State) -> s.data) (fun v s -> { s with data = v })
@@ -80,8 +82,8 @@ module Battle2 =
     let llog f = Lens.lens (fun (s:Data) -> s.log) (fun v s -> { s with log = v }) f
     let lroster = Lens.lens (fun (s:Data) -> s.roster) (fun v s -> { s with roster = v })
     let lfinished f = Lens.lens (fun (s:ViewState) -> s.finished) (fun v s -> { s with finished = v }) f
-    let logCmd (msg: string) = Log [Expression.text msg]
-    let log (logEntry:Log.Chunk) (state:State) : State =
+    let logCmd (msg : string) = Log [Expression.text msg]
+    let log (logEntry : Log.Entry<_>) (state:State) : State =
         state |> Lens.over (ldata << llog) (Log.logDetailed logEntry)
     let emptyView =
         {
