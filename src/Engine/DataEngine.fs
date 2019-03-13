@@ -176,7 +176,7 @@ let execute (storage: IDataStorage) (state:State) (input: string) (return': Call
                 Value.Number(result.value), (result |> Dice.Roll.renderExplanation |> Dice.Roll.toLogChunk) |> Some
             | Expression.Average r ->
                 let result = Dice.Roll.mean r
-                Value.Text(result.ToString()), None
+                Value.Text(sprintf "%.2f" result), None
             | Expression.GetValue(id, property) ->
                 match state.data |> Property.get id property with
                 | Some v -> v, None
