@@ -68,7 +68,7 @@ module KeyCode =
 
 let onKeyDown keyCode action =
     OnKeyDown (fun (ev:Fable.Import.React.KeyboardEvent) ->
-        if ev.keyCode = keyCode then
+        if ev.keyCode = keyCode && not ev.ctrlKey && not ev.altKey then
             ev.preventDefault()
             action ev)
 
@@ -76,12 +76,12 @@ let mutable onKeypress : (KeyboardEvent -> bool) option = None
 document.addEventListener_keydown(fun ev ->
     if onKeypress.IsSome && onKeypress.Value(ev) then
         ev.preventDefault()
-    obj())
+    )
 let mutable undoModal : unit -> unit = ignore
 document.addEventListener_keyup((fun ev ->
     if ev.keyCode = KeyCode.escape then
         undoModal()
-    obj()), true)
+    ), true)
 
 let textbox placeholder answer =
     let cell = ref ""
@@ -136,17 +136,20 @@ let numberQuery prompt answer =
 
 let buttonsWithHotkeys (labelsAndActions: (string * (_ -> unit)) list) =
     onKeypress <- Some(fun ev ->
-        match System.Int32.TryParse ev.key with
-        // use one-based choosing for UI purposes: 1 is the first choice, 2 is the second
-        | true, n when n-1 < labelsAndActions.Length ->
-            (snd (labelsAndActions |> List.item (n-1)))()
-            true
-        | _ ->
-            match labelsAndActions |> List.tryFind (fun (label, action) -> label.StartsWith(ev.key, System.StringComparison.InvariantCultureIgnoreCase)) with
-            | Some(_,action) ->
-                action()
+        if not ev.ctrlKey && not ev.altKey then
+            match System.Int32.TryParse ev.key with
+            // use one-based choosing for UI purposes: 1 is the first choice, 2 is the second
+            | true, n when n-1 < labelsAndActions.Length ->
+                (snd (labelsAndActions |> List.item (n-1)))()
                 true
-            | _ -> false
+            | _ ->
+                match labelsAndActions |> List.tryFind (fun (label, action) -> label.StartsWith(ev.key, System.StringComparison.InvariantCultureIgnoreCase)) with
+                | Some(_,action) ->
+                    action()
+                    true
+                | _ -> false
+        else
+            false
         )
     labelsAndActions |> List.map (fun (label, action) ->
         Button.button [Button.OnClick (fun _ -> action()); Button.Color Fulma.Color.IsBlack] [str label])
@@ -322,7 +325,7 @@ let root model dispatch =
         | { mode = [] } ->
             let startGame _ =
                 Model.Gameplay.campaignMode() |> modalOperation dispatch (fun state -> dispatch (UpdateGameState state); dispatch (NewMode Campaign); dispatch (NewMode Battle))
-            let startBattles = notImpl
+            let startBattles _ = Browser.window.location.assign "#battle"
             let loadCampaign = notImpl
             let saveCampaign = notImpl
             [Hero.hero [] [
