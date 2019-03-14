@@ -20,7 +20,7 @@ var CONFIG = {
     cssEntry: "./sass/main.sass",
     outputDir: "./deploy",
     assetsDir: "./public",
-    devServerPort: 8080,
+    devServerPort: 8443,
     // When using webpack-dev-server, you may need to redirect some calls
     // to a external API server. See https://webpack.js.org/configuration/dev-server/#devserver-proxy
     devServerProxy: undefined,
@@ -108,7 +108,8 @@ module.exports = {
         port: CONFIG.devServerPort,
         proxy: CONFIG.devServerProxy,
         hot: true,
-        inline: true
+        inline: true,
+        https: true
     },
     // - fable-loader: transforms F# into JS
     // - babel-loader: transforms JS to old syntax (compatible with old browsers)

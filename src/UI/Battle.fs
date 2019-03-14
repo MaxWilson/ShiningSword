@@ -8,7 +8,6 @@ open UI.Types
 open Fable.Helpers.React
 open Fable.Helpers.React.Props
 open Elmish.React
-open Fulma
 
 let battleSummary fullInfo (combatants:Combatant seq) =
     // fullInfo: controls whether full info is displayed in the UI for this creature e.g. exact HP totals, current orders
@@ -63,18 +62,12 @@ let view1 dispatch modalOperation buttonsWithHotkeys logOutput (game:GameState) 
         logOutput
         ]
 
-type CloudStorage() =
-    interface DataEngine.IDataStorage with
-        member this.Save (label:DataEngine.Label) data callback = notImpl()
-        member this.Load label callback = notImpl()
-
 let update (model: Model) = function
     | Battle.Msg.Update state ->
         { model with game = { model.game with battle = Some state } }
 
-
 let respond state continuation txt =
-    DataEngine.execute (CloudStorage()) state txt continuation
+    DataEngine.execute (UI.Storage.CloudStorage()) state txt continuation
 
 let display detailLevel (logEntries: Log.Entry<_> list) =
     [for (cmd, e) in logEntries do

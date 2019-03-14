@@ -60,29 +60,6 @@ let progress dispatch (Operation(_:Model.Types.Query, provideAnswer)) answer =
     | Final _ -> ()
     | Intermediate((q,gameState), answer) -> dispatch (UpdateModalOperation (Operation(q, answer), gameState))
 
-module KeyCode =
-    let enter = 13.
-    let upArrow = 38.
-    let downArrow =  40.
-    let escape = 27.
-
-let onKeyDown keyCode action =
-    OnKeyDown (fun (ev:Fable.Import.React.KeyboardEvent) ->
-        if ev.keyCode = keyCode && not ev.ctrlKey && not ev.altKey then
-            ev.preventDefault()
-            action ev)
-
-let mutable onKeypress : (KeyboardEvent -> bool) option = None
-document.addEventListener_keydown(fun ev ->
-    if onKeypress.IsSome && onKeypress.Value(ev) then
-        ev.preventDefault()
-    )
-let mutable undoModal : unit -> unit = ignore
-document.addEventListener_keyup((fun ev ->
-    if ev.keyCode = KeyCode.escape then
-        undoModal()
-    ), true)
-
 let textbox placeholder answer =
     let cell = ref ""
     input [
@@ -100,20 +77,6 @@ let confirmQuery txt answer =
         Button.button [Button.OnClick (answer "yes")] [str "Yes"]
         Button.button [Button.OnClick (answer "no")] [str "No"]
         ]
-
-/// Helper method: an input which stores state locally in React.state and then calls onEnter when Enter is pressed
-let statefulInput onEnter (props: IHTMLProp list) =
-    Components.stateful "" (=) <| fun txt update ->
-        let props : IHTMLProp list = [
-                yield Value txt
-                yield OnChange (fun ev ->
-                    let v = !!ev.target?value
-                    update (thunk v)
-                    )
-                yield onKeyDown KeyCode.enter (thunk1 onEnter txt)
-                yield! props
-                ]
-        input props
 
 let freeTextQuery prompt answer =
     [

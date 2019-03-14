@@ -7,8 +7,6 @@
     <Compile Include="Common.fs" />
     <Compile Include="Abstractions\Parsing.fs" />
     <Compile Include="Abstractions\Interaction.fs" />
-    <Compile Include="Abstractions\DataStorage.Globals.fs" />
-    <Compile Include="Abstractions\DataStorage.fs" />
     <Compile Include="Model\Types.fs" />
     <Compile Include="Model\Functions.fs" />
     <Compile Include="Model\Dice.fs" />
@@ -23,6 +21,7 @@
     <Compile Include="UI\Components.fs" />
     <Compile Include="UI\Global.fs" />
     <Compile Include="UI\Types.fs" />
+    <Compile Include="UI\Storage.fs" />
     <Compile Include="UI\Battle.fs" />
     <Compile Include="UI\State.fs" />
     <Compile Include="UI\View.fs" />

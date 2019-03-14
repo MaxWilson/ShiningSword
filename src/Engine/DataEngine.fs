@@ -76,8 +76,8 @@ type Callback<'T> = 'T -> unit
 type Label = string
 
 type IDataStorage =
-    abstract member Save: Label -> 'T -> Callback<Result<unit, string>> -> unit
-    abstract member Load: Label -> Callback<Result<'t, string>> -> unit
+    abstract member Save: Label -> Model.Types.Battle2.Data -> Callback<Result<unit, string>> -> unit
+    abstract member Load: Label -> Callback<Result<Model.Types.Battle2.Data, string>> -> unit
 
 open Packrat
 open Model
@@ -235,7 +235,7 @@ let execute (storage: IDataStorage) (state:State) (input: string) (return': Call
         | Save label ->
             storage.Save label state.data (function Ok _ -> return' (state, [c, sprintf "Saved '%s'" label |> Leaf]) | Error err -> return' (state, [c, sprintf "Could not save '%s': '%s'" label err |> Leaf]))
         | Load label ->
-            storage.Load<Data> label (function Ok data -> exec { state with data = data; view = emptyView } (ShowLog None) return' | Error err -> return' (state, [c, sprintf "Could not load '%s': '%s'" label err |> Leaf]))
+            storage.Load label (function Ok data -> exec { state with data = data; view = emptyView } (ShowLog None) return' | Error err -> return' (state, [c, sprintf "Could not load '%s': '%s'" label err |> Leaf]))
         | Clear ->
             return' (Model.Functions.Battle2.init(), [])
     match Packrat.ParseArgs.Init(input, state.data.roster) with

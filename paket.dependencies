@@ -11,3 +11,4 @@ nuget Fable.Elmish.Debugger
 
 clitool dotnet-fable
 nuget Fulma
+nuget Thoth.Json.Net
