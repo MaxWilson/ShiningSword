@@ -19,7 +19,6 @@ let init parseResult =
     { modalDialogs = []; game = GameState.empty; undo = None; logSkip = None; mode = [] } |> urlUpdate parseResult
 
 let update msg model =
-    printfn "Cmd: %A Modes: %A" msg model.mode
     match msg with
     | NewMode(vm) -> { model with mode = vm::model.mode }, Cmd.Empty
     | EndMode(vm) ->
