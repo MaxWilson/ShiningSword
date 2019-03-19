@@ -57,8 +57,10 @@ let consoleLoop (initialState: State) =
         else
             match state.view.lastCommand, state.view.lastOutput with
             | Some (Log _), [_, Leaf _] -> () // if they just logged some simple text, don't echo it to output
+            | Some (ShowLog(_, Some detailOverride)), outputs-> // respect the detail override e.g. 'detail all 3'
+                display detailOverride outputs
             | _, outputs->
-                display state.view.logDetailLevel outputs
+                display (defaultArg state.view.outputDetailLevel state.view.logDetailLevel) outputs
             | None, _ when state.view.lastInput.IsSome -> printfn "Come again?" // probably shouldn't happen
             | _ -> ()
             let answer = execute (CloudStorage()) state

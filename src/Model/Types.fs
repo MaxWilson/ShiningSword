@@ -199,7 +199,7 @@ module Battle2 =
         | SetValue of Id * PropertyName * Expression
         | AddToValue of Id * PropertyName * Expression
     type Command =
-        | Log of Expression list | Quit | ShowLog of numberOfLines: int option | SetLogDetail of int
+        | Log of Expression list | Quit | ShowLog of numberOfLines: int option * detailLevel: int option | SetLogDetail of int | SetOutputDetail of int option
         | Save of string | Load of string | Clear
         | AddCombatant of Name
         | Statement of Statement
@@ -218,6 +218,7 @@ module Battle2 =
         lastCommand: Command option // last VALID command entered
         lastOutput: Log.Entry<Command> list // response to last command, if any
         logDetailLevel: int
+        outputDetailLevel: int option
         selected: Id option
         finished: bool // is the battle done, i.e. one side all dead?
         }

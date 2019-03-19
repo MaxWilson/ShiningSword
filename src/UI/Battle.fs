@@ -98,7 +98,11 @@ let view respond (battle: Battle2.State) =
         match battle.view.lastOutput with
         | [] -> ()
         | outputs ->
-            yield ul[ClassName "battleSummary content"](outputs |> (display battle.view.logDetailLevel))
+            let detailLevel =
+                match battle.view.lastCommand with
+                Some (Model.Types.Battle2.ShowLog(_, Some detailOverride)) -> detailOverride
+                | _ ->  defaultArg battle.view.outputDetailLevel battle.view.logDetailLevel
+            yield ul[ClassName "battleSummary content"](outputs |> (display detailLevel))
         yield div[ClassName "interaction"] [
             statefulInput respond [Placeholder "Enter a command"; AutoFocus true; ClassName "prompt"]
             ]

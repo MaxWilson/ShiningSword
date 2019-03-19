@@ -147,12 +147,19 @@ module Parse =
         | Chunkify(chunks, ctx) -> Some(Log chunks, ctx)
         | _ -> None
 
-    let (|Cmd|_|) = pack <| function
+    let (|Cmd|_|) =
+        let (|DetailLevel|) = function | Int(n, ctx) -> Some n, ctx | ctx -> (Some 99), ctx // default to full detail (99 is high enough)
+        pack <| function
         | Word(AnyCase("q" | "quit"), (End as ctx)) -> Some (Quit, ctx)
-        | Word("show", (End as ctx)) -> Some (ShowLog <| Some 3, ctx)
-        | Word("show", (Int(n, (End as ctx)))) -> Some (ShowLog <| Some n, ctx)
-        | Word("show", Word("all", (End as ctx))) -> Some (ShowLog None, ctx)
-        | Word("detail", Int(n, (End as ctx))) -> Some(SetLogDetail n, ctx)
+        | Word("show", (End as ctx)) -> Some (ShowLog (Some 3, None), ctx)
+        | Word("show", (Int(n, (End as ctx)))) -> Some (ShowLog (Some n, None), ctx)
+        | Word("show", Word("all", (End as ctx))) -> Some (ShowLog (None, None), ctx)
+        | Word("detail", DetailLevel(level, (End as ctx))) -> Some (ShowLog (Some 1, level), ctx)
+        | Word("detail", (Int(n, DetailLevel(level, (End as ctx))))) -> Some (ShowLog (Some n, level), ctx)
+        | Word("detail", Word("all", DetailLevel(level, (End as ctx)))) -> Some (ShowLog (None, level), ctx)
+        | Word("set", Word("detail", Int(n, (End as ctx)))) -> Some(SetOutputDetail (Some n), ctx)
+        | Word("clear", Word("detail", Int(n, (End as ctx)))) -> Some(SetOutputDetail None, ctx)
+        | Word("set", Word("log", Word("detail", Int(n, (End as ctx))))) -> Some(SetLogDetail n, ctx)
         | Word("save", Words(label, (End as ctx))) -> Some (Save label, ctx)
         | Word("load", Words(label, (End as ctx))) -> Some (Load label, ctx)
         | Word("clear", (End as ctx)) -> Some(Clear, ctx)
@@ -200,10 +207,12 @@ let execute (storage: IDataStorage) (state:State) (input: string) (return': Call
                     let explanations = valuesAndExplanations |> List.collect (snd >> List.ofOption)
                     Nested(mainText, Leaf input::explanations)
             return' (state |> log logChunk, [c, logChunk])
-        | ShowLog n ->
+        | ShowLog(n, _detailLevel) ->
             let log = state.data.log |> Log.extractEntries
             let lines = log |> List.collect id
             return' (state, (match n with Some n when n < lines.Length -> lines.[(lines.Length - n)..] | _ -> lines))
+        | SetOutputDetail level ->
+            return' (state |> Lens.over lview (fun v -> { v with outputDetailLevel = level } ), state.view.lastOutput) // repeat last output with new detail level
         | SetLogDetail n ->
             return' (state |> Lens.over lview (fun v -> { v with logDetailLevel = n } ), state.view.lastOutput) // repeat last output with new detail level
         | AddCombatant name ->
@@ -235,7 +244,7 @@ let execute (storage: IDataStorage) (state:State) (input: string) (return': Call
         | Save label ->
             storage.Save label state.data (function Ok _ -> return' (state, [c, sprintf "Saved '%s'" label |> Leaf]) | Error err -> return' (state, [c, sprintf "Could not save '%s': '%s'" label err |> Leaf]))
         | Load label ->
-            storage.Load label (function Ok data -> exec { state with data = data; view = emptyView } (ShowLog None) return' | Error err -> return' (state, [c, sprintf "Could not load '%s': '%s'" label err |> Leaf]))
+            storage.Load label (function Ok data -> exec { state with data = data; view = emptyView } (ShowLog (None, None)) return' | Error err -> return' (state, [c, sprintf "Could not load '%s': '%s'" label err |> Leaf]))
         | Clear ->
             return' (Model.Functions.Battle2.init(), [])
     match Packrat.ParseArgs.Init(input, state.data.roster) with

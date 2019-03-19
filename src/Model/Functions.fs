@@ -90,6 +90,7 @@ module Battle2 =
             lastInput = None
             lastCommand = None
             lastOutput = []
+            outputDetailLevel = None
             logDetailLevel = 0
             selected = None
             finished = false
