@@ -104,13 +104,21 @@ module EasyAuth =
 
 let save (token:string) tag id (data: 't) =
     let url = sprintf "https://wilsondata.azurewebsites.net/api/%s/%s" tag id
-    Fable.PowerPack.Fetch.postRecord url data [Fetch.requestHeaders [Fable.PowerPack.Fetch.Fetch_types.HttpRequestHeaders.Custom ("X-ZUMO-AUTH", token)]]
-        |> Promise.map (fun resp -> if resp.Ok then Ok() else Error "Unable to save")
+    promise {
+        try
+            let! resp = Fable.PowerPack.Fetch.postRecord url data [Fetch.requestHeaders [Fable.PowerPack.Fetch.Fetch_types.HttpRequestHeaders.Custom ("X-ZUMO-AUTH", token)]]
+            return if resp.Ok then Ok() else Error "Unable to save"
+        with err -> return Error (err.ToString())
+    }
 
 let load (token:string) tag id =
     let url = sprintf "https://wilsondata.azurewebsites.net/api/%s/%s" tag id
-    Fable.PowerPack.Fetch.fetchAs url (Thoth.Json.Decode.Auto.generateDecoder<Model.Types.Battle2.Data>()) [Fetch.requestHeaders [Fable.PowerPack.Fetch.Fetch_types.HttpRequestHeaders.Custom ("X-ZUMO-AUTH", token)]]
-        |> Promise.map Ok
+    promise {
+        try
+            let! resp = Fable.PowerPack.Fetch.fetchAs url (Thoth.Json.Decode.Auto.generateDecoder<Model.Types.Battle2.Data>()) [Fetch.requestHeaders [Fable.PowerPack.Fetch.Fetch_types.HttpRequestHeaders.Custom ("X-ZUMO-AUTH", token)]]
+            return Ok(resp)
+        with err -> return Error (err.ToString())
+    }
 
 type CloudStorage() =
     interface DataEngine.IDataStorage with
