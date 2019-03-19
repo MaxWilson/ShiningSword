@@ -284,6 +284,9 @@ module Roll =
                 details simplify result.value (fun children -> sprintf "max(%s) => %d" (String.join "," children) result.value) result.sublog
             | Combine(Min, (Aggregate(_) | Repeat(_))) ->
                 details simplify result.value (fun children -> sprintf "min(%s) => %d" (String.join "," children) result.value) result.sublog
+            | Transform(_, Times -1) ->
+                // if it's just a negation, just log the non-negated version instead of echoing
+                renderExplanation simplify (result.sublog |> List.exactlyOne)
             | Transform(_, _) ->
                 details simplify result.value (fun children -> sprintf "%s becomes %d" (children.Head) result.value) result.sublog
             | Branch((_,mods),_) ->
