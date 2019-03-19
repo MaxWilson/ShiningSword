@@ -213,7 +213,7 @@ let execute (storage: IDataStorage) (state:State) (input: string) (return': Call
                 | Error(e) -> state, [c, Leaf e]
         | Statement(Expression e) ->
             let result, explanation = eval e
-            let logChunk = Nested(sprintf "%s: %s" input (match explanation with None -> result |> Value.toString | Some v -> v |> Log.getText), explanation |> List.ofOption)
+            let logChunk = Nested(sprintf "%s: %s" input (match explanation with None -> result |> Value.toString | Some v -> v |> Log.getText), match explanation with Some (Nested(_, children)) -> children | Some(leaf) -> [leaf] | None -> []) // don't repeat details unnecessarily
             return' (state |> log logChunk, [c, logChunk])
         | Statement(SetValue(id, propertyName, expr)) ->
             let result, explanation = eval expr
