@@ -10,20 +10,38 @@ open JsInterop
 // from UI.Types instead of using the Elmish pattern
 
 module Auth =
-  type Provider = Facebook // TODO: add Google, MSA
-  (* Transitions:
-     Unitialized (on app start) -> Authenticated | Unauthenticated when initialization completes
-     Unauthenticated -> Authenticated when user logs in and Facebook sends a response
-     Authenticated -> Authorized when WilsonData EasyAuth provides an X-ZUMO-AUTH token
-     Authenticated | Authorized -> Unauthenticated when user logs out
-  *)
-  type AccessToken = string
-  type State =
-    | Uninitialized
-    | Unauthenticated
-    | Authenticated of Provider * AccessToken
-    | Authorized of AccessToken
-    | Error of string
+    type Provider = Facebook // TODO: add Google, MSA
+    (* Transitions:
+        Unitialized (on app start) -> Authenticated | Unauthenticated when initialization completes
+        Unauthenticated -> Authenticated when user logs in and Facebook sends a response
+        Authenticated -> Authorized when WilsonData EasyAuth provides an X-ZUMO-AUTH token
+        Authenticated | Authorized -> Unauthenticated when user logs out
+    *)
+    type AccessToken = string
+    type State =
+        | Uninitialized
+        | Unauthenticated
+        | Authenticated of Provider * AccessToken
+        | Authorized of AccessToken
+        | Error of string
+    module Cache =
+        let private localStorageKey = "authorizationState"
+        let mutable private authState = Uninitialized
+        let update state =
+            BrowserLocalStorage.save localStorageKey state
+            authState <- state
+        let tryGet() =
+            match authState with
+            | Uninitialized ->
+                match BrowserLocalStorage.load(Thoth.Json.Decode.Auto.generateDecoder<State>()) localStorageKey with
+                | Result.Ok state -> state
+                | _ -> Uninitialized
+            | _ -> authState
+        let clear err =
+            BrowserLocalStorage.delete localStorageKey
+            authState <- Error err
+
+
 
 module Facebook =
     open UI.Types
@@ -68,9 +86,13 @@ module Facebook =
              fjs.parentNode.insertBefore(js, fjs);
          }(document, 'script', 'facebook-jssdk'));
     """)>]
-    let private initializeFacebook(_onAuth:AuthResponse -> unit) = jsNative
+    let private initializeFacebook(_onAuth: AuthResponse -> unit) = jsNative
     let initialize handler =
         initializeFacebook (onAuth handler)
+    [<Emit("""FB.getLoginStatus(resp => $0(resp))""")>]
+    let private FBGetLoginStatus(_onAuth: AuthResponse -> unit) = jsNative
+    let getLoginStatus handler = FBGetLoginStatus (onAuth handler)
+
 
 module EasyAuth =
     open Auth
@@ -87,26 +109,27 @@ module EasyAuth =
             else
                 return "Could not authorize" |> Auth.State.Error
         }
-    let mutable authState = Uninitialized
     let withToken (progressCallback: Types.ProgressCallback) handler =
         let rec loop() =
-            let updateAndProceed authState' = authState <- authState'; loop()
-            match authState with
+            let updateAndProceed authState' =
+                Auth.Cache.update authState'
+                loop()
+            match Auth.Cache.tryGet() with
             | Authorized token ->
                 progressCallback NotBusy
                 handler (Ok token)
             | Authenticated(Facebook, accessToken) ->
                 progressCallback (BusyWith "Authorizing...")
                 ofFacebook(accessToken) |> Promise.iter(updateAndProceed)
-            | Error msg ->
-                progressCallback NotBusy
-                handler (Result.Error msg)
+            | Error _ ->
+                progressCallback (BusyWith "Initializing...")
+                Facebook.getLoginStatus updateAndProceed
             | Unauthenticated ->
                 progressCallback (BusyWith "Logging in to Facebook...")
                 Facebook.Login (updateAndProceed)
             | Uninitialized ->
                 progressCallback (BusyWith "Initializing...")
-                Facebook.initialize (updateAndProceed)
+                Facebook.initialize updateAndProceed
         loop()
 
 let save progressCallback (token:string) tag id (data: 't) =
@@ -118,6 +141,7 @@ let save progressCallback (token:string) tag id (data: 't) =
             progressCallback NotBusy
             return if resp.Ok then Ok() else Result.Error "Unable to save"
         with err ->
+            Auth.Cache.clear (err.ToString())
             progressCallback NotBusy
             return Result.Error (err.ToString())
     }
@@ -131,6 +155,7 @@ let load progressCallback (token:string) tag id =
             progressCallback NotBusy
             return Ok(resp)
         with err ->
+            Auth.Cache.clear (err.ToString())
             progressCallback NotBusy
             return Result.Error (err.ToString())
     }
