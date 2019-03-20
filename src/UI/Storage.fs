@@ -1,6 +1,7 @@
 module UI.Storage
 
 open Common
+open UI.Types
 open Fable.PowerPack
 open Fable.Core
 open JsInterop
@@ -87,43 +88,56 @@ module EasyAuth =
                 return "Could not authorize" |> Auth.State.Error
         }
     let mutable authState = Uninitialized
-    let withToken handler =
+    let withToken (progressCallback: Types.ProgressCallback) handler =
         let rec loop() =
             let updateAndProceed authState' = authState <- authState'; loop()
             match authState with
-            | Authorized token -> handler (Ok token)
+            | Authorized token ->
+                progressCallback NotBusy
+                handler (Ok token)
             | Authenticated(Facebook, accessToken) ->
+                progressCallback (BusyWith "Authorizing...")
                 ofFacebook(accessToken) |> Promise.iter(updateAndProceed)
             | Error msg ->
+                progressCallback NotBusy
                 handler (Result.Error msg)
             | Unauthenticated ->
+                progressCallback (BusyWith "Logging in to Facebook...")
                 Facebook.Login (updateAndProceed)
             | Uninitialized ->
+                progressCallback (BusyWith "Initializing...")
                 Facebook.initialize (updateAndProceed)
         loop()
 
-let save (token:string) tag id (data: 't) =
+let save progressCallback (token:string) tag id (data: 't) =
     let url = sprintf "https://wilsondata.azurewebsites.net/api/%s/%s" tag id
     promise {
         try
+            progressCallback (BusyWith (sprintf "Saving '%s'..." id));
             let! resp = Fable.PowerPack.Fetch.postRecord url data [Fetch.requestHeaders [Fable.PowerPack.Fetch.Fetch_types.HttpRequestHeaders.Custom ("X-ZUMO-AUTH", token)]]
-            return if resp.Ok then Ok() else Error "Unable to save"
-        with err -> return Error (err.ToString())
+            progressCallback NotBusy
+            return if resp.Ok then Ok() else Result.Error "Unable to save"
+        with err ->
+            progressCallback NotBusy
+            return Result.Error (err.ToString())
     }
 
-let load (token:string) tag id =
+let load progressCallback (token:string) tag id =
     let url = sprintf "https://wilsondata.azurewebsites.net/api/%s/%s" tag id
     promise {
         try
+            progressCallback (BusyWith (sprintf "Loading '%s'..." id));
             let! resp = Fable.PowerPack.Fetch.fetchAs url (Thoth.Json.Decode.Auto.generateDecoder<Model.Types.Battle2.Data>()) [Fetch.requestHeaders [Fable.PowerPack.Fetch.Fetch_types.HttpRequestHeaders.Custom ("X-ZUMO-AUTH", token)]]
+            progressCallback NotBusy
             return Ok(resp)
-        with err -> return Error (err.ToString())
+        with err ->
+            progressCallback NotBusy
+            return Result.Error (err.ToString())
     }
 
-type CloudStorage() =
+type CloudStorage(progressCallback) =
     interface DataEngine.IDataStorage with
         member this.Save (label:DataEngine.Label) data callback =
-            EasyAuth.withToken (function Result.Ok token -> save token "battle" label data |> Promise.iter callback | Result.Error msg -> Error msg |> callback)
+            EasyAuth.withToken progressCallback (function Result.Ok token -> save progressCallback token "battle" label data |> Promise.iter callback | Result.Error msg -> Result.Error msg |> callback)
         member this.Load label callback =
-            // Workaround for Fable limitation: cannot reflect over 't at this point, but we know that it's always going to be a Battle2.Data, so just hardwire that
-            EasyAuth.withToken (function Result.Ok token -> load token "battle" label |> Promise.iter callback | Result.Error msg -> Error msg |> callback)
+            EasyAuth.withToken progressCallback (function Result.Ok token -> load progressCallback token "battle" label |> Promise.iter callback | Result.Error msg -> Result.Error msg |> callback)

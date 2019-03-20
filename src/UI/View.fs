@@ -199,12 +199,17 @@ let logOutput =
 
 let inline notImpl _ = Browser.window.alert "Sorry, not implemented yet. Send email to Max and tell him you want this."
 
+let foo x =
+    x
+
 let root model dispatch =
     undoModal <- thunk1 dispatch UndoModal
     onKeypress <- None
     let inline answer v = match model with { modalDialogs = op::_ } -> progress dispatch op v | _ -> ()
     let children =
         match model with
+        | { busy = BusyWith msg } ->
+            [div [] [str msg]]
         | { modalDialogs = (Operation(q,_) as op)::_ } ->
             let ongoingInteraction =
                 div [ClassName "queryDialog"] <|
@@ -233,7 +238,8 @@ let root model dispatch =
                             ]
             [ongoingInteraction; partySummary (model.game, (match model.modalDialogs with (Operation(Query.Character _, _))::_ -> true | _ -> false)) dispatch; logOutput (model.game.log, model.logSkip) dispatch]
         | { mode = ViewModel.Battle::_; game = { battle = Some battle } } ->
-            let respond = Battle.respond battle (Battle.Msg.Update >> BattleUpdate >> dispatch)
+            let progress msg = Busy msg |> dispatch
+            let respond = Battle.respond progress battle (Battle.Msg.Update >> BattleUpdate >> dispatch)
             Battle.view respond battle
         | { mode = ViewModel.Battle::_; game = { battle1 = Some battle } } ->
             Battle.view1 dispatch modalOperation buttonsWithHotkeys (logOutput (model.game.log, model.logSkip) dispatch) model.game battle

@@ -74,7 +74,6 @@ module DataEngine
 
 type Callback<'T> = 'T -> unit
 type Label = string
-
 type IDataStorage =
     abstract member Save: Label -> Model.Types.Battle2.Data -> Callback<Result<unit, string>> -> unit
     abstract member Load: Label -> Callback<Result<Model.Types.Battle2.Data, string>> -> unit

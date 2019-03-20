@@ -66,8 +66,8 @@ let update (model: Model) = function
     | Battle.Msg.Update state ->
         { model with game = { model.game with battle = Some state } }
 
-let respond state continuation txt =
-    DataEngine.execute (UI.Storage.CloudStorage()) state txt continuation
+let respond progress state continuation txt =
+    DataEngine.execute (UI.Storage.CloudStorage progress) state txt continuation
 
 let display detailLevel (logEntries: Log.Entry<_> list) =
     [for (cmd, e) in logEntries do

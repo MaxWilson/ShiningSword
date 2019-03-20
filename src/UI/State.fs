@@ -16,10 +16,11 @@ let urlUpdate (parseResult: (GameState * ViewModel) option) model =
     | None -> model, Cmd.Empty
 
 let init parseResult =
-    { modalDialogs = []; game = GameState.empty; undo = None; logSkip = None; mode = [] } |> urlUpdate parseResult
+    { modalDialogs = []; game = GameState.empty; undo = None; logSkip = None; mode = []; busy = NotBusy } |> urlUpdate parseResult
 
 let update msg model =
     match msg with
+    | Busy msg -> { model with busy = msg }, Cmd.Empty
     | NewMode(vm) -> { model with mode = vm::model.mode }, Cmd.Empty
     | EndMode(vm) ->
         match model.mode with

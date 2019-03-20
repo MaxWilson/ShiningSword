@@ -4,9 +4,13 @@ open Global
 open Interaction
 open Model.Types
 
+type BusyStatus = NotBusy | BusyWith of string
+type ProgressCallback = BusyStatus -> unit
+
 type ViewModel = Battle | Campaign | Error of string
 type Operation = Operation<Query, string, Query * GameState>
 type Model = {
+    busy: BusyStatus
     modalDialogs: Operation list
     mode: ViewModel list
     game: GameState
@@ -22,6 +26,7 @@ module Battle1 =
     type Msg = Finish of GameState
 
 type Msg =
+    | Busy of BusyStatus
     | NewMode of ViewModel
     | UpdateCurrentViewModel of ViewModel
     | EndMode of ViewModel
