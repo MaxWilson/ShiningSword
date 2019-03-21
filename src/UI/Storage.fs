@@ -160,9 +160,24 @@ let load progressCallback (token:string) tag id =
             return Result.Error (err.ToString())
     }
 
-type CloudStorage(progressCallback) =
+// abstraction for throttling updates: sending them only after a brief delay
+let throttledUpdate delayMilliseconds doneSignal handler =
+    let mutable v = None
+    let onTick _ =
+        match v with
+        | Some v when v <> doneSignal -> handler v
+        | _ -> handler doneSignal
+    fun arg ->
+        v <- Some arg
+        if arg = doneSignal then handler arg
+        else
+            Fable.Import.Browser.window.setTimeout(onTick, delayMilliseconds, []) |> ignore
+
+type CloudStorage(progressCallback: ProgressCallback) =
     interface DataEngine.IDataStorage with
         member this.Save (label:DataEngine.Label) data callback =
+            let progressCallback = (throttledUpdate 200 NotBusy progressCallback)
             EasyAuth.withToken progressCallback (function Result.Ok token -> save progressCallback token "battle" label data |> Promise.iter callback | Result.Error msg -> Result.Error msg |> callback)
         member this.Load label callback =
+            let progressCallback = (throttledUpdate 200 NotBusy progressCallback)
             EasyAuth.withToken progressCallback (function Result.Ok token -> load progressCallback token "battle" label |> Promise.iter callback | Result.Error msg -> Result.Error msg |> callback)
