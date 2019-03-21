@@ -87,11 +87,17 @@ module Facebook =
          }(document, 'script', 'facebook-jssdk'));
     """)>]
     let private initializeFacebook(_onAuth: AuthResponse -> unit) = jsNative
+    let mutable private initialized = false
     let initialize handler =
+        initialized <- true
         initializeFacebook (onAuth handler)
     [<Emit("""FB.getLoginStatus(resp => $0(resp))""")>]
     let private FBGetLoginStatus(_onAuth: AuthResponse -> unit) = jsNative
-    let getLoginStatus handler = FBGetLoginStatus (onAuth handler)
+    let getLoginStatus handler =
+        if not initialized then
+            initialize handler
+        else
+            FBGetLoginStatus (onAuth handler)
 
 
 module EasyAuth =
