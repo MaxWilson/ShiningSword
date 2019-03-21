@@ -322,15 +322,16 @@ module Parse =
         | _ -> None
 
     (|SimpleRoll|_|) <-
-        let (|LongSimpleRoll|_|) = function OWS(IntNoWhitespace(n, Char ('d', IntNoWhitespace(d, Char ('k', IntNoWhitespace(m, rest)))))) -> Some (Combine(Sum, Best(m, (Repeat(n, Dice(1, d))))), rest) | _ -> None
-        let (|MidSimpleRoll|_|) = function | OWS(IntNoWhitespace(n, Char ('d', IntNoWhitespace(d, rest)))) -> Some (Dice(n, d), rest) | _ -> None
+        let (|D|_|) = function Char(('d' | '@'), ctx) -> Some ctx | _ -> None // allow 2@6 as a synonym for 2d6 for the sake of phone keyboards
+        let (|LongSimpleRoll|_|) = function OWS(IntNoWhitespace(n, D(IntNoWhitespace(d, Char ('k', IntNoWhitespace(m, rest)))))) -> Some (Combine(Sum, Best(m, (Repeat(n, Dice(1, d))))), rest) | _ -> None
+        let (|MidSimpleRoll|_|) = function | OWS(IntNoWhitespace(n, D(IntNoWhitespace(d, rest)))) -> Some (Dice(n, d), rest) | _ -> None
         pack <| function
         | LongSimpleRoll(roll, ctx) -> Some(roll, ctx)
         | MidSimpleRoll(roll, ctx) -> Some(roll, ctx)
-        | OWS(IntNoWhitespace(n, Char ('d', rest))) -> Some (Dice(n, 6), rest)
-        | OWS(Char ('d', IntNoWhitespace(d, Char('a', rest)))) -> Some (Combine(Max, Repeat(2, Dice(1,d))), rest)
-        | OWS(Char ('d', IntNoWhitespace(d, Char('d', rest)))) -> Some (Combine(Min, Repeat(2, Dice(1,d))), rest)
-        | OWS(Char ('d', IntNoWhitespace(d, rest))) -> Some (Dice(1,d), rest)
+        | OWS(IntNoWhitespace(n, D(rest))) -> Some (Dice(n, 6), rest)
+        | OWS(D(IntNoWhitespace(d, Char('a', rest)))) -> Some (Combine(Max, Repeat(2, Dice(1,d))), rest)
+        | OWS(D(IntNoWhitespace(d, Char('d', rest)))) -> Some (Combine(Min, Repeat(2, Dice(1,d))), rest)
+        | OWS(D(IntNoWhitespace(d, rest))) -> Some (Dice(1,d), rest)
         | OWS(IntNoWhitespace(n, rest)) -> Some(StaticValue n, rest)
         | _ -> None
     let mutable (|Roll|_|) = uninitialized<Model.Types.Roll.Request>
