@@ -30,7 +30,6 @@ $black: #202020
 
 .interaction
   grid-area: main
-  min-height: 180px
   margin: 10px
   
 .logDisplay
@@ -52,19 +51,24 @@ $black: #202020
 .mainPage
   display: grid
   
+@media (min-width: 800px)
+  .mainPage
+    grid-template-areas: "main log" "summary log" ". log"
+  .interaction
+    min-height: 180px
+  .interaction .prompt
+    min-width: 600px
+
 @media (max-width: 800px)
   .mainPage
     grid-template-areas: "main" "summary" "log"
   .interaction .prompt
     min-width: 100%
-  
-@media (min-width: 800px)
-  .mainPage
-    grid-template-areas: "main log" "summary log" ". log"
-
-@media (min-width: 800px)
-  .interaction .prompt
-    min-width: 600px
+  .battleSummary.content
+    font-weight: bold
+    border-bottom: double
+    padding-bottom: 1.5rem
+    margin-bottom: 0px
 
 @media (min-width: 1100px)
   .interaction .prompt
