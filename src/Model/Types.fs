@@ -227,7 +227,10 @@ module Battle2 =
 
 module MapGen =
     type Color = Red | Blue | Green
-    type State = Color option array array
+    type Cells = Color option array array
+    type State = {
+        cells: Cells
+        }
 
 type GameState = {
     pcs: CharInfo list

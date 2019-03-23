@@ -45,7 +45,7 @@ module Parse =
         | Str "battle" ctx ->
             Some(({ GameState.empty with battle = Some (Model.Functions.Battle2.init()) }, ViewModel.Battle), ctx)
         | Str "mapGen" ctx ->
-            Some(({ GameState.empty with mapGen = Some (Model.Functions.MapGen.init 10 10) }, ViewModel.MapGen), ctx)
+            Some(({ GameState.empty with mapGen = Some (Model.MapGen.init 10 10) }, ViewModel.MapGen), ctx)
         | Str "campaignDebug" ctx ->
             let template = Model.Chargen.Templates.charTemplates.["Brute"]
             let pc = Model.Operations.CharSheet.create "Spartacus" Male (14, 16, 9, 13, 11, 13) false None template

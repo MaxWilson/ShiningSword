@@ -7,7 +7,10 @@ open Model.Types
 type BusyStatus = NotBusy | BusyWith of string
 type ProgressCallback = BusyStatus -> unit
 module MapGen =
-    type Msg = Reset of int * int | Tick
+    type Msg =
+        | Reset of int * int
+        | Tick
+        | SetState of MapGen.State
 
 type ViewModel = Battle | Campaign | Error of string | MapGen
 type Operation = Operation<Query, string, Query * GameState>
