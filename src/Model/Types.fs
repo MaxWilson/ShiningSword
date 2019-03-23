@@ -225,6 +225,10 @@ module Battle2 =
 
     type State = { data: Data; view: ViewState }
 
+module MapGen =
+    type Color = Red | Blue | Green
+    type State = Color option array array
+
 type GameState = {
     pcs: CharInfo list
     parEarned: int
@@ -236,6 +240,7 @@ type GameState = {
     log: Log.Data<unit>
     battle1: Battle1.State1 option
     battle: Battle2.State option
+    mapGen: MapGen.State option
     }
 
 type Query =

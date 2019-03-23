@@ -3,7 +3,6 @@ module UI.State
 open Elmish
 open Elmish.Browser.Navigation
 open Elmish.Browser.UrlParser
-open Fable.Import.Browser
 open Global
 open Types
 open Model.Types
@@ -61,3 +60,5 @@ let update msg model =
     | UpdateGameState state -> { model with game = state }, Cmd.Empty
     | BattleUpdate msg -> Battle.update model msg, Cmd.Empty
     | Battle1Update (Battle1.Msg.Finish state) -> { model with game = state }, Cmd.Empty
+    | MapGen msg -> { model with game = { model.game with mapGen = model.game.mapGen |> Option.map (flip MapGen.update msg) } }, Cmd.Empty
+

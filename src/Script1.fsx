@@ -16,6 +16,4 @@
 #load @"Model\MonsterManual.fs"
 #load @"Model\Gameplay.fs"
 #load @"Engine\DataEngine.fs"
-#load @"Abstractions\DataStorage.Globals.fs"
-#load @"Abstractions\DataStorage.fs"
 

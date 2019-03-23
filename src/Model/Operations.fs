@@ -70,7 +70,7 @@ module GameState =
     //            roster = roster |> Map.add id (Creature.map f roster.[id]) |> Some;
     //            log = g.log |> Log.log msg }
     //    | None -> g
-    let empty = { pcs = []; parEarned = 0; gateNumber = 1; towerNumber = 1; randomNumber = 1; timeElapsed = 0; gp = 0; log = Log.empty; battle1 = None; battle = None }
+    let empty = { pcs = []; parEarned = 0; gateNumber = 1; towerNumber = 1; randomNumber = 1; timeElapsed = 0; gp = 0; log = Log.empty; battle1 = None; battle = None; mapGen = None }
 
 // executes action declarations in listed order
 let execute (d: Declarations) (g:GameState) : GameState =

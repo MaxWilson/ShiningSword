@@ -103,4 +103,3 @@ module Battle2 =
                 }
             view = emptyView
             }
-
