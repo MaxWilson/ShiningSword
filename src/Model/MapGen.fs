@@ -17,7 +17,15 @@ let next n m cell (st: MapGen.State) =
     else cell
 let iterate (st: MapGen.State) =
     st |> Array.mapi (fun n row -> row |> Array.mapi (fun m cell -> next n m cell st))
+let stabilize (st: MapGen.State) =
+    let rec loop i (st: MapGen.State) =
+        // loop until 100 iterations pass or one of the colors goes away
+        if i >= 100 || st |> Array.collect id |> Array.countBy id |> Array.length <= 3 then
+            st
+        else loop i (iterate st)
+    loop 1 st
 let init n m =
     let gen _ = Common.chooseRandom choices
-    Array.init n (fun _ -> Array.init m gen)
+    Array.init n (fun _ -> Array.init m gen) |> stabilize
+
 
