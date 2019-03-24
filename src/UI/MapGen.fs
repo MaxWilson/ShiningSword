@@ -70,7 +70,8 @@ let view dispatch (state: MapGen.State) =
                                 match cell with
                                 | None -> td[Style[Width "20px"]][br[]]
                                 | Some v ->
-                                    td[Style [Width "20px"; BackgroundColor v]][br[]]
+                                    let color = match v with | MapGen.Brown -> BackgroundColor "saddleBrown" | _ -> BackgroundColor v
+                                    td[Style [Width "20px"; color]][br[]]
                         ]
                 ]
             ]

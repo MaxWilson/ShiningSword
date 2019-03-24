@@ -1,8 +1,14 @@
 module Model.MapGen
 open Model.Types
+open Model.Types.MapGen
 
 //let choices = [|None; Some MapGen.Color.Red|]
-let choices = [|None; None; None; Some MapGen.Color.Red; Some MapGen.Color.Blue; Some MapGen.Color.Green|]
+let choices = [|
+    for _ in 1..10 do yield None
+    for c in [Brown; Blue; Green; Grey] do
+        for _ in 1..3 do yield Some c
+    yield Some Red
+    |]
 let neighbors n m (st: MapGen.Cells) =
     [for i in [n-1..n+1] do
         for j in [m-1..m+1] do

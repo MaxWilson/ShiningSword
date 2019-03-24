@@ -226,7 +226,7 @@ module Battle2 =
     type State = { data: Data; view: ViewState }
 
 module MapGen =
-    type Color = Red | Blue | Green
+    type Color = Red | Blue | Green | Brown | Grey
     type Cells = Color option array array
     type State = {
         cells: Cells
