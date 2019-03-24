@@ -70,8 +70,15 @@ let view dispatch (state: MapGen.State) =
                                 match cell with
                                 | None -> td[Style[Width "20px"]][br[]]
                                 | Some v ->
-                                    let color = match v with | MapGen.Brown -> BackgroundColor "saddleBrown" | _ -> BackgroundColor v
-                                    td[Style [Width "20px"; color]][br[]]
+                                    let icon url color = td[Style [Width "20px"; color]][img[Src url]]
+                                    let blank color = td[Style [Width "20px"; color]][br[]]
+                                    let color = BackgroundColor v
+                                    match v with
+                                    | MapGen.Brown -> blank (BackgroundColor "saddleBrown")
+                                    | MapGen.Green -> icon "https://img.icons8.com/metro/26/000000/deciduous-tree.png" color
+                                    | MapGen.Grey -> icon "https://img.icons8.com/ios/50/000000/mountain-filled.png" color
+                                    | MapGen.Red -> icon "https://img.icons8.com/ios-glyphs/30/000000/fire-element.png" color
+                                    | _ -> blank <| BackgroundColor v
                         ]
                 ]
             ]
