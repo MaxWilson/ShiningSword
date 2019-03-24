@@ -20,12 +20,39 @@ let stabilize dispatch (st: MapGen.State) =
             do! Promise.sleep 20
             // loop until 100 iterations pass or one of the colors goes away
             if not (i >= 100 || st.cells |> Array.collect id |> Array.filter Option.isSome |> Array.map Option.get |> Array.countBy id |> Array.length <= 2) then
-                do! loop (i+1) { st with cells = iterate st.cells }
+                do! loop (i+1) { st with cells = iterate randomNeighbor st.cells }
             }
     loop 1 st
 
+// grow live patches, based on algorithm here: https://gamedevelopment.tutsplus.com/tutorials/generate-random-cave-levels-using-cellular-automata--gamedev-9664
+let grow dispatch (st: MapGen.State) =
+    let grow n m cell cells =
+        let neighbors = neighbors n m st.cells
+        // we'll count anything off the map as a live neighbor
+        let count = (neighbors |> Seq.filter Option.isSome |> Seq.length) + (9 - neighbors.Length)
+        match cell with
+        | None when count >= 5 -> neighbors |> Array.ofList |> chooseRandom // birth
+        | Some _ when count <= 4 -> None // starvation
+        // n.b. there is no overcrowding rule! This is one reason this algorithm produces such
+        // stable terrain maps.
+        | _ -> cell
+    { st with cells = iterate grow st.cells } |> SetState |> dispatch
+
+// grow dead patches, based on algorithm here: https://gamedevelopment.tutsplus.com/tutorials/generate-random-cave-levels-using-cellular-automata--gamedev-9664
+let trim dispatch (st: MapGen.State) =
+    let trim n m cell cells =
+        let neighbors = neighbors n m st.cells
+        let emptyCount = 9 - (neighbors |> Seq.filter Option.isSome |> Seq.length) // edges count as non-empty
+        match cell with
+        | Some _ when emptyCount >= 5 -> None // birth
+        | None when emptyCount <= 4 -> neighbors |> Array.ofList |> chooseRandom // starvation
+        // n.b. there is no overcrowding rule! This is one reason this algorithm produces such
+        // stable terrain maps.
+        | _ -> cell
+    { st with cells = iterate trim st.cells } |> SetState |> dispatch
+
 let update (st: MapGen.State) = function
-    | Tick -> { st with cells = st.cells |> iterate }
+    | Tick -> { st with cells = st.cells |> iterate randomNeighbor }
     | Reset(n,m) -> init n m
     | SetState st -> st
 
@@ -49,4 +76,8 @@ let view dispatch (state: MapGen.State) =
             ]
         button [OnClick (thunk1 dispatch Msg.Tick)][str "Tick"]
         button [OnClick (fun _ -> stabilize dispatch state |> ignore)][str "Stabilize"]
+        button [OnClick (fun _ -> trim dispatch state)][str "Trim"]
+        button [OnClick (fun _ -> grow dispatch state)][str "Grow"]
+        br[]
+        button [OnClick (thunk1 dispatch (Msg.Reset(size, size)))][str "Reset"]
         ]
