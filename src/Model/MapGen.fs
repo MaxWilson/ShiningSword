@@ -4,7 +4,7 @@ open Model.Types.MapGen
 
 //let choices = [|None; Some MapGen.Color.Red|]
 let choices = [|
-    for _ in 1..10 do yield None
+    for _ in 1..15 do yield None
     for c in [Brown; Blue; Green; Grey] do
         for _ in 1..3 do yield Some c
     yield Some Red
