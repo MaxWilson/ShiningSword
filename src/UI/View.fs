@@ -277,7 +277,6 @@ let root model dispatch =
                     dispatch (EndMode Campaign)
                     )
             [   div [ClassName "interaction"] [
-                    yield latest
                     yield str msg
                     yield br[]
                     yield! buttonsWithHotkeys [
