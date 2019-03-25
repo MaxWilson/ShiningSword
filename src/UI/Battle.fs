@@ -44,8 +44,10 @@ let battleSummary fullInfo (combatants:Combatant seq) =
             ))
         ]
 
+
 let view1 dispatch modalOperation buttonsWithHotkeys logOutput (game:GameState) (battle: Battle1.State1) =
     let postprocess (state: GameState) =
+        printfn "postprocess"
         if state.pcs |> List.exists (fun pc -> (Model.Operations.CharInfo.getCurrentHP pc) > 0) |> not then
             dispatch (EndMode Battle)
             dispatch (EndMode Campaign)
@@ -55,15 +57,18 @@ let view1 dispatch modalOperation buttonsWithHotkeys logOutput (game:GameState) 
         game |> Model.Gameplay.finishTower
             |> modalOperation dispatch postprocess
     let fightOneRound _ =
-        let state = game |> Model.Gameplay.fight
-        state |> Model.Gameplay.finishTower
-            |> modalOperation dispatch postprocess
+        let state = game |> Model.Gameplay.fightOneRound
+        dispatch (Battle1Update (Battle1.Ongoing state))
+        if not (Model.Gameplay.fightIsPossible state) then
+            state |> Model.Gameplay.finishTower
+                |> modalOperation dispatch postprocess
     let teams = battle.combatants |> Seq.map (function KeyValue(_,(c:Combatant)) -> c) |> Seq.groupBy (fun c -> c.team) |> Map.ofSeq
     [   div [ClassName "battleSummary"][
             for team in teams do
                 yield div [ClassName "heading"] [str (match team.Key with TeamId.Blue -> "Friendlies" | TeamId.White as teamId -> "Neutrals" | _ -> "Hostiles")]
                 yield battleSummary (match team.Key with Blue | White -> true | _ -> false) team.Value
-            yield! buttonsWithHotkeys ["Fight", fightOneRound]
+            if Model.Gameplay.fightIsPossible game then
+                yield! buttonsWithHotkeys ["Fight", fightOneRound]
             ]
         logOutput
         ]

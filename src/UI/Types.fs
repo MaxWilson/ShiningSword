@@ -28,7 +28,7 @@ module Battle =
         | Update of Battle2.State
 
 module Battle1 =
-    type Msg = Finish of GameState
+    type Msg = Finish of GameState | Ongoing of GameState
 
 type Msg =
     | Busy of BusyStatus

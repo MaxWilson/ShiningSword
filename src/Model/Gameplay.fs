@@ -272,7 +272,21 @@ let retirementMessage state =
         else
             (sprintf "%s glumly retire from adventuring and spend the rest of your life doing menial labor, paying off the %d gold pieces that you owe." collectiveVocative -state.gp)
 
-let fight (state: GameState) =
+let fightIsPossible (state: GameState) =
+    let mutable hpMap =
+        state.battle1.Value.combatants
+        |> Seq.map (function
+            KeyValue(id, c) ->
+                id, match c.usages.TryGetValue("HP") with
+                    | true, v -> v
+                    | _ -> c.stats.hp)
+        |> Map.ofSeq
+    let guys = state.battle1.Value.combatants |> Map.toArray |> Array.map snd
+    let numberOfTeams () =
+        guys |> Seq.filter (fun c -> hpMap.[c.id] > 0) |> Seq.groupBy (fun c -> c.team) |> Seq.length
+    numberOfTeams() > 1
+
+let fightOneRound (state: GameState) =
     let mutable hpMap =
         state.battle1.Value.combatants
         |> Seq.map (function
@@ -304,34 +318,34 @@ let fight (state: GameState) =
         if liveEnemies.Length > 0 then
             Some <| chooseRandom liveEnemies
         else None
-    let numberOfTeams () =
-        guys |> Seq.filter (fun c -> hpMap.[c.id] > 0) |> Seq.groupBy (fun c -> c.team) |> Seq.length
-    while numberOfTeams () > 1 do
-        let liveIds = hpMap |> Map.filter (fun _ hp -> hp > 0) |> Map.toArray |> Array.map fst |> shuffleCopy
-        let resolve = Model.Dice.Roll.eval >> (fun v -> v.value)
-        for id in liveIds do
-            if hpMap.[id] > 0 then // if still alive
-                let c = combatants.[id]
-                match randomTarget c with
-                | Some target ->
-                    for att in c.stats.attacks do
-                        let toHit = target.stats.ac - att.tohit
-                        match rand 20 with
-                        | 20 ->
-                            let dmg = (resolve (fst att.damage |> Model.Dice.Roll.multiplyResultDice 2))
-                            inflict true c.stats.name target dmg
-                        | n when n >= toHit ->
-                            let dmg = (resolve (fst att.damage))
-                            inflict false c.stats.name target dmg
-                        | _ ->
-                            logMsg (sprintf "%s misses %s" c.stats.name (targetName target))
-                | None ->
-                    ()
+    let liveIds = hpMap |> Map.filter (fun _ hp -> hp > 0) |> Map.toArray |> Array.map fst |> shuffleCopy
+    let resolve = Model.Dice.Roll.eval >> (fun v -> v.value)
+    for id in liveIds do
+        if hpMap.[id] > 0 then // if still alive
+            let c = combatants.[id]
+            match randomTarget c with
+            | Some target ->
+                for att in c.stats.attacks do
+                    let toHit = target.stats.ac - att.tohit
+                    match rand 20 with
+                    | 20 ->
+                        let dmg = (resolve (fst att.damage |> Model.Dice.Roll.multiplyResultDice 2))
+                        inflict true c.stats.name target dmg
+                    | n when n >= toHit ->
+                        let dmg = (resolve (fst att.damage))
+                        inflict false c.stats.name target dmg
+                    | _ ->
+                        logMsg (sprintf "%s misses %s" c.stats.name (targetName target))
+            | None ->
+                ()
     let updateHp pcs =
         pcs |> List.map (fun (pc:CharInfo) ->
             let c = guys |> Array.find (fun c -> c.team = Blue && c.stats.name = pc.src.name)
             { pc with CharInfo.usages = pc.usages |> Map.add "HP" hpMap.[c.id] })
-    { state with log = log; pcs = updateHp state.pcs }
+    let combatants = combatants |> Map.map (fun _ c ->
+            { c with usages = c.usages |> Map.add "HP" hpMap.[c.id] }
+        )
+    { state with log = log; pcs = updateHp state.pcs; battle1 = Some ({state.battle1.Value with combatants = combatants}) }
 
 let healAndAdvance (pc:CharInfo) =
     let heal pc =
