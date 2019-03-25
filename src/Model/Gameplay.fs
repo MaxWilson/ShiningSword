@@ -202,14 +202,21 @@ let makeRandom pcs parXpEarned nRandom =
 
 let battlecry (pcs: CharInfo list) monsters =
     let plural = match monsters with [_, 1] -> false | _ -> true
-    let cries = [|
+    let groupCries = [|
         sprintf (if plural then """"Give me blood!" you scream as %s attack.""" else """"Give me blood!" you scream as %s attacks.""")
         sprintf (if plural then """"Not again!" you groan, as %s attack.""" else """"Not again!" you groan, as %s attacks.""")
         sprintf """"Blood or death!" shout your companions at %s, as they draw their weapons."""
         sprintf """%s grins crazily and gestures behind you. You turn and see %s!""" ((chooseRandom (Array.ofList pcs)).src.name)
         sprintf "Glumly you prepare yourselves to meet %s in battle."
         |]
-    let cry = chooseRandom cries
+    let soloCries = [|
+        sprintf (if plural then """"Give me blood!" you scream as %s attack.""" else """"Give me blood!" you scream as %s attacks.""")
+        sprintf (if plural then """"Not again!" you groan, as %s attack.""" else """"Not again!" you groan, as %s attacks.""")
+        sprintf """"Blood or death!" you shout at %s, as you draw your weapon."""
+        sprintf """Your skin crawls. Something evil is behind you. You turn and see %s!"""
+        sprintf "Glumly you prepare yourself to meet %s in battle."
+        |]
+    let cry = chooseRandom (if pcs.Length > 1 then groupCries else soloCries)
     let rec monsterDescription monsters =
         match monsters with
         | (name:string, qty)::rest when qty = 1 ->
@@ -382,7 +389,10 @@ let finishTower (state:GameState) : Eventual<_,_,_> = queryInteraction {
         | _ -> failwith "Should never finish a battle that wasn't started with some stakes"
     if state.pcs |> List.exists (fun pc -> (CharInfo.getCurrentHP pc) > 0) |> not then
         // everyone is dead
-        return! alert state "You have all died!"
+        if state.pcs.Length > 1 then
+            return! alert state "You have all died!"
+        else
+            return! alert state "You have died!"
     else
         let livePCs = state.pcs |> List.sumBy (fun pc -> if pc.hp > 0 then 1 else 0)
         let xp = totalXpEarned / livePCs

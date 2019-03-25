@@ -51,7 +51,7 @@ let view1 dispatch modalOperation buttonsWithHotkeys logOutput (game:GameState) 
             dispatch (EndMode Campaign)
         else
             dispatch (Battle1Update (Battle1.Finish state))
-    let winBattle _ =
+    let winBattle _ = // not used currently
         game |> Model.Gameplay.finishTower
             |> modalOperation dispatch postprocess
     let fightOneRound _ =
@@ -63,7 +63,7 @@ let view1 dispatch modalOperation buttonsWithHotkeys logOutput (game:GameState) 
             for team in teams do
                 yield div [ClassName "heading"] [str (match team.Key with TeamId.Blue -> "Friendlies" | TeamId.White as teamId -> "Neutrals" | _ -> "Hostiles")]
                 yield battleSummary (match team.Key with Blue | White -> true | _ -> false) team.Value
-            yield! buttonsWithHotkeys ["Fight", fightOneRound; "Win", winBattle]
+            yield! buttonsWithHotkeys ["Fight", fightOneRound]
             ]
         logOutput
         ]
