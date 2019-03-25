@@ -167,13 +167,13 @@ module CharInfo =
         int = c.int
         wis = c.wis
         cha = c.cha
-        hp = getCurrentHP char
+        hp = char.hp
         ac = computeAC c
         xp = c.xp / 10 // 10% XP reward for killing leveled PCs
         resistances = Set.empty
         immunities = Set.empty
         damageResistance = Map.empty
         conditionExemptions = Set.empty
-        attacks = [{Attack.tohit = toHit; Attack.damage = (Combine(Sum, Aggregate[Dice(1, 8); StaticValue (max c.str c.dex)]), DamageType.Weapon) }] // todo: compute attacks
+        attacks = [{Attack.tohit = toHit; Attack.damage = (Combine(Sum, Aggregate[Dice(1, 8); StaticValue (max (combatBonus c.str) (combatBonus c.dex))]), DamageType.Weapon) }] // todo: compute attacks
         features = c.features
         }

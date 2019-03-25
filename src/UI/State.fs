@@ -59,6 +59,5 @@ let update msg model =
     | LogSkip n -> { model with logSkip = Some n }, Cmd.Empty
     | UpdateGameState state -> { model with game = state }, Cmd.Empty
     | BattleUpdate msg -> Battle.update model msg, Cmd.Empty
-    | Battle1Update (Battle1.Msg.Finish state) -> { model with game = state }, Cmd.Empty
+    | Battle1Update (Battle1.Msg.Finish state) -> { model with game = state; mode = (match model.mode with _::rest -> rest | _ -> []) }, Cmd.Empty
     | MapGen msg -> { model with game = { model.game with mapGen = model.game.mapGen |> Option.map (flip MapGen.update msg) } }, Cmd.Empty
-

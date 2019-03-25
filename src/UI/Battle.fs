@@ -45,13 +45,19 @@ let battleSummary fullInfo (combatants:Combatant seq) =
         ]
 
 let view1 dispatch modalOperation buttonsWithHotkeys logOutput (game:GameState) (battle: Battle1.State1) =
+    let postprocess (state: GameState) =
+        if state.pcs |> List.exists (fun pc -> (Model.Operations.CharInfo.getCurrentHP pc) > 0) |> not then
+            dispatch (EndMode Battle)
+            dispatch (EndMode Campaign)
+        else
+            dispatch (Battle1Update (Battle1.Finish state))
     let winBattle _ =
         game |> Model.Gameplay.finishTower
-            |> modalOperation dispatch (Battle1.Finish >> Battle1Update >> dispatch)
+            |> modalOperation dispatch postprocess
     let fightOneRound _ =
         let state = game |> Model.Gameplay.fight
         state |> Model.Gameplay.finishTower
-            |> modalOperation dispatch (Battle1.Finish >> Battle1Update >> dispatch)
+            |> modalOperation dispatch postprocess
     let teams = battle.combatants |> Seq.map (function KeyValue(_,(c:Combatant)) -> c) |> Seq.groupBy (fun c -> c.team) |> Map.ofSeq
     [   div [ClassName "battleSummary"][
             for team in teams do
