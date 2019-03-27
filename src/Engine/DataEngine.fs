@@ -88,6 +88,8 @@ open Model.Functions.Battle2
 
 #nowarn "40"
 module Parse =
+    open Model.Functions.Battle2
+
     let (|Roster|_|) = Packrat.ExternalContextOf<Model.Types.Battle2.Roster>
     let (|Keyword|_|) (word:string) =
         function
@@ -106,9 +108,50 @@ module Parse =
                 roster |> Roster.tryName name |> Option.map(fun id -> id, ctx)
             | _ -> None
         | _ -> None
+    let (|ValidNames|_|) =
+        // in this case we need to do something a little tricky: detect names by prefix
+        pack <| function
+        | Roster(roster) as ctx ->
+            let isValidName name = roster |> Roster.tryName name |> Option.isSome
+            let isValidPrefix name =
+                roster |> Roster.isValidNamePrefix name
+            let ids, ctx =
+                match ctx with
+                | Chars alphawhitespace (prefix, ctx') when prefix.Length >= 3 ->
+                    match ctx' with
+                    | Char('*', ctx) ->
+                        Roster.tryNamePrefix prefix roster, ctx
+                    | Int(start, Str "-" (Int(finish, ctx''))) ->
+                        [
+                            for i in start..finish do
+                                let name = (prefix + (i.ToString()))
+                                match Roster.tryName name roster with
+                                | Some id -> yield id
+                                | None -> ()
+                            ],
+                        ctx''
+                    | _ -> [], ctx
+                | _ -> [], ctx
+            if ids.Length > 0 then
+                Some(ids, ctx)
+            else
+                match ctx with
+                | LongestSubstringWhere isValidName 18 (name, ctx) ->
+                    roster |> Roster.tryName name |> Option.map(fun id -> [id], ctx)
+                | _ -> None
+        | _ -> None
+    let (|ValidNameList|_|) =
+        packrec <| fun (|ValidNameList|_|) -> function
+        | ValidNameList(ids, Str "," (OWS(ValidNames(moreIds, ctx)))) -> Some(ids@moreIds, ctx)
+        | ValidNames(ids, ctx) -> Some(ids, ctx)
+        | _ -> None
     let (|CombatantProperty|_|) = pack <| function
         | ValidName(id, Str "'s" (Word(propertyName, ctx))) -> Some((id, propertyName), ctx)
         | ValidName(id, Str "." (Word(propertyName, ctx))) -> Some((id, propertyName), ctx)
+        | _ -> None
+    let (|CombatantsProperty|_|) = pack <| function
+        | ValidNameList(ids, Str "'s" (Word(propertyName, ctx))) -> Some((ids, propertyName), ctx)
+        | ValidNameList(ids, Str "." (Word(propertyName, ctx))) -> Some((ids, propertyName), ctx)
         | _ -> None
     let (|Expression|_|) = pack <| function
         | CombatantProperty(p, ctx) -> Some(GetValue p, ctx)
@@ -119,12 +162,30 @@ module Parse =
         | CommaSeparatedExpressions(exprs, OWS(Str "," (OWS (Expression(e, rest))))) -> Some(exprs @ [e], rest)
         | Expression(e, rest) -> Some([e], rest)
         | _ -> None
-    let (|Statement|_|) = pack <| function
-        | Keyword "set" (CombatantProperty((id,property), Keyword "to" ((Expression(e, ctx))))) -> Some(SetValue(id, property, e), ctx)
-        | CombatantProperty((id,property), OWS(Str "=" (OWS(Expression(e, ctx))))) -> Some(SetValue(id, property, e), ctx)
+    let (|Statement|_|) =
+        let construct ctor (ids, prop, expr) =
+            match ids with
+            | [id] -> ctor(id, prop, expr)
+            | ids -> Block([
+                for id in ids -> ctor(id, prop, expr)
+                ])
+        let setValue = construct SetValue
+        let addToValue = construct AddToValue
+        let (|Singular|_|) = function
         | ValidName(id, Keyword "has" (Dice.Parse.Roll(r, Word(propertyName, Optional "." (Optional "!" ctx))))) -> Some(SetValue(id, propertyName, Expression.Roll r), ctx)
         | ValidName(id, Keyword "gains" (Dice.Parse.Roll(r, Word(propertyName, Optional "." (Optional "!" ctx))))) -> Some(AddToValue(id, propertyName, Expression.Roll r), ctx)
         | ValidName(id, AnyCaseWord(("loses"|"spends"), (Dice.Parse.Roll(r, Word(propertyName, Optional "." (Optional "!" ctx)))))) -> Some(AddToValue(id, propertyName, Expression.Roll (Dice.Roll.invert r)), ctx)
+        | _ -> None
+        let (|Plural|_|) = function
+        | ValidNameList(ids, Keyword "have" (Dice.Parse.Roll(r, Word(propertyName, Optional "." (Optional "!" ctx))))) -> Some(setValue(ids, propertyName, Expression.Roll r), ctx)
+        | ValidNameList(ids, Keyword "gain" (Dice.Parse.Roll(r, Word(propertyName, Optional "." (Optional "!" ctx))))) -> Some(addToValue(ids, propertyName, Expression.Roll r), ctx)
+        | ValidNameList(ids, AnyCaseWord(("lose"|"spend"), (Dice.Parse.Roll(r, Word(propertyName, Optional "." (Optional "!" ctx)))))) -> Some(addToValue(ids, propertyName, Expression.Roll (Dice.Roll.invert r)), ctx)
+        | _ -> None
+        pack <| function
+        | Keyword "set" (CombatantsProperty((ids,property), Keyword "to" ((Expression(e, ctx))))) -> Some(setValue(ids, property, e), ctx)
+        | CombatantsProperty((ids,property), OWS(Str "=" (OWS(Expression(e, ctx))))) -> Some(setValue(ids, property, e), ctx)
+        | Singular(v) -> Some(v)
+        | Plural(v) -> Some(v)
         | Expression(e, ctx) -> Some(Expression e, ctx)
         | _ -> None
 
@@ -148,6 +209,18 @@ module Parse =
 
     let (|Cmd|_|) =
         let (|DetailLevel|) = function | Int(n, ctx) -> Some n, ctx | ctx -> (Some 99), ctx // default to full detail (99 is high enough)
+        let (|NameDeclarations|_|) =
+            let (|NameDeclaration|_|) = function
+                // allow "add Orc 1-99" as a declaration
+                | Chars alphawhitespace (prefix, OWS(Int(start, Str "-" (Int(finish, ctx))))) ->
+                    Some([for x in start..finish -> prefix + x.ToString()], ctx)
+                | Words(name, ctx) ->
+                    Some([name], ctx)
+                | _ -> None
+            packrec <| fun (|NameDeclarations|_|) -> function
+            | NameDeclarations(names, Str "," (OWS (NameDeclaration(moreNames, ctx)))) -> Some (names@moreNames, ctx)
+            | NameDeclaration(names, ctx) -> Some (names, ctx)
+            | _ -> None
         pack <| function
         | Word(AnyCase("q" | "quit"), (End as ctx)) -> Some (Quit, ctx)
         | Keyword "show" (End as ctx) -> Some (ShowLog (Some 3, None), ctx)
@@ -163,7 +236,7 @@ module Parse =
         | Keyword "load" (Words(label, (End as ctx))) -> Some (Load label, ctx)
         | Keyword "clear" (End as ctx) -> Some(Clear, ctx)
         | OWS(End) -> None
-        | Keyword "add" (Words(name, ctx)) -> Some(AddCombatant name, ctx)
+        | Keyword "add" (NameDeclarations(names, ctx)) -> Some(AddCombatants names, ctx)
         | Statement(s, (End as ctx)) -> Some (Statement s, ctx)
         | LogWithEmbeddedExpressions(cmd, (End as ctx)) -> Some(cmd, ctx)
         | v -> matchfail v
@@ -171,6 +244,8 @@ module Parse =
 open Common.Hierarchy
 open Model.Types
 open Model.Functions
+open Common
+
 let execute (storage: IDataStorage) (state:State) (input: string) (return': Callback<State>): unit =
     let rec exec (state: State) c return' =
         let eval e: Value * Log.Chunk option =
@@ -214,32 +289,51 @@ let execute (storage: IDataStorage) (state:State) (input: string) (return': Call
             return' (state |> Lens.over lview (fun v -> { v with outputDetailLevel = level } ), state.view.lastOutput) // repeat last output with new detail level
         | SetLogDetail n ->
             return' (state |> Lens.over lview (fun v -> { v with logDetailLevel = n } ), state.view.lastOutput) // repeat last output with new detail level
-        | AddCombatant name ->
+        | AddCombatants names ->
+            let stateResult =
+                names |>
+                    List.fold (fun prev name ->
+                        match prev with
+                        | Ok state ->
+                            match state.data.roster |> Roster.add name with
+                            | Ok(roster) -> state |> Lens.set (ldata << lroster) roster |> Ok
+                            | Error err -> Error err
+                        | err -> err
+                        ) (Ok state)
             return' <|
-                match state.data.roster |> Roster.add name with
-                | Ok(roster) -> state |> Lens.set (ldata << lroster) roster, [c, Leaf (sprintf "Added %s" name)]
-                | Error(e) -> state, [c, Leaf e]
-        | Statement(Expression e) ->
-            let result, explanation = eval e
-            let logChunk = Nested(sprintf "%s: %s" input (match explanation with None -> result |> Value.toString | Some v -> v |> Log.getText), match explanation with Some (Nested(_, children)) -> children | Some(leaf) -> [leaf] | None -> []) // don't repeat details unnecessarily
-            return' (state |> log logChunk, [c, logChunk])
-        | Statement(SetValue(id, propertyName, expr)) ->
-            let result, explanation = eval expr
-            let name = Roster.tryId id state.data.roster |> Option.get
-            let logChunk = Nested(sprintf "%s's new %s: %s" name propertyName (Value.toString result), explanation |> List.ofOption)
-            let state = state |> Lens.over ldata (Property.set id propertyName result)
-            return' ((state |> log logChunk), [c, logChunk])
-        | Statement(AddToValue(id, propertyName, expr)) ->
-            let currentValue = state.data |> Property.get id propertyName |> Option.defaultValue (Value.Number 0)
-            let result, explanation = eval expr
-            let newValue =
-                match currentValue, result with
-                | Value.Number lhs, Value.Number rhs -> Value.Number(lhs + rhs)
-                | _ -> Common.notImpl() // todo: implement strong typing or something
-            let name = Roster.tryId id state.data.roster |> Option.get
-            let logChunk = Nested(sprintf "%s's %s changed from %s to %s" name propertyName (Value.toString currentValue) (Value.toString newValue), explanation |> List.ofOption)
-            let state = state |> Lens.over ldata (Property.set id propertyName newValue)
-            return' ((state |> log logChunk), [c, logChunk])
+                match stateResult with
+                | Ok state ->
+                    state, [c, Leaf(sprintf "Added %s" (names |> oxfordJoin))]
+                | Error err -> state, [c, Leaf(err)]
+        | Statement statement ->
+            let rec executeStatement (state: State) = function
+                | Expression e ->
+                    let result, explanation = eval e
+                    let logChunk = Nested(sprintf "%s: %s" input (match explanation with None -> result |> Value.toString | Some v -> v |> Log.getText), match explanation with Some (Nested(_, children)) -> children | Some(leaf) -> [leaf] | None -> []) // don't repeat details unnecessarily
+                    state |> log logChunk, [c, logChunk]
+                | SetValue(id, propertyName, expr) ->
+                    let result, explanation = eval expr
+                    let name = Roster.tryId id state.data.roster |> Option.get
+                    let logChunk = Nested(sprintf "%s's new %s: %s" name propertyName (Value.toString result), explanation |> List.ofOption)
+                    let state = state |> Lens.over ldata (Property.set id propertyName result)
+                    state |> log logChunk, [c, logChunk]
+                | AddToValue(id, propertyName, expr) ->
+                    let currentValue = state.data |> Property.get id propertyName |> Option.defaultValue (Value.Number 0)
+                    let result, explanation = eval expr
+                    let newValue =
+                        match currentValue, result with
+                        | Value.Number lhs, Value.Number rhs -> Value.Number(lhs + rhs)
+                        | _ -> Common.notImpl() // todo: implement strong typing or something
+                    let name = Roster.tryId id state.data.roster |> Option.get
+                    let logChunk = Nested(sprintf "%s's %s changed from %s to %s" name propertyName (Value.toString currentValue) (Value.toString newValue), explanation |> List.ofOption)
+                    let state = state |> Lens.over ldata (Property.set id propertyName newValue)
+                    state |> log logChunk, [c, logChunk]
+                | Block(statements) ->
+                    statements
+                    |> List.fold (fun (state, logchunks) stmt ->
+                        executeStatement state stmt |> Tuple.mapsnd ((@) logchunks)
+                        ) (state,[])
+            return' (executeStatement state statement)
         | Save label ->
             storage.Save label state.data (function Ok _ -> return' (state, [c, sprintf "Saved '%s'" label |> Leaf]) | Error err -> return' (state, [c, sprintf "Could not save '%s': '%s'" label err |> Leaf]))
         | Load label ->

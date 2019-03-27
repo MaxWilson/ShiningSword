@@ -198,10 +198,11 @@ module Battle2 =
         | Expression of Expression
         | SetValue of Id * PropertyName * Expression
         | AddToValue of Id * PropertyName * Expression
+        | Block of Statement list
     type Command =
         | Log of Expression list | Quit | ShowLog of numberOfLines: int option * detailLevel: int option | SetLogDetail of int | SetOutputDetail of int option
         | Save of string | Load of string | Clear
-        | AddCombatant of Name
+        | AddCombatants of Name list
         | Statement of Statement
 
     type Roster = Map<Id, Name> * Map<Name, Id>

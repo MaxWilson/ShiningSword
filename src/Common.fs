@@ -90,7 +90,7 @@ module Fraction =
 
 module Tuple =
     let mapfst f (x,y) = (f x, y)
-    let mapsnd f (x,y) = (f y, x)
+    let mapsnd f (x,y) = (x, f y)
     let lfst f = Lens.lens fst (fun v (_,x) -> (v,x)) f
     let lsnd f = Lens.lens snd (fun v (x,_) -> (x,v)) f
     let get1of3 (x, _, _) = x

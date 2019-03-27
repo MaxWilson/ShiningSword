@@ -64,6 +64,13 @@ module Battle2 =
             (fst roster) |> Map.tryFind id
         let tryName (name:string) (roster: Roster) =
             (snd roster) |> Map.tryFind (name.ToLowerInvariant()) // name lookup is normalized in lowercase
+        let tryNamePrefix prefix (roster: Roster) =
+            (snd roster) |> Map.filter (fun k _ -> k.StartsWith(prefix, System.StringComparison.InvariantCultureIgnoreCase))
+                |> Map.toSeq
+                |> Seq.map snd
+                |> List.ofSeq
+        let isValidNamePrefix (name:string) (roster: Roster) =
+            (snd roster) |> Map.exists (fun k _ -> k.StartsWith(name, System.StringComparison.InvariantCultureIgnoreCase))
         let empty = Map.empty, Map.empty
         let add name ((idLookup, nameLookup) as roster : Roster) : Result<Roster, string> =
             match tryName name roster with

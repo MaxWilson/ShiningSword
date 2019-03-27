@@ -144,6 +144,7 @@ let numeric = Set<_>['0'..'9']
 let whitespace = Set<_>[' '; '\t'; '\n'; '\r']
 let arithmeticOperators = Set<_>['+'; '-']
 let alphanumeric = alpha + numeric
+let alphawhitespace = alpha + whitespace
 
 let (|Char|_|) ((ctx, ix): ParseInput) =
     if ix < ctx.input.Length then
