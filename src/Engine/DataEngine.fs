@@ -102,10 +102,11 @@ module Parse =
         // in this case we need to do something a little tricky: detect names by prefix
         pack <| function
         | Roster(roster) as ctx ->
-            let isValidName name = roster |> Roster.tryName name |> Option.isSome
             match ctx with
-            | LongestSubstringWhere isValidName 18 (name, ctx) ->
-                roster |> Roster.tryName name |> Option.map(fun id -> id, ctx)
+            | LongestSubstringWhere (flip Roster.isValidNamePrefix roster) 18 (name, ctx) ->
+                match roster |> Roster.tryNamePrefix name with
+                | [id] -> Some (id, ctx) // allow shortened names like El for Eladriel, as long as they are unambiguous (only one match)
+                | _ -> None
             | _ -> None
         | _ -> None
     let (|ValidNames|_|) =
