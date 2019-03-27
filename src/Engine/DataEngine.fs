@@ -168,9 +168,9 @@ module Parse =
         let setValue = construct SetValue
         let addToValue = construct AddToValue
         let (|Singular|_|) = function
-        | ValidName(id, Keyword "has" (Dice.Parse.Roll(r, Word(propertyName, Optional "." (Optional "!" ctx))))) -> Some(SetValue(id, propertyName, Expression.Roll r), ctx)
-        | ValidName(id, Keyword "gains" (Dice.Parse.Roll(r, Word(propertyName, Optional "." (Optional "!" ctx))))) -> Some(AddToValue(id, propertyName, Expression.Roll r), ctx)
-        | ValidName(id, AnyCaseWord(("loses"|"spends"), (Dice.Parse.Roll(r, Word(propertyName, Optional "." (Optional "!" ctx)))))) -> Some(AddToValue(id, propertyName, Expression.Roll (Dice.Roll.invert r)), ctx)
+        | ValidNames(ids, Keyword "has" (Dice.Parse.Roll(r, Word(propertyName, Optional "." (Optional "!" ctx))))) -> Some(setValue(ids, propertyName, Expression.Roll r), ctx)
+        | ValidNames(ids, Keyword "gains" (Dice.Parse.Roll(r, Word(propertyName, Optional "." (Optional "!" ctx))))) -> Some(addToValue(ids, propertyName, Expression.Roll r), ctx)
+        | ValidNames(ids, AnyCaseWord(("loses"|"spends"), (Dice.Parse.Roll(r, Word(propertyName, Optional "." (Optional "!" ctx)))))) -> Some(addToValue(ids, propertyName, Expression.Roll (Dice.Roll.invert r)), ctx)
         | _ -> None
         let (|Plural|_|) = function
         | ValidNameList(ids, Keyword "have" (Dice.Parse.Roll(r, Word(propertyName, Optional "." (Optional "!" ctx))))) -> Some(setValue(ids, propertyName, Expression.Roll r), ctx)
