@@ -306,13 +306,13 @@ let execute (storage: IDataStorage) (state:State) (input: string) (return': Call
                 | Expression e ->
                     let result, explanation = eval e
                     let logChunk = Nested(sprintf "%s: %s" input (match explanation with None -> result |> Value.toString | Some v -> v |> Log.getText), match explanation with Some (Nested(_, children)) -> children | Some(leaf) -> [leaf] | None -> []) // don't repeat details unnecessarily
-                    state |> log logChunk, [c, logChunk]
+                    state, [logChunk]
                 | SetValue(id, propertyName, expr) ->
                     let result, explanation = eval expr
                     let name = Roster.tryId id state.data.roster |> Option.get
                     let logChunk = Nested(sprintf "%s's new %s: %s" name propertyName (Value.toString result), explanation |> List.ofOption)
                     let state = state |> Lens.over ldata (Property.set id propertyName result)
-                    state |> log logChunk, [c, logChunk]
+                    state, [logChunk]
                 | AddToValue(id, propertyName, expr) ->
                     let currentValue = state.data |> Property.get id propertyName |> Option.defaultValue (Value.Number 0)
                     let result, explanation = eval expr
@@ -323,13 +323,18 @@ let execute (storage: IDataStorage) (state:State) (input: string) (return': Call
                     let name = Roster.tryId id state.data.roster |> Option.get
                     let logChunk = Nested(sprintf "%s's %s changed from %s to %s" name propertyName (Value.toString currentValue) (Value.toString newValue), explanation |> List.ofOption)
                     let state = state |> Lens.over ldata (Property.set id propertyName newValue)
-                    state |> log logChunk, [c, logChunk]
+                    state, [logChunk]
                 | Block(statements) ->
                     statements
                     |> List.fold (fun (state, logchunks) stmt ->
                         executeStatement state stmt |> Tuple.mapsnd ((@) logchunks)
                         ) (state,[])
-            return' (executeStatement state statement)
+            match (executeStatement state statement) with
+            | state, [logEntry] ->
+                return' (state |> log logEntry, [c, logEntry])
+            | state, logEntries ->
+                let logEntry = Nested(input, logEntries) // todo: find a way to summarize a statement block. For now, we use the original command text as a rough proxy, but that won't scale to deep nesting.
+                return' (state |> log logEntry, [c, logEntry])
         | Save label ->
             storage.Save label state.data (function Ok _ -> return' (state, [c, sprintf "Saved '%s'" label |> Leaf]) | Error err -> return' (state, [c, sprintf "Could not save '%s': '%s'" label err |> Leaf]))
         | Load label ->
