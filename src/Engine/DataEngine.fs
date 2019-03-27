@@ -109,36 +109,31 @@ module Parse =
             | _ -> None
         | _ -> None
     let (|ValidNames|_|) =
+        let checkForIds ctx = function
+            | [] -> None
+            | ids -> Some(ids, ctx)
+        let (|Wildcard|_|) roster = function
+            | Chars alphawhitespace (prefix, Char('*', ctx)) ->
+                Roster.tryNamePrefix prefix roster |> checkForIds ctx
+            | _ -> None
+        let (|Range|_|) roster = function
+            | Chars alphawhitespace (prefix, Int(start, Str "-" (Int(finish, ctx)))) ->
+                [
+                    for i in start..finish do
+                        let name = (prefix + (i.ToString()))
+                        match Roster.tryName name roster with
+                        | Some id -> yield id
+                        | None -> ()
+                    ] |> checkForIds ctx
+            | _ -> None
         // in this case we need to do something a little tricky: detect names by prefix
         pack <| function
         | Roster(roster) as ctx ->
-            let isValidName name = roster |> Roster.tryName name |> Option.isSome
-            let isValidPrefix name =
-                roster |> Roster.isValidNamePrefix name
-            let ids, ctx =
-                match ctx with
-                | Chars alphawhitespace (prefix, ctx') when prefix.Length >= 3 ->
-                    match ctx' with
-                    | Char('*', ctx) ->
-                        Roster.tryNamePrefix prefix roster, ctx
-                    | Int(start, Str "-" (Int(finish, ctx''))) ->
-                        [
-                            for i in start..finish do
-                                let name = (prefix + (i.ToString()))
-                                match Roster.tryName name roster with
-                                | Some id -> yield id
-                                | None -> ()
-                            ],
-                        ctx''
-                    | _ -> [], ctx
-                | _ -> [], ctx
-            if ids.Length > 0 then
-                Some(ids, ctx)
-            else
-                match ctx with
-                | LongestSubstringWhere isValidName 18 (name, ctx) ->
-                    roster |> Roster.tryName name |> Option.map(fun id -> [id], ctx)
-                | _ -> None
+            match ctx with
+            | Wildcard roster (ids, ctx) -> Some(ids, ctx)
+            | Range roster (ids, ctx) -> Some(ids, ctx)
+            | ValidName(id, ctx) -> Some([id], ctx)
+            | _ -> None
         | _ -> None
     let (|ValidNameList|_|) =
         packrec <| fun (|ValidNameList|_|) -> function
