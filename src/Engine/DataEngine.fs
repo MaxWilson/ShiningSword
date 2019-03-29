@@ -187,6 +187,10 @@ module Parse =
         | Plural(v) -> Some(v)
         | Expression(e, ctx) -> Some(Expression e, ctx)
         | _ -> None
+    let rec (|SemicolonDelimitedStatements|_|) = pack <| function
+        | SemicolonDelimitedStatements(exprs, OWS(Str ";" (OWS (Statement(e, rest))))) -> Some(exprs @ [e], rest)
+        | Statement(e, rest) -> Some([e], rest)
+        | _ -> None
 
     // dev string: Packrat.parserWithExternalContext (|Statement|_|) (Roster.empty |> Roster.add "Larry" |> Common.Result.OkOnly) "Larry gains 3d8 HP"
 
@@ -237,6 +241,7 @@ module Parse =
         | OWS(End) -> None
         | Keyword "add" (NameDeclarations(names, ctx)) -> Some(AddCombatants names, ctx)
         | Statement(s, (End as ctx)) -> Some (Statement s, ctx)
+        | SemicolonDelimitedStatements(statements, (End as ctx)) -> Some (Statement (Statement.Block statements), ctx)
         | LogWithEmbeddedExpressions(cmd, (End as ctx)) -> Some(cmd, ctx)
         | v -> matchfail v
 
