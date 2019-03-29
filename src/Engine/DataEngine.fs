@@ -106,6 +106,9 @@ module Parse =
             | LongestSubstringWhere (flip Roster.isValidNamePrefix roster) 18 (name, ctx) ->
                 match roster |> Roster.tryNamePrefix name with
                 | [id] -> Some (id, ctx) // allow shortened names like El for Eladriel, as long as they are unambiguous (only one match)
+                | matches ->
+                    // if there are multiple matches, try for an exact match. Don't want to disregard "skeleton 1" just because "skeleton 10" exists.
+                    matches |> List.tryPick(fun id -> match Roster.tryId id roster with Some v when String.equalsIgnoreCase v name -> Some(id, ctx) | _ -> None)
                 | _ -> None
             | _ -> None
         | _ -> None
