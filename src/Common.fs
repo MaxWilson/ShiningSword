@@ -74,6 +74,8 @@ module List =
     let ofOption = function
         | None -> []
         | Some v -> [v]
+    let every f =
+        List.exists (f >> not) >> not
 
 module Fraction =
     open System.Numerics
