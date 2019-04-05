@@ -69,19 +69,27 @@ module.exports = {
         filename: isProduction ? '[name].[hash].js' : '[name].js'
     },
     mode: isProduction ? "production" : "development",
-    devtool: isProduction ? "source-map" : "eval-source-map",
+    devtool: isProduction ? false : "eval-source-map",
     optimization: {
-        // Split the code coming from npm packages into a different file.
-        // 3rd party dependencies change less often, let the browser cache them.
-        splitChunks: {
-            cacheGroups: {
-                commons: {
-                    test: /node_modules/,
-                    name: "vendors",
-                    chunks: "all"
-                }
-            }
+      runtimeChunk: 'single',
+      splitChunks: {
+        chunks: 'all',
+        maxInitialRequests: Infinity,
+        minSize: 0,
+        cacheGroups: {
+          vendor: {
+            test: /[\\/]node_modules[\\/]/,
+            name(module) {
+              // get the name. E.g. node_modules/packageName/not/this/part.js
+              // or node_modules/packageName
+              const packageName = module.context.match(/[\\/]node_modules[\\/](.*?)([\\/]|$)/)[1];
+
+              // npm package names are URL-safe, but some servers don't like @ symbols
+              return `npm.${packageName.replace('@', '')}`;
+            },
+          },
         },
+      },
     },
     // Besides the HtmlPlugin, we use the following plugins:
     // PRODUCTION
