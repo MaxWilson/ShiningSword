@@ -81,8 +81,6 @@ type IDataStorage =
 open Packrat
 open Model
 open Common
-open Interaction
-open Model
 open Model.Types.Battle2
 open Model.Functions.Battle2
 
