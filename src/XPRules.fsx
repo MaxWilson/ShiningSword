@@ -2,6 +2,10 @@
 
 #I __SOURCE_DIRECTORY__
 #load @"Common.fs"
+#load @"Abstractions\Parsing.fs"
+#load @"Modules\Log.fs"
+#load @"Modules\Dice.fs"
+#load @"Modules\DataEngine.fs"
 #load @"Model\Types.fs"
 #load @"Model\Tables.fs"
 

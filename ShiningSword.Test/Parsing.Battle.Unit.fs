@@ -1,11 +1,9 @@
 module Parsing.Battle.Unit
-open Model.Types.Roll
-open Model.Dice.Roll
+open Dice.Roll
 open Xunit
-open Model.Types
 open Packrat
 open Common
-open Model.Dice
+open Dice
 
 let DieInputs =
   [
@@ -50,12 +48,12 @@ let DieInputs =
 [<MemberData("DieInputs")>]
 let DieParsingTest(txt: string, expected: Roll.Request, rendered: string option) =
   match ParseArgs.Init txt with
-  | Model.Dice.Parse.Roll(roll, End) ->
+  | Dice.Parse.Roll(roll, End) ->
     Assert.Equal(expected, roll)
     match rendered with
     | Some expectedOutput ->
         // check that round-tripping works in some form
-        Assert.Equal(expectedOutput, Model.Dice.Roll.render (Common.String.join " ") roll)
+        Assert.Equal(expectedOutput, Dice.render (Common.String.join " ") roll)
     | None -> () // no expectation, skip it
   | ParseInput.FailureAnalysis(_, analysis) ->
     failwithf "Could not parse '%s'\nSuccessful matches: %s" txt (String.join "\n" analysis)
@@ -71,7 +69,7 @@ let AggregateDieInputs =
 [<MemberData("AggregateDieInputs")>]
 let AggregateParsingTest(txt: string, expected: Roll.AggregateRequest) =
   match ParseArgs.Init txt with
-  | Model.Dice.Parse.Aggregate(roll, End) ->
+  | Dice.Parse.Aggregate(roll, End) ->
     Assert.Equal(expected, roll)
   | ParseInput.FailureAnalysis(_, analysis) ->
     failwithf "Could not parse '%s'\nSuccessful matches: %s" txt (String.join "\n" analysis)
@@ -87,10 +85,10 @@ let AggregateParsingTest(txt: string, expected: Roll.AggregateRequest) =
 [<InlineData("att 25 +4 d100", 5.05, 0, 200)>]
 let DieRollTests(txt: string, expectedAverage: float, expectedMin: int, expectedMax: int) =
   match ParseArgs.Init txt with
-  | Model.Dice.Parse.Roll(roll, End) ->
-    Assert.Equal(expectedAverage, Roll.mean roll)
+  | Dice.Parse.Roll(roll, End) ->
+    Assert.Equal(expectedAverage, Dice.mean roll)
     for _ in 1..100 do
-      let v = (Roll.eval roll |> Result.getValue)
+      let v = (Dice.eval roll |> Result.getValue)
       Assert.True(betweenInclusive expectedMin expectedMax v, sprintf "Expected result between %d and %d, got %d" expectedMin expectedMax v)
   | ParseInput.FailureAnalysis(_, analysis) ->
     failwithf "Could not parse '%s'\nSuccessful matches: %s" txt (String.join "\n" analysis)
@@ -98,7 +96,7 @@ let DieRollTests(txt: string, expectedAverage: float, expectedMin: int, expected
 [<Fact(DisplayName = "Verify that ParseInput analyze shows successful matches")>]
 let VerifyAnalyze() =
   match ParseArgs.Init "4d+  d12 + d6 +2d4z" with
-  | Model.Dice.Parse.Roll(roll, End) ->
+  | Dice.Parse.Roll(roll, End) ->
     ()
   | ParseInput.FailureAnalysis(_, analysis) ->
     Assert.Contains("<<<4d+  d12 + d6 +2d4>>>z Combine (Sum,Aggregate [Dice (4,6); Dice (1,12); Dice (1,6); Dice (2,4)])", analysis)

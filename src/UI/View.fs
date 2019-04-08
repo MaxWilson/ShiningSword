@@ -43,7 +43,7 @@ module Parse =
                 ]
             Some(({ GameState.empty with pcs = pcs } |> Model.Gameplay.startBattle |> snd, ViewModel.Battle), ctx)
         | Str "battle" ctx ->
-            Some(({ GameState.empty with battle = Some (Model.Functions.Battle2.init()) }, ViewModel.Battle), ctx)
+            Some(({ GameState.empty with battle = Some (DataEngine.init()) }, ViewModel.Battle), ctx)
         | Str "mapGen" ctx ->
             Some(({ GameState.empty with mapGen = Some (Model.MapGen.init 10 10) }, ViewModel.MapGen), ctx)
         | Str "campaignDebug" ctx ->

@@ -1,8 +1,6 @@
 module Model.Functions.Unit
 open Common
 open Common.Hierarchy
-open Model.Types
-open Model.Functions
 open Xunit
 
 [<Fact>]

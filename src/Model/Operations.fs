@@ -148,7 +148,7 @@ module CharSheet =
         normalize levels |> List.map (fun (c,l) -> sprintf "%s %d" (className c) l) |> String.join "/"
 module CharInfo =
     open CharSheet
-    open Roll
+    open Dice.Roll
     let getCurrentHP char =
         match char.usages.TryGetValue("HP") with true, v -> v | _ -> char.hp
     let ofCharSheet (c:CharSheet) =

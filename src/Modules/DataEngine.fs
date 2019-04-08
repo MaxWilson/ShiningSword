@@ -71,21 +71,125 @@ At the end of this program, if rolls are [d20 => 18, 2d8+4 => 12], john.status s
 *)
 
 module DataEngine
+open Common
+open Dice
+type Id = int
+type Name = string
+
+type PropertyName = string
+type Value = Number of int | Text of string
+type Expression =
+    | Roll of Roll
+    | Average of Roll
+    | GetValue of Id * PropertyName
+    | Value of Value
+type Statement =
+    | Expression of Expression
+    | SetValue of Id * PropertyName * Expression
+    | AddToValue of Id * PropertyName * Expression
+    | Block of Statement list
+type Command =
+    | Log of Expression list | Quit | ShowLog of numberOfLines: int option * detailLevel: int option | SetLogDetail of int | SetOutputDetail of int option
+    | Save of string | Load of string | Clear
+    | AddCombatants of Name list
+    | Statement of Statement
+
+type Roster = Map<Id, Name> * Map<Name, Id>
+
+// "real" state, stuff that is worth saving/loading
+type Data = {
+    log: Log.Data<Command>
+    properties: Map<(Id*PropertyName), Value>
+    roster: Roster
+    }
+// Stuff to show to the user
+type ViewState = {
+    lastInput: string option // last user input
+    lastCommand: Command option // last VALID command entered
+    lastOutput: Log.Entry<Command> list // response to last command, if any
+    logDetailLevel: int
+    outputDetailLevel: int option
+    selected: Id option
+    finished: bool // is the battle done, i.e. one side all dead?
+    }
+
+type State = { data: Data; view: ViewState }
+
+module Functions =
+    module Value =
+        let toString = function
+            | Value.Number n -> n.ToString()
+            | Value.Text v -> v
+    module Property =
+        let set id (propertyName: PropertyName) value (data:Data) =
+            { data with properties = data.properties |> Map.add (id, propertyName.ToLowerInvariant()) value }
+        let get id (propertyName: PropertyName) data =
+            data.properties |> Map.tryFind (id, propertyName.ToLowerInvariant())
+    module Expression =
+        let text txt = Expression.Value(Value.Text txt)
+    module Roster =
+        let tryId id (roster: Roster) =
+            (fst roster) |> Map.tryFind id
+        let tryName (name:string) (roster: Roster) =
+            (snd roster) |> Map.tryFind (name.ToLowerInvariant()) // name lookup is normalized in lowercase
+        let tryNamePrefix prefix (roster: Roster) =
+            (snd roster) |> Map.filter (fun k _ -> k.StartsWith(prefix, System.StringComparison.InvariantCultureIgnoreCase))
+                |> Map.toSeq
+                |> Seq.map snd
+                |> List.ofSeq
+        let isValidNamePrefix (name:string) (roster: Roster) =
+            (snd roster) |> Map.exists (fun k _ -> k.StartsWith(name, System.StringComparison.InvariantCultureIgnoreCase))
+        let empty = Map.empty, Map.empty
+        let add name ((idLookup, nameLookup) as roster : Roster) : Result<Roster, string> =
+            match tryName name roster with
+            | Some v -> Error (sprintf "%s already exists" name)
+            | None ->
+                let newId =
+                    let ids = fst roster |> Map.toSeq |> Array.ofSeq // workaround for Fable bug: use Array instead of seq, because Seq.isEmpty sometimes incorrectly returns false the first time it is called on ids
+                    if Array.isEmpty ids then 1
+                    else
+                        let biggest = Seq.maxBy fst ids
+                        1 + fst biggest
+                Ok((idLookup |> Map.add newId name), (nameLookup |> Map.add (name.ToLowerInvariant()) newId))
+open Functions
+
+let ldata = Lens.lens (fun (s:State) -> s.data) (fun v s -> { s with data = v })
+let lview = Lens.lens (fun (s:State) -> s.view) (fun v s -> { s with view = v })
+let llog f = Lens.lens (fun (s:Data) -> s.log) (fun v s -> { s with log = v }) f
+let lroster = Lens.lens (fun (s:Data) -> s.roster) (fun v s -> { s with roster = v })
+let lfinished f = Lens.lens (fun (s:ViewState) -> s.finished) (fun v s -> { s with finished = v }) f
+let logCmd (msg : string) = Log [Expression.text msg]
+let log (logEntry : Log.Entry<_>) (state:State) : State =
+    state |> Lens.over (ldata << llog) (Log.logDetailed logEntry)
+let emptyView =
+    {
+        lastInput = None
+        lastCommand = None
+        lastOutput = []
+        outputDetailLevel = None
+        logDetailLevel = 0
+        selected = None
+        finished = false
+        }
+let init() =
+    {   data = {
+            log = Log.empty
+            properties = Map.empty
+            roster = Roster.empty
+            }
+        view = emptyView
+        }
 
 type Callback<'T> = 'T -> unit
 type Label = string
 type IDataStorage =
-    abstract member Save: Label -> Model.Types.Battle2.Data -> Callback<Result<unit, string>> -> unit
-    abstract member Load: Label -> Callback<Result<Model.Types.Battle2.Data, string>> -> unit
+    abstract member Save: Label -> Data -> Callback<Result<unit, string>> -> unit
+    abstract member Load: Label -> Callback<Result<Data, string>> -> unit
 
-open Packrat
-open Model
-open Common
-open Model.Types.Battle2
-open Model.Functions.Battle2
 
 module Parse =
-    let (|Roster|_|) = Packrat.ExternalContextOf<Model.Types.Battle2.Roster>
+    open Packrat
+    let (|Roster|_|) = Packrat.ExternalContextOf<Roster>
     let (|Keyword|_|) (word:string) =
         function
         | Word(w, ctx) when String.equalsIgnoreCase word w -> Some(ctx)
@@ -167,12 +271,12 @@ module Parse =
         let (|Singular|_|) = function
         | ValidNames(ids, Keyword "has" (Dice.Parse.Roll(r, Word(propertyName, Optional "." (Optional "!" ctx))))) -> Some(setValue(ids, propertyName, Expression.Roll r), ctx)
         | ValidNames(ids, Keyword "gains" (Dice.Parse.Roll(r, Word(propertyName, Optional "." (Optional "!" ctx))))) -> Some(addToValue(ids, propertyName, Expression.Roll r), ctx)
-        | ValidNames(ids, AnyCaseWord(("loses"|"spends"), (Dice.Parse.Roll(r, Word(propertyName, Optional "." (Optional "!" ctx)))))) -> Some(addToValue(ids, propertyName, Expression.Roll (Dice.Roll.invert r)), ctx)
+        | ValidNames(ids, AnyCaseWord(("loses"|"spends"), (Dice.Parse.Roll(r, Word(propertyName, Optional "." (Optional "!" ctx)))))) -> Some(addToValue(ids, propertyName, Expression.Roll (Dice.invert r)), ctx)
         | _ -> None
         let (|Plural|_|) = function
         | ValidNameList(ids, Keyword "have" (Dice.Parse.Roll(r, Word(propertyName, Optional "." (Optional "!" ctx))))) -> Some(setValue(ids, propertyName, Expression.Roll r), ctx)
         | ValidNameList(ids, Keyword "gain" (Dice.Parse.Roll(r, Word(propertyName, Optional "." (Optional "!" ctx))))) -> Some(addToValue(ids, propertyName, Expression.Roll r), ctx)
-        | ValidNameList(ids, AnyCaseWord(("lose"|"spend"), (Dice.Parse.Roll(r, Word(propertyName, Optional "." (Optional "!" ctx)))))) -> Some(addToValue(ids, propertyName, Expression.Roll (Dice.Roll.invert r)), ctx)
+        | ValidNameList(ids, AnyCaseWord(("lose"|"spend"), (Dice.Parse.Roll(r, Word(propertyName, Optional "." (Optional "!" ctx)))))) -> Some(addToValue(ids, propertyName, Expression.Roll (Dice.invert r)), ctx)
         | _ -> None
         pack <| function
         | Keyword "set" (CombatantsProperty((ids,property), Keyword "to" ((Expression(e, ctx))))) -> Some(setValue(ids, property, e), ctx)
@@ -240,8 +344,7 @@ module Parse =
         | v -> matchfail v
 
 open Common.Hierarchy
-open Model.Types
-open Model.Functions
+open Functions
 
 let execute (storage: IDataStorage) (state:State) (input: string) (return': Callback<State>): unit =
     let rec exec (state: State) c return' =
@@ -250,10 +353,10 @@ let execute (storage: IDataStorage) (state:State) (input: string) (return': Call
             match e with
             | Expression.Value(v) -> v, None
             | Expression.Roll r ->
-                let result = Dice.Roll.eval r
-                Value.Number(result.value), (result |> Dice.Roll.renderExplanation |> Dice.Roll.toLogChunk) |> Some
+                let result = Dice.eval r
+                Value.Number(result.value), (result |> Dice.renderExplanation |> Dice.toLogChunk) |> Some
             | Expression.Average r ->
-                let result = Dice.Roll.mean r
+                let result = Dice.mean r
                 Value.Text(sprintf "%.2f" result), None
             | Expression.GetValue(id, property) ->
                 match state.data |> Property.get id property with
@@ -341,9 +444,9 @@ let execute (storage: IDataStorage) (state:State) (input: string) (return': Call
         | Load label ->
             storage.Load label (function Ok data -> exec { state with data = data; view = emptyView } (ShowLog (None, None)) return' | Error err -> return' (state, [c, sprintf "Could not load '%s': '%s'" label err |> Leaf]))
         | Clear ->
-            return' (Model.Functions.Battle2.init(), [])
+            return' (init(), [])
     match Packrat.ParseArgs.Init(input, state.data.roster) with
-    | Parse.Cmd(cmd, End) ->
+    | Parse.Cmd(cmd, Packrat.End) ->
         let callback (state: State, output: Log.Entry<_> list) =
             return' { state with
                         view = { state.view with lastOutput = output }

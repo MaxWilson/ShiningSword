@@ -1,38 +1,10 @@
 module Model.Types
-open Common
-
-module Roll =
-    open System.Numerics
-    type Predicate = AtLeast of int | AtMost of int | Natural of min: int * max: int | Else
-    type Transform = Div of int | Times of int
-    type Aggregation = Sum | Max | Min
-    type Request =
-        | Dice of n:int * die:int
-        | StaticValue of n:int
-        | Combine of Aggregation * AggregateRequest
-        | Branch of baseRollPlusMods: (Request * Request) * branches: (Predicate * Request) list
-        | Transform of Request * transform: Transform
-    and AggregateRequest =
-        | Aggregate of Request list
-        | Repeat of n: int * Request
-        | Best of n:int * AggregateRequest
-    type ResultValue = int
-    type Result =
-        { value: ResultValue; source: Request; sublog: Result list }
-    and AggregateResult =
-        { value: Result list; source: AggregateRequest; sublog: Result list }
-    type DistributionResult =
-        DistributionResult of Map<ResultValue, BigInteger>
-    type Explanation = Hierarchy.Hierarchy<ResultValue, (ResultValue * string)>
-type FractionalResult = float
-
-type Roll = Roll.Request
 
 type DamageType = Weapon | Fire | Cold | Poison
 
 type Attack = {
     tohit: int
-    damage: Roll * DamageType
+    damage: Dice.Roll * DamageType
     }
 
 type Id = int
@@ -179,53 +151,6 @@ module Battle1 = // obsolete
 type Intention = Move of Position | Attack of Id
 type Declarations = (Id * Intention) list
 
-module Log =
-    type Chunk = Hierarchy.Hierarchy<string, string>
-    type Entry<'t> = 't * Chunk
-    type Page<'t> = Entry<'t> list
-    type Entries<'t> = Page<'t> list
-    type Data<'t> = Page<'t> * Entries<'t>
-
-module Battle2 =
-    type PropertyName = string
-    type Value = Number of int | Text of string
-    type Expression =
-        | Roll of Roll
-        | Average of Roll
-        | GetValue of Id * PropertyName
-        | Value of Value
-    type Statement =
-        | Expression of Expression
-        | SetValue of Id * PropertyName * Expression
-        | AddToValue of Id * PropertyName * Expression
-        | Block of Statement list
-    type Command =
-        | Log of Expression list | Quit | ShowLog of numberOfLines: int option * detailLevel: int option | SetLogDetail of int | SetOutputDetail of int option
-        | Save of string | Load of string | Clear
-        | AddCombatants of Name list
-        | Statement of Statement
-
-    type Roster = Map<Id, Name> * Map<Name, Id>
-
-    // "real" state, stuff that is worth saving/loading
-    type Data = {
-        log: Log.Data<Command>
-        properties: Map<(Id*PropertyName), Value>
-        roster: Roster
-        }
-    // Stuff to show to the user
-    type ViewState = {
-        lastInput: string option // last user input
-        lastCommand: Command option // last VALID command entered
-        lastOutput: Log.Entry<Command> list // response to last command, if any
-        logDetailLevel: int
-        outputDetailLevel: int option
-        selected: Id option
-        finished: bool // is the battle done, i.e. one side all dead?
-        }
-
-    type State = { data: Data; view: ViewState }
-
 module MapGen =
     type Color = Red | Blue | Green | Brown | Grey
     type Cells = Color option array array
@@ -243,7 +168,7 @@ type GameState = {
     gp: int
     log: Log.Data<unit>
     battle1: Battle1.State1 option
-    battle: Battle2.State option
+    battle: DataEngine.State option
     mapGen: MapGen.State option
     }
 

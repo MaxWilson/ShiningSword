@@ -25,7 +25,7 @@ type Model = {
 
 module Battle =
     type Msg =
-        | Update of Battle2.State
+        | Update of DataEngine.State
 
 module Battle1 =
     type Msg = Finish of GameState | Ongoing of GameState

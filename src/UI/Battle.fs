@@ -84,14 +84,14 @@ let display detailLevel (logEntries: Log.Entry<_> list) =
     [for (cmd, e) in logEntries do
         let rec help currentDepth logEntry =
             // visually distinguish log entries from commands by italicizing them, among other things so that a user can recognize commands that failed to parse
-            let txt = match cmd with Model.Types.Battle2.Log(_) when currentDepth = 0 -> i [] [str (Log.getText logEntry)] | _ -> str (Log.getText logEntry)
+            let txt = match cmd with DataEngine.Log(_) when currentDepth = 0 -> i [] [str (Log.getText logEntry)] | _ -> str (Log.getText logEntry)
             match logEntry with
             | Hierarchy.Nested(_, children) when detailLevel > currentDepth -> // if detailLevel = 2, last recursion will happen when currentDepth = 1.
                 let children' = children |> List.map (help <| currentDepth + 1)
                 li [] [txt; ul [] children']
             | _ ->
                 match cmd with
-                | Model.Types.Battle2.Log(_) when currentDepth = 0 ->
+                | DataEngine.Log(_) when currentDepth = 0 ->
                     li [] [txt]
                 | _ ->
                     li [] [txt]
@@ -104,14 +104,14 @@ let logOutput =
             let log = Log.extractEntries log |> List.collect id
             ul [ClassName "logDisplay"] (display detailLevel log)
 
-let view respond (battle: Battle2.State) =
+let view respond (battle: DataEngine.State) =
     [
         match battle.view.lastOutput with
         | [] -> ()
         | outputs ->
             let detailLevel =
                 match battle.view.lastCommand with
-                Some (Model.Types.Battle2.ShowLog(_, Some detailOverride)) -> detailOverride
+                Some (DataEngine.ShowLog(_, Some detailOverride)) -> detailOverride
                 | _ ->  defaultArg battle.view.outputDetailLevel battle.view.logDetailLevel
             yield ul[ClassName "battleSummary content"](outputs |> (display detailLevel))
         yield div[ClassName "interaction"] [

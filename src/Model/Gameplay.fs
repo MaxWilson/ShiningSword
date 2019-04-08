@@ -319,7 +319,7 @@ let fightOneRound (state: GameState) =
             Some <| chooseRandom liveEnemies
         else None
     let liveIds = hpMap |> Map.filter (fun _ hp -> hp > 0) |> Map.toArray |> Array.map fst |> shuffleCopy
-    let resolve = Model.Dice.Roll.eval >> (fun v -> v.value)
+    let resolve = Dice.eval >> (fun v -> v.value)
     for id in liveIds do
         if hpMap.[id] > 0 then // if still alive
             let c = combatants.[id]
@@ -329,7 +329,7 @@ let fightOneRound (state: GameState) =
                     let toHit = target.stats.ac - att.tohit
                     match rand 20 with
                     | 20 ->
-                        let dmg = (resolve (fst att.damage |> Model.Dice.Roll.multiplyResultDice 2))
+                        let dmg = (resolve (fst att.damage |> Dice.multiplyResultDice 2))
                         inflict true c.stats.name target dmg
                     | n when n >= toHit ->
                         let dmg = (resolve (fst att.damage))
