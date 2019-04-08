@@ -86,10 +86,7 @@ open Model
 open Model.Types.Battle2
 open Model.Functions.Battle2
 
-#nowarn "40"
 module Parse =
-    open Model.Functions.Battle2
-
     let (|Roster|_|) = Packrat.ExternalContextOf<Model.Types.Battle2.Roster>
     let (|Keyword|_|) (word:string) =
         function
@@ -109,7 +106,6 @@ module Parse =
                 | matches ->
                     // if there are multiple matches, try for an exact match. Don't want to disregard "skeleton 1" just because "skeleton 10" exists.
                     matches |> List.tryPick(fun id -> match Roster.tryId id roster with Some v when String.equalsIgnoreCase v name -> Some(id, ctx) | _ -> None)
-                | _ -> None
             | _ -> None
         | _ -> None
     let (|ValidNames|_|) =
@@ -157,10 +153,10 @@ module Parse =
         | Dice.Parse.Roll(r, ctx) -> Some(Expression.Roll r, ctx)
         | AnyCaseWord(("avg" | "average"), Dice.Parse.Roll(r, ctx)) -> Some(Expression.Average r, ctx)
         | _ -> None
-    let rec (|CommaSeparatedExpressions|_|) = pack <| function
+    let rec (|CommaSeparatedExpressions|_|) = packrec (fun (|CommaSeparatedExpressions|_|) -> function
         | CommaSeparatedExpressions(exprs, OWS(Str "," (OWS (Expression(e, rest))))) -> Some(exprs @ [e], rest)
         | Expression(e, rest) -> Some([e], rest)
-        | _ -> None
+        | _ -> None)
     let (|Statement|_|) =
         let construct ctor (ids, prop, expr) =
             match ids with
@@ -187,17 +183,17 @@ module Parse =
         | Plural(v) -> Some(v)
         | Expression(e, ctx) -> Some(Expression e, ctx)
         | _ -> None
-    let rec (|SemicolonDelimitedStatements|_|) = pack <| function
+    let rec (|SemicolonDelimitedStatements|_|) = packrec (fun (|SemicolonDelimitedStatements|_|) -> function
         | SemicolonDelimitedStatements(exprs, OWS(Str ";" (OWS (Statement(e, rest))))) -> Some(exprs @ [e], rest)
         | Statement(e, rest) -> Some([e], rest)
-        | _ -> None
+        | _ -> None)
 
     // dev string: Packrat.parserWithExternalContext (|Statement|_|) (Roster.empty |> Roster.add "Larry" |> Common.Result.OkOnly) "Larry gains 3d8 HP"
 
     let (|LogWithEmbeddedExpressions|_|) =
         let openBracket = Set.ofList ['[']
         let questionMark = Set.ofList ['?']
-        let rec (|Chunkify|_|) = pack <| function
+        let rec (|Chunkify|_|) = packrec (fun (|Chunkify|_|) -> function
             | CharsExcept openBracket (prefix, Str "[" (Expression(e, (OWS(Str "]" (Chunkify(chunks, ctx))))))) -> Some([Expression.text prefix; e] @ chunks, ctx)
             | CharsExcept openBracket (prefix, Str "[" (CommaSeparatedExpressions(exprs, (OWS(Str "]" (Chunkify(chunks, ctx))))))) -> Some(Expression.text prefix::(exprs |> List.join (Expression.text ", ")) @ chunks, ctx)
             | Str "[" (Expression(e, (OWS(Str "]" (Chunkify(chunks, ctx)))))) -> Some([e] @ chunks, ctx)
@@ -205,7 +201,7 @@ module Parse =
                 Some((exprs |> List.join (Expression.text ",")) @ chunks, ctx)
             | CharsExcept questionMark (prefix, Str "?" (Expression(e, (End as ctx)))) -> Some([Expression.text (prefix + "? "); e], ctx)
             | Any(msg, ctx) -> Some ((if System.String.IsNullOrWhiteSpace msg then [] else [Expression.text msg]), ctx)
-            | v -> matchfail v
+            | v -> matchfail v)
         function
         | Chunkify(chunks, ctx) -> Some(Log chunks, ctx)
         | _ -> None
@@ -248,7 +244,6 @@ module Parse =
 open Common.Hierarchy
 open Model.Types
 open Model.Functions
-open Common
 
 let execute (storage: IDataStorage) (state:State) (input: string) (return': Callback<State>): unit =
     let rec exec (state: State) c return' =
