@@ -142,7 +142,7 @@ module Workflow =
             | None -> chooseRandom (Templates.charTemplates |> Map.toArray |> Array.map snd)
         if firstPerson then
             let! name = Query.text state "What's your name?"
-            let! name = Query.text state "What's your name?"
+            let! name = Query.text state "What's your real name?"
             let! sex = Query.choose state "What's your sex?" [Male; Female]
             let! template = Query.choose state "What kind of adventurer are you?" charTemplateChoice
             return (name, sex, findTemplate template, None)

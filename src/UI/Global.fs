@@ -55,14 +55,14 @@ Browser.document.addEventListener_keyup((fun ev ->
 open Fable.Core.JsInterop
 /// Helper method: an input which stores state locally in React.state and then calls onEnter when Enter is pressed
 let statefulInput onEnter (props: IHTMLProp list) =
-    Components.stateful (=) <| fun txt update ->
+    Components.stateful <| fun txt update clear ->
         let props : IHTMLProp list = [
                 yield Value txt
                 yield OnChange (fun ev ->
-                    let v = !!ev.target?value
-                    update (thunk v)
+                    let v : string = !!ev.target?value
+                    update v
                     )
-                yield onKeyDown KeyCode.enter (fun _ -> onEnter txt; update (thunk emptyString))
+                yield onKeyDown KeyCode.enter (fun _ -> onEnter (defaultArg txt ""); clear())
                 yield! props
                 ]
         React.input props

@@ -2,7 +2,7 @@ module UI.Components
 
 type StateHolder<'model> = StateHolder of {| model: 'model option; dirty: bool |}
 type StatefulProps<'model> = {
-    render: 'model -> (('model -> 'model) -> unit) -> Fable.Import.React.ReactElement
+    render: 'model option -> ('model -> unit) -> (unit -> unit) -> Fable.Import.React.ReactElement
 }
 type Stateful<'t>(props) as this =
     inherit Fable.Import.React.Component<StatefulProps<'t>, StateHolder<'t>>(props)
@@ -10,19 +10,17 @@ type Stateful<'t>(props) as this =
     let extract (StateHolder v) = v
     override this.shouldComponentUpdate(_nextProps, nextState) =
         match nextState with
-        | StateHolder v when v.dirty -> true
+        | StateHolder v when v.dirty ->
+            this.setState(fun (StateHolder st) _ -> StateHolder {| st with dirty = false |}) // not dirty any more after component updates
+            true
         | _ -> false
     override this.render() =
         let update value =
             this.setState(fun _ _ -> StateHolder {| model = Some value; dirty = true |})
         let clear() =
-            this.setState(fun _ _ -> StateHolder {| model = None; dirty = false |})
-        let doUpdate = (fun updater ->
-            this.setState(fun (StateHolder st) _props ->
-                                
-                                StateHolder (updater st.model)))
-        this.props.render (extract this.state) doUpdate
+            this.setState(fun _ _ -> StateHolder {| model = None; dirty = true |})
+        this.props.render (extract this.state).model update clear
 
-let stateful initState eq render =
-    Fable.Helpers.React.ofType<Stateful<'t>, _, _>({initial = initState; equal = eq; render = render})[]
+let stateful render =
+    Fable.Helpers.React.ofType<Stateful<'t>, _, _>({ render = render })[]
 
