@@ -26,8 +26,8 @@
     <Compile Include="UI\Storage.fs" />
     <Compile Include="UI\Battle.fs" />
     <Compile Include="UI\MapGen.fs" />
-    <Compile Include="UI\State.fs" />
     <Compile Include="UI\View.fs" />
+    <Compile Include="UI\State.fs" />
     <None Include="Script1.fsx" />
     <None Include="XPRules.fsx" />
     <None Include="NameMaker.fsx" />

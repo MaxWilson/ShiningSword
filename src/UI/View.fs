@@ -3,56 +3,19 @@ module UI.View
 open Common
 open Interaction
 open Model.Types
-open Model.Functions
 open Model.Operations
 open UI.Global
 open Types
-open UI.State
 open Elmish
-open Elmish.Browser.Navigation
 open Fable.Core.JsInterop
 open Fable.Import
-open Fable.Import.Browser
 
 importAll "../../sass/main.sass"
 
 open Fable.Helpers.React
 open Fable.Helpers.React.Props
 open Elmish.React
-open Elmish.Debug
-#if DEBUG
-open Elmish.HMR
-#endif
 open Fulma
-open Fulma.Color
-
-module Parse =
-    open Packrat
-    open Global
-    let locationParser (rootActivePattern: ParseInput -> ('result * ParseInput) option) (loc: Location) =
-        let (|Root|_|) = rootActivePattern
-        match ParseArgs.Init loc.hash with
-        | Str "#" (Root(v, End)) -> Some v
-        | _ -> None
-
-    let (|Page|_|) = function
-        | Str "battleDebug" ctx ->
-            let pcs = [
-                CharSheet.create "Max the Mighty" Male (18,12,14,15,9,11) false None Model.Chargen.Templates.charTemplates.["Brute"]
-                    |> CharInfo.ofCharSheet
-                ]
-            Some(({ GameState.empty with pcs = pcs } |> Model.Gameplay.startBattle |> snd, ViewModel.Battle), ctx)
-        | Str "battle" ctx ->
-            Some(({ GameState.empty with battle = Some (DataEngine.init()) }, ViewModel.Battle), ctx)
-        | Str "mapGen" ctx ->
-            Some(({ GameState.empty with mapGen = Some (Model.MapGen.init 10 10) }, ViewModel.MapGen), ctx)
-        | Str "campaignDebug" ctx ->
-            let template = Model.Chargen.Templates.charTemplates.["Brute"]
-            let pc = Model.Operations.CharSheet.create "Spartacus" Male (14, 16, 9, 13, 11, 13) false None template
-            Some(({ GameState.empty with pcs = [CharInfo.ofCharSheet pc] }, ViewModel.Campaign), ctx)
-        | _ -> None
-
-    let page = locationParser (|Page|_|)
 
 let modalOperation dispatch onSuccess e =
     e |> Eventual.toOperation (fun (q, gameState) continue' -> dispatch (NewModal(Operation(q, continue'), gameState))) (fun () -> dispatch CloseModal) (fun v -> onSuccess v)
@@ -322,15 +285,3 @@ let root model dispatch =
                 str <| "Details: no modal stack found in View.root pattern match!"]
     let gameHasStarted = List.exists (fun x -> x = Campaign || x = Battle) model.mode
     div [ClassName <| if gameHasStarted then "mainPage" else "startPage"] children
-
-// make sure errors are not silent: show them as Alerts (ugly but better than nothing for now)
-window.onerror <- fun msg _src _lineNo _colNo err -> window.alert (sprintf "Bug alert! Unhandled exception. Email Max and tell him what happened. Error details: %A %A" msg err)
-
-// App
-Program.mkProgram init update root
-|> Program.toNavigable Parse.page urlUpdate
-#if DEBUG
-|> Program.withDebugger
-#endif
-|> Program.withReact "elmish-app"
-|> Program.run
