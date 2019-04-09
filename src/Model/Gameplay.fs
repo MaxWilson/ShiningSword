@@ -107,6 +107,7 @@ let logAdvance state = { state with log = Log.advance state.log }
 let getNameAndSex state firstPerson isFriend : Eventual<_,_,Name * Sex> = queryInteraction {
     if firstPerson then
         let! name = Query.text state "What's your name?"
+        let! lastname = Query.text state "What's your real name?"
         let! sex = Query.choose state "What's your sex?" [Male; Female]
         return (name, sex)
     elif isFriend then
