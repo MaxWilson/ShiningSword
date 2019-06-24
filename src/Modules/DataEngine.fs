@@ -171,12 +171,13 @@ let emptyView =
         selected = None
         finished = false
         }
+let emptyData = {
+    log = Log.empty
+    properties = Map.empty
+    roster = Roster.empty
+    }
 let init() =
-    {   data = {
-            log = Log.empty
-            properties = Map.empty
-            roster = Roster.empty
-            }
+    {   data = emptyData
         view = emptyView
         }
 
@@ -186,6 +187,14 @@ type IDataStorage =
     abstract member Save: Label -> Data -> Callback<Result<unit, string>> -> unit
     abstract member Load: Label -> Callback<Result<Data, string>> -> unit
 
+module Q = // query    
+    type Node = Expression
+
+module DML = // data modification
+    ()
+
+module DDL = // data definition
+    ()
 
 module Parse =
     open Packrat
