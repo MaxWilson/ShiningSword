@@ -32,6 +32,7 @@
     <Compile Include="UI\View.fs" />
     <Compile Include="UI\State.fs" />
     <None Include="Script1.fsx" />
+    <None Include="Script2.fsx" />
     <None Include="XPRules.fsx" />
     <None Include="NameMaker.fsx" />
     <!-- Info -->
