@@ -17,7 +17,9 @@ module Scope =
             function
                 | Number v -> v
                 | _ -> shouldntHappen()
-    type Data = Map<Key, Value>
+    type Data = {
+        propertyValues: Map<Key, Value>
+        }
     type DataResult = { data: Data; value: Value } with
         static member Create(d,v) = { data = d; value = v }
     type PropertyDefinition = {
@@ -32,12 +34,12 @@ module Scope =
         if System.String.IsNullOrWhiteSpace input then None
         else Some (Text <| input.Trim())
     let nameList = { name = "NameList"; defaultValue = fun _ d -> DataResult.Create(d, List [||]) }
-    let empty : Data = Map.empty
+    let empty : Data = { propertyValues = Map.empty }
     let write property rowId v data =
-        DataResult.Create(data |> Map.add (rowId, property.name) v, v)
+        DataResult.Create({ data with propertyValues = data.propertyValues |> Map.add (rowId, property.name) v}, v)
     let tryRead property rowId data : DataResult option =
         let key = (rowId, property.name)
-        match data |> Map.tryFind key with
+        match data.propertyValues |> Map.tryFind key with
         | Some v ->
             DataResult.Create(data, v) |> Some
         | None ->
