@@ -19,14 +19,18 @@ module Scope =
                 | _ -> shouldntHappen()
     type Data = {
         propertyValues: Map<Key, Value>
+        outstandingQueries: Key list
         }
     module Lens =
         let PropertyValues = Lens.lens (fun d -> d.propertyValues) (fun v d -> { d with propertyValues = v })
     type DataResult = { data: Data; value: Value } with
         static member Create(d,v) = { data = d; value = v }
+    let getData d = d.data
+    let getValue d = d.value
+    type QueryResult = Immediate of DataResult | Deferred of requiredValues: Key list
     type PropertyDefinition = {
         name: PropertyName
-        defaultValue: Key -> Data -> DataResult
+        defaultValue: Key -> Data -> QueryResult
         }
     let parseNumber input =
         match System.Int32.TryParse input with
@@ -35,8 +39,8 @@ module Scope =
     let parseText input =
         if System.String.IsNullOrWhiteSpace input then None
         else Some (Text <| input.Trim())
-    let nameList = { name = "NameList"; defaultValue = fun _ d -> DataResult.Create(d, List [||]) }
-    let empty : Data = { propertyValues = Map.empty }
+    let nameList = { name = "NameList"; defaultValue = fun _ d -> Immediate <| DataResult.Create(d, List [||]) }
+    let empty : Data = { propertyValues = Map.empty; outstandingQueries = [] }
     let write property rowId v data =
         DataResult.Create(data |> Lens.over Lens.PropertyValues (Map.add (rowId, property.name) v), v)
     let tryRead property rowId data : DataResult option =
@@ -46,13 +50,17 @@ module Scope =
             DataResult.Create(data, v) |> Some
         | None ->
             None
-    let read property rowId data : DataResult =
+    let read property rowId data : QueryResult =
         match data |> tryRead property rowId with
-        | Some v -> v
+        | Some v -> Immediate v
         | None ->
-            let { data = data; value = v } = property.defaultValue (rowId, property.name) data
-            write property rowId v data
+            match property.defaultValue (rowId, property.name) data with
+            | Immediate { data = data; value = v } ->
+                Immediate (write property rowId v data)
+            | deferred -> deferred
     let rec private inquireBase getName parser (key: Key) data =
+        Deferred [key]
+    let rec private inquire0 inquireBase getName parser (key: Key) data =
         let data =
             match key with
             | (Some id, propertyName) ->
@@ -74,17 +82,19 @@ module Scope =
             match key with
             | Some rowId, _ ->
                 match read nameList (Some rowId) data with
-                | { data = data; value = List names } when names.Length > 0 ->
-                    DataResult.Create(data, chooseRandom names)
-                | _ -> inquireBase getNameSubstitute parseText (Some rowId, "Name") data
+                | Immediate { data = data; value = List names } when names.Length > 0 ->
+                    Immediate <| DataResult.Create(data, chooseRandom names)
+                | _ -> Deferred [Some rowId, "Name"] // inquireBase getNameSubstitute parseText (Some rowId, "Name") data
             | _ -> failwith "Name doesn't make sense at the global scope"
         { name = "Name"; defaultValue = generateNameOrAsk }
     let inquire = inquireBase (read name)
 
 open Scope
+
 let d = empty
+let getValue = function | Deferred _ -> None | Immediate dr -> Some dr.value
 let str = { PropertyDefinition.name = "Strength"; defaultValue = inquire parseNumber }
-d |> read str (Some 11)
+d |> write str (Some 11) (Number 19) |> getData |> read str (Some 11) |> getValue
 
 
 module REPL =
