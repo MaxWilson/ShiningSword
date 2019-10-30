@@ -20,6 +20,8 @@ module Scope =
     type Data = {
         propertyValues: Map<Key, Value>
         }
+    module Lens =
+        let PropertyValues = Lens.lens (fun d -> d.propertyValues) (fun v d -> { d with propertyValues = v })
     type DataResult = { data: Data; value: Value } with
         static member Create(d,v) = { data = d; value = v }
     type PropertyDefinition = {
@@ -36,7 +38,7 @@ module Scope =
     let nameList = { name = "NameList"; defaultValue = fun _ d -> DataResult.Create(d, List [||]) }
     let empty : Data = { propertyValues = Map.empty }
     let write property rowId v data =
-        DataResult.Create({ data with propertyValues = data.propertyValues |> Map.add (rowId, property.name) v}, v)
+        DataResult.Create(data |> Lens.over Lens.PropertyValues (Map.add (rowId, property.name) v), v)
     let tryRead property rowId data : DataResult option =
         let key = (rowId, property.name)
         match data.propertyValues |> Map.tryFind key with
