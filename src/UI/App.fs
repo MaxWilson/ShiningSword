@@ -23,29 +23,37 @@ open Fable.Helpers.React
 open Fable.Helpers.React.Props
 importAll "../../sass/main.sass"
 
-type ViewCmd = ChangeTo of string | OK
-let view (currentInput, greeting) dispatch = div [ClassName "frame"] [
-        p[ClassName "summaryPane"][str <| match greeting with Some greeting -> sprintf "Hi, %s" greeting | None -> ""]
-        p[ClassName "queryPane"][
+type ViewCmd = ChangeTo of string | OK | Clear
+let view (currentInput, greeting, log) dispatch = div [ClassName ("frame" + if log = [] then "" else " withSidebar")] [
+        yield p[ClassName "summaryPane"][str <| match greeting with Some greeting -> greeting | None -> ""]
+        yield p[ClassName "queryPane"][
             h2[][str "What's your name?"]
             br[]
             form [OnSubmit (fun _ -> dispatch OK)] [
-                input [OnChange (fun e -> e.Value |> ChangeTo |> dispatch); unbox <| HTMLAttr.Value currentInput]
+                input [OnChange (fun e -> e.Value |> ChangeTo |> dispatch); HTMLAttr.Value currentInput; HTMLAttr.AutoFocus true]
                 button[Type "submit"][str "OK"]
             ]
             br[]
             ]
+        if log <> [] then
+            yield div[ClassName "sidebar"][
+                ul[] [for entry in log -> li[][str entry]]
+                button[OnClick (fun _ -> dispatch Clear)][str "Clear"]
+            ]
     ]
-type Model = { value: string; greeting: string option }
-type Cmd = NewValue of string | ENTER
-let init _ = { value = ""; greeting = None }, Cmd.Empty
+type Model = { value: string; greeting: string option; log: string list }
+type Cmd = NewValue of string | ENTER | ClearLog
+let init _ = { value = ""; greeting = None; log = [] }, Cmd.Empty
 let update msg model =
     match msg with
     | NewValue s -> { model with value = s; greeting = None }, Cmd.Empty
-    | ENTER -> { model with greeting = Some model.value; value = "" }, Cmd.Empty
+    | ENTER ->
+        let greeting = sprintf "Hi, %s" model.value
+        { model with greeting = Some greeting; value = ""; log = model.log@[greeting] }, Cmd.Empty
+    | ClearLog -> { model with log = [] }, Cmd.Empty
 
 // App
-Program.mkProgram init update (fun m d -> view (m.value, m.greeting) ((function (ViewCmd.ChangeTo v) -> NewValue v | OK -> ENTER) >> d))
+Program.mkProgram init update (fun m d -> view (m.value, m.greeting, m.log) ((function (ViewCmd.ChangeTo v) -> NewValue v | OK -> ENTER | Clear -> ClearLog) >> d))
 #if DEBUG
 |> Program.withDebugger
 #endif

@@ -14,7 +14,8 @@ html, body, #elmish-app
   padding: 1vw
 .frame
   display: grid
-  grid-template-areas: "a a" "a a" "a a" "b ."
+  grid-template-areas: "a a" "b b"
+  grid-template-rows: 3fr 1fr
   height: 100%
   box-sizing: border-box
   .summaryPane
@@ -30,12 +31,21 @@ html, body, #elmish-app
     grid-area: b
     background-color: green
 
-
-
-
-
-
-
+.frame.withSidebar
+  grid-template-areas: "a s" "b b"
+  grid-template-columns: 3fr 1fr
+  .summaryPane
+    grid-area: a
+  .queryPane
+    grid-area: b
+  .sidebar
+    grid-area: s
+    border-style: solid
+    border-width: thin
+    display: grid
+    grid-template-rows: 1fr 2em
+    ul
+      overflow: auto
 
 .navbar-bg
   background-color: $black
