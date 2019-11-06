@@ -24,14 +24,17 @@ open Fable.Helpers.React
 open Fable.Helpers.React.Props
 importAll "../../sass/main.sass"
 
-type ViewCmd = ChangeTo of string | OK | Clear
-let view (currentInput, greeting, log) dispatch = div [ClassName ("frame" + if log = [] then "" else " withSidebar")] [
+type Model = { value: string; greeting: string option; log: string list }
+type Cmd = NewValue of string | ENTER | ClearLog
+let view m dispatch =
+    let currentInput, greeting, log = (m.value, m.greeting, m.log)
+    div [ClassName ("frame" + if log = [] then "" else " withSidebar")] [
         yield p[ClassName "summaryPane"][str <| match greeting with Some greeting -> greeting | None -> ""]
         yield p[ClassName "queryPane"][
             h2[][str "What's your name?"]
             br[]
-            form [OnSubmit (fun _ -> dispatch OK)] [
-                input [OnChange (fun e -> e.Value |> ChangeTo |> dispatch); HTMLAttr.Value currentInput; HTMLAttr.AutoFocus true]
+            form [OnSubmit (fun _ -> dispatch ENTER)] [
+                input [OnChange (fun e -> e.Value |> NewValue |> dispatch); HTMLAttr.Value currentInput; HTMLAttr.AutoFocus true]
                 button[Type "submit"][str "OK"]
             ]
             br[]
@@ -39,11 +42,10 @@ let view (currentInput, greeting, log) dispatch = div [ClassName ("frame" + if l
         if log <> [] then
             yield div[ClassName "sidebar"][
                 ul[] [for entry in log -> li[][str entry]]
-                button[OnClick (fun _ -> dispatch Clear)][str "Clear"]
+                button[OnClick (fun _ -> dispatch ClearLog)][str "Clear"]
             ]
     ]
-type Model = { value: string; greeting: string option; log: string list }
-type Cmd = NewValue of string | ENTER | ClearLog
+
 let init _ = { value = ""; greeting = None; log = [] }, Cmd.Empty
 let update msg model =
     match msg with
@@ -57,7 +59,7 @@ let update msg model =
     | ClearLog -> { model with log = [] }, Cmd.Empty
 
 // App
-Program.mkProgram init update (fun m d -> view (m.value, m.greeting, m.log) ((function (ViewCmd.ChangeTo v) -> NewValue v | OK -> ENTER | Clear -> ClearLog) >> d))
+Program.mkProgram init update view
 #if DEBUG
 |> Program.withDebugger
 #endif
