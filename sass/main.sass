@@ -5,6 +5,37 @@ $black: #202020
 
 @import '../node_modules/bulma/bulma'
 
+html, body, #elmish-app
+  display: inline-block // prevent margin collapse which will make vertical scrollbar appear for no reason, see https://stackoverflow.com/questions/12989931/body-height-100-displaying-vertical-scrollbar
+  width: 100%
+  height: 100%
+  box-sizing: border-box
+#elmish-app
+  padding: 1vw
+.frame
+  display: grid
+  grid-template-areas: "a a" "b ."
+  grid-template-rows: 1fr 1fr
+  height: 100%
+  box-sizing: border-box
+  .summaryPane
+    border-width: thin
+    border-color: black
+    border-style: solid
+    padding: 0.5em
+    grid-area: a
+    background-color: lightgrey
+    color: black
+  .queryPane
+    padding: 1vw
+    grid-area: b
+    background-color: green
+
+
+
+
+
+
 
 
 .navbar-bg

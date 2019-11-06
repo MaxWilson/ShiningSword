@@ -24,15 +24,17 @@ open Fable.Helpers.React.Props
 importAll "../../sass/main.sass"
 
 type ViewCmd = ChangeTo of string | OK
-let view (currentInput, greeting) dispatch = div [] [
-        h2[][str "What's your name?"]
-        br[]
-        form [OnSubmit (fun _ -> dispatch OK)] [
-            input [OnChange (fun e -> e.Value |> ChangeTo |> dispatch); unbox <| HTMLAttr.Value currentInput]
-            button[Type "submit"][str "OK"]
-        ]
-        br[]
-        str <| match greeting with Some greeting -> sprintf "Hi, %s" greeting | None -> ""
+let view (currentInput, greeting) dispatch = div [ClassName "frame"] [
+        p[ClassName "summaryPane"][str <| match greeting with Some greeting -> sprintf "Hi, %s" greeting | None -> ""]
+        p[ClassName "queryPane"][
+            h2[][str "What's your name?"]
+            br[]
+            form [OnSubmit (fun _ -> dispatch OK)] [
+                input [OnChange (fun e -> e.Value |> ChangeTo |> dispatch); unbox <| HTMLAttr.Value currentInput]
+                button[Type "submit"][str "OK"]
+            ]
+            br[]
+            ]
     ]
 type Model = { value: string; greeting: string option }
 type Cmd = NewValue of string | ENTER
