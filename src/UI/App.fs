@@ -1,4 +1,5 @@
 module App
+open System
 open Elmish
 open Elmish.Browser.Navigation
 open Model.Types
@@ -48,8 +49,11 @@ let update msg model =
     match msg with
     | NewValue s -> { model with value = s; greeting = None }, Cmd.Empty
     | ENTER ->
-        let greeting = sprintf "Hi, %s" model.value
-        { model with greeting = Some greeting; value = ""; log = model.log@[greeting] }, Cmd.Empty
+        if not <| String.IsNullOrWhiteSpace model.value then
+            let greeting = sprintf "Hi, %s" model.value
+            { model with greeting = Some greeting; value = ""; log = model.log@[greeting] }, Cmd.Empty
+        else
+            model, Cmd.Empty
     | ClearLog -> { model with log = [] }, Cmd.Empty
 
 // App
