@@ -96,15 +96,4 @@ module Parse =
             Some(({ GameState.empty with pcs = [CharInfo.ofCharSheet pc] }, ViewModel.Campaign), ctx)
         | _ -> None
 
-    let page = locationParser (|Page|_|)
-// make sure errors are not silent: show them as Alerts (ugly but better than nothing for now)
-window.onerror <- fun msg _src _lineNo _colNo err -> window.alert (sprintf "Bug alert! Unhandled exception. Email Max and tell him what happened. Error details: %A %A" msg err)
-
-// App
-Program.mkProgram init update root
-|> Program.toNavigable Parse.page urlUpdate
-#if DEBUG
-|> Program.withDebugger
-#endif
-|> Program.withReact "elmish-app"
-|> Program.run
+    let page1 z = locationParser (|Page|_|) z
