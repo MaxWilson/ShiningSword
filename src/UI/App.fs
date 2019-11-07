@@ -153,31 +153,18 @@ module View =
                 | Resolved s -> li[ClassName "resolved"][str s]
                 | Blocked s -> li[ClassName "blocked"][str s]
             ]
-        let consoleFragment() = [
-            h2[][str "Enter a command:"]
-            br[]
-            form [OnSubmit (fun _ -> dispatch ENTER)] [
-                    input [OnChange (fun e -> e.Value |> NewValue |> dispatch); HTMLAttr.Value m.currentInput; HTMLAttr.AutoFocus true]
-                    button[Type "submit"][str "OK"]
-                ]
-            br[]
-            ]
-        let queryFragment() =
-            let ((id, prop), cmd) = m.domainModel.openRequests.Head
-            let name = m.domainModel.roster |> SymmetricMap.find id
-            [
-                h2[][str <| sprintf "What is %s's %s:" name prop]
-                br[]
-                form [OnSubmit (fun _ -> dispatch ENTER)] [
-                        input [OnChange (fun e -> e.Value |> NewValue |> dispatch); HTMLAttr.Value m.currentInput]
-                        button[Type "submit"][str "OK"]
-                    ]
-                br[]
-            ]
 
         div [ClassName ("frame" + if log = [] then "" else " withSidebar")] [
             yield p[ClassName "summaryPane"][str ""]
-            yield p[ClassName "queryPane"] (if m.domainModel.openRequests.IsEmpty then consoleFragment() else queryFragment())
+            yield p[ClassName "queryPane"] [
+                h2[][str "Enter a command:"]
+                br[]
+                form [OnSubmit (fun e -> dispatch ENTER; e.preventDefault())] [
+                        input [OnChange (fun e -> e.Value |> NewValue |> dispatch); HTMLAttr.Value m.currentInput; HTMLAttr.AutoFocus true]
+                        button[Type "submit"][str "OK"]
+                    ]
+                br[]
+                ]
             if log <> [] then
                 yield div[ClassName "sidebar"][
                     ul[] log
