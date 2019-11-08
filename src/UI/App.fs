@@ -118,6 +118,7 @@ module Domain =
     let rec tryParseExpression model (cmd: string) =
         match Int32.TryParse cmd with
         | true, v -> Number v |> Some
+        | _ when String.IsNullOrWhiteSpace cmd -> None
         | _ ->
             // REALLY crude parsing because that's not the point right now
             if cmd.Contains "+" || cmd.Contains "-" then
