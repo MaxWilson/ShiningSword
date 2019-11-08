@@ -19,42 +19,44 @@ open Fable.Helpers.React.Props
 importAll "../../sass/main.sass"
 
 module Functor =
+    // NOTE which type arguments have to be statically bound with ^ and which can be bound at JIT-time with '
+    //    If you make something ' which should be ^ it won't compile
     let inline (|HasAdd|) x =
-        fun arg -> (^a : (static member add: ^a * ^b -> ^a) (x,arg))
+        fun args -> (^a : (static member add: ^a * 'b -> ^a) (x,args))
     let inline add row (HasAdd f: 't) : 't =
         f row
     let inline (|HasTransform|) x =
-        fun (id, t) -> (^a : (static member transform: ^a * ^b* ^d -> ^d) (x,id,t))
-    let inline transform1 (id, t, (HasTransform f):'t) : 't =
+        fun args -> (^a : (static member transform: ^a * 'b -> ^a) (x,args))
+    let inline transform1 id t ((HasTransform f):'t) : 't =
         f(id, t)
     let inline transform (HasTransform f) = f
     let inline (|HasReplace|) x =
-        fun arg -> (^a : (member replace: 'b -> 'c) (x,arg))
+        fun args -> (^a : (static member replace: ^a * 'b -> ^a) (x,args))
     let inline replace (id, row) (HasReplace f: 't) : 't =
         f(id, row)
     let inline (|HasToSeq|) x =
-        fun () -> (^a : (member toSeq: unit -> 'b) x)
+        fun args -> (^a : (static member toSeq: ^a * 'b -> 'c) (x,args))
     let inline toSeq (HasToSeq f) : 't seq =
         f()
+
 open Functor
 
 type FastList<'t> = { rows: Map<int, 't>; lastId: int option }
     with
-    static member add (row: 't) (data:FastList<'t>)=
+    static member add (data, row: 't)=
         let id = (defaultArg data.lastId 0) + 1
         { data with rows = data.rows |> Map.add id row; lastId = Some id }
-    static member transform(data:FastList<'t>, id, f) =
+    static member transform(data, (id, f)) =
         let row = data.rows.[id]
         { data with rows = data.rows |> Map.add id (f row) }
-    member data.replace(id, row) =
+    static member replace(data, (id, row)) =
         { data with rows = data.rows |> Map.add id row }
-    member data.toSeq() =
+    static member toSeq(data) =
         seq { for i in 1..(defaultArg data.lastId 0) -> data.rows.[i] }
     static member fresh(): FastList<'t> = { rows = Map.empty; lastId = None }
 
 let t = FastList<int>.fresh()
-let y = toSeq t
-let z = Functor.transform1 (0, id, t)
+let z = t|> add 123 |> transform 1 ((*) 2)// Functor.transform1 1 id t
 
 let inline add (HasAdd f) = f
 let inline transform (HasTransform f) = f
