@@ -18,48 +18,55 @@ open Fable.Helpers.React
 open Fable.Helpers.React.Props
 importAll "../../sass/main.sass"
 
-type FastList1<'t> = { rows: Map<int, 't>; lastId: int option }
+module Functor =
+    let inline (|HasAdd|) x =
+        fun arg -> (^a : (static member add: 'b -> 'a) (x,arg))
+    let inline add row (HasAdd f: 't) : 't =
+        f row
+    let inline (|HasTransform|) x =
+        fun (id, t) -> (^a : (static member transform: ('b*'d) -> 'c) (x,(id,t)))
+    let inline transform1 (id, t, (HasTransform f):'t) : 't =
+        f(id, t)
+    let inline transform (HasTransform f) = f
+    let inline (|HasReplace|) x =
+        fun arg -> (^a : (member replace: 'b -> 'c) (x,arg))
+    let inline replace (id, row) (HasReplace f: 't) : 't =
+        f(id, row)
+    let inline (|HasToSeq|) x =
+        fun () -> (^a : (member toSeq: unit -> 'b) x)
+    let inline toSeq (HasToSeq f) : 't seq =
+        f()
+open Functor
+
+type FastList<'t> = { rows: Map<int, 't>; lastId: int option }
     with
-    member data.add (row: 't) =
+    static member add (row: 't) (data:FastList<'t>)=
         let id = (defaultArg data.lastId 0) + 1
         { data with rows = data.rows |> Map.add id row; lastId = Some id }
-    member data.transform id f =
+    static member transform(id, f) (data:FastList<'t>) =
         let row = data.rows.[id]
         { data with rows = data.rows |> Map.add id (f row) }
-    member data.replace id row =
+    member data.replace(id, row) =
         { data with rows = data.rows |> Map.add id row }
     member data.toSeq() =
         seq { for i in 1..(defaultArg data.lastId 0) -> data.rows.[i] }
-module FastList1 =
-    let inline (|HasRows|) x =
-        fun () -> (^a : (member rows: Map<int, 't>) x)
-    let inline rows (HasRows f) = f()
-    let inline (|HasLastId|) x =
-        fun () -> (^a : (member lastId: int option) x)
-    let inline lastId (HasLastId f) = f()
-    let inline add row (data) =
-        let id = (defaultArg (lastId data) 0) + 1
-        { data with rows = (rows data) |> Map.add id row; lastId = Some id }
-module FastList2 =
-    let inline (|HasAdd|) x =
-        fun arg -> (^a : (member add: 'b -> 'a) (x,arg))
-    let inline add row (HasAdd add) =
-        add row
+    static member fresh(): FastList<'t> = { rows = Map.empty; lastId = None }
 
+let t = FastList<int>.fresh()
+let y = toSeq t
+let z = Functor.transform1 (0, id, t)
 
-module FastList =
-    type Data<'t> = { rows: Map<int, 't>; lastId: int option }
-    let fresh = { rows = Map.empty; lastId = None }
-    let add (row: 't) (data:Data<'t>) =
-        let id = (defaultArg data.lastId 0) + 1
-        { data with rows = data.rows |> Map.add id row; lastId = Some id }
-    let transform id f data =
-        let row = data.rows.[id]
-        { data with rows = data.rows |> Map.add id (f row) }
-    let replace id row data =
-        { data with rows = data.rows |> Map.add id row }
-    let toSeq data =
-        seq { for i in 1..(defaultArg data.lastId 0) -> data.rows.[i] }
+let inline add (HasAdd f) = f
+let inline transform (HasTransform f) = f
+add t
+transform t
+Functor.transform t
+
+type Test = { status: bool }
+let resolve eventId msg (model:FastList<Test>) =
+    model.transform(1, fun e -> { e with status = true })
+    transform1 (eventId, (fun e -> { e with status = true }), model)
+
 
 module SymmetricMap =
     type Data<'key, 'v when 'key: comparison and 'v: comparison> = Map<'key, 'v> * Map<'v, 'key>
@@ -134,9 +141,9 @@ module Domain =
             data: Map<Key, int>
             blocking: SymmetricRelation.Data<Key, Reference> // data which needs to be in data to proceed
             blockedThreads: {| eventId: Id; stack: Cmd |} list
-            eventLog: FastList.Data<Event>
+            eventLog: FastList<Event>
         }
-    let fresh = { properties = []; roster = SymmetricMap.empty(); data = Map.empty; blocking = SymmetricRelation.empty; blockedThreads = []; eventLog = FastList.fresh }
+    let fresh = { properties = []; roster = SymmetricMap.empty(); data = Map.empty; blocking = SymmetricRelation.empty; blockedThreads = []; eventLog = FastList.fresh() }
     module Lens =
         let data = Lens.lens (fun d -> d.data) (fun v d -> { d with data = v})
         let creatureIds = Lens.lens (fun d -> d.roster) (fun v d -> { d with roster = v})
@@ -205,10 +212,11 @@ module Domain =
         else
             { model with properties = model.properties @ [{name = propertyName}] }
     let execute model cmdText cmd =
-        let model = model |> Lens.over Lens.eventLog (FastList.add { status = Blocked; cmd = cmd; cmdText = cmdText })
+        let model = model |> Lens.over Lens.eventLog (add { status = Blocked; cmd = cmd; cmdText = cmdText })
         let eventId = model.eventLog.lastId.Value
         let resolve eventId msg model =
-            { model with eventLog = model.eventLog |> FastList.transform eventId (fun e -> { e with status = Resolved msg }) }
+            let test = transform (eventId, (fun e -> { e with status = Resolved msg }), model.eventLog)
+            model
         let rec help model (eventId, cmd) =
             match cmd with
             | Eval (txt, expr) as cmd ->
