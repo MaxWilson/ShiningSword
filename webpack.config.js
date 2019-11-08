@@ -19,7 +19,7 @@ var CONFIG = {
     fsharpEntry: "./src/ShiningSword.fsproj",
     cssEntry: "./sass/main.sass",
     outputDir: "./deploy",
-    assetsDir: "./public",
+    assetsDir: "./assets",
     devServerPort: 8443,
     // When using webpack-dev-server, you may need to redirect some calls
     // to a external API server. See https://webpack.js.org/configuration/dev-server/#devserver-proxy

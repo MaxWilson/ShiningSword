@@ -20,26 +20,29 @@ open Fable.Helpers.React.Props
 importAll "../../sass/main.sass"
 
 module FastList =
-    type Data<'t> = { rows: Map<int, 't>; nextId: int }
-    let fresh = { rows = Map.empty; nextId = 1 }
-    module Lens =
-        let rows = Lens.lens (fun d -> d.rows) (fun v d -> { d with rows = v})
-        let nextId = Lens.lens (fun d -> d.nextId) (fun v d -> { d with nextId = v})
-    let add row data =
-        let id = data.nextId
-        data |> Lens.over Lens.rows (Map.add id row) |> Lens.over Lens.nextId ((+) 1)
+    type Data<'t> = { rows: Map<int, 't>; lastId: int option }
+    let fresh = { rows = Map.empty; lastId = None }
+    let add (row: 't) (data:Data<'t>) =
+        let id = (defaultArg data.lastId 0) + 1
+        { data with rows = data.rows |> Map.add id row; lastId = Some id }
+    let transform id f data =
+        let row = data.rows.[id]
+        { data with rows = data.rows |> Map.add id (f row) }
+    let replace id row data =
+        { data with rows = data.rows |> Map.add id row }
     let toSeq data =
-        seq { for i in 1..(data.nextId-1) -> data.rows.[i] }
+        seq { for i in 1..(defaultArg data.lastId 0) -> data.rows.[i] }
 
 module SymmetricMap =
     type Data<'key, 'v when 'key: comparison and 'v: comparison> = Map<'key, 'v> * Map<'v, 'key>
-    let empty = Map.empty, Map.empty
+    let inline empty() = Map.empty, Map.empty
     let find k d = (fst d) |> Map.find k
     let findValue k d = (snd d) |> Map.find k
     let tryFind k d = (fst d) |> Map.tryFind k
     let tryFindValue k d = (snd d) |> Map.tryFind k
     let add k v (m1, m2) = m1 |> Map.add k v, m2 |> Map.add v k
     let toSeq d = fst d |> Map.toSeq
+    let isEmpty x = fst x |> Map.isEmpty
 
 module Domain =
     type Id = int
@@ -55,18 +58,24 @@ module Domain =
         | AddRow of name:string
         | SetData of Key * Expression
     type Property = { name: string }
+    type Evaluation = Ready of int | Awaiting of Key
+    type Dependency = | WaitingForEvent of Id | WaitingForProperty of Key
+    type EventStatus = Blocked | Resolved of output: string option
+    type Event = { status: EventStatus; cmd: Cmd; cmdText: string }
+    type ThreadBlockage = { eventId: Id; awaiting: Dependency; stack: Cmd } // this is probably not the right name for the second half of the awaiting model. OpenRequest should be the thing it's waiting for
     type Model = {
             properties: Property list
             roster: SymmetricMap.Data<Id, string>
             data: Map<Key, int>
-            openRequests: (Key * Cmd) list // data which needs to be in data to proceed
-            eventLog: FastList.Data<{| message: string |}>
+            blockedThreads: ThreadBlockage list // data which needs to be in data to proceed
+            eventLog: FastList.Data<Event>
         }
-    let fresh = { properties = []; roster = SymmetricMap.empty; data = Map.empty; openRequests = []; eventLog = FastList.fresh }
+    let fresh = { properties = []; roster = SymmetricMap.empty(); data = Map.empty; blockedThreads = []; eventLog = FastList.fresh }
     module Lens =
         let data = Lens.lens (fun d -> d.data) (fun v d -> { d with data = v})
         let creatureIds = Lens.lens (fun d -> d.roster) (fun v d -> { d with roster = v})
-        let openRequests = Lens.lens (fun d -> d.openRequests) (fun v d -> { d with openRequests = v})
+        let blockedThreads = Lens.lens (fun d -> d.blockedThreads) (fun v d -> { d with blockedThreads = v})
+        let eventLog = Lens.lens (fun d -> d.eventLog) (fun v d -> { d with eventLog = v})
 
     let rec tryParseExpression model (cmd: string) =
         match Int32.TryParse cmd with
@@ -108,7 +117,6 @@ module Domain =
             match tryParseExpression model cmd with
             | Some e -> Some (Eval (cmd, e))
             | _ -> None
-    type Evaluation = Ready of int | Awaiting of Key
     let rec eval model = function
         | Number v -> Ready v
         | Ref key -> match model.data.TryFind key with Some v -> Ready v | None -> Awaiting key
@@ -117,31 +125,47 @@ module Domain =
             | Awaiting key, _ | _, Awaiting key -> Awaiting key
             | Ready l, Ready r ->
                 Ready(if op = Plus then l + r else l - r)
-    let rec execute model = function
-        | Eval (txt, expr) as cmd ->
-            match eval model expr with
-            | Ready v ->
-                { model with eventLog = model.eventLog |> FastList.add ({| message = sprintf "%s: %d" txt v|}) }
-            | Awaiting key ->
-                model |> Lens.over Lens.openRequests (fun l -> l @ [key, cmd])
-        | AddRow name ->
-            let id = 1 + (model.roster |> SymmetricMap.toSeq |> Seq.map fst |> Seq.maxOrDefault 0)
-            model |> Lens.over Lens.creatureIds (SymmetricMap.add id name)
-        | SetData (key, expr) ->
-            // execute any unblocked requests and add them to the event log when ready
-            let unblock key (model: Model) =
-                let unblocked = model.openRequests |> List.filter (fun (key', cmd) -> key' = key) |> List.map snd
-                if unblocked = [] then
-                    model
-                else
-                    unblocked |> List.fold execute model
-            match eval model expr with
-            | Ready v ->
-                model |> Lens.over Lens.data (Map.add key v) |> unblock key
-            | _ -> model
+    let addName name model =
+        let id = 1 + (if model.roster |> SymmetricMap.isEmpty then 0 else model.roster |> SymmetricMap.toSeq |> Seq.map fst |> Seq.max)
+        model |> Lens.over Lens.creatureIds (SymmetricMap.add id name)
+    let execute model cmdText cmd =
+        let model = model |> Lens.over Lens.eventLog (FastList.add { status = Blocked; cmd = cmd; cmdText = cmdText })
+        let eventId = model.eventLog.lastId.Value
+        let resolve eventId msg model =
+            { model with eventLog = model.eventLog |> FastList.transform eventId (fun e -> { e with status = Resolved msg }) }
+        let rec help model (eventId, cmd) =
+            match cmd with
+            | Eval (txt, expr) as cmd ->
+                match eval model expr with
+                | Ready v -> resolve eventId (v.ToString() |> Some) model
+                | Awaiting key ->
+                    model |> Lens.over Lens.blockedThreads (fun l -> l @ [{ eventId = eventId; stack = cmd; awaiting = Dependency.WaitingForProperty key }])
+            | AddRow name -> addName name model |> resolve eventId None
+            | SetData (key, expr) ->
+                // execute any unblocked threads
+                let unblock key (model: Model) =
+                    let unblocked, stillBlocked = model.blockedThreads |> List.partition (function { awaiting = Dependency.WaitingForProperty k } when k = key -> true | _ -> false)
+                    if unblocked = [] then
+                        model
+                    else
+                        // re-process the unblocked threads from the beginning (TODO: store continuations instead of whole cmds)
+                        unblocked
+                            |> List.map (fun x -> x.eventId, x.stack)
+                            |> List.fold help { model with blockedThreads = stillBlocked }
+                match eval model expr with
+                | Ready v ->
+                    model |> Lens.over Lens.data (Map.add key v) |> unblock key |> resolve eventId None
+                | _ -> model
+        eventId, help model (eventId, cmd)
+    // debug section
+    let bob = (fresh |> addName "Bob")
+    let exec cmd model =
+        execute model cmd (tryParseCommand model cmd |> Option.get) |> snd
+    bob |> exec "Bob.HP" |> exec "Bob.HP = 10"
 
 module View =
-    type ConsoleLog = Resolved of string | Blocked of string
+    type Id = int
+    type ConsoleLog = Resolved of string | Blocked of Id
     type Model = { currentInput: string; console: ConsoleLog list; domainModel: Domain.Model }
     module Lens =
         let domainModel = Lens.lens (fun d -> d.domainModel) (fun v d -> { d with domainModel = v })
@@ -151,7 +175,7 @@ module View =
             for e in m.console ->
                 match e with
                 | Resolved s -> li[ClassName "resolved"][str s]
-                | Blocked s -> li[ClassName "blocked"][str s]
+                | Blocked id -> li[ClassName "blocked"][str (m.domainModel.eventLog.rows.[id].cmdText)]
             ]
 
         div [ClassName ("frame" + if log = [] then "" else " withSidebar")] [
@@ -180,7 +204,15 @@ module View =
             | ENTER ->
                 match Domain.tryParseCommand model.domainModel model.currentInput with
                 | Some expr ->
-                    { model with currentInput = "" } |> Lens.over Lens.domainModel (flip Domain.execute expr), Cmd.Empty
+                    let eventId, domain' = Domain.execute model.domainModel model.currentInput expr
+                    let logEntry eventId =
+                        let event = domain'.eventLog.rows.[eventId]
+                        match event.status with
+                        | Domain.Blocked -> Blocked eventId
+                        | Domain.Resolved None -> Resolved (event.cmdText)
+                        | Domain.Resolved (Some output) -> sprintf "%s: %s" event.cmdText output |> Resolved
+                    let resolve = function Blocked id -> logEntry id | v -> v
+                    { model with currentInput = ""; domainModel = domain'; console = (model.console@[logEntry eventId] |> List.map resolve) }, Cmd.Empty
                 | _ -> model, Cmd.Empty
             | RESET -> init()
             | Error err ->

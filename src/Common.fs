@@ -65,9 +65,6 @@ module String =
         | Some(v:string) -> v.Trim().Split(' ') |> Seq.head
         | None -> input
 
-module Seq =
-    let maxOrDefault default' seq = if Seq.isEmpty seq then default' else Seq.max seq
-
 module List =
     let join delimiter (lst: _ list) =
         match lst with
