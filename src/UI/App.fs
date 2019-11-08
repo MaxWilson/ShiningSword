@@ -35,13 +35,15 @@ module FastList =
 module SymmetricMap =
     type Data<'key, 'v when 'key: comparison and 'v: comparison> = Map<'key, 'v> * Map<'v, 'key>
     let inline empty() = Map.empty, Map.empty
-    let find k d = (fst d) |> Map.find k
-    let findValue k d = (snd d) |> Map.find k
-    let tryFind k d = (fst d) |> Map.tryFind k
-    let tryFindValue k d = (snd d) |> Map.tryFind k
+    let find k (d: Data<_,_>) = (fst d) |> Map.find k
+    let findValue k (d: Data<_,_>) = (snd d) |> Map.find k
+    let tryFind k (d: Data<_,_>) = (fst d) |> Map.tryFind k
+    let tryFindValue k (d: Data<_,_>) = (snd d) |> Map.tryFind k
     let add k v (m1, m2) = m1 |> Map.add k v, m2 |> Map.add v k
-    let toSeq d = fst d |> Map.toSeq
-    let isEmpty x = fst x |> Map.isEmpty
+    let toSeq (d: Data<_,_>) = fst d |> Map.toSeq
+    let isEmpty (d: Data<_,_>) = fst d |> Map.isEmpty
+    let keys (d: Data<_,_>) = (d |> fst) |> Map.toSeq |> Seq.map fst
+    let values (d: Data<_,_>) = (d |> fst) |> Map.toSeq |> Seq.map snd
 
 module Domain =
     type Id = int
@@ -130,6 +132,11 @@ module Domain =
         else
             let id = 1 + (if model.roster |> SymmetricMap.isEmpty then 0 else model.roster |> SymmetricMap.toSeq |> Seq.map fst |> Seq.max)
             model |> Lens.over Lens.creatureIds (SymmetricMap.add id name)
+    let addProperty propertyName model =
+        if (model:Model).properties |> List.exists (fun p -> p.name = propertyName) then
+            model
+        else
+            { model with properties = model.properties @ [{name = propertyName}] }
     let execute model cmdText cmd =
         let model = model |> Lens.over Lens.eventLog (FastList.add { status = Blocked; cmd = cmd; cmdText = cmdText })
         let eventId = model.eventLog.lastId.Value
@@ -156,7 +163,7 @@ module Domain =
                             |> List.fold help { model with blockedThreads = stillBlocked }
                 match eval model expr with
                 | Ready v ->
-                    model |> Lens.over Lens.data (Map.add key v) |> unblock key |> resolve eventId None
+                    model |> addProperty (snd key) |> Lens.over Lens.data (Map.add key v) |> unblock key |> resolve eventId None
                 | _ -> model
         eventId, help model (eventId, cmd)
 
@@ -167,6 +174,22 @@ module View =
     module Lens =
         let domainModel = Lens.lens (fun d -> d.domainModel) (fun v d -> { d with domainModel = v })
     type Cmd = NewValue of string | ENTER | RESET | Error of string
+    let summaryOf (m:Domain.Model) =
+        let data = m.data
+        [
+            yield tr[][
+                yield th[][str "Name"]
+                for p in m.properties do yield th[][str p.name]
+            ]
+            for (id, name) in m.roster |> SymmetricMap.toSeq do
+                yield tr[][
+                    yield td[][str name]
+                    for p in m.properties ->
+                        match data |> Map.tryFind (id, p.name) with
+                        | Some v -> td[][str (v.ToString())]
+                        | None -> td[][str "???"]
+                ]
+            ]
     let view m dispatch =
         let log = [
             for e in m.console ->
@@ -176,7 +199,9 @@ module View =
             ]
 
         div [ClassName ("frame" + if log = [] then "" else " withSidebar")] [
-            yield p[ClassName "summaryPane"][str ""]
+            yield p[ClassName "summaryPane"][
+                    table [] (summaryOf m.domainModel)
+                ]
             yield p[ClassName "queryPane"] [
                 h2[][str "Enter a command:"]
                 br[]
