@@ -45,6 +45,42 @@ module SymmetricMap =
     let keys (d: Data<_,_>) = (d |> fst) |> Map.toSeq |> Seq.map fst
     let values (d: Data<_,_>) = (d |> fst) |> Map.toSeq |> Seq.map snd
 
+module SymmetricRelation =
+    type Data<'t1, 't2 when 't1: comparison and 't2: comparison> = {
+        forward: Map<'t1, 't2 list>
+        backward: Map<'t2, 't1 list>
+    }
+    let empty = { forward = Map.empty; backward = Map.empty }
+    let add v1 v2 (d:Data<_,_>) =
+        let createOrExtend key v map =
+            match map |> Map.tryFind key with
+            | Some lst -> map |> Map.add key (v::lst)
+            | None -> Map.add key [v] map
+        {
+            forward = createOrExtend v1 v2 d.forward
+            backward = createOrExtend v2 v1 d.backward
+        }
+    let removeAllForward v1 (d:Data<_,_>) =
+        match d.forward |> Map.tryFind v1 with
+        | None -> d // nothing to remove
+        | Some v2s ->
+            let deleteFrom (map:Map<_,_>) key =
+                match map.[key] |> List.filter ((<>) v1) with
+                | [] -> map |> Map.remove key
+                | vs -> map |> Map.add key vs // replace with a new, shortened list
+            let backward' = v2s |> List.fold deleteFrom d.backward
+            { d with backward = backward'; forward = d.forward |> Map.remove v1 }
+    let removeAllBackward v2 (d:Data<_,_>) =
+        match d.backward |> Map.tryFind v2 with
+        | None -> d // nothing to remove
+        | Some v1s ->
+            let deleteFrom (map:Map<_,_>) key =
+                match map.[key] |> List.filter ((<>) v2) with
+                | [] -> map |> Map.remove key
+                | vs -> map |> Map.add key vs // replace with a new, shortened list
+            let forward' = v1s |> List.fold deleteFrom d.forward
+            { d with forward = forward'; backward = d.backward |> Map.remove v2 }
+
 module Domain =
     type Id = int
     type PropertyName = string
@@ -60,21 +96,22 @@ module Domain =
         | SetData of Key * Expression
     type Property = { name: string }
     type Evaluation = Ready of int | Awaiting of Key
-    type Dependency = | WaitingForEvent of Id | WaitingForProperty of Key
+    type Reference = EventRef of Id | PropertyRef of Key
     type EventStatus = Blocked | Resolved of output: string option
     type Event = { status: EventStatus; cmd: Cmd; cmdText: string }
-    type ThreadBlockage = { eventId: Id; awaiting: Dependency; stack: Cmd } // this is probably not the right name for the second half of the awaiting model. OpenRequest should be the thing it's waiting for
     type Model = {
             properties: Property list
             roster: SymmetricMap.Data<Id, string>
             data: Map<Key, int>
-            blockedThreads: ThreadBlockage list // data which needs to be in data to proceed
+            blocking: SymmetricRelation.Data<Key, Reference> // data which needs to be in data to proceed
+            blockedThreads: {| eventId: Id; stack: Cmd |} list
             eventLog: FastList.Data<Event>
         }
-    let fresh = { properties = []; roster = SymmetricMap.empty(); data = Map.empty; blockedThreads = []; eventLog = FastList.fresh }
+    let fresh = { properties = []; roster = SymmetricMap.empty(); data = Map.empty; blocking = SymmetricRelation.empty; blockedThreads = []; eventLog = FastList.fresh }
     module Lens =
         let data = Lens.lens (fun d -> d.data) (fun v d -> { d with data = v})
         let creatureIds = Lens.lens (fun d -> d.roster) (fun v d -> { d with roster = v})
+        let blocking = Lens.lens (fun d -> d.blocking) (fun v d -> { d with blocking = v})
         let blockedThreads = Lens.lens (fun d -> d.blockedThreads) (fun v d -> { d with blockedThreads = v})
         let eventLog = Lens.lens (fun d -> d.eventLog) (fun v d -> { d with eventLog = v})
 
@@ -148,19 +185,22 @@ module Domain =
                 match eval model expr with
                 | Ready v -> resolve eventId (v.ToString() |> Some) model
                 | Awaiting key ->
-                    model |> Lens.over Lens.blockedThreads (fun l -> l @ [{ eventId = eventId; stack = cmd; awaiting = Dependency.WaitingForProperty key }])
+                    { model with blockedThreads = {| eventId = eventId; stack = cmd; |} :: model.blockedThreads }
+                        |> Lens.over Lens.blocking (SymmetricRelation.add key (EventRef eventId))
             | AddRow name -> addName name model |> resolve eventId None
             | SetData (key, expr) ->
                 // execute any unblocked threads
                 let unblock key (model: Model) =
-                    let unblocked, stillBlocked = model.blockedThreads |> List.partition (function { awaiting = Dependency.WaitingForProperty k } when k = key -> true | _ -> false)
-                    if unblocked = [] then
+                    match model.blocking.forward |> Map.tryFind key with
+                    | None | Some [] ->
                         model
-                    else
+                    | Some unblocked ->
                         // re-process the unblocked threads from the beginning (TODO: store continuations instead of whole cmds)
                         unblocked
-                            |> List.map (fun x -> x.eventId, x.stack)
-                            |> List.fold help { model with blockedThreads = stillBlocked }
+                            |> List.map (function
+                                            | EventRef eventId -> eventId, (model.blockedThreads |> List.find (fun t -> t.eventId = eventId)).stack
+                                            | v -> matchfail v) // don't yet have an implementation for unblocking data references
+                            |> List.fold help { model with blocking = SymmetricRelation.removeAllForward key model.blocking }
                 match eval model expr with
                 | Ready v ->
                     model |> addProperty (snd key) |> Lens.over Lens.data (Map.add key v) |> unblock key |> resolve eventId None
@@ -195,7 +235,12 @@ module View =
             for e in m.console ->
                 match e with
                 | Resolved s -> li[ClassName "resolved"][str s]
-                | Blocked id -> li[ClassName "blocked"][str (m.domainModel.eventLog.rows.[id].cmdText)]
+                | Blocked id ->
+                    let d = m.domainModel
+                    let event = d.eventLog.rows.[id]
+                    let dependencies = d.blocking.backward.[Domain.EventRef id] |> List.map (fun (id, prop) -> if id > 0 then (d.roster |> SymmetricMap.find id) + "." + prop else prop)
+                                        |> String.join ", "
+                    li[ClassName "blocked"][str <| sprintf "%s (needs %s)" event.cmdText dependencies]
             ]
 
         div [ClassName ("frame" + if log = [] then "" else " withSidebar")] [
