@@ -20,11 +20,11 @@ importAll "../../sass/main.sass"
 
 module Functor =
     let inline (|HasAdd|) x =
-        fun arg -> (^a : (static member add: 'b -> 'a) (x,arg))
+        fun arg -> (^a : (static member add: ^a * ^b -> ^a) (x,arg))
     let inline add row (HasAdd f: 't) : 't =
         f row
     let inline (|HasTransform|) x =
-        fun (id, t) -> (^a : (static member transform: ('b*'d) -> 'c) (x,(id,t)))
+        fun (id, t) -> (^a : (static member transform: ^a * ^b* ^d -> ^d) (x,id,t))
     let inline transform1 (id, t, (HasTransform f):'t) : 't =
         f(id, t)
     let inline transform (HasTransform f) = f
@@ -43,7 +43,7 @@ type FastList<'t> = { rows: Map<int, 't>; lastId: int option }
     static member add (row: 't) (data:FastList<'t>)=
         let id = (defaultArg data.lastId 0) + 1
         { data with rows = data.rows |> Map.add id row; lastId = Some id }
-    static member transform(id, f) (data:FastList<'t>) =
+    static member transform(data:FastList<'t>, id, f) =
         let row = data.rows.[id]
         { data with rows = data.rows |> Map.add id (f row) }
     member data.replace(id, row) =
