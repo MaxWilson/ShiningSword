@@ -18,6 +18,35 @@ open Fable.Helpers.React
 open Fable.Helpers.React.Props
 importAll "../../sass/main.sass"
 
+type FastList1<'t> = { rows: Map<int, 't>; lastId: int option }
+    with
+    member data.add (row: 't) =
+        let id = (defaultArg data.lastId 0) + 1
+        { data with rows = data.rows |> Map.add id row; lastId = Some id }
+    member data.transform id f =
+        let row = data.rows.[id]
+        { data with rows = data.rows |> Map.add id (f row) }
+    member data.replace id row =
+        { data with rows = data.rows |> Map.add id row }
+    member data.toSeq() =
+        seq { for i in 1..(defaultArg data.lastId 0) -> data.rows.[i] }
+module FastList1 =
+    let inline (|HasRows|) x =
+        fun () -> (^a : (member rows: Map<int, 't>) x)
+    let inline rows (HasRows f) = f()
+    let inline (|HasLastId|) x =
+        fun () -> (^a : (member lastId: int option) x)
+    let inline lastId (HasLastId f) = f()
+    let inline add row (data) =
+        let id = (defaultArg (lastId data) 0) + 1
+        { data with rows = (rows data) |> Map.add id row; lastId = Some id }
+module FastList2 =
+    let inline (|HasAdd|) x =
+        fun arg -> (^a : (member add: 'b -> 'a) (x,arg))
+    let inline add row (HasAdd add) =
+        add row
+
+
 module FastList =
     type Data<'t> = { rows: Map<int, 't>; lastId: int option }
     let fresh = { rows = Map.empty; lastId = None }
