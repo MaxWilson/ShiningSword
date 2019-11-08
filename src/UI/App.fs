@@ -5,7 +5,6 @@ open Elmish.Browser.Navigation
 open Model.Types
 open Model.Operations
 open Common
-open Fable.Import.Browser
 
 open Elmish.React
 open Elmish.Debug
@@ -126,8 +125,11 @@ module Domain =
             | Ready l, Ready r ->
                 Ready(if op = Plus then l + r else l - r)
     let addName name model =
-        let id = 1 + (if model.roster |> SymmetricMap.isEmpty then 0 else model.roster |> SymmetricMap.toSeq |> Seq.map fst |> Seq.max)
-        model |> Lens.over Lens.creatureIds (SymmetricMap.add id name)
+        if (model: Model).roster |> SymmetricMap.tryFindValue name |> Option.isSome then // idempotence
+            model
+        else
+            let id = 1 + (if model.roster |> SymmetricMap.isEmpty then 0 else model.roster |> SymmetricMap.toSeq |> Seq.map fst |> Seq.max)
+            model |> Lens.over Lens.creatureIds (SymmetricMap.add id name)
     let execute model cmdText cmd =
         let model = model |> Lens.over Lens.eventLog (FastList.add { status = Blocked; cmd = cmd; cmdText = cmdText })
         let eventId = model.eventLog.lastId.Value
@@ -219,7 +221,7 @@ module View =
 // App
 Program.mkProgram View.init View.update View.view
 |> Program.withSubscription(fun m -> Cmd.ofSub(fun d ->
-    window.onerror <-
+    Fable.Import.Browser.window.onerror <-
     fun msg _src _lineNo _colNo err ->
         if msg.Contains "SocketProtocolError" = false then
             d (View.Error (sprintf "Error: %A" msg))
