@@ -93,7 +93,7 @@ module Domain =
                 | [|name;prop|] ->
                     match model.roster |> SymmetricMap.tryFindValue name with
                     | Some id ->
-                        Ref(id, prop) |> Some
+                        Ref(id, prop.Trim()) |> Some
                     | _ -> None
                 | _ -> Ref(0, cmd) |> Some
     let rec tryParseCommand model (cmd: string) =
@@ -108,7 +108,7 @@ module Domain =
                     | [|name;prop|] ->
                         match model.roster |> SymmetricMap.tryFindValue name with
                         | Some id ->
-                            SetData((id, prop), expr) |> Some
+                            SetData((id, prop.Trim()), expr) |> Some
                         | _ -> None
                     | _ -> SetData((0, cmd), expr) |> Some
                 | _ -> None
@@ -157,11 +157,6 @@ module Domain =
                     model |> Lens.over Lens.data (Map.add key v) |> unblock key |> resolve eventId None
                 | _ -> model
         eventId, help model (eventId, cmd)
-    // debug section
-    let bob = (fresh |> addName "Bob")
-    let exec cmd model =
-        execute model cmd (tryParseCommand model cmd |> Option.get) |> snd
-    bob |> exec "Bob.HP" |> exec "Bob.HP = 10"
 
 module View =
     type Id = int
@@ -196,7 +191,7 @@ module View =
                 ]
         ]
 
-    let init _ = { currentInput = ""; console = []; domainModel = Domain.fresh }, Cmd.ofMsg (Error "Testing err...")
+    let init _ = { currentInput = ""; console = []; domainModel = Domain.fresh }, Cmd.Empty
     let update msg model =
         try
             match msg with
