@@ -13,6 +13,7 @@
     <Compile Include="Modules\Log.fs" />
     <Compile Include="Modules\Dice.fs" />
     <Compile Include="Modules\DataEngine.fs" />
+    <Compile Include="Modules\Ribbit.fs" />
     <Compile Include="Model\Types.fs" />
     <Compile Include="Model\Functions.fs" />
     <Compile Include="Model\Names.fs" />

@@ -70,30 +70,4 @@ let update msg model =
     | MapGen msg -> { model with game = { model.game with mapGen = model.game.mapGen |> Core.Option.map (flip MapGen.update msg) } }, Cmd.Empty
 
 
-module Parse =
-    open Packrat
-    open Global
-    let locationParser (rootActivePattern: ParseInput -> ('result * ParseInput) option) (loc: Location) =
-        let (|Root|_|) = rootActivePattern
-        match ParseArgs.Init loc.hash with
-        | Str "#" (Root(v, End)) -> Some v
-        | _ -> None
 
-    let (|Page|_|) = function
-        | Str "battleDebug" ctx ->
-            let pcs = [
-                CharSheet.create "Max the Mighty" Male (18,12,14,15,9,11) false None Model.Chargen.Templates.charTemplates.["Brute"]
-                    |> CharInfo.ofCharSheet
-                ]
-            Some(({ GameState.empty with pcs = pcs } |> Model.Gameplay.startBattle |> snd, ViewModel.Battle), ctx)
-        | Str "battle" ctx ->
-            Some(({ GameState.empty with battle = Some (DataEngine.init()) }, ViewModel.Battle), ctx)
-        | Str "mapGen" ctx ->
-            Some(({ GameState.empty with mapGen = Some (Model.MapGen.init 10 10) }, ViewModel.MapGen), ctx)
-        | Str "campaignDebug" ctx ->
-            let template = Model.Chargen.Templates.charTemplates.["Brute"]
-            let pc = Model.Operations.CharSheet.create "Spartacus" Male (14, 16, 9, 13, 11, 13) false None template
-            Some(({ GameState.empty with pcs = [CharInfo.ofCharSheet pc] }, ViewModel.Campaign), ctx)
-        | _ -> None
-
-    let page1 z = locationParser (|Page|_|) z

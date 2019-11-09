@@ -42,15 +42,16 @@ let onKeyDown keyCode action =
             action ev)
 
 let mutable onKeypress : (Browser.KeyboardEvent -> bool) option = None
-Browser.document.addEventListener_keydown(fun ev ->
-    if onKeypress.IsSome && onKeypress.Value(ev) then
-        ev.preventDefault()
-    obj())
 let mutable undoModal : unit -> unit = ignore
-Browser.document.addEventListener_keyup((fun ev ->
-    if ev.keyCode = KeyCode.escape then
-        undoModal()
-    obj()), true)
+// Disabling these global listeners until I can rewrite them in the new model, because they interfere with typing in Ribbit
+//Browser.document.addEventListener_keydown(fun ev ->
+//    if onKeypress.IsSome && onKeypress.Value(ev) then
+//        ev.preventDefault()
+//    obj())
+//Browser.document.addEventListener_keyup((fun ev ->
+//    if ev.keyCode = KeyCode.escape then
+//        undoModal()
+//    obj()), true)
 
 open Fable.Core.JsInterop
 /// Helper method: an input which stores state locally in React.state and then calls onEnter when Enter is pressed
