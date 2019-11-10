@@ -10,6 +10,7 @@
     <Compile Include="Common.fs" />
     <Compile Include="Abstractions\Parsing.fs" />
     <Compile Include="Abstractions\Interaction.fs" />
+    <Compile Include="Domain\Dice.fs" />
     <Compile Include="Modules\Log.fs" />
     <Compile Include="Modules\Dice.fs" />
     <Compile Include="Modules\DataEngine.fs" />
