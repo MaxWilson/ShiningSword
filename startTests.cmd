@@ -1,0 +1,1 @@
+%~dp0\ShiningSword.UnitTests\startTests.cmd
