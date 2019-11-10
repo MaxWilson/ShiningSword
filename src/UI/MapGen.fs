@@ -8,9 +8,9 @@ open UI.Global
 open UI.Types
 open UI.Types.MapGen
 
-open Fable.PowerPack
-open Fable.Helpers.React
-open Fable.Helpers.React.Props
+open Fable
+open Fable.React
+open Fable.React.Props
 open Elmish.React
 
 let stabilize dispatch (st: MapGen.State) =

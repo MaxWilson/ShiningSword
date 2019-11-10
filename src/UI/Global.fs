@@ -1,8 +1,8 @@
 module UI.Global
 
 open Common
-open Fable.Helpers
-open Fable.Helpers.React.Props
+open Fable.React
+open Fable.React.Props
 open Fable.Import
 
 type OldPage =
@@ -36,12 +36,12 @@ module KeyCode =
     let escape = 27.
 
 let onKeyDown keyCode action =
-    OnKeyDown (fun (ev:Fable.Import.React.KeyboardEvent) ->
+    OnKeyDown (fun (ev:Browser.Types.KeyboardEvent) ->
         if ev.keyCode = keyCode then
             ev.preventDefault()
             action ev)
 
-let mutable onKeypress : (Browser.KeyboardEvent -> bool) option = None
+let mutable onKeypress : (Browser.Types.KeyboardEvent -> bool) option = None
 let mutable undoModal : unit -> unit = ignore
 // Disabling these global listeners until I can rewrite them in the new model, because they interfere with typing in Ribbit
 //Browser.document.addEventListener_keydown(fun ev ->
@@ -55,15 +55,16 @@ let mutable undoModal : unit -> unit = ignore
 
 open Fable.Core.JsInterop
 /// Helper method: an input which stores state locally in React.state and then calls onEnter when Enter is pressed
-let statefulInput onEnter (props: IHTMLProp list) =
-    Components.stateful "" (=) <| fun txt update ->
-        let props : IHTMLProp list = [
-                yield Value txt
-                yield OnChange (fun ev ->
+let statefulInput onEnter (extraProps: IHTMLProp list) =
+    FunctionComponent.Of(fun _ ->
+        let state = Hooks.useState ""
+        let p : IHTMLProp list = [
+                HTMLAttr.Value state.current
+                DOMAttr.OnChange (fun ev ->
                     let v = !!ev.target?value
-                    update (thunk v)
+                    state.update(thunk v)
                     )
-                yield onKeyDown KeyCode.enter (fun _ -> onEnter txt; update (thunk emptyString))
-                yield! props
+                onKeyDown KeyCode.enter (fun _ -> onEnter state.current; state.update emptyString)
                 ]
-        React.input props
+        input (p@extraProps))[]
+

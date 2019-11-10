@@ -12,8 +12,8 @@ open Fable.Import
 
 importAll "../../sass/main.sass"
 
-open Fable.Helpers.React
-open Fable.Helpers.React.Props
+open Fable.React
+open Fable.React.Props
 open Elmish.React
 open Fulma
 
@@ -162,7 +162,7 @@ let logOutput =
                 div [ClassName "logDisplay"](current |> List.map (fun line -> p[][str line]))
                 ]
 
-let inline notImpl _ = Browser.window.alert "Sorry, not implemented yet. Send email to Max and tell him you want this."
+let inline notImpl _ = Browser.Dom.window.alert "Sorry, not implemented yet. Send email to Max and tell him you want this."
 
 let root model dispatch =
     undoModal <- thunk1 dispatch UndoModal
@@ -261,12 +261,12 @@ let root model dispatch =
         | { mode = [] } ->
             let startGame _ =
                 Model.Gameplay.campaignMode() |> modalOperation dispatch (fun state -> dispatch (UpdateGameState state); dispatch (NewMode Campaign); dispatch (NewMode Battle))
-            let startBattles _ = Browser.window.location.assign "#battle"
+            let startBattles _ = Browser.Dom.window.location.assign "#battle"
             let loadCampaign = notImpl
             let saveCampaign = notImpl
             [Hero.hero [] [
-                h1 [ClassName "is-size-3"; Style [TextAlign "center"]] [str "Shining Sword: Citadel of the Hundred Gates"]
-                ul [ClassName "menu"; Style [TextAlign "center"]] ([
+                h1 [ClassName "is-size-3"; Style [TextAlign TextAlignOptions.Center]] [str "Shining Sword: Citadel of the Hundred Gates"]
+                ul [ClassName "menu"; Style [TextAlign TextAlignOptions.Center]] ([
                     "Start new campaign", startGame
                     "Load campaign", loadCampaign
                     "Save campaign", saveCampaign

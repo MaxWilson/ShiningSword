@@ -5,8 +5,8 @@ open Elmish
 open Common
 
 // make sure errors are not silent: show them as Alerts (ugly but better than nothing for now)
-open Fable.Helpers.React
-open Fable.Helpers.React.Props
+open Fable.React
+open Fable.React.Props
 
 module Functor =
     // NOTE which type arguments have to be statically bound with ^ and which can be bound at JIT-time with '

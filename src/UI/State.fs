@@ -1,16 +1,13 @@
 module UI.State
 
 open Elmish
-open Elmish.Browser.Navigation
 open Types
 open Model.Types
 open Model.Operations
 open Common
-open Fable.Import.Browser
-open UI.View
 
 open Elmish.React
-open Elmish.Debug
+//open Elmish.Debug
 #if DEBUG
 open Elmish.HMR
 #endif

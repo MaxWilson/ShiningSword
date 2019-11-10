@@ -4,6 +4,8 @@ storage:none
 
 nuget Expecto.FsCheck
 nuget Fable.Elmish.HMR
+nuget Fable.Fetch
+nuget Fable.Promise
 nuget FSharp.Core
 nuget Fable.Core
 nuget Fable.Elmish.React

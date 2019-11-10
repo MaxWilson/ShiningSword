@@ -2,12 +2,15 @@ module UI.Storage
 
 open Common
 open UI.Types
-open Fable.PowerPack
+open Fable
 open Fable.Core
 open JsInterop
+open Fetch
 
 // because we store auth state "globally" instead of in the model, we define it separately
 // from UI.Types instead of using the Elmish pattern
+let serialize x = "" //Thoth.Json.Encode.Auto.toString(0, x)
+let deserialize<'t> x: Result<'t, string> = failwith "Not impl" // Thoth.Json.Decode.Auto.fromString<'t> x
 
 module Auth =
     type Provider = Facebook // TODO: add Google, MSA
@@ -28,17 +31,20 @@ module Auth =
         let private localStorageKey = "authorizationState"
         let mutable private authState = Uninitialized
         let update state =
-            BrowserLocalStorage.save localStorageKey state
+            Browser.WebStorage.localStorage.[localStorageKey] <- serialize state
             authState <- state
         let tryGet() =
             match authState with
             | Uninitialized ->
-                match BrowserLocalStorage.load(Thoth.Json.Decode.Auto.generateDecoder<State>()) localStorageKey with
-                | Result.Ok state -> state
-                | _ -> Uninitialized
+                match Browser.WebStorage.localStorage.getItem localStorageKey with
+                | "" -> Uninitialized
+                | json ->
+                    match deserialize<State>(json) with
+                    | Ok state -> state
+                    | Result.Error _ -> Uninitialized
             | _ -> authState
         let clear err =
-            BrowserLocalStorage.delete localStorageKey
+            Browser.WebStorage.localStorage.removeItem localStorageKey
             authState <- Error err
 
 
@@ -105,7 +111,9 @@ module EasyAuth =
     type Response = { authenticationToken: string }
     let ofFacebook token =
         promise {
-            let! resp = Fable.PowerPack.Fetch.postRecord "https://wilsondata.azurewebsites.net/.auth/login/facebook" (createObj ["access_token" ==> token])[]
+            let h = requestHeaders[HttpRequestHeaders.Custom("access_token", token)]
+            let props = [RequestProperties.Method HttpMethod.POST; h]
+            let! resp = Fetch.fetch "https://wilsondata.azurewebsites.net/.auth/login/facebook" props
             if resp.Ok then
                 try
                     let! retval = resp.json<Response>()
@@ -143,7 +151,9 @@ let save progressCallback (token:string) tag id (data: 't) =
     promise {
         try
             progressCallback (BusyWith (sprintf "Saving '%s'..." id));
-            let! resp = Fable.PowerPack.Fetch.postRecord url data [Fetch.requestHeaders [Fable.PowerPack.Fetch.Fetch_types.HttpRequestHeaders.Custom ("X-ZUMO-AUTH", token)]]
+            let h = requestHeaders[HttpRequestHeaders.Custom("X-ZUMO-AUTH", token); HttpRequestHeaders.Custom("access_token", token)]
+            let props = [RequestProperties.Method HttpMethod.POST; h; RequestProperties.Body !^ (serialize data)]
+            let! resp = Fetch.fetch url props
             progressCallback NotBusy
             return if resp.Ok then Ok() else Result.Error "Unable to save"
         with err ->
@@ -157,7 +167,10 @@ let load progressCallback (token:string) tag id =
     promise {
         try
             progressCallback (BusyWith (sprintf "Loading '%s'..." id));
-            let! resp = Fable.PowerPack.Fetch.fetchAs url (Thoth.Json.Decode.Auto.generateDecoder<DataEngine.Data>()) [Fetch.requestHeaders [Fable.PowerPack.Fetch.Fetch_types.HttpRequestHeaders.Custom ("X-ZUMO-AUTH", token)]]
+            let h = requestHeaders[HttpRequestHeaders.Custom("X-ZUMO-AUTH", token); HttpRequestHeaders.Custom("access_token", token)]
+            let props = [RequestProperties.Method HttpMethod.POST; h]
+            let! resp = Fetch.fetch url props
+            let! resp = resp.json<DataEngine.Data>()
             progressCallback NotBusy
             return Ok(resp)
         with err ->
@@ -177,7 +190,7 @@ let throttledUpdate delayMilliseconds doneSignal handler =
         v <- Some arg
         if arg = doneSignal then handler arg
         else
-            Fable.Import.Browser.window.setTimeout(onTick, delayMilliseconds, []) |> ignore
+            Browser.Dom.window.setTimeout(onTick, delayMilliseconds, []) |> ignore
 
 type CloudStorage(progressCallback: ProgressCallback) =
     interface DataEngine.IDataStorage with

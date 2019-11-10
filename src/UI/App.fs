@@ -1,10 +1,9 @@
 module App
 open Ribbit
 open Elmish
-open Elmish.Browser.Navigation
 
 open Elmish.React
-open Elmish.Debug
+//open Elmish.Debug
 #if DEBUG
 open Elmish.HMR
 #endif
@@ -19,7 +18,7 @@ module Url =
     type ParseResult = Campaign of (GameState * ViewModel) | Battle | Neither
     module Parse =
         open Model.Operations
-        open Fable.Import.Browser
+        open Browser.Types
         open Packrat
         let locationParser (rootActivePattern: ParseInput -> (_ * ParseInput) option) (loc: Location) =
             let (|Root|_|) = rootActivePattern
@@ -35,6 +34,8 @@ module Url =
                     ]
                 Some(Campaign ({ GameState.empty with pcs = pcs } |> Model.Gameplay.startBattle |> snd, ViewModel.Battle), ctx)
             | Str "battle" ctx ->
+                Some(Campaign ({ GameState.empty with battle = Some (DataEngine.init())}, ViewModel.Battle), ctx)
+            | Str "ribbit" ctx ->
                 Some(Battle, ctx)
             | Str "mapGen" ctx ->
                 Some(Campaign ({ GameState.empty with mapGen = Some (Model.MapGen.init 10 10) }, ViewModel.MapGen), ctx)
@@ -48,7 +49,7 @@ module Url =
     let parse = Parse.page
 
 module App =
-    open Fable.Helpers.React
+    open Fable.React
     type Model = {
         campaign: UI.Types.Model
         battle: Ribbit.View.Model option
@@ -91,14 +92,14 @@ module App =
 open App
 Program.mkProgram init update view
 |> Program.withSubscription(fun m -> Cmd.ofSub(fun d ->
-    Fable.Import.Browser.window.onerror <-
+    Browser.Dom.window.onerror <-
     fun msg _src _lineNo _colNo err ->
-        if msg.Contains "SocketProtocolError" = false then
+        if msg.ToString().Contains "SocketProtocolError" = false then
             d (App.Msg.Battle <| View.Error (sprintf "Error: %A" msg))
         ))
 #if DEBUG
 |> Program.toNavigable Url.parse App.urlUpdate
-|> Program.withDebugger
+//|> Program.withDebugger
 #endif
-|> Program.withReact "elmish-app"
+|> Program.withReactBatched "elmish-app"
 |> Program.run
