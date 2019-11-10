@@ -1,0 +1,1 @@
+dotnet watch -p %~dp0 run
