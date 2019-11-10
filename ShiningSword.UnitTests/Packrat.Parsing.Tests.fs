@@ -111,7 +111,7 @@ let tests = testList "packrat" [
         Expect.equal (parse "Eraser") "Look, it's a Eraser" "Should recognize that Eraser is an object"
         Expect.equal (parse "Ann") "Hello, Ann" "Should recognize Ann as a person"
         Expect.equal (parseBase ([]:string list) "Bob") "Look, it's a Bob" "Ability to recognize Bob as a person depends on Bob being in the list of people it's trained on"
-    testList "Verify non-trivial helper function LongestSubstringWhere" [
+    testCase "Verify non-trivial helper function LongestSubstringWhere" <| fun _ ->
             let testParameters = [
                 "zzabcdzzzzefg", "zz", 12, "abcdzzzz"
                 "zzabcdzzzzefg", "zz", 9, "abcdzzzz"
@@ -122,15 +122,13 @@ let tests = testList "packrat" [
                 "zzabcdz", "zz", 5, "abcdz"
                 "abcdz", "", 5, "abcdz"
                 ]
-            yield! testParameters |> List.mapi (fun i (input, prefix, maxLen, expected) ->
-                testCase ("test" + i.ToString()) <| fun _ ->
-                    let pred = (fun (s:string) -> s.EndsWith("z"))
-                    let actual =
-                            match ParseArgs.Init input with // initial zz to make sure LongestSubstringWhere is testing the matched substring and not the whole string
-                            | Str prefix (LongestSubstringWhere pred maxLen (v, ctx)) -> v
-                            | _ -> "No match"
-                    Expect.equal actual expected "Incorrect data structure generated"
-                )
-        ]
+            let t = Expecto.Tests.test
+            testParameters |> List.iteri (fun i (input, prefix, maxLen, expected) ->
+                let pred = (fun (s:string) -> s.EndsWith("z"))
+                let actual =
+                        match ParseArgs.Init input with // initial zz to make sure LongestSubstringWhere is testing the matched substring and not the whole string
+                        | Str prefix (LongestSubstringWhere pred maxLen (v, ctx)) -> v
+                        | _ -> "No match"
+                Expect.equal actual expected "Incorrect data structure generated")
     ]
 
