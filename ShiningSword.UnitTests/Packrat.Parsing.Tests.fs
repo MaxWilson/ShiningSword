@@ -1,6 +1,7 @@
 module Packrat.Parsing.Tests
-open Expecto
+open Common
 open Packrat
+open Expecto
 
 #nowarn "40" // we're not planning on doing any unsafe things during initialization, like evaluating the functions that rely on the object we're busy constructing
 
@@ -123,12 +124,11 @@ let tests = testList "packrat" [
                 "abcdz", "", 5, "abcdz"
                 ]
             let t = Expecto.Tests.test
-            testParameters |> List.iteri (fun i (input, prefix, maxLen, expected) ->
+            flip List.iteri testParameters <| fun i (input, prefix, maxLen, expected) ->
                 let pred = (fun (s:string) -> s.EndsWith("z"))
                 let actual =
                         match ParseArgs.Init input with // initial zz to make sure LongestSubstringWhere is testing the matched substring and not the whole string
                         | Str prefix (LongestSubstringWhere pred maxLen (v, ctx)) -> v
                         | _ -> "No match"
-                Expect.equal actual expected "Incorrect data structure generated")
+                Expect.equal actual expected "Incorrect data structure generated"
     ]
-
