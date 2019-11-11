@@ -7,7 +7,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Packrat.Parsing.Tests.fs" />
-    <Compile Include="Ribbit.Parsing.Tests.fs" />
+    <Compile Include="Ribbit.Tests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
   <ItemGroup>

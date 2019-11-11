@@ -10,16 +10,46 @@ type Dice<'externalProperty> =
     | Min of Dice<'externalProperty> * Dice<'externalProperty>
     | Max of Dice<'externalProperty> * Dice<'externalProperty>
 
-type Fulfiller<'externalProperty> = 'externalProperty -> Dice<'externalProperty> // will resolve a structure with 'holes' in it to the same type of structure but with fewer 'holes' in it
-
-let instantiate fulfiller (dice:Dice<_>) : {| dice: Dice<_>; readyToRoll: bool |} =
-    {| dice = dice; readyToRoll = false |}
-
-let sample = function
-    | External _ -> shouldntHappen()
-    | Modifier n -> n
+type Fulfiller<'externalProperty> = 'externalProperty -> Dice<'externalProperty> option // will attempt to resolve a structure with 'holes' in it to the same type of structure but with fewer 'holes' in it
 
 #nowarn "40" // we're not doing anything funny at initialization-time, like calling functions in the ctor that rely on uninitialized members, so we don't need the warning
+let instantiate (fulfiller:Fulfiller<_>) (dice:Dice<_>) : {| dice: Dice<_>; hasExternalReferences: bool |} =
+    let mutable hasExternalReferences = false; // ready only if there are no more External references
+    let rec walk =
+        let replaceIfChanged v ctor lhs rhs =
+            // speculative perf optimization: don't allocate new objects unless something has changed
+            let lhs' = walk lhs
+            let rhs' = walk rhs
+            if lhs = lhs' && rhs = rhs' then v
+            else ctor(lhs', rhs')
+        function
+        | (Modifier _ | Dice _) as n -> n
+        | Sum(lhs, rhs) as v -> replaceIfChanged v Sum lhs rhs
+        | Min(lhs, rhs) as v -> replaceIfChanged v Min lhs rhs
+        | Max(lhs, rhs) as v -> replaceIfChanged v Max lhs rhs
+        | External ref as original ->
+            match fulfiller ref with
+            | Some n -> n
+            | _ ->
+                hasExternalReferences <- true
+                original
+    {| dice = walk dice; hasExternalReferences = hasExternalReferences |}
+
+let rec sample = function
+    | External r -> failwithf "Bug alert! External references should have already been removed by instantiate before sampling occurs, but found reference to %A." r
+    | Modifier n -> n
+    | Dice(n, dSize) -> [1..n] |> List.map (thunk1 rand dSize) |> List.sum
+    | Sum(d1, d2) -> (sample d1) + (sample d2)
+    | Min(d1, d2) -> min (sample d1) (sample d2)
+    | Max(d1, d2) -> max (sample d1) (sample d2)
+
+let resolveSynchronously fulfiller dice =
+    let rec loop dice =
+        match instantiate fulfiller dice with
+        | r when r.hasExternalReferences = false -> r.dice
+        | r -> loop r.dice
+    loop dice
+
 module Parse =
     open Packrat
     let (|Mod|_|) = function
@@ -95,3 +125,4 @@ module Parse =
                 | ValidName(id, Str "." (Word(propertyName, ctx))) -> Some((id, propertyName) |> createReference, ctx)
                 | _ -> None
             (|CombatantProperty|_|)
+
