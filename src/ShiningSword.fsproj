@@ -8,6 +8,7 @@
   <ItemGroup>
     <!-- Global to the app -->
     <Compile Include="Common.fs" />
+    <Compile Include="Data.fs" />
     <Compile Include="Abstractions\Parsing.fs" />
     <Compile Include="Abstractions\Interaction.fs" />
     <Compile Include="Domain\Dice.fs" />
