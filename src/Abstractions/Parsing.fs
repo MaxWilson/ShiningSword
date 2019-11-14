@@ -159,6 +159,11 @@ let (|Chars|_|) alphabet ((ctx, ix): ParseInput) =
     | endpos when endpos > ix -> Some(ctx.input.Substring(ix, endpos - ix), (ctx, endpos))
     | _ -> None
 
+let readBetween (start: ParseInput) (finish: ParseInput) = // assumes that start and finish are both part of the same parse
+    let (ctx, ix) = start
+    let endIx = finish |> snd
+    ctx.input.Substring(ix, (endIx - ix))
+
 let (|CharsExcept|_|) exclusions ((ctx, ix): ParseInput) =
     let rec seek i =
         if i < ctx.input.Length && not (Set.contains ctx.input.[i] exclusions) then seek (i+1)

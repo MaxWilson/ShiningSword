@@ -3,6 +3,7 @@ open Common
 
 type Command = unit
 
+#nowarn "40" // we're not doing anything funny at initialization-time, like calling functions in the ctor that rely on uninitialized members, so we don't need the warning
 module Parse =
     open Domain.Dice.Parse
     open Domain.Properties.Parse
@@ -59,8 +60,25 @@ module Parse =
         | ValidNames(ref, Keyword "gains" (DieOperation(d, PropertyName(prop, rest))))-> Some((), rest)
         | ValidNames(ref, Word(AnyCase("loses" | "spends"), (DieOperation(d, PropertyName(prop, rest))))) -> Some((), rest)
         | _ -> None
+    let (|LogCommand|_|) =
+        let (|EmbeddedRoll|_|) = pack <| function
+            | Str "[" (DieOperation(d, (Str "]" rest as finish)) as start) ->
+                let txt = readBetween start finish
+                Some(txt, rest)
+            | _ -> None
+        let (|LogText|_|) = pack <| function
+            | CharsExcept (Set.ofList['[']) (txt, rest) -> Some((), rest)
+            | _ -> None
+        let rec (|LogChunks|_|) = pack <| function
+            | LogChunks(lst, LogChunks(tail, rest)) -> Some(lst@tail, rest)
+            | EmbeddedRoll(r, rest) -> Some([], rest)
+            | LogText(txt, rest) -> Some([], rest)
+            | _ -> None
+        pack <| function
+        | Str "/" (LogChunks(chunks, rest)) -> Some((), rest)
+        | _ -> None
     let (|Command|_|) = pack <| function
-        | Str "/" (Any(txt, rest)) -> Some((), rest)
+        | LogCommand(cmd, rest) -> Some((), rest)
         | IoOperation(cmd, rest) -> Some((), rest)
         | Keyword "add" (Any(name, rest)) -> Some((), rest)
         | Keyword "avg" (DieEvaluation(d, rest)) -> Some((), rest)
