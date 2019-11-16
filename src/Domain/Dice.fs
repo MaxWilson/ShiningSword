@@ -1,15 +1,13 @@
 module Domain.Dice
 
 open Common
+open Domain
 
 type Dice<'externalProperty> =
     | Modifier of int
     | Dice of number: int * kind: int
     | External of 'externalProperty
-    | Plus of Dice<'externalProperty> * Dice<'externalProperty>
-    | Minus of Dice<'externalProperty> * Dice<'externalProperty>
-    | Times of Dice<'externalProperty> * int
-    | Divide of Dice<'externalProperty> * int
+    | Binary of Dice<'externalProperty> * ArithmeticOperator * Dice<'externalProperty>
     | Min of Dice<'externalProperty> * Dice<'externalProperty>
     | Max of Dice<'externalProperty> * Dice<'externalProperty>
 
@@ -27,7 +25,7 @@ let instantiate (fulfiller:Fulfiller<_>) (dice:Dice<_>) : {| dice: Dice<_>; hasE
             else ctor(lhs', rhs')
         function
         | (Modifier _ | Dice _) as n -> n
-        | Plus(lhs, rhs) as v -> replaceIfChanged v Plus lhs rhs
+        | Binary(lhs, op, rhs) as v -> replaceIfChanged v (fun (l,r) -> Binary(l,op,r)) lhs rhs
         | Min(lhs, rhs) as v -> replaceIfChanged v Min lhs rhs
         | Max(lhs, rhs) as v -> replaceIfChanged v Max lhs rhs
         | External ref as original ->
@@ -42,7 +40,8 @@ let rec sample = function
     | External r -> failwithf "Bug alert! External references should have already been removed by instantiate before sampling occurs, but found reference to %A." r
     | Modifier n -> n
     | Dice(n, dSize) -> [1..n] |> List.map (thunk1 rand dSize) |> List.sum
-    | Plus(d1, d2) -> (sample d1) + (sample d2)
+    | Binary(d1, Plus, d2) -> (sample d1) + (sample d2)
+    | Binary(d1, Minus, d2) -> (sample d1) + (sample d2)
     | Min(d1, d2) -> min (sample d1) (sample d2)
     | Max(d1, d2) -> max (sample d1) (sample d2)
 
@@ -65,10 +64,10 @@ module Parse =
                 | Str "d" (Int(d, rest)) -> Some(Dice(1, d), rest)
                 | _ -> None
             pack <| function
-            | Term(d, OWS(Str "+" (OWS (Term(d', rest))))) -> Some(Plus(d, d'), rest)
-            | Term(d, OWS(Str "-" (OWS (Term(d', rest))))) -> Some(Minus(d, d'), rest)
-            | Term(d, OWS(Str "*" (OWS (Int(n, rest))))) -> Some(Times(d, n), rest)
-            | Term(d, OWS(Str "/" (OWS (Int(n, rest))))) -> Some(Divide(d, n), rest)
+            | Term(d, OWS(Str "+" (OWS (Term(d', rest))))) -> Some(Binary(d, Plus, d'), rest)
+            | Term(d, OWS(Str "-" (OWS (Term(d', rest))))) -> Some(Binary(d, Minus, d'), rest)
+            | Term(d, OWS(Str "*" (OWS (Int(n, rest))))) -> Some(Binary(d, Times, Modifier n), rest)
+            | Term(d, OWS(Str "/" (OWS (Int(n, rest))))) -> Some(Binary(d, Divide, Modifier n), rest)
             | External(e, rest) -> Some(External e, rest)
             | Str "min(" (Term(d, Str "," (Term(d', Str ")" rest)))) -> Some(Min(d, d'), rest)
             | Str "max(" (Term(d, Str "," (Term(d', Str ")" rest)))) -> Some(Max(d, d'), rest)

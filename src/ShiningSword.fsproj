@@ -11,9 +11,11 @@
     <Compile Include="Data.fs" />
     <Compile Include="Abstractions\Parsing.fs" />
     <Compile Include="Abstractions\Interaction.fs" />
+    <Compile Include="Domain\Prelude.fs" />
     <Compile Include="Domain\Properties.fs" />
     <Compile Include="Domain\Dice.fs" />
     <Compile Include="Domain\Commands.fs" />
+    <Compile Include="Domain\Domain.fs" />
     <Compile Include="Modules\Log.fs" />
     <Compile Include="Modules\Dice.fs" />
     <Compile Include="Modules\DataEngine.fs" />

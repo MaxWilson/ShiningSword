@@ -9,31 +9,19 @@ open Fable.React
 open Fable.React.Props
 open Data
 open Data.Functor
+open Domain
+open Domain.Properties
+open Domain.Commands
 
 module Domain =
-    type Id = int
-    type PropertyName = string
-    type Key = Id * PropertyName
-    type Op = Plus | Minus
-    type Expression =
-        | Number of int
-        | Ref of Key
-        | BinaryOperation of Expression * Op * Expression
-    type Cmd =
-        | Eval of originalText:string * ast:Expression
-        | AddRow of name:string
-        | SetData of Key * Expression
-    type Property = { name: string }
-    type Evaluation = Ready of int | Awaiting of Key
-    type Reference = EventRef of Id | PropertyRef of Key
     type EventStatus = Blocked | Resolved of output: string option
-    type Event = { status: EventStatus; cmd: Cmd; cmdText: string }
+    type Event = { status: EventStatus; cmd: Command; cmdText: string }
     type Model = {
             properties: Property list
             roster: SymmetricMap.Data<Id, string>
             data: Map<Key, int>
             blocking: SymmetricRelation.Data<Key, Reference> // data which needs to be in data to proceed
-            blockedThreads: {| eventId: Id; stack: Cmd |} list
+            blockedThreads: {| eventId: Id; stack: Command |} list
             eventLog: FastList<Event>
         }
     let fresh = { properties = []; roster = SymmetricMap.empty(); data = Map.empty; blocking = SymmetricRelation.empty; blockedThreads = []; eventLog = FastList.fresh() }
@@ -46,7 +34,7 @@ module Domain =
 
     let rec tryParseExpression model (cmd: string) =
         match Int32.TryParse cmd with
-        | true, v -> Number v |> Some
+        | true, v -> Number v |> Literal |> Some
         | _ when String.IsNullOrWhiteSpace cmd -> None
         | _ ->
             // REALLY crude parsing because that's not the point right now
@@ -61,9 +49,9 @@ module Domain =
                 | [|name;prop|] ->
                     match model.roster |> SymmetricMap.tryFindValue name with
                     | Some id ->
-                        Ref(id, prop.Trim()) |> Some
+                        Ref(PropertyRef (id, prop.Trim())) |> Some
                     | _ -> None
-                | _ -> Ref(0, cmd) |> Some
+                | _ -> Ref(PropertyRef(0, cmd)) |> Some
     let rec tryParseCommand model (cmd: string) =
         if cmd.StartsWith ("add ") then
             Some (AddRow <| cmd.Replace("add ", "").Trim())
@@ -83,16 +71,21 @@ module Domain =
             | _ -> None
         else
             match tryParseExpression model cmd with
-            | Some e -> Some (Eval (cmd, e))
+            | Some e -> Some (Evaluate e)
             | _ -> None
     let rec eval model = function
-        | Number v -> Ready v
-        | Ref key -> match model.data.TryFind key with Some v -> Ready v | None -> Awaiting key
+        | Literal (Number v) -> Ready v
+        | Ref (PropertyRef key) -> match model.data.TryFind key with Some v -> Ready v | None -> Awaiting key
         | BinaryOperation(lhs, op, rhs) ->
             match eval model lhs, eval model rhs with
             | Awaiting key, _ | _, Awaiting key -> Awaiting key
             | Ready l, Ready r ->
                 Ready(if op = Plus then l + r else l - r)
+        | BestN(n, exprs) ->
+            match exprs |> List.tryMapFold(fun vs e -> match eval model e with Ready v -> Ok(v::vs) | Awaiting k -> Error k) [] with
+            | Ok vs -> Ready (vs |> List.sortDescending |> List.take (min vs.Length n) |> List.sum)
+            | Error k -> Awaiting k
+
     let addName name model =
         if (model: Model).roster |> SymmetricMap.tryFindValue name |> Option.isSome then // idempotence
             model
@@ -111,7 +104,7 @@ module Domain =
             model |> Lens.over Lens.eventLog (transform eventId (fun e -> { e with status = Resolved msg }))
         let rec help model (eventId, cmd) =
             match cmd with
-            | Eval (txt, expr) as cmd ->
+            | Evaluate expr as cmd ->
                 match eval model expr with
                 | Ready v -> resolve eventId (v.ToString() |> Some) model
                 | Awaiting key ->
@@ -168,7 +161,7 @@ module View =
                 | Blocked id ->
                     let d = m.domainModel
                     let event = d.eventLog.rows.[id]
-                    let dependencies = d.blocking.backward.[Domain.EventRef id] |> List.map (fun (id, prop) -> if id > 0 then (d.roster |> SymmetricMap.find id) + "." + prop else prop)
+                    let dependencies = d.blocking.backward.[EventRef id] |> List.map (fun (id, prop) -> if id > 0 then (d.roster |> SymmetricMap.find id) + "." + prop else prop)
                                         |> String.join ", "
                     li[ClassName "blocked"][str <| sprintf "%s (needs %s)" event.cmdText dependencies]
             ]

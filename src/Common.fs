@@ -64,6 +64,7 @@ module String =
         match Option.ofObj input with
         | Some(v:string) -> v.Trim().Split(' ') |> Seq.head
         | None -> input
+    let trim (s:string) = s.Trim()
 
 module List =
     let join delimiter (lst: _ list) =
@@ -76,6 +77,12 @@ module List =
         | Some v -> [v]
     let every f =
         List.exists (f >> not) >> not
+    let rec tryMapFold f state lst =
+        match lst with
+        | [] -> Ok state
+        | h::t -> match f state h with
+                    | Ok state' -> tryMapFold f state' t
+                    | e -> e
 
 module Fraction =
     open System.Numerics
