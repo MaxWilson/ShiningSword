@@ -1,2 +1,4 @@
-﻿module Domain
+[<AutoOpen>]
+module Domain.Domain
+
 
