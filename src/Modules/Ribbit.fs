@@ -64,9 +64,9 @@ module Domain =
                     | [|name;prop|] ->
                         match model.roster |> SymmetricMap.tryFindValue name with
                         | Some id ->
-                            SetData((id, prop.Trim()), expr) |> Some
+                            SetProperty([id, prop.Trim()], expr) |> Some
                         | _ -> None
-                    | _ -> SetData((0, cmd), expr) |> Some
+                    | _ -> SetProperty([0, cmd.Trim()], expr) |> Some
                 | _ -> None
             | _ -> None
         else
@@ -111,7 +111,7 @@ module Domain =
                     { model with blockedThreads = {| eventId = eventId; stack = cmd; |} :: model.blockedThreads }
                         |> Lens.over Lens.blocking (SymmetricRelation.add key (EventRef eventId))
             | AddRow name -> addName name model |> resolve eventId None
-            | SetData (key, expr) ->
+            | SetProperty (keys, expr) ->
                 // execute any unblocked threads
                 let unblock key (model: Model) =
                     match model.blocking.forward |> Map.tryFind key with
@@ -124,9 +124,14 @@ module Domain =
                                             | EventRef eventId -> eventId, (model.blockedThreads |> List.find (fun t -> t.eventId = eventId)).stack
                                             | v -> matchfail v) // don't yet have an implementation for unblocking data references
                             |> List.fold help { model with blocking = SymmetricRelation.removeAllForward key model.blocking }
+                let setProperty v model key =
+                    model |> addProperty (snd key) |> Lens.over Lens.data (Map.add key v)
                 match eval model expr with
                 | Ready v ->
-                    model |> addProperty (snd key) |> Lens.over Lens.data (Map.add key v) |> unblock key |> resolve eventId None
+                        let model = keys |> List.fold (setProperty v) model
+                        keys
+                            |> List.fold (fun model key -> unblock key model) model
+                            |> resolve eventId None
                 | _ -> model
         eventId, help model (eventId, cmd)
 

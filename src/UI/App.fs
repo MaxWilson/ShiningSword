@@ -1,5 +1,5 @@
 module App
-open Ribbit
+open UI.Ribbit
 open Elmish
 
 open Elmish.React
@@ -52,16 +52,16 @@ module App =
     open Fable.React
     type Model = {
         campaign: UI.Types.Model
-        battle: Ribbit.View.Model option
+        battle: UI.Ribbit.Model option
         }
-    type Msg = Campaign of UI.Types.Msg | Battle of Ribbit.View.Cmd
+    type Msg = Campaign of UI.Types.Msg | Battle of UI.Ribbit.Cmd
     let update msg model =
         match msg with
         | Campaign msg ->
             let m, cmd = UI.State.update msg model.campaign
             { model with campaign = m }, cmd
         | Battle msg when model.battle.IsSome ->
-            let m, cmd = Ribbit.View.update msg model.battle.Value
+            let m, cmd = UI.Ribbit.update msg model.battle.Value
             { model with battle = Some m }, cmd
         | Battle _ -> model, Cmd.Empty
     let init = function
@@ -70,14 +70,14 @@ module App =
             { campaign = c; battle = None }, cmds
         | Url.ParseResult.Battle ->
             let c, cmds = UI.State.init None
-            let b, cmds2 = Ribbit.View.init ()
+            let b, cmds2 = UI.Ribbit.init ()
             { campaign = c; battle = Some b }, cmds@cmds2
         | Url.ParseResult.Neither ->
             let c, cmds = UI.State.init None
             { campaign = c; battle = None }, cmds
     let view (model: Model) dispatch =
         match model with
-        | { battle = Some b } -> Ribbit.View.view b (Msg.Battle >> dispatch)
+        | { battle = Some b } -> UI.Ribbit.view b (Msg.Battle >> dispatch)
         | _ -> UI.View.root model.campaign (Msg.Campaign >> dispatch)
     let urlUpdate (parseResult: Url.ParseResult) (model: Model) =
         match parseResult with
@@ -85,7 +85,7 @@ module App =
             let c, cmds = UI.State.init (Some args)
             { model with campaign = c }, cmds
         | Url.ParseResult.Battle ->
-            let b, cmds = Ribbit.View.init ()
+            let b, cmds = UI.Ribbit.init ()
             { model with battle = Some b }, cmds
         | Url.ParseResult.Neither -> model, Cmd.Empty
 
@@ -95,7 +95,7 @@ Program.mkProgram init update view
     Browser.Dom.window.onerror <-
     fun msg _src _lineNo _colNo err ->
         if msg.ToString().Contains "SocketProtocolError" = false then
-            d (App.Msg.Battle <| View.Error (sprintf "Error: %A" msg))
+            d (App.Msg.Battle <| UI.Ribbit.Error (sprintf "Error: %A" msg))
         ))
 #if DEBUG
 |> Program.toNavigable Url.parse App.urlUpdate

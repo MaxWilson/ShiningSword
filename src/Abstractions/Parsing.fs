@@ -142,7 +142,6 @@ let (|Optional|) (str: string) ((ctx, ix): ParseInput) =
 let alpha = Set<_>['A'..'Z'] + Set<_>['a'..'z']
 let numeric = Set<_>['0'..'9']
 let whitespace = Set<_>[' '; '\t'; '\n'; '\r']
-let arithmeticOperators = Set<_>['+'; '-']
 let alphanumeric = alpha + numeric
 let alphawhitespace = alpha + whitespace
 

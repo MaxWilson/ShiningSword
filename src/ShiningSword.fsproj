@@ -30,6 +30,7 @@
     <Compile Include="Model\MapGen.fs" />
     <Compile Include="Model\MonsterManual.fs" />
     <Compile Include="Model\Gameplay.fs" />
+    <Compile Include="View\ViewComponents.fs" />
     <Compile Include="UI\Components.fs" />
     <Compile Include="UI\Global.fs" />
     <Compile Include="UI\Types.fs" />
@@ -38,6 +39,7 @@
     <Compile Include="UI\MapGen.fs" />
     <Compile Include="UI\View.fs" />
     <Compile Include="UI\State.fs" />
+    <Compile Include="UI\Ribbit.fs" />
     <Compile Include="UI\App.fs" />
     <None Include="Script1.fsx" />
     <None Include="Script2.fsx" />

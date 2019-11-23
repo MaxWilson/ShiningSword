@@ -60,3 +60,7 @@ module Parse =
             | ValidName(id, Str "'s" (Word(propertyName, ctx))) -> Some((id, propertyName) |> createReference, ctx)
             | ValidName(id, Str "." (Word(propertyName, ctx))) -> Some((id, propertyName) |> createReference, ctx)
             | _ -> None
+    let (|PropertyMultiReference|_|) (createReference: (Id * string) -> 't) = pack <| function
+            | ValidNames(ids, Str "'s" (Word(propertyName, ctx))) -> Some(ids |> List.map (fun id -> (id, propertyName) |> createReference), ctx)
+            | ValidNames(ids, Str "." (Word(propertyName, ctx))) -> Some(ids |> List.map (fun id -> (id, propertyName) |> createReference), ctx)
+            | _ -> None
