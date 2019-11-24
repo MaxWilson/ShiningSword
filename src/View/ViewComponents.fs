@@ -37,15 +37,22 @@ let localInput =
 let localForm =
     let component' =
         FunctionComponent.Of(
-            fun (query, props: seq<IHTMLProp>, onChange) ->
+            fun (query, props: seq<IHTMLProp>, onSubmit) ->
                 let st = Hooks.useState ""
                 Hooks.useEffect(fun e ->
                         st.update ""
                     , [|query|])
-                form(Seq.append [OnSubmit(fun e -> e.preventDefault(); onChange st.current)] props)[
+                form(Seq.append [OnSubmit(fun e ->
+                                    let v = st.current;
+                                    e.preventDefault();
+                                    st.update ""
+                                    try
+                                        onSubmit v
+                                    with _ -> ()
+                                    )] props)[
                     h2[][str query]
-                    localInput st.current [] (fun v -> st.update v; onChange v)
+                    input [Value st.current; OnChange (fun e -> st.update e.Value)]
                     button[Type "submit"; Default true][str "OK"]
                     ]
             , memoizeWith = equalsButFunctions)
-    (fun query (props: seq<IHTMLProp>) onChange -> component'(query, props, onChange))
+    (fun query (props: seq<IHTMLProp>) onSubmit -> component'(query, props, onSubmit))

@@ -9,12 +9,12 @@ open Domain.Properties
 open Domain.Dice
 open Domain.Commands
 
-type EventStatus = Blocked | Resolved of output: string option
-type Event = { status: EventStatus; cmd: Command; cmdText: string }
+type EventStatus = Blocked | Resolved of value: Value option
+type Event = { status: EventStatus; cmd: Command; cmdText: string; }
 type Model = {
         properties: Property list
         roster: SymmetricMap.Data<Id, string>
-        data: Map<Key, int>
+        data: Map<Key, Value>
         blocking: SymmetricRelation.Data<Key, Reference> // data which needs to be in data to proceed
         blockedThreads: {| eventId: Id; stack: Command |} list
         eventLog: FastList<Event>
@@ -69,7 +69,7 @@ let rec tryParseCommand model (cmd: string) =
         | Some e -> Some (Evaluate e)
         | _ -> None
 let rec eval model = function
-    | Literal (Number v) -> Ready v
+    | Literal v -> Ready v
     | Ref (PropertyRef key) -> match model.data.TryFind key with Some v -> Ready v | None -> Awaiting key
     | BinaryOperation(lhs, op, rhs) ->
         match eval model lhs, eval model rhs with
@@ -92,40 +92,70 @@ let addProperty propertyName model =
         model
     else
         { model with properties = model.properties @ [{name = propertyName}] }
+let unblock exec (model: Model) =
+    let keys = model.blocking.forward |> Map.filter (fun key _ -> model.data.ContainsKey key)
+    // execute any unblocked threads
+    let unblock key (model: Model) =
+        match model.blocking.forward |> Map.tryFind key with
+        | None | Some [] ->
+            model
+        | Some unblocked ->
+            // re-process the unblocked threads from the beginning (TODO: store continuations instead of whole cmds)
+            unblocked
+                |> List.map (function
+                                | EventRef eventId -> eventId, (model.blockedThreads |> List.find (fun t -> t.eventId = eventId)).stack
+                                | v -> matchfail v) // don't yet have an implementation for unblocking data references
+                |> List.fold exec { model with blocking = SymmetricRelation.removeAllForward key model.blocking }
+    keys |> Map.fold (fun model key _ -> unblock key model) model
+let private resolve eventId msg model =
+    model |> Lens.over Lens.eventLog (transform eventId (fun e -> { e with status = Resolved msg }))
+let await (eventId, cmd) keys model =
+    let addKeys data =
+        keys |> List.fold (fun data key -> data |> SymmetricRelation.add key (EventRef eventId)) data
+    { model with blockedThreads = {| eventId = eventId; stack = cmd; |} :: model.blockedThreads }
+                |> Lens.over Lens.blocking addKeys
+let rec private executeHelper model (eventId, cmd) =
+    match cmd with
+    | Evaluate expr ->
+        match eval model expr with
+        | Ready v -> resolve eventId (Some v) model
+        | Awaiting key ->
+            await (eventId, cmd) [key] model
+    | AddRow name -> addName name model |> resolve eventId None
+    | SetProperty (keys, expr) ->
+        let setProperty v model key =
+            model |> addProperty (snd key) |> Lens.over Lens.data (Map.add key v)
+        match eval model expr with
+        | Ready v ->
+            keys
+            |> List.fold (setProperty v) model
+            |> unblock executeHelper
+            |> resolve eventId None
+        | _ -> model
+    | ChangeProperty (keys, expr) ->
+        let setProperty v model key =
+            let changeVal (data:Map<Key,Value>) =
+                match data |> Map.tryFind key with
+                | Some v0 -> data |> Map.add key (v0 + v)
+                | None -> data |> Map.add key v
+            model |> addProperty (snd key) |> Lens.over Lens.data changeVal
+        let blocked = keys |> List.filter (fun key -> model.data.ContainsKey key |> not)
+        match blocked with
+        | [] ->
+            match eval model expr with
+            | Ready v ->
+                keys
+                |> List.fold (setProperty v) model
+                |> unblock executeHelper
+                |> resolve eventId None
+            // todo: if the expression isn't ready yet, how to defer? should have a way to create an eval event and wait for it
+        | _ -> await (eventId, cmd) blocked model
+
+let setProperty key (value:Value) model =
+    model |> addProperty (snd key) |> Lens.over Lens.data (Map.add key value)
+        |> unblock executeHelper
+
 let execute model cmdText cmd =
     let model = model |> Lens.over Lens.eventLog (add { status = Blocked; cmd = cmd; cmdText = cmdText })
     let eventId = model.eventLog.lastId.Value
-    let resolve eventId msg model =
-        model |> Lens.over Lens.eventLog (transform eventId (fun e -> { e with status = Resolved msg }))
-    let rec help model (eventId, cmd) =
-        match cmd with
-        | Evaluate expr as cmd ->
-            match eval model expr with
-            | Ready v -> resolve eventId (v.ToString() |> Some) model
-            | Awaiting key ->
-                { model with blockedThreads = {| eventId = eventId; stack = cmd; |} :: model.blockedThreads }
-                    |> Lens.over Lens.blocking (SymmetricRelation.add key (EventRef eventId))
-        | AddRow name -> addName name model |> resolve eventId None
-        | SetProperty (keys, expr) ->
-            // execute any unblocked threads
-            let unblock key (model: Model) =
-                match model.blocking.forward |> Map.tryFind key with
-                | None | Some [] ->
-                    model
-                | Some unblocked ->
-                    // re-process the unblocked threads from the beginning (TODO: store continuations instead of whole cmds)
-                    unblocked
-                        |> List.map (function
-                                        | EventRef eventId -> eventId, (model.blockedThreads |> List.find (fun t -> t.eventId = eventId)).stack
-                                        | v -> matchfail v) // don't yet have an implementation for unblocking data references
-                        |> List.fold help { model with blocking = SymmetricRelation.removeAllForward key model.blocking }
-            let setProperty v model key =
-                model |> addProperty (snd key) |> Lens.over Lens.data (Map.add key v)
-            match eval model expr with
-            | Ready v ->
-                    let model = keys |> List.fold (setProperty v) model
-                    keys
-                        |> List.fold (fun model key -> unblock key model) model
-                        |> resolve eventId None
-            | _ -> model
-    eventId, help model (eventId, cmd)
+    eventId, executeHelper model (eventId, cmd)

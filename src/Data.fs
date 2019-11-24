@@ -62,6 +62,8 @@ module SymmetricRelation =
             forward = createOrExtend v1 v2 d.forward
             backward = createOrExtend v2 v1 d.backward
         }
+    let addMany v1 v2s (d:Data<_,_>) =
+        v2s |> List.fold (fun data v2 -> data |> add v1 v2) d
     let removeAllForward v1 (d:Data<_,_>) =
         match d.forward |> Map.tryFind v1 with
         | None -> d // nothing to remove

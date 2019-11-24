@@ -52,6 +52,14 @@ let resolveSynchronously fulfiller dice =
         | r -> loop r.dice
     loop dice
 
+let rec toString = function
+    | Modifier n -> n.ToString()
+    | Dice(n,d) -> sprintf "%dd%d" n d
+    | External e -> sprintf "%A" e
+    | Binary(l, op, r) -> (toString l) + (match op with Plus -> "+" | Minus -> "-" | Times -> "*" | Divide -> "/") + (toString r)
+    | Min(l, r) -> sprintf "min(%s,%s)" (toString l) (toString r)
+    | Max(l, r) -> sprintf "max(%s,%s)" (toString l) (toString r)
+
 module Parse =
     open Packrat
     let (|Mod|_|) = function

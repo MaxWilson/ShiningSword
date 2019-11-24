@@ -2,9 +2,21 @@ module Domain.Commands
 open Common
 open Domain.Properties
 
-type Evaluation = Ready of int | Awaiting of Key
 type Reference = EventRef of Id | PropertyRef of Key
-type Value = Number of int | Text of string | Dice of Domain.Dice.Dice<Reference>
+type Value = Number of int | Text of string | Dice of Domain.Dice.Dice<Reference> with
+    static member (+) (lhs:Value, rhs:Value) =
+        match lhs, rhs with
+        | Number l, Number r -> Number(l+r)
+        | Text l, Text r -> Text(l+r)
+        | Dice l, Dice r -> Dice.Binary(l, Plus, r) |> Dice
+    static member (-) (lhs:Value, rhs:Value) =
+        match lhs, rhs with
+        | Number l, Number r -> Number(l+r)
+        | Text l, Text r -> Text(l+r)
+        | Dice l, Dice r -> Dice.Binary(l, Minus, r) |> Dice
+    static member Zero = Number 0
+    override this.ToString() = match this with Number n -> n.ToString() | Text t -> t | Dice d -> Dice.toString d
+type Evaluation = Ready of Value | Awaiting of Key
 type Comparison = GreaterThan | GreaterThanEqual | LessThan | LessThanEqual | Equal
 type Expression =
     | Literal of Value

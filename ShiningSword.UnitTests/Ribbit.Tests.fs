@@ -124,7 +124,26 @@ let tests = testList "ribbit" [
                     match verifier with
                     | Literal c' -> Expect.equal cmd c' "Didn't parse correctly"
                     | Match f -> Expect.isTrue (f cmd) "Didn't parse correctly"
-
                 | v -> parseFail v
             ))
+    testCase "Changing HP" <| fun _ ->
+        let m = Domain.fresh
+        let exec txt (model: Domain.Model) =
+            let names: string seq = model.roster |> Data.SymmetricMap.values
+            let adaptor : RosterAdaptor = {
+                    isValidNamePrefix = fun prefix -> names |> Seq.exists (fun n -> n.StartsWith prefix)
+                    tryNamePrefix = fun prefix -> model.roster |> Data.SymmetricMap.toSeq |> Seq.choose (fun (id, name) -> if name.StartsWith prefix then Some id else None) |> List.ofSeq
+                    tryId = flip Data.SymmetricMap.tryFind model.roster
+                    tryName = flip Data.SymmetricMap.tryFindValue model.roster
+                    }
+            match ParseArgs.Init(txt, adaptor) with
+            | Domain.Commands.Parse.Command(cmd, End) ->
+                Domain.execute model txt cmd
+            | v -> parseFail v
+        let thenExec txt (_, model) = exec txt model
+        let get (eventId, model: Model) =
+            match model.eventLog.rows.[eventId].status with
+            | Resolved v -> v
+            | Blocked -> Tests.failtest "Expected result to be available synchronously"
+        Expect.equal (m |> exec "add John" |> thenExec "John has 10 HP" |> thenExec "John.HP" |> get) (Some (Number 10)) "John didn't gain the right number of HP"
     ]
