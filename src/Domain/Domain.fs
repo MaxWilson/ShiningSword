@@ -4,6 +4,7 @@ open System
 open Common
 open Data
 open Data.Functor
+open Packrat
 open Domain.Prelude
 open Domain.Properties
 open Domain.Dice
@@ -27,47 +28,21 @@ module Lens =
     let blockedThreads = Lens.lens (fun d -> d.blockedThreads) (fun v d -> { d with blockedThreads = v})
     let eventLog = Lens.lens (fun d -> d.eventLog) (fun v d -> { d with eventLog = v})
 
-let rec tryParseExpression model (cmd: string) =
-    match Int32.TryParse cmd with
-    | true, v -> Number v |> Literal |> Some
-    | _ when String.IsNullOrWhiteSpace cmd -> None
-    | _ ->
-        // REALLY crude parsing because that's not the point right now
-        if cmd.Contains "+" || cmd.Contains "-" then
-            let op = if (cmd.Contains "+") then Plus else Minus
-            let cmds = cmd.Split('+', '-') |> Array.map (tryParseExpression model >> FSharp.Core.Option.get)
-            match cmds with
-            | [|lhs; rhs|] -> BinaryOperation(lhs, op, rhs) |> Some
-            | _ -> None
-        else
-            match cmd.Split('.') with
-            | [|name;prop|] ->
-                match model.roster |> SymmetricMap.tryFindValue name with
-                | Some id ->
-                    Ref(PropertyRef (id, prop.Trim())) |> Some
-                | _ -> None
-            | _ -> Ref(PropertyRef(0, cmd)) |> Some
-let rec tryParseCommand model (cmd: string) =
-    if cmd.StartsWith ("add ") then
-        Some (AddRow <| cmd.Replace("add ", "").Trim())
-    elif cmd.Contains("=") then
-        match cmd.Split('=') with
-        | [|lhs; value|] ->
-            match tryParseExpression model value with
-            | Some expr ->
-                match lhs.Split('.') with
-                | [|name;prop|] ->
-                    match model.roster |> SymmetricMap.tryFindValue name with
-                    | Some id ->
-                        SetProperty([id, prop.Trim()], expr) |> Some
-                    | _ -> None
-                | _ -> SetProperty([0, cmd.Trim()], expr) |> Some
-            | _ -> None
-        | _ -> None
-    else
-        match tryParseExpression model cmd with
-        | Some e -> Some (Evaluate e)
-        | _ -> None
+let tryParseCommand (model: Model) txt =
+    let startsWith txt prefix =
+        (txt:string).StartsWith prefix
+    let adaptor : RosterAdaptor = {
+            isValidNamePrefix = fun prefix -> model.roster |> Data.SymmetricMap.values |> Seq.exists (fun n -> startsWith n prefix)
+            tryNamePrefix = fun prefix ->
+                model.roster |> Data.SymmetricMap.toSeq |> Seq.choose (fun (id, name) -> if startsWith name prefix then Some id else None) |> List.ofSeq
+            tryId = flip Data.SymmetricMap.tryFind model.roster
+            tryName = flip Data.SymmetricMap.tryFindValue model.roster
+            }
+    match ParseArgs.Init(txt, adaptor) with
+    | Domain.Commands.Parse.Command(cmd, End) ->
+        Some cmd
+    | v -> None
+
 let rec eval model = function
     | Literal v -> Ready v
     | Ref (PropertyRef key) -> match model.data.TryFind key with Some v -> Ready v | None -> Awaiting key

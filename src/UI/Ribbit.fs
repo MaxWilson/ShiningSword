@@ -61,8 +61,9 @@ let view m dispatch =
             yield div[ClassName "summaryPane"][
                     table [] (summaryOf m.domainModel)
                 ]
+            let notWhitespace = (not << System.String.IsNullOrWhiteSpace)
             yield div[ClassName "queryPane"] [
-                View.ViewComponents.localForm "Enter a command please:" [AutoFocus true] (ENTER >> dispatch)
+                View.ViewComponents.localForm "Enter a command please:" [AutoFocus true] notWhitespace (ENTER >> dispatch)
                 br[]
                 match m.domainModel.blocking.forward |> List.ofSeq with
                 | [] -> ()
@@ -71,6 +72,7 @@ let view m dispatch =
                         yield View.ViewComponents.localForm
                                 (sprintf "Enter value for %s's %s" (m.domainModel.roster |> SymmetricMap.find id) prop)
                                 [ClassName "bordered"]
+                                notWhitespace
                                 (fun v -> dispatch (Fulfill ((key, v))))
                     ]
                 br[]
@@ -102,9 +104,11 @@ let update msg model =
     try
         match msg with
         | ENTER cmd ->
+            Browser.Dom.console.log(model.domainModel)
+            Browser.Dom.console.log(model.domainModel.roster |> SymmetricMap.toSeq |> Array.ofSeq)
             match Domain.tryParseCommand model.domainModel cmd with
             | Some cmd' -> exec cmd cmd', Cmd.Empty
-            | _ -> model, Cmd.Empty
+            | _ -> { model with console = model.console@[Resolved (sprintf "Could not parse '%s'" cmd)] }, Cmd.Empty
         | RESET -> init()
         | Error err ->
             { model with console = model.console@[Resolved ("Error: " + err)] }, Cmd.Empty

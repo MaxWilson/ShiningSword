@@ -92,6 +92,7 @@ module Parse =
         | Attack(a, rest) -> Some(a, rest)
         | Int(n, Str "d" (Int(d, Str "k" (Int(k, rest))))) ->
             Some(BestN(k, List.init n (thunk <| Roll(Domain.Dice.Dice(1,d)))), rest)
+        | Term(Modifier n, rest) -> Some(Literal(Number n), rest)
         | Term(d, rest) -> Some(Roll d, rest)
         | _ -> None
     let (|DieEvaluation|_|) =

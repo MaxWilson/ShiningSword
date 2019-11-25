@@ -37,7 +37,7 @@ let localInput =
 let localForm =
     let component' =
         FunctionComponent.Of(
-            fun (query, props: seq<IHTMLProp>, onSubmit) ->
+            fun (query, props: seq<IHTMLProp>, validator, onSubmit) ->
                 let st = Hooks.useState ""
                 Hooks.useEffect(fun e ->
                         st.update ""
@@ -45,14 +45,13 @@ let localForm =
                 form(Seq.append [OnSubmit(fun e ->
                                     let v = st.current;
                                     e.preventDefault();
-                                    st.update ""
-                                    try
+                                    if validator v then
+                                        st.update ""
                                         onSubmit v
-                                    with _ -> ()
                                     )] props)[
                     h2[][str query]
                     input [Value st.current; OnChange (fun e -> st.update e.Value)]
                     button[Type "submit"; Default true][str "OK"]
                     ]
             , memoizeWith = equalsButFunctions)
-    (fun query (props: seq<IHTMLProp>) onSubmit -> component'(query, props, onSubmit))
+    (fun query (props: seq<IHTMLProp>) validator onSubmit -> component'(query, props, validator, onSubmit))

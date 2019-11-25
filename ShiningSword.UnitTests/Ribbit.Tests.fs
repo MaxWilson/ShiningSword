@@ -1,10 +1,15 @@
 module Ribbit
 
 #if INTERACTIVE
-#I ".."
+#I """..\src"""
 #load "Common.fs"
+#load "Data.fs"
 #load "Abstractions\Parsing.fs"
+#load "Domain\Prelude.fs"
+#load "Domain\Properties.fs"
 #load "Domain\Dice.fs"
+#load "Domain\Commands.fs"
+#load "Domain\Domain.fs"
 #endif
 
 open Expecto
@@ -21,6 +26,9 @@ let inline dice x = Domain.Dice.Dice(x)
 
 #if INTERACTIVE
 let parseFail ((args: ParseArgs), _) = failwithf "Could not parse '%s'" args.input
+module Tests =
+    let failtest = failwith
+    let failtestf = failwithf
 #else
 let parseFail ((args: ParseArgs), _) = Tests.failtestf "Could not parse %s" args.input
 #endif
@@ -28,12 +36,35 @@ let parseFail ((args: ParseArgs), _) = Tests.failtestf "Could not parse %s" args
 type ParsingResult = Literal of Command | Match of (Command -> bool)
 
 let whatever = Match(function _ -> true)
+
+let m = Domain.fresh
+let exec txt (model: Domain.Model) =
+    match Domain.tryParseCommand model txt with
+    | Some cmd ->
+        Domain.execute model txt cmd
+    | None -> Tests.failtestf "Could not parse %s" txt
+let parse txt (model: Domain.Model) =
+    match Domain.tryParseCommand model txt with
+    | Some cmd -> cmd
+    | None -> Tests.failtestf "Could not parse %s" txt
+let thenExec txt (_, model) = exec txt model
+let thenParse txt (_, model) = parse txt model
+let get (eventId, model: Model) =
+    match model.eventLog.rows.[eventId].status with
+    | Resolved v -> v
+    | Blocked -> Tests.failtest "Expected result to be available synchronously"
+#if INTERACTIVE
+m |> exec "add John" |> thenParse "John.HP = 10"
+m |> exec "add John" |> thenExec "John.HP = 10"
+#endif
 [<Tests>]
 let tests = testList "ribbit" [
     let uiCommandExamplars = [
+        "John loses 10 HP", whatever, Some([], None)
         "d20+7", Literal (Evaluate(Roll (Binary(dice(1, 20), Plus, Modifier 7)))), None
         "add Eladriel", Literal (AddRow("Eladriel")), None
-        "Eladriel loses d6 HP", Literal(ChangeProperty([0, "HP"], Negate(Roll(dice(1,6))))), None
+        "Eladriel.HP = 10", Literal(SetProperty([1, "HP"], Expression.Literal(Number 10))), None
+        "Eladriel loses d6 HP", Literal(ChangeProperty([1, "HP"], Negate(Roll(dice(1,6))))), None
         "/Suddenly [d10] trolls attack!", (Literal <| Log [Text "Suddenly "; LogExpression ("d10", Roll (dice(1,10))); Text " trolls attack!"]), None
         "avg 4.att 20 6a 2d6+5", whatever, None
         "d20+6 at least 14?0:12d6", whatever, None
@@ -47,7 +78,7 @@ let tests = testList "ribbit" [
 
     // simple adaptor, maps list of names to ids for ease of testing
     let adaptorOf names: RosterAdaptor =
-        let names = List.ofSeq names
+        let names = "globalPlaceholder" :: List.ofSeq names // just a placeholder to make the first name come out to ID 1, which probably doesn't matter for now
         {
                     isValidNamePrefix = fun prefix -> names |> List.exists (fun (n:string) -> n.StartsWith prefix)
                     tryNamePrefix = fun prefix -> names |> List.mapi(fun i n -> (i,n)) |> List.choose (fun (i,n) -> if n.StartsWith prefix then Some i else None)
@@ -117,33 +148,26 @@ let tests = testList "ribbit" [
             Expect.equal (parse "3d6+Bob's STR" |> resolve) 9 "Should understand references to external things"
         ]
     testList ".exemplars"
-        (uiCommandExamplars |> List.map (fun (cmd, verifier, evalResult) ->
-            testCase (sprintf "Parse: %s" (cmd.Replace(".", "_"))) <| fun _ ->
-                match ParseArgs.Init(cmd, adaptorOf ["Eladriel"]) with
+        (uiCommandExamplars |> List.map (fun (cmdTxt, verifier, evalResult) ->
+            testCase (sprintf ".Parse: %s" (cmdTxt.Replace(".", "_"))) <| fun _ ->
+                match ParseArgs.Init(cmdTxt, adaptorOf ["Eladriel"]) with
                 | Domain.Commands.Parse.Command(cmd, End) ->
                     match verifier with
                     | Literal c' -> Expect.equal cmd c' "Didn't parse correctly"
                     | Match f -> Expect.isTrue (f cmd) "Didn't parse correctly"
+                    Expect.equal (m |> exec "add John" |> thenExec "John has 10 HP" |> thenExec "John.HP" |> get) (Some (Number 10)) "John didn't gain the right number of HP"
+                    match evalResult with
+                    | None -> ()
+                    | Some(setupSteps, result) ->
+                        let m =
+                            match setupSteps with
+                            | h::rest ->
+                                rest |> List.fold (fun m step -> thenExec step m) (m |> exec h) |> snd
+                            | [] -> m
+                        let post = Domain.execute m cmdTxt cmd
+                        match result with
+                        | None -> ()
+                        | Some v -> Expect.equal (get post) v "Wrong result"
                 | v -> parseFail v
             ))
-    testCase "Changing HP" <| fun _ ->
-        let m = Domain.fresh
-        let exec txt (model: Domain.Model) =
-            let names: string seq = model.roster |> Data.SymmetricMap.values
-            let adaptor : RosterAdaptor = {
-                    isValidNamePrefix = fun prefix -> names |> Seq.exists (fun n -> n.StartsWith prefix)
-                    tryNamePrefix = fun prefix -> model.roster |> Data.SymmetricMap.toSeq |> Seq.choose (fun (id, name) -> if name.StartsWith prefix then Some id else None) |> List.ofSeq
-                    tryId = flip Data.SymmetricMap.tryFind model.roster
-                    tryName = flip Data.SymmetricMap.tryFindValue model.roster
-                    }
-            match ParseArgs.Init(txt, adaptor) with
-            | Domain.Commands.Parse.Command(cmd, End) ->
-                Domain.execute model txt cmd
-            | v -> parseFail v
-        let thenExec txt (_, model) = exec txt model
-        let get (eventId, model: Model) =
-            match model.eventLog.rows.[eventId].status with
-            | Resolved v -> v
-            | Blocked -> Tests.failtest "Expected result to be available synchronously"
-        Expect.equal (m |> exec "add John" |> thenExec "John has 10 HP" |> thenExec "John.HP" |> get) (Some (Number 10)) "John didn't gain the right number of HP"
     ]
