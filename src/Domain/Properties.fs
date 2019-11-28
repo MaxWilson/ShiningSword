@@ -1,9 +1,7 @@
 module Domain.Properties
 
 open Common
-type PropertyName = string
 type Property = { name: string }
-type Key = Id * PropertyName
 
 type RosterAdaptor = {
             isValidNamePrefix: (string -> bool)

@@ -14,7 +14,7 @@ open Domain.Properties
 open Domain.Commands
 
 type Id = int
-type ConsoleLog = Resolved of string | Blocked of Id
+type ConsoleLog = { cmdText: string; eventId: Id option }
 type Model = { console: ConsoleLog list; domainModel: Domain.Model }
 module Lens =
     let domainModel = Lens.lens (fun d -> d.domainModel) (fun v d -> { d with domainModel = v })
@@ -42,21 +42,31 @@ let summaryOf (m:Domain.Model) =
 let view m dispatch =
     try
         let log = [
-            for e in m.console ->
-                match e with
-                | Resolved s -> li[ClassName "resolved"][str s]
-                | Blocked id ->
-                    try
-                        let d = m.domainModel
-                        let event = d.eventLog.rows.[id]
-                        try
-                            let dependencies = d.blocking.backward.[EventRef id] |> List.map (fun (id, prop) -> if id > 0 then (d.roster |> SymmetricMap.find id) + "." + prop else prop)
-                                                |> String.join ", "
-                            li[ClassName "blocked"][str <| sprintf "%s (needs %s)" event.cmdText dependencies]
-                        with _ -> li[ClassName "blocked"][str <| sprintf "Couldn't render %s" event.cmdText]
-                    with _ -> li[ClassName "blocked"][str <| sprintf "Couldn't render #%d" id]
+            for c in m.console ->
+                match c.eventId |> Option.bind (fun id -> m.domainModel.eventLog |> tryFind id) with
+                | None -> // failed to parse command
+                    li[ClassName "error"][str (sprintf "Didn't understand '%s'" c.cmdText)]
+                | Some e ->
+                    match e with
+                    | Ready v -> li[ClassName "resolved"][str <| v.ToString()]
+                    | Awaiting(ref, _) ->
+                        let rec getDependency = function
+                            | PropertyRef(id, _) ->
+                                try
+                                    let d = m.domainModel
+                                    try
+                                        let dependencies = d.blocking.backward.[EventRef id] |> List.map (fun (id, prop) -> if id > 0 then (d.roster |> SymmetricMap.find id) + "." + prop else prop)
+                                                            |> String.join ", "
+                                        li[ClassName "blocked"][str <| sprintf "%s (needs %s)" c.cmdText dependencies]
+                                    with _ -> li[ClassName "blocked"][str <| sprintf "Couldn't render %s" c.cmdText]
+                                with _ -> li[ClassName "blocked"][str <| sprintf "Couldn't render #%d" id]
+                            | EventRef id ->
+                                let d = m.domainModel
+                                match d.eventLog.rows.[id] with
+                                | Ready v -> li[ClassName "resolved"][str <| sprintf "Shouldn't happen: %s" (v.ToString())] // if dependencies are ready, we should be in the "Ready" branch for this ConsoleLog instead of "Awaiting"
+                                | Awaiting(awaiting, _) -> getDependency awaiting
+                        getDependency ref
             ]
-
         div [ClassName ("frame" + if log = [] then "" else " withSidebar")] [
             yield div[ClassName "summaryPane"][
                     table [] (summaryOf m.domainModel)

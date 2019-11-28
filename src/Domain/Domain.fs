@@ -10,14 +10,13 @@ open Domain.Properties
 open Domain.Dice
 open Domain.Commands
 
-type EventStatus = Blocked | Resolved of value: Value option
-type Event = { status: EventStatus; cmd: Command; cmdText: string; }
+type Event = Evaluation<Executable[]>
 type Model = {
         properties: Property list
         roster: SymmetricMap.Data<Id, string>
         data: Map<Key, Value>
         blocking: SymmetricRelation.Data<Key, Reference> // data which needs to be in data to proceed
-        blockedThreads: {| eventId: Id; stack: Command |} list
+        blockedThreads: {| eventId: Id; stack: Executable |} list
         eventLog: FastList<Event>
     }
 let fresh = { properties = []; roster = SymmetricMap.empty(); data = Map.empty; blocking = SymmetricRelation.empty; blockedThreads = []; eventLog = FastList.fresh() }
@@ -39,22 +38,38 @@ let tryParseCommand (model: Model) txt =
             tryName = flip Data.SymmetricMap.tryFindValue model.roster
             }
     match ParseArgs.Init(txt, adaptor) with
-    | Domain.Commands.Parse.Command(cmd, End) ->
+    | Domain.Commands.Parse.DomainCommand(cmd, End) ->
         Some cmd
     | v -> None
 
-let rec eval model = function
+let rec eval model expr =
+    match expr with
     | Literal v -> Ready v
-    | Ref (PropertyRef key) -> match model.data.TryFind key with Some v -> Ready v | None -> Awaiting key
+    | Ref (PropertyRef key) -> match model.data.TryFind key with Some v -> Ready v | None -> Awaiting (PropertyRef key, expr)
+    | Ref (EventRef id) ->
+        match model.eventLog |> tryFind id with
+        | Some (event:Event) ->
+            match event with
+            | Awaiting(ref, _) -> Awaiting(ref, expr)
+            | Ready v -> Ready v
+        | None -> Awaiting (EventRef id, expr)
     | BinaryOperation(lhs, op, rhs) ->
         match eval model lhs, eval model rhs with
-        | Awaiting key, _ | _, Awaiting key -> Awaiting key
         | Ready l, Ready r ->
             Ready(if op = Plus then l + r else l - r)
+        | Awaiting (key, _), _ | _, Awaiting (key,_) -> Awaiting (key, expr)
     | BestN(n, exprs) ->
-        match exprs |> List.tryMapFold(fun vs e -> match eval model e with Ready v -> Ok(v::vs) | Awaiting k -> Error k) [] with
+        match exprs |> List.tryMapFold(fun vs e -> match eval model e with Ready v -> Ok(v::vs) | Awaiting (k,_) -> Error k) [] with
         | Ok vs -> Ready (vs |> List.sortDescending |> List.take (min vs.Length n) |> List.sum)
-        | Error k -> Awaiting k
+        | Error k -> Awaiting (k, expr)
+    | Negate e -> match eval model e with
+                    | Ready v ->
+                        match v with
+                        | Number n -> Number (-n)
+                        | Err _ -> v
+                        | _ -> Err (sprintf "Cannot negate '%A'" v)
+                        |> Ready
+                    | v -> v
 
 let addName name model =
     if (model: Model).roster |> SymmetricMap.tryFindValue name |> Option.isSome then // idempotence
@@ -82,8 +97,8 @@ let unblock exec (model: Model) =
                                 | v -> matchfail v) // don't yet have an implementation for unblocking data references
                 |> List.fold exec { model with blocking = SymmetricRelation.removeAllForward key model.blocking }
     keys |> Map.fold (fun model key _ -> unblock key model) model
-let private resolve eventId msg model =
-    model |> Lens.over Lens.eventLog (transform eventId (fun e -> { e with status = Resolved msg }))
+let private resolve eventId value model =
+    model |> Lens.over Lens.eventLog (transform eventId (thunk value))
 let await (eventId, cmd) keys model =
     let addKeys data =
         keys |> List.fold (fun data key -> data |> SymmetricRelation.add key (EventRef eventId)) data
@@ -93,10 +108,10 @@ let rec private executeHelper model (eventId, cmd) =
     match cmd with
     | Evaluate expr ->
         match eval model expr with
-        | Ready v -> resolve eventId (Some v) model
-        | Awaiting key ->
+        | Ready v -> resolve eventId (Ready v) model
+        | Awaiting(key, executables) ->
             await (eventId, cmd) [key] model
-    | AddRow name -> addName name model |> resolve eventId None
+    | AddRow name -> addName name model |> resolve eventId (Ready Nothing)
     | SetProperty (keys, expr) ->
         let setProperty v model key =
             model |> addProperty (snd key) |> Lens.over Lens.data (Map.add key v)
@@ -105,7 +120,7 @@ let rec private executeHelper model (eventId, cmd) =
             keys
             |> List.fold (setProperty v) model
             |> unblock executeHelper
-            |> resolve eventId None
+            |> resolve eventId (Ready Nothing)
         | _ -> model
     | ChangeProperty (keys, expr) ->
         let setProperty v model key =
@@ -122,7 +137,7 @@ let rec private executeHelper model (eventId, cmd) =
                 keys
                 |> List.fold (setProperty v) model
                 |> unblock executeHelper
-                |> resolve eventId None
+                |> resolve eventId (Ready Nothing)
             // todo: if the expression isn't ready yet, how to defer? should have a way to create an eval event and wait for it
         | _ -> await (eventId, cmd) blocked model
 
@@ -130,7 +145,7 @@ let setProperty key (value:Value) model =
     model |> addProperty (snd key) |> Lens.over Lens.data (Map.add key value)
         |> unblock executeHelper
 
-let execute model cmdText cmd =
-    let model = model |> Lens.over Lens.eventLog (add { status = Blocked; cmd = cmd; cmdText = cmdText })
+let execute model cmd =
+    let model = model |> Lens.over Lens.eventLog (add { status = Blocked; cmd = cmd })
     let eventId = model.eventLog.lastId.Value
     eventId, executeHelper model (eventId, cmd)

@@ -21,8 +21,6 @@ open Domain.Prelude
 open Domain.Properties
 open Domain.Dice
 open Domain.Commands
-type Command = Domain.Commands.Command
-let inline dice x = Domain.Dice.Dice(x)
 
 #if INTERACTIVE
 let parseFail ((args: ParseArgs), _) = failwithf "Could not parse '%s'" args.input
@@ -33,7 +31,7 @@ module Tests =
 let parseFail ((args: ParseArgs), _) = Tests.failtestf "Could not parse %s" args.input
 #endif
 
-type ParsingResult = Literal of Command | Match of (Command -> bool)
+type ParsingResult = IO of IOCommand | Literal of Executable | Match of (Executable -> bool)
 
 let whatever = Match(function _ -> true)
 
@@ -41,7 +39,7 @@ let m = Domain.fresh
 let exec txt (model: Domain.Model) =
     match Domain.tryParseCommand model txt with
     | Some cmd ->
-        Domain.execute model txt cmd
+        Domain.execute model cmd
     | None -> Tests.failtestf "Could not parse %s" txt
 let parse txt (model: Domain.Model) =
     match Domain.tryParseCommand model txt with
@@ -50,9 +48,9 @@ let parse txt (model: Domain.Model) =
 let thenExec txt (_, model) = exec txt model
 let thenParse txt (_, model) = parse txt model
 let get (eventId, model: Model) =
-    match model.eventLog.rows.[eventId].status with
-    | Resolved v -> v
-    | Blocked -> Tests.failtest "Expected result to be available synchronously"
+    match model.eventLog.rows.[eventId] with
+    | Ready v -> v
+    | Awaiting _ -> Tests.failtest "Expected result to be available synchronously"
 #if INTERACTIVE
 m |> exec "add John" |> thenParse "John.HP = 10"
 m |> exec "add John" |> thenExec "John.HP = 10"
@@ -60,20 +58,22 @@ m |> exec "add John" |> thenExec "John.HP = 10"
 [<Tests>]
 let tests = testList "ribbit" [
     let uiCommandExamplars = [
-        "John loses 10 HP", whatever, Some([], None)
-        "d20+7", Literal (Evaluate(Roll (Binary(dice(1, 20), Plus, Modifier 7)))), None
+        "John.HP", whatever, Some(["add John"; "John has 10 HP"], (Some (Number 10)))
+        "John.HP+7", whatever, Some(["add John"; "John has 10 HP"], (Some (Number 17)))
+        "Eladriel loses 10 HP", whatever, Some(["Eladriel.HP = 40"], None)
+        "d20+7", Literal (Evaluate(Roll (Binary(Dice(1, 20), Plus, Modifier 7)))), None
         "add Eladriel", Literal (AddRow("Eladriel")), None
         "Eladriel.HP = 10", Literal(SetProperty([1, "HP"], Expression.Literal(Number 10))), None
-        "Eladriel loses d6 HP", Literal(ChangeProperty([1, "HP"], Negate(Roll(dice(1,6))))), None
-        "/Suddenly [d10] trolls attack!", (Literal <| Log [Text "Suddenly "; LogExpression ("d10", Roll (dice(1,10))); Text " trolls attack!"]), None
+        "Eladriel loses d6 HP", Literal(ChangeProperty([1, "HP"], Negate(Roll(Dice(1,6))))), None
+        "/Suddenly [d10] trolls attack!", (Literal <| Log [Text "Suddenly "; LogExpression ("d10", Roll (Dice(1,10))); Text " trolls attack!"]), None
         "avg 4.att 20 6a 2d6+5", whatever, None
         "d20+6 at least 14?0:12d6", whatever, None
         "13d?8d6/2:8d6", whatever, None
         "6.4d6k3", whatever, None
-        "save party1", whatever, None
-        "load party1", whatever, None
-        "export save maxwilson/party1", whatever, None
-        "load import maxwilson/party1", whatever, None
+        "save party1", IO(Save("party1", false)), None
+        "load party1", IO(Load("party1", false)), None
+        "export save maxwilson/party1", IO(Save("party1", true)), None
+        "load import maxwilson/party1", IO(Load("party1", true)), None
         ]
 
     // simple adaptor, maps list of names to ids for ease of testing
@@ -100,7 +100,7 @@ let tests = testList "ribbit" [
                 match ParseArgs.Init(x, adaptor) with
                 | Term(x, End) -> x
                 | v -> parseFail v
-            Expect.equal (parse "3d6+1") (Binary(dice(3,6), Plus, Modifier 1)) "Should understand simple basic rolls"
+            Expect.equal (parse "3d6+1") (Binary(Dice(3,6), Plus, Modifier 1)) "Should understand simple basic rolls"
         testCase ".Parse references" <| fun _ ->
             let parse x =
                 let adaptor : RosterAdaptor = {
@@ -112,8 +112,8 @@ let tests = testList "ribbit" [
                 match ParseArgs.Init(x, adaptor) with
                 | Domain.Commands.Parse.Term(x, End) -> x
                 | v -> parseFail v
-            Expect.equal (parse "3d6+Bob.STR") (Binary(dice(3,6), Plus, External(PropertyRef(0, "STR")))) "Should understand references to external things"
-            Expect.equal (parse "3d6+Bob's STR") (Binary(dice(3,6), Plus, External(PropertyRef(0, "STR")))) "Should understand references to external things"
+            Expect.equal (parse "3d6+Bob.STR") (Binary(Dice(3,6), Plus, External(PropertyRef(0, "STR")))) "Should understand references to external things"
+            Expect.equal (parse "3d6+Bob's STR") (Binary(Dice(3,6), Plus, External(PropertyRef(0, "STR")))) "Should understand references to external things"
         ]
 
     testList ".evaluation" [
@@ -151,11 +151,16 @@ let tests = testList "ribbit" [
         (uiCommandExamplars |> List.map (fun (cmdTxt, verifier, evalResult) ->
             testCase (sprintf ".Parse: %s" (cmdTxt.Replace(".", "_"))) <| fun _ ->
                 match ParseArgs.Init(cmdTxt, adaptorOf ["Eladriel"]) with
-                | Domain.Commands.Parse.Command(cmd, End) ->
-                    match verifier with
-                    | Literal c' -> Expect.equal cmd c' "Didn't parse correctly"
-                    | Match f -> Expect.isTrue (f cmd) "Didn't parse correctly"
-                    Expect.equal (m |> exec "add John" |> thenExec "John has 10 HP" |> thenExec "John.HP" |> get) (Some (Number 10)) "John didn't gain the right number of HP"
+                | Domain.Commands.Parse.ConsoleCommand(cmd, End) ->
+                    match verifier, cmd with
+                    | Literal c', DomainCommand cmd ->
+                        Expect.equal cmd c' "Didn't parse correctly"
+                    | Match f, DomainCommand cmd ->
+                        Expect.isTrue (f cmd) "Didn't parse correctly"
+                    | IO c', IOCommand cmd ->
+                        Expect.equal cmd c' "Didn't parse correctly"
+                    | _ ->
+                        Tests.failtest "Didn't parse correctly"
                     match evalResult with
                     | None -> ()
                     | Some(setupSteps, result) ->
@@ -164,10 +169,13 @@ let tests = testList "ribbit" [
                             | h::rest ->
                                 rest |> List.fold (fun m step -> thenExec step m) (m |> exec h) |> snd
                             | [] -> m
-                        let post = Domain.execute m cmdTxt cmd
-                        match result with
-                        | None -> ()
-                        | Some v -> Expect.equal (get post) v "Wrong result"
+                        match cmd with
+                        | DomainCommand cmd ->
+                            let post = Domain.execute m cmd
+                            match result with
+                            | None -> ()
+                            | Some v -> Expect.equal (get post) v "Wrong result"
+                        | _ -> ()
                 | v -> parseFail v
             ))
     ]

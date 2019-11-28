@@ -1,41 +1,6 @@
 module Domain.Commands
 open Common
-open Domain.Properties
-
-type Reference = EventRef of Id | PropertyRef of Key
-type Value = Number of int | Text of string | Dice of Domain.Dice.Dice<Reference> with
-    static member (+) (lhs:Value, rhs:Value) =
-        match lhs, rhs with
-        | Number l, Number r -> Number(l+r)
-        | Text l, Text r -> Text(l+r)
-        | Dice l, Dice r -> Dice.Binary(l, Plus, r) |> Dice
-    static member (-) (lhs:Value, rhs:Value) =
-        match lhs, rhs with
-        | Number l, Number r -> Number(l+r)
-        | Text l, Text r -> Text(l+r)
-        | Dice l, Dice r -> Dice.Binary(l, Minus, r) |> Dice
-    static member Zero = Number 0
-    override this.ToString() = match this with Number n -> n.ToString() | Text t -> t | Dice d -> Dice.toString d
-type Evaluation = Ready of Value | Awaiting of Key
-type Comparison = GreaterThan | GreaterThanEqual | LessThan | LessThanEqual | Equal
-type Expression =
-    | Literal of Value
-    | Ref of Reference
-    | BinaryOperation of Expression * ArithmeticOperator * Expression
-    | If of {| index: Expression; branches: {| test: Comparison * Expression; consequence: Expression|} list; otherwise: Expression option |}
-    | Roll of Domain.Dice.Dice<Reference>
-    | BestN of n:int * Expression list
-    | Negate of Expression
-
-type TextOrLogExpression = Text of string | LogExpression of text:string * Expression
-type Command =
-    | Evaluate of ast:Expression
-    | Average of ast:Expression
-    | AddRow of name:string
-    | ChangeProperty of Key list * Expression
-    | SetProperty of Key list * Expression
-    | Log of TextOrLogExpression list
-    | NotImpl // placeholder
+open Domain.Prelude
 
 #nowarn "40" // we're not doing anything funny at initialization-time, like calling functions in the ctor that rely on uninitialized members, so we don't need the warning
 module Parse =
@@ -50,12 +15,6 @@ module Parse =
         | OWS(Str char (OWS(rest))) -> Some(rest)
         | _ -> None
     let (|Keyword|_|) keyword = function Word(word, rest) when String.equalsIgnoreCase word keyword -> Some(rest) | _ -> None
-    let (|IoOperation|_|) = pack <| function
-        | Keyword "load" (Any(name, rest)) -> Some((), rest)
-        | Keyword "save" (Any(name, rest)) -> Some((), rest)
-        | Keyword "export" (Keyword "save" (Any(name, rest))) -> Some((), rest)
-        | Keyword "load" (Keyword "import" (Any(name, rest))) -> Some((), rest)
-        | _ -> None
     let (|Condition|_|) =
         let d n d = Dice(n, d)
         let fix x = Literal (Number x)
@@ -91,7 +50,7 @@ module Parse =
         | Branch(b, rest) -> Some(b, rest)
         | Attack(a, rest) -> Some(a, rest)
         | Int(n, Str "d" (Int(d, Str "k" (Int(k, rest))))) ->
-            Some(BestN(k, List.init n (thunk <| Roll(Domain.Dice.Dice(1,d)))), rest)
+            Some(BestN(k, List.init n (thunk <| Roll(Dice(1,d)))), rest)
         | Term(Modifier n, rest) -> Some(Literal(Number n), rest)
         | Term(d, rest) -> Some(Roll d, rest)
         | _ -> None
@@ -104,13 +63,13 @@ module Parse =
         | _ -> None
     let (|PropertyName|_|) = (|Word|_|)
     let (|SetProperty|_|) =
-        let set ids property e = Command.SetProperty(ids |> List.map (fun id -> (id, property)), e)
+        let set ids property e = Executable.SetProperty(ids |> List.map (fun id -> (id, property)), e)
         let (|PropertyReference|_|) = ((|PropertyMultiReference|_|) id)
         pack <| function
-        | PropertyReference(refs, Operator "=" (DieOperation(e, rest)))-> Some(Command.SetProperty(refs, e), rest)
-        | ValidNames(ids, Keyword "has" (DieOperation(e, PropertyName(prop, rest))))-> Some(Command.SetProperty(ids |> List.map (fun id -> (id, prop)), e), rest)
-        | ValidNames(ids, Keyword "gains" (DieOperation(e, PropertyName(prop, rest))))-> Some(Command.ChangeProperty(ids |> List.map (fun id -> (id, prop)), e), rest)
-        | ValidNames(ids, Word(AnyCase("loses" | "spends"), (DieOperation(e, PropertyName(prop, rest))))) -> Some(Command.ChangeProperty(ids |> List.map (fun id -> (id, prop)), Negate(e)), rest)
+        | PropertyReference(refs, Operator "=" (DieOperation(e, rest)))-> Some(Executable.SetProperty(refs, e), rest)
+        | ValidNames(ids, Keyword "has" (DieOperation(e, PropertyName(prop, rest))))-> Some(Executable.SetProperty(ids |> List.map (fun id -> (id, prop)), e), rest)
+        | ValidNames(ids, Keyword "gains" (DieOperation(e, PropertyName(prop, rest))))-> Some(Executable.ChangeProperty(ids |> List.map (fun id -> (id, prop)), e), rest)
+        | ValidNames(ids, Word(AnyCase("loses" | "spends"), (DieOperation(e, PropertyName(prop, rest))))) -> Some(Executable.ChangeProperty(ids |> List.map (fun id -> (id, prop)), Negate(e)), rest)
         | _ -> None
     let (|LogCommand|_|) =
         let (|EmbeddedRoll|_|) = pack <| function
@@ -129,12 +88,21 @@ module Parse =
         pack <| function
         | Str "/" (LogChunks(chunks, rest)) -> Some(Log chunks, rest)
         | _ -> None
-    let (|Command|_|) = pack <| function
+    let (|DomainCommand|_|) = pack <| function
         | LogCommand(cmd, rest) -> Some(cmd, rest)
-        | IoOperation(cmd, rest) -> Some(NotImpl, rest)
         | Keyword "add" (Any(name, rest)) -> Some(AddRow name, rest)
         | Keyword "avg" (DieEvaluation(e, rest)) -> Some(Average e, rest)
         | SetProperty(cmd, rest) -> Some(cmd , rest)
         | DieEvaluation(d, rest) as start -> Some(Evaluate(d), rest)
+        | _ -> None
+    let (|IoOperation|_|) = pack <| function
+        | Keyword "save" (Any(name, rest)) -> Some(Save (name, false), rest)
+        | Keyword "load" (Any(name, rest)) -> Some(Load (name, false), rest)
+        | Keyword "export" (Keyword "save" (Any(name, rest))) -> Some(Save (name, true), rest)
+        | Keyword "load" (Keyword "import" (Any(name, rest))) -> Some(Load (name, true), rest)
+        | _ -> None
+    let (|ConsoleCommand|_|) = pack <| function
+        | DomainCommand(cmd, rest) -> Some(cmd |> DomainCommand, rest)
+        | IoOperation(cmd, rest) -> Some(cmd |> IOCommand, rest)
         | _ -> None
 

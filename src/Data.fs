@@ -19,6 +19,10 @@ module Functor =
         fun args -> (^a : (static member toSeq: ^a * 'b -> 'c) (x,args))
     let inline toSeq (HasToSeq f) : 't seq =
         f()
+    let inline (|HasTryFind|) x =
+        fun args -> (^a : (static member tryFind: ^a * 'b -> 'c option) (x,args))
+    let inline tryFind id (HasTryFind f) =
+        f id
 
 type FastList<'t> = { rows: Map<int, 't>; lastId: int option }
     with
@@ -33,6 +37,8 @@ type FastList<'t> = { rows: Map<int, 't>; lastId: int option }
     static member toSeq(data) =
         seq { for i in 1..(defaultArg data.lastId 0) -> data.rows.[i] }
     static member fresh(): FastList<'t> = { rows = Map.empty; lastId = None }
+    static member tryFind(data, id) =
+        data.rows |> Map.tryFind id
 
 module SymmetricMap =
     type Data<'key, 'v when 'key: comparison and 'v: comparison> = Map<'key, 'v> * Map<'v, 'key>
