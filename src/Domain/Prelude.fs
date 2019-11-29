@@ -43,7 +43,7 @@ type Value = Number of int | Text of string | DiceValue of Dice<Reference> | Not
     static member Zero = Number 0
     override this.ToString() = match this with Number n -> n.ToString() | Text t -> t | DiceValue d -> Dice.toString d | Nothing -> "Nothing" | Err msg -> sprintf "Error! <<<%s>>>"  msg
 
-type Evaluation<'t> = Ready of Value | Awaiting of Reference * execution: 't
+type Evaluation<'t> = Ready of Value | Awaiting of Reference list * execution: 't
 
 type Expression =
     | Literal of Value
