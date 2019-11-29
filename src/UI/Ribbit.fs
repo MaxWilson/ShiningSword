@@ -47,25 +47,23 @@ let view m dispatch =
                 | None -> // failed to parse command
                     li[ClassName "error"][str (sprintf "Didn't understand '%s'" c.cmdText)]
                 | Some e ->
+                    let eventId = c.eventId.Value
                     match e with
                     | Ready v -> li[ClassName "resolved"][str <| v.ToString()]
-                    | Awaiting(ref, _) ->
+                    | Awaiting(_) ->
+                        let d = m.domainModel
                         let rec getDependency = function
                             | PropertyRef(id, _) ->
-                                try
-                                    let d = m.domainModel
-                                    try
-                                        let dependencies = d.blocking.backward.[EventRef id] |> List.map (fun (id, prop) -> if id > 0 then (d.roster |> SymmetricMap.find id) + "." + prop else prop)
-                                                            |> String.join ", "
-                                        li[ClassName "blocked"][str <| sprintf "%s (needs %s)" c.cmdText dependencies]
-                                    with _ -> li[ClassName "blocked"][str <| sprintf "Couldn't render %s" c.cmdText]
-                                with _ -> li[ClassName "blocked"][str <| sprintf "Couldn't render #%d" id]
-                            | EventRef id ->
+                                d.blocking.backward.[EventRef id] |> List.collect (function PropertyRef(id, prop) -> [if id > 0 then (d.roster |> SymmetricMap.find id) + "." + prop else prop] | ref -> getDependency ref)
+                            | ref ->
                                 let d = m.domainModel
-                                match d.eventLog.rows.[id] with
-                                | Ready v -> li[ClassName "resolved"][str <| sprintf "Shouldn't happen: %s" (v.ToString())] // if dependencies are ready, we should be in the "Ready" branch for this ConsoleLog instead of "Awaiting"
-                                | Awaiting(awaiting, _) -> getDependency awaiting
-                        getDependency ref
+                                d.blocking.backward.[ref].Head |> getDependency
+                        try
+                            try
+                                let dependencies = getDependency (EventRef eventId) |> String.join ", "
+                                li[ClassName "blocked"][str <| sprintf "%s (needs %s)" c.cmdText dependencies]
+                            with _ -> li[ClassName "blocked"][str <| sprintf "Couldn't render %s" c.cmdText]
+                        with _ -> li[ClassName "blocked"][str <| sprintf "Couldn't render #%d" eventId]
             ]
         div [ClassName ("frame" + if log = [] then "" else " withSidebar")] [
             yield div[ClassName "summaryPane"][
@@ -75,10 +73,12 @@ let view m dispatch =
             yield div[ClassName "queryPane"] [
                 View.ViewComponents.localForm "Enter a command please:" [AutoFocus true] notWhitespace (ENTER >> dispatch)
                 br[]
-                match m.domainModel.blocking.forward |> List.ofSeq with
+                match m.domainModel.blocking.forward
+                        |> Seq.choose (function KeyValue(PropertyRef(key), _) -> Some key | _ -> None)
+                        |> List.ofSeq with
                 | [] -> ()
                 | blocked -> div[][
-                    for KeyValue((id, prop) as key, _) in blocked do
+                    for ((id, prop) as key) in blocked do
                         yield View.ViewComponents.localForm
                                 (sprintf "Enter value for %s's %s" (m.domainModel.roster |> SymmetricMap.find id) prop)
                                 [ClassName "bordered"]
@@ -98,19 +98,10 @@ let view m dispatch =
 
 let init _ = { console = []; domainModel = Domain.fresh }, Cmd.Empty
 let update msg model =
-    let logEntry domain eventId =
-        let event = domain.eventLog.rows.[eventId]
-        match event.status with
-        | Domain.Blocked -> Blocked eventId
-        | Domain.Resolved None -> Resolved (event.cmdText)
-        | Domain.Resolved (Some output) -> sprintf "%s: %s" event.cmdText (output.ToString()) |> Resolved
-    let resolve model =
-        let resolve = function Blocked id -> logEntry model.domainModel id | v -> v
-        { model with console = model.console |> List.map resolve }
     let exec txt cmd =
-        let eventId, domain' = Domain.execute model.domainModel txt cmd
-        resolve { model with domainModel = domain'; console = (model.console@[logEntry domain' eventId]) }
-
+        let eventId, domain' = Domain.execute model.domainModel cmd
+        { model with domainModel = domain'; console = (model.console@[{ cmdText = txt; eventId = Some eventId }]) }
+    let logError txt = { cmdText = txt; eventId = None }
     try
         match msg with
         | ENTER cmd ->
@@ -118,12 +109,12 @@ let update msg model =
             Browser.Dom.console.log(model.domainModel.roster |> SymmetricMap.toSeq |> Array.ofSeq)
             match Domain.tryParseCommand model.domainModel cmd with
             | Some cmd' -> exec cmd cmd', Cmd.Empty
-            | _ -> { model with console = model.console@[Resolved (sprintf "Could not parse '%s'" cmd)] }, Cmd.Empty
+            | _ -> { model with console = model.console@[logError (sprintf "Could not parse '%s'" cmd)] }, Cmd.Empty
         | RESET -> init()
         | Error err ->
-            { model with console = model.console@[Resolved ("Error: " + err)] }, Cmd.Empty
+            { model with console = model.console@[logError ("Error: " + err)] }, Cmd.Empty
         | Fulfill(key, v) ->
-            ({ model with domainModel = model.domainModel |> Domain.setProperty key (System.Int32.Parse v |> Number) } |> resolve), Cmd.Empty
+            { model with domainModel = model.domainModel |> Domain.setProperty key (System.Int32.Parse v |> Number) }, Cmd.Empty
     with err ->
-        { model with console = model.console@[Resolved err.Message] }, Cmd.Empty
+        { model with console = model.console@[logError ("Exception: " + err.ToString())] }, Cmd.Empty
 

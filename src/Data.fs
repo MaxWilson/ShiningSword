@@ -23,6 +23,10 @@ module Functor =
         fun args -> (^a : (static member tryFind: ^a * 'b -> 'c option) (x,args))
     let inline tryFind id (HasTryFind f) =
         f id
+    let inline (|HasFind|) x =
+        fun args -> (^a : (static member find: ^a * 'b -> 'c) (x,args))
+    let inline find id (HasFind f) =
+        f id
 
 type FastList<'t> = { rows: Map<int, 't>; lastId: int option }
     with
@@ -39,6 +43,8 @@ type FastList<'t> = { rows: Map<int, 't>; lastId: int option }
     static member fresh(): FastList<'t> = { rows = Map.empty; lastId = None }
     static member tryFind(data, id) =
         data.rows |> Map.tryFind id
+    static member find(data, id) =
+        data.rows |> Map.find id
 
 module SymmetricMap =
     type Data<'key, 'v when 'key: comparison and 'v: comparison> = Map<'key, 'v> * Map<'v, 'key>
