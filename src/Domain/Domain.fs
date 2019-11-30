@@ -27,18 +27,26 @@ module Lens =
     let blockedThreads = Lens.lens (fun d -> d.blockedThreads) (fun v d -> { d with blockedThreads = v})
     let eventLog = Lens.lens (fun d -> d.eventLog) (fun v d -> { d with eventLog = v})
 
-let tryParseCommand (model: Model) txt =
+let adaptorOf (model: Model) =
     let startsWith txt prefix =
         (txt:string).StartsWith prefix
-    let adaptor : RosterAdaptor = {
-            isValidNamePrefix = fun prefix -> model.roster |> Data.SymmetricMap.values |> Seq.exists (fun n -> startsWith n prefix)
-            tryNamePrefix = fun prefix ->
-                model.roster |> Data.SymmetricMap.toSeq |> Seq.choose (fun (id, name) -> if startsWith name prefix then Some id else None) |> List.ofSeq
-            tryId = flip Data.SymmetricMap.tryFind model.roster
-            tryName = flip Data.SymmetricMap.tryFindValue model.roster
-            }
-    match ParseArgs.Init(txt, adaptor) with
-    | Domain.Commands.Parse.DomainCommand(cmd, End) ->
+    {
+    isValidNamePrefix = fun prefix -> model.roster |> Data.SymmetricMap.values |> Seq.exists (fun n -> startsWith n prefix)
+    tryNamePrefix = fun prefix ->
+        model.roster |> Data.SymmetricMap.toSeq |> Seq.choose (fun (id, name) -> if startsWith name prefix then Some id else None) |> List.ofSeq
+    tryId = flip Data.SymmetricMap.tryFind model.roster
+    tryName = flip Data.SymmetricMap.tryFindValue model.roster
+    }
+
+let tryParseExecutable (model: Model) txt =
+    match ParseArgs.Init(txt, adaptorOf model) with
+    | Domain.Commands.Parse.Executable(cmd, End) ->
+        Some cmd
+    | v -> None
+
+let tryParseCommand (model: Model) txt =
+    match ParseArgs.Init(txt, adaptorOf model) with
+    | Domain.Commands.Parse.ConsoleCommand(cmd, End) ->
         Some cmd
     | v -> None
 
@@ -87,8 +95,7 @@ let progress exec (completed: Set<Reference>) (model:Model): Model =
     // post-invariant: new model has reached a fixed point w/ regard to blocking/eventLog/data
     let rec iterate (completed: Set<Reference>) (model:Model): Model =
         // look up all the events which are directly or undirectly unblocked by this reference and progress them
-        let progressing = completed |> Set.map (fun ref -> model.blocking.forward.[ref])
-                                    |> Seq.collect id
+        let progressing = completed |> Seq.collect (fun ref -> match model.blocking.forward |> Map.tryFind ref with Some refs -> refs | None -> [])
                                     |> Seq.distinct
                                     |> Array.ofSeq
         let blocking' = progressing |> Array.fold (fun blocking ref -> blocking |> SymmetricRelation.removeAllForward ref) model.blocking

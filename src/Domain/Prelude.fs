@@ -64,5 +64,5 @@ type Executable =
     | Log of TextOrLogExpression list
 type IOCommand = Save of string * export: bool | Load of string * import: bool
 type ConsoleCommand =
-    | DomainCommand of Executable
+    | ExecutableCommand of Executable
     | IOCommand of IOCommand

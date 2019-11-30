@@ -54,8 +54,7 @@ module Parse =
         | Term(Modifier n, rest) -> Some(Literal(Number n), rest)
         | Term(d, rest) -> Some(Roll d, rest)
         | _ -> None
-    let (|DieEvaluation|_|) =
-        function
+    let (|DieEvaluation|_|) = pack <| function
         | Int(n, Operator "." (DieOperation(d, rest))) ->
             let rec help i = if i <= 0 then d else BinaryOperation(d, Plus, help (i-1))
             Some(help n, rest)
@@ -88,21 +87,22 @@ module Parse =
         pack <| function
         | Str "/" (LogChunks(chunks, rest)) -> Some(Log chunks, rest)
         | _ -> None
-    let (|DomainCommand|_|) = pack <| function
+    let (|Executable|_|) = pack <| function
         | LogCommand(cmd, rest) -> Some(cmd, rest)
         | Keyword "add" (Any(name, rest)) -> Some(AddRow name, rest)
         | Keyword "avg" (DieEvaluation(e, rest)) -> Some(Average e, rest)
         | SetProperty(cmd, rest) -> Some(cmd , rest)
-        | DieEvaluation(d, rest) as start -> Some(Evaluate(d), rest)
+        | DieEvaluation(Roll(External(ref)), rest) -> Some(Evaluate(Ref ref), rest)
+        | DieEvaluation(d, rest) -> Some(Evaluate(d), rest)
         | _ -> None
     let (|IoOperation|_|) = pack <| function
-        | Keyword "save" (Any(name, rest)) -> Some(Save (name, false), rest)
-        | Keyword "load" (Any(name, rest)) -> Some(Load (name, false), rest)
         | Keyword "export" (Keyword "save" (Any(name, rest))) -> Some(Save (name, true), rest)
         | Keyword "load" (Keyword "import" (Any(name, rest))) -> Some(Load (name, true), rest)
+        | Keyword "save" (Any(name, rest)) -> Some(Save (name, false), rest)
+        | Keyword "load" (Any(name, rest)) -> Some(Load (name, false), rest)
         | _ -> None
     let (|ConsoleCommand|_|) = pack <| function
-        | DomainCommand(cmd, rest) -> Some(cmd |> DomainCommand, rest)
+        | Executable(cmd, rest) -> Some(cmd |> ExecutableCommand, rest)
         | IoOperation(cmd, rest) -> Some(cmd |> IOCommand, rest)
         | _ -> None
 

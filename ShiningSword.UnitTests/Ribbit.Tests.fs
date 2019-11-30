@@ -35,14 +35,14 @@ type ParsingResult = IO of IOCommand | Literal of Executable | Match of (Executa
 
 let whatever = Match(function _ -> true)
 
-let m = Domain.fresh
 let exec txt (model: Domain.Model) =
-    match Domain.tryParseCommand model txt with
+    match Domain.tryParseExecutable model txt with
     | Some cmd ->
         Domain.execute model cmd
     | None -> Tests.failtestf "Could not parse %s" txt
+let m = Domain.fresh |> exec "add Eladriel" |> snd
 let parse txt (model: Domain.Model) =
-    match Domain.tryParseCommand model txt with
+    match Domain.tryParseExecutable model txt with
     | Some cmd -> cmd
     | None -> Tests.failtestf "Could not parse %s" txt
 let thenExec txt (_, model) = exec txt model
@@ -58,7 +58,7 @@ m |> exec "add John" |> thenExec "John.HP = 10"
 [<Tests>]
 let tests = testList "ribbit" [
     let uiCommandExamplars = [
-        "John.HP", whatever, Some(["add John"; "John has 10 HP"], (Some (Number 10)))
+        "John.HP", Literal(Evaluate(Ref(PropertyRef(2, "HP")))), Some(["add John"; "John has 10 HP"], (Some (Number 10)))
         "John.HP+7", whatever, Some(["add John"; "John has 10 HP"], (Some (Number 17)))
         "Eladriel loses 10 HP", whatever, Some(["Eladriel.HP = 40"], None)
         "d20+7", Literal (Evaluate(Roll (Binary(Dice(1, 20), Plus, Modifier 7)))), None
@@ -72,8 +72,8 @@ let tests = testList "ribbit" [
         "6.4d6k3", whatever, None
         "save party1", IO(Save("party1", false)), None
         "load party1", IO(Load("party1", false)), None
-        "export save maxwilson/party1", IO(Save("party1", true)), None
-        "load import maxwilson/party1", IO(Load("party1", true)), None
+        "export save maxwilson/party1", IO(Save("maxwilson/party1", true)), None
+        "load import maxwilson/party1", IO(Load("maxwilson/party1", true)), None
         ]
 
     // simple adaptor, maps list of names to ids for ease of testing
@@ -150,32 +150,34 @@ let tests = testList "ribbit" [
     testList ".exemplars"
         (uiCommandExamplars |> List.map (fun (cmdTxt, verifier, evalResult) ->
             testCase (sprintf ".Parse: %s" (cmdTxt.Replace(".", "_"))) <| fun _ ->
-                match ParseArgs.Init(cmdTxt, adaptorOf ["Eladriel"]) with
-                | Domain.Commands.Parse.ConsoleCommand(cmd, End) ->
+                let verify cmd =
                     match verifier, cmd with
-                    | Literal c', DomainCommand cmd ->
+                    | Literal c', ExecutableCommand cmd ->
                         Expect.equal cmd c' "Didn't parse correctly"
-                    | Match f, DomainCommand cmd ->
+                    | Match f, ExecutableCommand cmd ->
                         Expect.isTrue (f cmd) "Didn't parse correctly"
                     | IO c', IOCommand cmd ->
                         Expect.equal cmd c' "Didn't parse correctly"
                     | _ ->
                         Tests.failtest "Didn't parse correctly"
-                    match evalResult with
-                    | None -> ()
-                    | Some(setupSteps, result) ->
-                        let m =
-                            match setupSteps with
-                            | h::rest ->
-                                rest |> List.fold (fun m step -> thenExec step m) (m |> exec h) |> snd
-                            | [] -> m
-                        match cmd with
-                        | DomainCommand cmd ->
-                            let post = Domain.execute m cmd
-                            match result with
-                            | None -> ()
-                            | Some v -> Expect.equal (get post) v "Wrong result"
-                        | _ -> ()
-                | v -> parseFail v
+                match evalResult with
+                | None ->
+                    match Domain.tryParseCommand m cmdTxt with
+                    | Some cmd -> verify cmd
+                    | None -> Tests.failtestf "Could not parse: %s" cmdTxt
+                | Some(setupSteps, result) ->
+                    let model =
+                        match setupSteps with
+                        | h::rest ->
+                            rest |> List.fold (fun m step -> thenExec step m) (m |> exec h) |> snd
+                        | [] -> m
+                    match Domain.tryParseCommand model cmdTxt with
+                    | Some (ExecutableCommand executable as cmd) ->
+                        verify cmd
+                        let post = Domain.execute m executable
+                        match result with
+                        | None -> ()
+                        | Some v -> Expect.equal (get post) v "Wrong result"
+                    | _ -> ()
             ))
     ]

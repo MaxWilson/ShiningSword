@@ -107,7 +107,7 @@ let update msg model =
         | ENTER cmd ->
             Browser.Dom.console.log(model.domainModel)
             Browser.Dom.console.log(model.domainModel.roster |> SymmetricMap.toSeq |> Array.ofSeq)
-            match Domain.tryParseCommand model.domainModel cmd with
+            match Domain.tryParseExecutable model.domainModel cmd with
             | Some cmd' -> exec cmd cmd', Cmd.Empty
             | _ -> { model with console = model.console@[logError (sprintf "Could not parse '%s'" cmd)] }, Cmd.Empty
         | RESET -> init()
