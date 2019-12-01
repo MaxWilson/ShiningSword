@@ -3,6 +3,31 @@ open Common
 open Domain.Prelude
 
 #nowarn "40" // we're not doing anything funny at initialization-time, like calling functions in the ctor that rely on uninitialized members, so we don't need the warning
+
+// If there's no actual die-rolling involved, reify the expression to constants
+let constify expr =
+    let rec (|SimpleDice|_|) = function
+        | Binary(SimpleDice lhs, op, SimpleDice rhs) -> Some (BinaryOperation(lhs, op, rhs))
+        | Modifier n -> Some (Literal (Number n))
+        | External ref -> Some (Ref ref)
+        | _ -> None
+    let rec constify = function
+        | Roll(SimpleDice d) -> d
+        | Roll(_) as v -> v
+        | BinaryOperation(lhs, op, rhs) -> BinaryOperation(constify lhs, op, constify rhs)
+        | If data -> If {|
+                        index = constify data.index
+                        otherwise = data.otherwise |> Option.map constify
+                        branches = data.branches |> List.map (fun branch ->
+                            let (comp, expr) = branch.test
+                            {|  test = (comp, constify expr)
+                                consequence = constify branch.consequence |})
+                        |}
+        | BestN (n, exprs) -> BestN(n, exprs |> List.map constify)
+        | Negate expr -> Negate (constify expr)
+        | v -> v
+    constify expr
+
 module Parse =
     open Domain.Dice
     open Domain.Dice.Parse
@@ -92,8 +117,7 @@ module Parse =
         | Keyword "add" (Any(name, rest)) -> Some(AddRow name, rest)
         | Keyword "avg" (DieEvaluation(e, rest)) -> Some(Average e, rest)
         | SetProperty(cmd, rest) -> Some(cmd , rest)
-        | DieEvaluation(Roll(External(ref)), rest) -> Some(Evaluate(Ref ref), rest)
-        | DieEvaluation(d, rest) -> Some(Evaluate(d), rest)
+        | DieEvaluation(expr, rest) -> Some(Evaluate(constify expr), rest)
         | _ -> None
     let (|IoOperation|_|) = pack <| function
         | Keyword "export" (Keyword "save" (Any(name, rest))) -> Some(Save (name, true), rest)
