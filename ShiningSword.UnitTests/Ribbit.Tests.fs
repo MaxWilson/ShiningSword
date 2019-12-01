@@ -41,7 +41,6 @@ let exec txt (model: Domain.Model) =
     | Some cmd ->
         Domain.execute model cmd
     | None -> Tests.failtestf "Could not parse %s" txt
-let m = Domain.fresh |> exec "add Eladriel" |> snd
 let parse txt (model: Domain.Model) =
     match Domain.tryParseExecutable model txt with
     | Some cmd -> cmd
@@ -53,6 +52,7 @@ let get (eventId, model: Model) =
     | Ready v -> v
     | Awaiting _ as v -> Tests.failtestf "Expected result to be available synchronously but got %A" v
 #if INTERACTIVE
+let m = Domain.fresh |> exec "add Eladriel" |> snd
 m |> exec "add John" |> thenParse "John.HP = 10"
 m |> exec "add John" |> thenExec "John.HP = 10" |> thenExec "John.HP" |> get
 m |> parse "Eladriel.HP"
@@ -155,6 +155,7 @@ let tests = testList "ribbit" [
     testList ".exemplars"
         (uiCommandExamplars |> List.map (fun (cmdTxt, verifier, evalResult) ->
             testCase (sprintf ".Parse: %s" (cmdTxt.Replace(".", "_"))) <| fun _ ->
+                let m = Domain.fresh |> exec "add Eladriel" |> snd
                 let verify cmd =
                     match verifier, cmd with
                     | Exact c', ExecutableCommand cmd ->
