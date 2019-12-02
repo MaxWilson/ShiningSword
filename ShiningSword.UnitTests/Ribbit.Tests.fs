@@ -60,15 +60,17 @@ m |> parse "Eladriel.HP"
 [<Tests>]
 let tests = testList "ribbit" [
     let uiCommandExamplars = [
-        "John.HP", Exact(Evaluate(Ref(PropertyRef(2, "HP")))), Some(["add John"; "John has 10 HP"],
-            (Some (Number 10)))
+        "John.HP", Exact(Evaluate(Ref(PropertyRef(2, "HP")))),
+            Some(["add John"; "John has 10 HP"], (Number 10))
         "John.HP+7", Exact(Evaluate(BinaryOperation(Ref(PropertyRef(2, "HP")), Plus, Literal (Number 7)))),
-            Some(["add John"; "John has 10 HP"], (Some (Number 17)))
+            Some(["add John"; "John has 10 HP"], (Number 17))
         "Eladriel loses 10 HP", whatever,
-            Some(["Eladriel.HP = 40"], None)
+            Some(["Eladriel.HP = 40"], Nothing)
         "d20+7", Exact (Evaluate(Roll (Binary(Dice(1, 20), Plus, Modifier 7)))), None
-        "add Eladriel", Exact (AddRow("Eladriel")), None
-        "Eladriel.HP = 10", Exact(SetProperty([1, "HP"], Expression.Literal(Number 10))), None
+        "add Eladriel", Exact (AddRow("Eladriel")),
+            Some ([], Nothing)
+        "Eladriel.HP = 10", Exact(SetProperty([1, "HP"], Expression.Literal(Number 10))),
+            Some ([], Nothing)
         "Eladriel loses d6 HP", Exact(ChangeProperty([1, "HP"], Negate(Roll(Dice(1,6))))), None
         "/Suddenly [d10] trolls attack!", (Exact <| Log [Text "Suddenly "; LogExpression ("d10", Roll (Dice(1,10))); Text " trolls attack!"]), None
         "avg 4.att 20 6a 2d6+5", whatever, None
@@ -171,7 +173,7 @@ let tests = testList "ribbit" [
                     match Domain.tryParseCommand m cmdTxt with
                     | Some cmd -> verify cmd
                     | None -> Tests.failtestf "Could not parse: %s" cmdTxt
-                | Some(setupSteps, result) ->
+                | Some(setupSteps, expectedResult) ->
                     let model =
                         match setupSteps with
                         | h::rest ->
@@ -181,9 +183,7 @@ let tests = testList "ribbit" [
                     | Some (ExecutableCommand executable as cmd) ->
                         verify cmd
                         let post = Domain.execute model executable
-                        match result with
-                        | None -> ()
-                        | Some v -> Expect.equal (get post) v "Wrong result"
+                        Expect.equal (get post) expectedResult "Wrong result"
                     | _ -> ()
             ))
     ]
