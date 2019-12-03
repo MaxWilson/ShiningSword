@@ -47,8 +47,7 @@ let view m dispatch =
                 | None -> // failed to parse command
                     li[ClassName "error"][str (sprintf "Didn't understand '%s'" c.cmdText)]
                 | Some e ->
-                    let eventId = c.eventId.Value
-                    match e with
+                    match e.status with
                     | Ready v -> li[ClassName "resolved"][str <| v.ToString()]
                     | Awaiting(_) ->
                         let d = m.domainModel
@@ -58,6 +57,7 @@ let view m dispatch =
                             | ref ->
                                 let d = m.domainModel
                                 d.blocking.backward.[ref].Head |> getDependency
+                        let eventId = c.eventId.Value
                         try
                             try
                                 let dependencies = getDependency (EventRef eventId) |> String.join ", "

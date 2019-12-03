@@ -30,21 +30,21 @@ module Functor =
 
 type FastList<'t> = { rows: Map<int, 't>; lastId: int option }
     with
-    static member add (data, row: 't)=
-        let id = (defaultArg data.lastId 0) + 1
-        { data with rows = data.rows |> Map.add id row; lastId = Some id }
-    static member transform(data, (id, f)) =
-        let row = data.rows.[id]
-        { data with rows = data.rows |> Map.add id (f row) }
-    static member replace(data, (id, row)) =
-        { data with rows = data.rows |> Map.add id row }
-    static member toSeq(data) =
-        seq { for i in 1..(defaultArg data.lastId 0) -> data.rows.[i] }
+    static member add (fastList: FastList<'t>, row: 't)=
+        let id = (defaultArg fastList.lastId 0) + 1
+        { fastList with rows = fastList.rows |> Map.add id row; lastId = Some id }
+    static member transform(fastList: FastList<'t>, (id, f)) =
+        let row = fastList.rows.[id]
+        { fastList with rows = fastList.rows |> Map.add id (f row) }
+    static member replace(fastList: FastList<'t>, (id, row)) =
+        { fastList with rows = fastList.rows |> Map.add id row }
+    static member toSeq(fastList: FastList<'t>) =
+        seq { for i in 1..(defaultArg fastList.lastId 0) -> fastList.rows.[i] }
     static member fresh(): FastList<'t> = { rows = Map.empty; lastId = None }
-    static member tryFind(data, id) =
-        data.rows |> Map.tryFind id
-    static member find(data, id) =
-        data.rows |> Map.find id
+    static member tryFind(fastList: FastList<'t>, id) =
+        fastList.rows |> Map.tryFind id
+    static member find(fastList: FastList<'t>, id) =
+        fastList.rows |> Map.find id
 
 module SymmetricMap =
     type Data<'key, 'v when 'key: comparison and 'v: comparison> = Map<'key, 'v> * Map<'v, 'key>

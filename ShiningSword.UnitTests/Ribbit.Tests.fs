@@ -48,7 +48,7 @@ let parse txt (model: Domain.Model) =
 let thenExec txt (_, model) = exec txt model
 let thenParse txt (_, model) = parse txt model
 let get (eventId, model: Model) =
-    match model.eventLog.rows.[eventId] with
+    match model.eventLog.rows.[eventId].status with
     | Ready v -> v
     | Awaiting _ as v -> Tests.failtestf "Expected result to be available synchronously but got %A" v
 #if INTERACTIVE
@@ -61,12 +61,13 @@ m |> parse "Eladriel.HP"
 let tests = testList "ribbit" [
     let uiCommandExamplars = [
         "John.HP", Exact(Evaluate(Ref(PropertyRef(2, "HP")))),
-            Some(["add John"; "John has 10 HP"], (Number 10))
+            Some(["add John"; "John has 10 HP"], Number 10)
         "John.HP+7", Exact(Evaluate(BinaryOperation(Ref(PropertyRef(2, "HP")), Plus, Literal (Number 7)))),
-            Some(["add John"; "John has 10 HP"], (Number 17))
+            Some(["add John"; "John has 10 HP"], Number 17)
         "Eladriel loses 10 HP", whatever,
             Some(["Eladriel.HP = 40"], Nothing)
-        "d20+7", Exact (Evaluate(Roll (Binary(Dice(1, 20), Plus, Modifier 7)))), None
+        "d20+7", Exact (Evaluate(Roll (Binary(Dice(1, 20), Plus, Modifier 7)))),
+            Some([], Number 9)
         "add Eladriel", Exact (AddRow("Eladriel")),
             Some ([], Nothing)
         "Eladriel.HP = 10", Exact(SetProperty([1, "HP"], Expression.Literal(Number 10))),
@@ -156,7 +157,7 @@ let tests = testList "ribbit" [
         ]
     testList ".exemplars"
         (uiCommandExamplars |> List.map (fun (cmdTxt, verifier, evalResult) ->
-            testCase (sprintf ".Parse: %s" (cmdTxt.Replace(".", "_"))) <| fun _ ->
+            testCase (sprintf ".%s: %s" (if evalResult.IsSome then "Execute" else "Parse") (cmdTxt.Replace(".", "_"))) <| fun _ ->
                 let m = Domain.fresh |> exec "add Eladriel" |> snd
                 let verify cmd =
                     match verifier, cmd with
