@@ -1,4 +1,5 @@
 module Data
+open Common
 
 module Functor =
     // NOTE which type arguments have to be statically bound with ^ and which can be bound at JIT-time with '
@@ -27,6 +28,14 @@ module Functor =
         fun args -> (^a : (static member find: ^a * 'b -> 'c) (x,args))
     let inline find id (HasFind f) =
         f id
+    let inline (|HasTryFindValue|) x =
+        fun args -> (^a : (static member tryFindValue: ^a * 'b -> 'c option) (x,args))
+    let inline tryFindValue v (HasTryFindValue f) =
+        f v
+    let inline (|HasFindValue|) x =
+        fun args -> (^a : (static member findValue: ^a * 'b -> 'c) (x,args))
+    let inline findValue v (HasFindValue f) =
+        f v
 
 type FastList<'t> = { rows: Map<int, 't>; lastId: int option }
     with
@@ -46,18 +55,20 @@ type FastList<'t> = { rows: Map<int, 't>; lastId: int option }
     static member find(fastList: FastList<'t>, id) =
         fastList.rows |> Map.find id
 
-module SymmetricMap =
-    type Data<'key, 'v when 'key: comparison and 'v: comparison> = Map<'key, 'v> * Map<'v, 'key>
-    let inline empty() = Map.empty, Map.empty
-    let find k (d: Data<_,_>) = (fst d) |> Map.find k
-    let findValue k (d: Data<_,_>) = (snd d) |> Map.find k
-    let tryFind k (d: Data<_,_>) = (fst d) |> Map.tryFind k
-    let tryFindValue k (d: Data<_,_>) = (snd d) |> Map.tryFind k
-    let add k v (m1, m2) = m1 |> Map.add k v, m2 |> Map.add v k
-    let toSeq (d: Data<_,_>) = fst d |> Map.toSeq
-    let isEmpty (d: Data<_,_>) = fst d |> Map.isEmpty
-    let keys (d: Data<_,_>) = (d |> fst) |> Map.toSeq |> Seq.map fst
-    let values (d: Data<_,_>) = (d |> fst) |> Map.toSeq |> Seq.map snd
+type SymmetricMap<'key, 'v when 'key: comparison and 'v: comparison> = {
+    data: Map<'key, 'v> * Map<'v, 'key>
+    }
+    with
+    static member empty(): SymmetricMap<'key, 'v> = { data = Map.empty, Map.empty }
+    static member find(d: SymmetricMap<'key, 'v>, k) = (fst d.data) |> Map.find k
+    static member tryFind(d: SymmetricMap<'key, 'v>, k) = (fst d.data) |> Map.tryFind k
+    static member findValue(d: SymmetricMap<'key, 'v>, v) = (snd d.data) |> Map.find v
+    static member tryFindValue(d: SymmetricMap<'key, 'v>, v) = (snd d.data) |> Map.tryFind v
+    static member add({data=(m1, m2)}: SymmetricMap<'key, 'v>, (k,v)) = { data = (m1 |> Map.add k v), (m2 |> Map.add v k) }
+    static member toSeq(d: SymmetricMap<'key, 'v>) = (fst d.data) |> Map.toSeq
+    static member isEmpty(d: SymmetricMap<'key, 'v>) = (fst d.data) |> Map.isEmpty
+    static member keys(d: SymmetricMap<'key, 'v>) = (fst d.data) |> Map.keys
+    static member values(d: SymmetricMap<'key, 'v>) = (snd d.data) |> Map.keys
 
 module SymmetricRelation =
     type Data<'t1, 't2 when 't1: comparison and 't2: comparison> = {

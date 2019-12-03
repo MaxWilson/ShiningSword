@@ -17,11 +17,12 @@ open FsCheck
 
 open Common
 open Packrat
-open Domain
+open Data.Functor
 open Domain.Prelude
 open Domain.Properties
 open Domain.Dice
 open Domain.Commands
+open Domain
 
 #if INTERACTIVE
 let parseFail ((args: ParseArgs), _) = failwithf "Could not parse '%s'" args.input
@@ -51,48 +52,68 @@ let get (eventId, model: Model) =
     match model.eventLog.rows.[eventId].status with
     | Ready v -> v
     | Awaiting _ as v -> Tests.failtestf "Expected result to be available synchronously but got %A" v
+type Spec = ParseOnly | CheckValue of setup:string list * Value | CheckRolledValue of setup:string list * Value * (string*int) list
+let fulfillRolls fulfiller model =
+    let dice =
+        model.blocking.forward
+        |> Map.keys
+        |> Seq.choose (
+            function
+            | EventRef(id) ->
+                match model.eventLog |> find id |> Event.Status with
+                | AwaitingRoll d -> Some (id, d)
+                | _ -> None
+            | _ -> None
+                )
+    let tryFulfill model (eventId, d:Dice<_>) =
+        match fulfiller d with
+        | Some n ->
+            fulfillRoll eventId n model
+        | None -> model
+    dice |> Seq.fold tryFulfill model
+let supply listOfRandoms =
+    let fulfiller roll =
+        let target = Dice.toString roll
+        listOfRandoms |> List.tryFind (fst >> (=) target) |> Option.map snd
+    fulfillRolls fulfiller
 #if INTERACTIVE
 let m = Domain.fresh |> exec "add Eladriel" |> snd
-m |> exec "add John" |> thenParse "John.HP = 10"
-m |> exec "add John" |> thenExec "John.HP = 10" |> thenExec "John.HP" |> get
-m |> parse "Eladriel.HP"
+let roll rolls (id, model) = (id, supply rolls model)
+m |> exec "add John" |> thenExec "John has 29 HP" |> thenExec "John loses 2d8 HP" |> roll ["2d8", 4]
+m |> exec "Eladriel has 10 HP" |> thenExec "Eladriel loses 2d6 HP" |> roll ["2d6", 4] |> get
+m |> exec "d20+7" |> roll ["1d20+7", 9] |> get
+m |> exec "Eladriel gains 2d6 HP" |> thenExec "Eladriel has 10 HP" |> roll ["2d6", 4]
 #endif
 [<Tests>]
 let tests = testList "ribbit" [
     let uiCommandExamplars = [
         "John.HP", Exact(Evaluate(Ref(PropertyRef(2, "HP")))),
-            Some(["add John"; "John has 10 HP"], Number 10)
+            CheckValue(["add John"; "John has 10 HP"], Number 10)
         "John.HP+7", Exact(Evaluate(BinaryOperation(Ref(PropertyRef(2, "HP")), Plus, Literal (Number 7)))),
-            Some(["add John"; "John has 10 HP"], Number 17)
-        "Eladriel loses 10 HP", whatever,
-            Some(["Eladriel.HP = 40"], Nothing)
+            CheckValue(["add John"; "John has 10 HP"], Number 17)
         "d20+7", Exact (Evaluate(Roll (Binary(Dice(1, 20), Plus, Modifier 7)))),
-            Some([], Number 9)
+            CheckRolledValue([], Number 9, ["1d20+7", 9])
         "add Eladriel", Exact (AddRow("Eladriel")),
-            Some ([], Nothing)
+            CheckValue ([], Nothing)
         "Eladriel.HP = 10", Exact(SetProperty([1, "HP"], Expression.Literal(Number 10))),
-            Some ([], Nothing)
-        "Eladriel loses d6 HP", Exact(ChangeProperty([1, "HP"], Negate(Roll(Dice(1,6))))), None
-        "/Suddenly [d10] trolls attack!", (Exact <| Log [Text "Suddenly "; LogExpression ("d10", Roll (Dice(1,10))); Text " trolls attack!"]), None
-        "avg 4.att 20 6a 2d6+5", whatever, None
-        "d20+6 at least 14?0:12d6", whatever, None
-        "13d?8d6/2:8d6", whatever, None
-        "6.4d6k3", whatever, None
-        "save party1", IO(Save("party1", false)), None
-        "load party1", IO(Load("party1", false)), None
-        "export save maxwilson/party1", IO(Save("maxwilson/party1", true)), None
-        "load import maxwilson/party1", IO(Load("maxwilson/party1", true)), None
+            CheckValue ([], Nothing)
+        "Eladriel loses d6 HP", Exact(ChangeProperty([1, "HP"], Negate(Roll(Dice(1,6))))), ParseOnly
+        "Eladriel loses 10 HP", whatever,
+            CheckValue(["Eladriel.HP = 40"], Nothing)
+        "Eladriel gains 2d6 HP", whatever,
+            CheckRolledValue(["Eladriel.HP = 40"], Nothing, ["2d6", 4])
+        "Eladriel.HP", whatever,
+            CheckRolledValue(["Eladriel loses 2d6 HP";"Eladriel.HP = 40"], Number 36, ["2d6", 4])
+        "/Suddenly [d10] trolls attack!", (Exact <| Log [Text "Suddenly "; LogExpression ("d10", Roll (Dice(1,10))); Text " trolls attack!"]), ParseOnly
+        "avg 4.att 20 6a 2d6+5", whatever, ParseOnly
+        "d20+6 at least 14?0:12d6", whatever, ParseOnly
+        "13d?8d6/2:8d6", whatever, ParseOnly
+        "6.4d6k3", whatever, ParseOnly
+        "save party1", IO(Save("party1", false)), ParseOnly
+        "load party1", IO(Load("party1", false)), ParseOnly
+        "export save maxwilson/party1", IO(Save("maxwilson/party1", true)), ParseOnly
+        "load import maxwilson/party1", IO(Load("maxwilson/party1", true)), ParseOnly
         ]
-
-    // simple adaptor, maps list of names to ids for ease of testing
-    let adaptorOf names: RosterAdaptor =
-        let names = "globalPlaceholder" :: List.ofSeq names // just a placeholder to make the first name come out to ID 1, which probably doesn't matter for now
-        {
-                    isValidNamePrefix = fun prefix -> names |> List.exists (fun (n:string) -> n.StartsWith prefix)
-                    tryNamePrefix = fun prefix -> names |> List.mapi(fun i n -> (i,n)) |> List.choose (fun (i,n) -> if n.StartsWith prefix then Some i else None)
-                    tryId = fun id -> if names.Length >= id then None else Some (names.[id])
-                    tryName = fun name -> names |> List.tryFindIndex ((=)name)
-                    }
 
     testList ".parsing" [
         testCase ".Basic parsing" <| fun _ ->
@@ -157,7 +178,7 @@ let tests = testList "ribbit" [
         ]
     testList ".exemplars"
         (uiCommandExamplars |> List.map (fun (cmdTxt, verifier, evalResult) ->
-            testCase (sprintf ".%s: %s" (if evalResult.IsSome then "Execute" else "Parse") (cmdTxt.Replace(".", "_"))) <| fun _ ->
+            testCase (sprintf ".%s: %s" (if evalResult = ParseOnly then "Parse" else "Execute") (cmdTxt.Replace(".", "_"))) <| fun _ ->
                 let m = Domain.fresh |> exec "add Eladriel" |> snd
                 let verify cmd =
                     match verifier, cmd with
@@ -169,22 +190,29 @@ let tests = testList "ribbit" [
                         Expect.equal cmd c' "Didn't parse correctly"
                     | _ ->
                         Tests.failtest "Didn't parse correctly"
-                match evalResult with
-                | None ->
-                    match Domain.tryParseCommand m cmdTxt with
-                    | Some cmd -> verify cmd
-                    | None -> Tests.failtestf "Could not parse: %s" cmdTxt
-                | Some(setupSteps, expectedResult) ->
+                let checkValue randoms setupSteps m expectedResult =
+                    let fulfill =
+                        let fulfill = supply randoms
+                        fun (arg, model) -> arg, fulfill model
                     let model =
                         match setupSteps with
                         | h::rest ->
-                            rest |> List.fold (fun m step -> thenExec step m) (m |> exec h) |> snd
+                            rest |> List.fold (fun m step -> thenExec step m |> fulfill) (m |> exec h |> fulfill) |> snd
                         | [] -> m
                     match Domain.tryParseCommand model cmdTxt with
                     | Some (ExecutableCommand executable as cmd) ->
                         verify cmd
-                        let post = Domain.execute model executable
+                        let post = Domain.execute model executable |> fulfill
                         Expect.equal (get post) expectedResult "Wrong result"
                     | _ -> ()
+                match evalResult with
+                | ParseOnly ->
+                    match Domain.tryParseCommand m cmdTxt with
+                    | Some cmd -> verify cmd
+                    | None -> Tests.failtestf "Could not parse: %s" cmdTxt
+                | CheckValue(setupSteps, expectedResult) ->
+                    checkValue [] setupSteps m expectedResult
+                | CheckRolledValue(setupSteps, expectedResult, rolls) ->
+                    checkValue rolls setupSteps m expectedResult
             ))
     ]

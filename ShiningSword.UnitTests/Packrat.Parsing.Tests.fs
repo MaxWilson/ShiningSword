@@ -9,8 +9,8 @@ open Expecto
 let parseFail ((args: ParseArgs), _) = Tests.failtestf "Could not parse %s" args.input
 
 [<Tests>]
-let tests = testList "packrat" [
-    testCase "Make sure that pack can define left-recursive grammars" <| fun _ ->
+let tests = testList "packrat/.unit" [
+    testCase ".Make sure that pack can define left-recursive grammars" <| fun _ ->
         let (|Next|Empty|) ((ctx, pos): ParseInput) =
             if pos < ctx.input.Length then Next(ctx.input.[pos], (ctx, pos+1))
             else Empty
@@ -33,7 +33,7 @@ let tests = testList "packrat" [
         | E(4, Empty) -> ()
         | v -> parseFail v
 
-    testCase "Demonstrate basic usage with grammar for converting yesno to binary-ish" <| fun _ ->
+    testCase ".Demonstrate basic usage with grammar for converting yesno to binary-ish" <| fun _ ->
         let (|YesNo|_|) = pack <| function
             | Str "yes" rest -> Some(1I, rest)
             | Str "no" rest -> Some(0I, rest)
@@ -50,7 +50,7 @@ let tests = testList "packrat" [
         | YesNos(_) -> Tests.failtest "Expected a parse failure due to leading whitespace, which the grammar forbids"
         | _ -> () // expected
 
-    testCase "Another test to ensure that left recursion is recognized" <| fun _ ->
+    testCase ".Another test to ensure that left recursion is recognized" <| fun _ ->
         let rec (|Rolls|_|) = pack <| function
             | Rolls(vs, OWS( Char('+', Roll(v, rest) ))) -> Some(vs@[v], rest)
             | Roll(v, rest) -> Some([v], rest)
@@ -65,7 +65,7 @@ let tests = testList "packrat" [
         | Roll(v, End) -> Expect.equal v 2.14 "Miscalculated pi - 1"
         | v -> parseFail v
 
-    testCase "Check performance of non-recursive pack for boundedness" <| fun _ ->
+    testCase ".Check performance of non-recursive pack for boundedness" <| fun _ ->
         let mutable counter = 0
         let (|C|_|) = pack <| fun input ->
             counter <- counter + 1
@@ -97,7 +97,7 @@ let tests = testList "packrat" [
         | A (_, A (_, Root(_, End))) -> Expect.isTrue (counter <= 6) "Should evaluate C no more than twice in each position"
         | v -> parseFail v
 
-    testCase "Show usage of additional context in ParseArgs for grammars that depend on outside context" <| fun _ ->
+    testCase ".Show usage of additional context in ParseArgs for grammars that depend on outside context" <| fun _ ->
         let (|People|_|) = ExternalContextOf<string seq>
         let rec (|Person|_|) = pack <| function
             | Word(word, rest) & People people when Seq.contains word people -> Some(word, rest)
@@ -112,7 +112,7 @@ let tests = testList "packrat" [
         Expect.equal (parse "Eraser") "Look, it's a Eraser" "Should recognize that Eraser is an object"
         Expect.equal (parse "Ann") "Hello, Ann" "Should recognize Ann as a person"
         Expect.equal (parseBase ([]:string list) "Bob") "Look, it's a Bob" "Ability to recognize Bob as a person depends on Bob being in the list of people it's trained on"
-    testCase "Verify non-trivial helper function LongestSubstringWhere" <| fun _ ->
+    testCase ".Verify non-trivial helper function LongestSubstringWhere" <| fun _ ->
             let testParameters = [
                 "zzabcdzzzzefg", "zz", 12, "abcdzzzz"
                 "zzabcdzzzzefg", "zz", 9, "abcdzzzz"

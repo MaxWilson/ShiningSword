@@ -18,7 +18,7 @@ type ConsoleLog = { cmdText: string; eventId: Id option }
 type Model = { console: ConsoleLog list; domainModel: Domain.Model }
 module Lens =
     let domainModel = Lens.lens (fun d -> d.domainModel) (fun v d -> { d with domainModel = v })
-type Cmd = ENTER of string | RESET | Error of string | Fulfill of Key * value:string
+type Cmd = ENTER of string | RESET | Error of string | FulfillProperty of Key * value:string | FulfillRoll of EventId * int
 let summaryOf (m:Domain.Model) =
     let data = m.data
     [
@@ -42,28 +42,34 @@ let summaryOf (m:Domain.Model) =
 let view m dispatch =
     try
         let log = [
-            for c in m.console ->
+            for c in m.console do
                 match c.eventId |> Option.bind (fun id -> m.domainModel.eventLog |> tryFind id) with
                 | None -> // failed to parse command
-                    li[ClassName "error"][str (sprintf "Didn't understand '%s'" c.cmdText)]
+                    yield li[ClassName "error"][str (sprintf "Didn't understand '%s'" c.cmdText)]
                 | Some e ->
                     match e.status with
-                    | Ready v -> li[ClassName "resolved"][str <| v.ToString()]
+                    | Ready v ->
+                        if v <> Nothing then
+                            yield li[ClassName "resolved"][str <| v.ToString()]
                     | Awaiting(_) ->
                         let d = m.domainModel
                         let rec getDependency = function
-                            | PropertyRef(id, _) ->
-                                d.blocking.backward.[EventRef id] |> List.collect (function PropertyRef(id, prop) -> [if id > 0 then (d.roster |> SymmetricMap.find id) + "." + prop else prop] | ref -> getDependency ref)
-                            | ref ->
+                            | PropertyRef(_) as ref ->
+                                d.blocking.backward |> Map.tryFind ref |> Option.defaultValue [ref] |> List.collect (function PropertyRef(id, prop) -> [if id > 0 then (d.roster |> find id) + "." + prop else prop] | ref -> getDependency ref)
+                            | EventRef id as ref ->
                                 let d = m.domainModel
-                                d.blocking.backward.[ref].Head |> getDependency
+                                match d.eventLog |> find id |> Event.Status with
+                                | AwaitingRoll r -> [Dice.toString r]
+                                | _ ->
+                                    d.blocking.backward.[ref].Head |> getDependency
                         let eventId = c.eventId.Value
-                        try
+                        yield
                             try
-                                let dependencies = getDependency (EventRef eventId) |> String.join ", "
-                                li[ClassName "blocked"][str <| sprintf "%s (needs %s)" c.cmdText dependencies]
-                            with _ -> li[ClassName "blocked"][str <| sprintf "Couldn't render %s" c.cmdText]
-                        with _ -> li[ClassName "blocked"][str <| sprintf "Couldn't render #%d" eventId]
+                                try
+                                    let dependencies = getDependency (EventRef eventId) |> String.join ", "
+                                    li[ClassName "blocked"][str <| sprintf "%s (needs %s)" c.cmdText dependencies]
+                                with e -> li[ClassName "blocked"][str <| sprintf "Couldn't render %s because '%s'" c.cmdText (e.ToString())]
+                            with _ -> li[ClassName "blocked"][str <| sprintf "Couldn't render #%d" eventId]
             ]
         div [ClassName ("frame" + if log = [] then "" else " withSidebar")] [
             yield div[ClassName "summaryPane"][
@@ -73,17 +79,30 @@ let view m dispatch =
             yield div[ClassName "queryPane"] [
                 View.ViewComponents.localForm "Enter a command please:" [AutoFocus true] notWhitespace (ENTER >> dispatch)
                 br[]
-                match m.domainModel.blocking.forward
-                        |> Seq.choose (function KeyValue(PropertyRef(key), _) -> Some key | _ -> None)
+                match m.domainModel.blocking.forward |> Map.keys
                         |> List.ofSeq with
                 | [] -> ()
                 | blocked -> div[][
-                    for ((id, prop) as key) in blocked do
-                        yield View.ViewComponents.localForm
-                                (sprintf "Enter value for %s's %s" (m.domainModel.roster |> SymmetricMap.find id) prop)
+                    for blockage in blocked do
+                        match blockage with
+                        | PropertyRef((id, prop) as key) ->
+                            yield View.ViewComponents.localForm
+                                (sprintf "Enter value for %s's %s" (m.domainModel.roster |> find id) prop)
                                 [ClassName "bordered"]
                                 notWhitespace
-                                (fun v -> dispatch (Fulfill ((key, v))))
+                                (fun v -> dispatch (FulfillProperty (key, v)))
+                        | EventRef(id) ->
+                            match m.domainModel.eventLog |> find id |> Event.Status with
+                            | AwaitingRoll r ->
+                                yield View.ViewComponents.localForm
+                                    (sprintf "Roll %s" <| Dice.toString r)
+                                    [ClassName "bordered"]
+                                    notWhitespace
+                                    (fun v ->
+                                        match System.Int32.TryParse v with
+                                        | true, n -> dispatch (FulfillRoll(id, n))
+                                        | _ -> dispatch (Error <| sprintf "'%s' is not a number" v))
+                            | _ -> ()
                     ]
                 br[]
                 ]
@@ -113,8 +132,10 @@ let update msg model =
         | RESET -> init()
         | Error err ->
             { model with console = model.console@[logError ("Error: " + err)] }, Cmd.Empty
-        | Fulfill(key, v) ->
+        | FulfillProperty(key, v) ->
             { model with domainModel = model.domainModel |> Domain.setProperty key (System.Int32.Parse v |> Number) }, Cmd.Empty
+        | FulfillRoll(eventId, v) ->
+            { model with domainModel = model.domainModel |> Domain.fulfillRoll eventId v }, Cmd.Empty
     with err ->
         { model with console = model.console@[logError ("Exception: " + err.ToString())] }, Cmd.Empty
 

@@ -124,3 +124,7 @@ module Hierarchy =
                 let children' = children |> List.map (help ctx)
                 reduce v children'
         help [] hierarchy
+
+module Map =
+    let keys (m:Map<_,_>) = m |> Seq.map(fun (KeyValue(k,_)) -> k)
+    let values (m:Map<_,_>) = m |> Seq.map(fun (KeyValue(_,v)) -> v)
