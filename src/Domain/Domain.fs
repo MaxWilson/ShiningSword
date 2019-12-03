@@ -33,7 +33,7 @@ module Lens =
 let addEvent e model =
     let m = model |> Lens.over Lens.eventLog (add e)
     m.eventLog.lastId.Value, m
-let await eventId refs model =
+let blockOn eventId refs model =
     let addKeys eventId blocking =
         refs
         |> List.fold (fun data key -> data |> SymmetricRelation.add key (EventRef eventId)) blocking
@@ -44,7 +44,7 @@ let addBlockingEvent parentId e model =
     let eventId, model =
         model |> addEvent ({ status = Awaiting e; causedBy = Some parentId; causes = []})
     let model = { model with eventLog = model.eventLog |> transform parentId (fun e -> { e with causes = eventId::e.causes }) }
-    eventId, model |> await eventId [EventRef eventId]
+    eventId, model |> blockOn eventId [EventRef eventId]
 
 let adaptorOf (model: Model) =
     let startsWith txt prefix =
@@ -77,7 +77,7 @@ let eval eventId model expr =
         | Ref (EventRef id) ->
             match model.eventLog |> tryFind id |> Option.map Event.Status with
             | Some (Ready v) -> Ready v
-            | Some(Awaiting _) ->
+            | Some(Awaiting _executable) ->
                 Awaiting(model.blocking.backward |> Map.find (EventRef id), (expr, model))
             | None -> Awaiting ([EventRef id], (expr, model)) // this branch might never happen
         | BinaryOperation(lhs, op, rhs) ->
@@ -152,14 +152,17 @@ let progress exec (completed: Set<Reference>) (model:Model): Model =
 
 let private resolve eventId value model =
     model |> Lens.over Lens.eventLog (transform eventId (fun e -> { e with status = (Ready value) }))
+let private await (eventId, executable) refs model =
+    model |> Lens.over Lens.eventLog (transform eventId (fun e -> { e with status = (Awaiting executable) }))
+        |> blockOn eventId refs
 
 let rec private executeHelper model eventId executable =
     match executable with
     | Evaluate expr ->
         match eval eventId model expr with
         | Ready v -> resolve eventId v model
-        | Awaiting(refs, executables) ->
-            await eventId refs model
+        | Awaiting(refs, (expr, model)) ->
+            await (eventId, Evaluate expr) refs model
     | AddRow name -> addName name model |> resolve eventId Nothing
     | SetProperty (keys, expr) ->
         let setProperty v model key =
@@ -188,7 +191,7 @@ let rec private executeHelper model eventId executable =
                 |> progress executeHelper (Set.ofList [EventRef eventId])
                 |> resolve eventId Nothing
             | v -> notImpl() // todo: if the expression isn't ready yet, how to defer? should have a way to create an eval event and wait for it
-        | _ -> await eventId blocked model
+        | _ -> await (eventId, executable) blocked model
 
 let setProperty key (value:Value) model =
     model |> addProperty (snd key) |> Lens.over Lens.data (Map.add key value)
