@@ -10,34 +10,12 @@
     <Compile Include="Common.fs" />
     <Compile Include="Data.fs" />
     <Compile Include="Abstractions\Parsing.fs" />
-    <Compile Include="Abstractions\Interaction.fs" />
     <Compile Include="Domain\Prelude.fs" />
     <Compile Include="Domain\Properties.fs" />
     <Compile Include="Domain\Dice.fs" />
     <Compile Include="Domain\Commands.fs" />
     <Compile Include="Domain\Domain.fs" />
-    <Compile Include="Modules\Log.fs" />
-    <Compile Include="Modules\Dice.fs" />
-    <Compile Include="Modules\DataEngine.fs" />
-    <Compile Include="Model\Types.fs" />
-    <Compile Include="Model\Functions.fs" />
-    <Compile Include="Model\Names.fs" />
-    <Compile Include="Model\Tables.fs" />
-    <Compile Include="Model\Operations.fs" />
-    <Compile Include="Model\Chargen.fs" />
-    <Compile Include="Model\Battle.fs" />
-    <Compile Include="Model\MapGen.fs" />
-    <Compile Include="Model\MonsterManual.fs" />
-    <Compile Include="Model\Gameplay.fs" />
     <Compile Include="View\ViewComponents.fs" />
-    <Compile Include="UI\Components.fs" />
-    <Compile Include="UI\Global.fs" />
-    <Compile Include="UI\Types.fs" />
-    <Compile Include="UI\Storage.fs" />
-    <Compile Include="UI\Battle.fs" />
-    <Compile Include="UI\MapGen.fs" />
-    <Compile Include="UI\View.fs" />
-    <Compile Include="UI\State.fs" />
     <Compile Include="UI\Ribbit.fs" />
     <Compile Include="UI\App.fs" />
     <None Include="Script1.fsx" />
@@ -49,6 +27,10 @@
     <!-- Home -->
     <!-- Navbar -->
     <!-- App -->
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Model\" />
+    <Folder Include="Modules\" />
   </ItemGroup>
   <Import Project="..\.paket\Paket.Restore.targets" />
 </Project>

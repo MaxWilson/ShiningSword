@@ -1,5 +1,4 @@
 module DataStorage
-open Interaction
 open Newtonsoft.Json
 open System.Net.Http
 
