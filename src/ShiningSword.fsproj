@@ -29,7 +29,6 @@
     <!-- App -->
   </ItemGroup>
   <ItemGroup>
-    <Folder Include="Model\" />
     <Folder Include="Modules\" />
   </ItemGroup>
   <Import Project="..\.paket\Paket.Restore.targets" />

@@ -1,107 +1,185 @@
 #load "Common.fs"
 open Common
-module Scope =
-    type PropertyName = string
-    type RowId = int
-    type Key = RowId option * PropertyName
-    type Value =
-        | Number of int | Text of string
-        | List of Value[]
-        | StructuredData of Map<string, Value>
-        with
-        static member AsText =
-            function
-                | Text v -> v
-                | _ -> shouldntHappen()
-        static member AsNumber =
-            function
-                | Number v -> v
-                | _ -> shouldntHappen()
-    type Data = {
-        propertyValues: Map<Key, Value>
-        outstandingQueries: Key list
-        }
-    module Lens =
-        let PropertyValues = Lens.lens (fun d -> d.propertyValues) (fun v d -> { d with propertyValues = v })
-    type DataResult = { data: Data; value: Value } with
-        static member Create(d,v) = { data = d; value = v }
-    let getData d = d.data
-    let getValue d = d.value
-    type QueryResult = Immediate of DataResult | Deferred of requiredValues: Key list
-    type PropertyDefinition = {
-        name: PropertyName
-        defaultValue: Key -> Data -> QueryResult
-        }
-    let parseNumber input =
-        match System.Int32.TryParse input with
-        | true, x -> Number x |> Some
-        | _ -> None
-    let parseText input =
-        if System.String.IsNullOrWhiteSpace input then None
-        else Some (Text <| input.Trim())
-    let nameList = { name = "NameList"; defaultValue = fun _ d -> Immediate <| DataResult.Create(d, List [||]) }
-    let empty : Data = { propertyValues = Map.empty; outstandingQueries = [] }
-    let write property rowId v data =
-        DataResult.Create(data |> Lens.over Lens.PropertyValues (Map.add (rowId, property.name) v), v)
-    let tryRead property rowId data : DataResult option =
-        let key = (rowId, property.name)
-        match data.propertyValues |> Map.tryFind key with
-        | Some v ->
-            DataResult.Create(data, v) |> Some
-        | None ->
-            None
-    let read property rowId data : QueryResult =
-        match data |> tryRead property rowId with
-        | Some v -> Immediate v
-        | None ->
-            match property.defaultValue (rowId, property.name) data with
-            | Immediate { data = data; value = v } ->
-                Immediate (write property rowId v data)
-            | deferred -> deferred
-    let rec private inquireBase getName parser (key: Key) data =
-        Deferred [key]
-    let rec private inquire0 inquireBase getName parser (key: Key) data =
-        let data =
-            match key with
-            | (Some id, propertyName) ->
-                let dr: DataResult = getName (Some id) data
-                let name = (dr.value |> Value.AsText)
-                printfn "Enter %s's %s:" name propertyName
-                data
-            | None, propertyName ->
-               printfn "Enter %s:" propertyName
-               data
-        match parser (System.Console.ReadLine()) with
-        | Some v -> DataResult.Create(data, v)
-        | _ ->
-            printf "I don't understand. "
-            inquireBase getName parser key data
-    let name =
-        let getNameSubstitute (rowId: RowId option) data = DataResult.Create(data, Text (sprintf "Creature #%d" rowId.Value))
-        let generateNameOrAsk key data =
-            match key with
-            | Some rowId, _ ->
-                match read nameList (Some rowId) data with
-                | Immediate { data = data; value = List names } when names.Length > 0 ->
-                    Immediate <| DataResult.Create(data, chooseRandom names)
-                | _ -> Deferred [Some rowId, "Name"] // inquireBase getNameSubstitute parseText (Some rowId, "Name") data
-            | _ -> failwith "Name doesn't make sense at the global scope"
-        { name = "Name"; defaultValue = generateNameOrAsk }
-    let inquire = inquireBase (read name)
 
-open Scope
+(* Okay, so... we need a way to store character stats.
+We need: stats, levels, persistent decisions, equipment, and current resource states
+We need a way to model CLASSES as well as individual characters.
 
-let d = empty
-let getValue = function | Deferred _ -> None | Immediate dr -> Some dr.value
-let str = { PropertyDefinition.name = "Strength"; defaultValue = inquire parseNumber }
-d |> write str (Some 11) (Number 19) |> getData |> read str (Some 11) |> getValue
+*)
+
+type Number = int
+type Stat = Str | Dex | Con | Int | Wis | Cha
+type Stats = {
+    Str: Number
+    Dex: Number
+    Con: Number
+    Int: Number
+    Wis: Number
+    Cha: Number
+}
+
+let stat stat =
+    match stat with
+    | Str -> Lens.lens (fun c -> c.Str) (fun v c -> { c with Str = v })
+    | Dex -> Lens.lens (fun c -> c.Dex) (fun v c -> { c with Dex = v })
+    | Con -> Lens.lens (fun c -> c.Con) (fun v c -> { c with Con = v })
+    | Int -> Lens.lens (fun c -> c.Int) (fun v c -> { c with Int = v })
+    | Wis -> Lens.lens (fun c -> c.Wis) (fun v c -> { c with Wis = v })
+    | Cha -> Lens.lens (fun c -> c.Cha) (fun v c -> { c with Cha = v })
+
+type Race = Human | Elf | Dwarf | Halfling | HalfElf
+type SpellList = Wizards | Druids | Clerics | Bards | Warlocks | Paladins | Rangers
+type FeatureTag =
+    | HeavyArmorDamageResistance
+    | Faster
+    | ExtraHP
+    | SecondWind
+    | ActionSurge
+    | ExtraAttack
+    | Indomitable
+type Feature =
+    | Race of Race
+    | Subrace of string
+    | HeavyArmorMaster
+    | ASI of Stat * int
+    | GreatWeaponMaster
+    | Sharpshooter
+    | DefensiveDuelist
+    | CharmResist
+    | NoSleep
+    | ExtraCantrip of SpellList
+    | Feat
+    | PoisonResist
+    | MediumArmorProficiency
+    | Darkvision
+    | ArcheryStyle
+    | DefenseStyle
+    | DuelingStyle
+    | ChooseSplitASI
+    | ChooseFullASI
+    | FeatOrASI
+    | QuantizedFeature of FeatureTag * int
+
+let descriptions =
+    let times = function 1 -> "Once" | 2 -> "Twice" | n -> sprintf "%d times" n
+    function
+    | QuantizedFeature(HeavyArmorDamageResistance, n) ->
+        sprintf "Damage resistance %d vs. nonmagical damage while wearing heavy armor" n
+    | ASI(ability, bonus) ->
+        sprintf "+%d to %s" bonus (ability.ToString())
+    | Race race ->
+        sprintf "You are a %A" race
+    | Subrace subrace ->
+        sprintf "You are a %A" subrace
+    //| ClassLevel(cl, n) ->
+    //    sprintf "You are a level %d or higher %A" n cl
+    | QuantizedFeature(Faster, n) ->
+        sprintf "Your speed increases by %d' per round" n
+    | CharmResist ->
+        "You have advantage on saving throws against charm effects"
+    | NoSleep ->
+        "You do not need to sleep, nor can magic put you to sleep"
+    | QuantizedFeature(ExtraHP, n) ->
+        sprintf "You gain %d additional HP per level" n
+    | PoisonResist -> "You have advantage on saving throws against poison, and you are resistant to poison damage"
+    | MediumArmorProficiency -> "You are proficient in the use of medium armors like breastplates and half-plate"
+    | Darkvision -> "You can see normally in shadows or dim light up to 60' away, and you can see dimly in darkness up to 60' away"
+    | QuantizedFeature(SecondWind, n) -> sprintf "Once per short rest you can regain 1d10+%d HP as a bonus action" n
+    | QuantizedFeature(ActionSurge, n) -> sprintf "%s per short rest you can take two actions in a single turn" (times n)
+    | QuantizedFeature(ExtraAttack, n) -> sprintf "When you take the Attack action you can attack %d times instead of only once" (n+1)
+    | QuantizedFeature(Indomitable, n) -> sprintf "%s per long rest you can re-attempt a failed saving throw" (times n)
+    | v -> sprintf "%A" v
+
+type Consequent =
+    | Grants of Feature // grants this other feature automatically
+    | GrantsAll of Feature list // grants all of these features automatically
+    | Choose of Feature list // grants ONE of the choices
+    | ChooseN of N: int * Feature list // grants N of the choices
+
+let featureGraph : (Feature * Consequent) [] = [|
+    Race Dwarf, GrantsAll [ASI(Con, +2); PoisonResist; Darkvision]
+    Race Dwarf, Choose [Subrace "Hill dwarf"; Subrace "Mountain dwarf"]
+    Subrace "Hill dwarf", Grants (ASI(Wis, +1))
+    Subrace "Hill dwarf", Grants (QuantizedFeature(ExtraHP, 1))
+    Subrace "Mountain dwarf", Grants (ASI(Str, +2))
+    Subrace "Mountain dwarf", Grants MediumArmorProficiency
+    Race Elf, Choose [Subrace "Wood elf"; Subrace "High elf"]
+    Race Elf, Grants (ASI(Dex, +2))
+    Race Elf, Grants CharmResist
+    Race Elf, Grants NoSleep
+    Race Elf, Grants Darkvision
+    Subrace "Wood elf", Grants (QuantizedFeature(Faster, 10))
+    Subrace "Wood elf", Grants (ASI(Wis, +1))
+    Subrace "High elf", Grants (ASI(Int, +1))
+    Subrace "High elf", Grants (ExtraCantrip Wizards)
+    Race HalfElf, Grants (ASI (Cha, +2))
+    Race HalfElf, ChooseN (2, [ASI (Str, +1); ASI (Dex, +1); ASI (Con, +1); ASI (Int, +1); ASI (Wis, +1)])
+    Race HalfElf, Grants CharmResist
+    Race HalfElf, Grants NoSleep
+    Race Human, ChooseN (2, [ASI (Str, +1); ASI (Dex, +1); ASI (Con, +1); ASI (Int, +1); ASI (Wis, +1); ASI (Cha, +1)])
+    Race Human, Grants Feat
+    Feat, Choose [Sharpshooter; GreatWeaponMaster; HeavyArmorMaster; DefensiveDuelist]
+    HeavyArmorMaster, Grants (ASI (Str, +1))
+    ChooseSplitASI, ChooseN (2, [ASI (Str, +1); ASI (Dex, +1); ASI (Con, +1); ASI (Int, +1); ASI (Wis, +1); ASI (Cha, +1)])
+    ChooseFullASI, Choose [ASI (Str, +2); ASI (Dex, +2); ASI (Con, +2); ASI (Int, +2); ASI (Wis, +2); ASI (Cha, +2)]
+    FeatOrASI, Choose [Feat; ChooseFullASI; ChooseSplitASI]
+    |]
 
 
-module REPL =
-    type Command = Command
-    let parse (input: string): Command option =
-        Some Command
-    let exec (cmd: Command) (data: Data) : Data =
-        data
 
+type Trait = {
+    name: string
+    description: string
+}
 
+type Level = {
+    hitDieSize: Number
+    traits: Consequent list
+}
+
+type CharacterClass = {
+    name: string
+    savingThrowProficiencies: Stat * Stat
+    levels: Level list
+}
+
+type Comparison = AtLeast | AtMost
+type Prereq = StatPrereq of Stat * Comparison * Number | RacePrereq of Race
+
+type Template = {
+    prereqs: Prereq list
+    name: string
+    priorities: (Stat * Number) list
+    build: CharacterClass
+}
+
+type Charsheet = {
+    name: string
+    stats: Stats
+    characterClass: CharacterClass
+    xp: Number
+    level: Number
+    AC: Number
+    HP: Number
+    features: Feature list
+}
+
+let fighter = {
+    CharacterClass.name = "Fighter"
+    savingThrowProficiencies = (Str, Con)
+    levels = [
+        for i in 1..20 do
+            match i with
+            | 4 | 6 | 8 | 12 | 14 | 16 | 19 ->
+                [Grants FeatOrASI]
+            | 5 -> [Grants (QuantizedFeature(ExtraAttack, 1))]
+            | 11 -> [Grants (QuantizedFeature(ExtraAttack, 2))]
+            | 20 -> [Grants (QuantizedFeature(ExtraAttack, 3))]
+            | _ -> []
+        ] |> List.mapi (fun i traits -> { hitDieSize = 10; traits = Grants (QuantizedFeature(SecondWind, i))::traits })
+}
+
+type FixedPointOrOffer<'t, 'offer> = FixedPoint of 't | Offer of 'offer
+// If I make an offer, there needs to be a way for you to accept that offer, and a result of doing so
+let iterateTowardsFeatures (sheet: Charsheet): FixedPointOrOffer<Charsheet, Feature list * Consequent list> =
+    ()
