@@ -176,10 +176,24 @@ let fighter = {
             | 11 -> [Grants (QuantizedFeature(ExtraAttack, 2))]
             | 20 -> [Grants (QuantizedFeature(ExtraAttack, 3))]
             | _ -> []
-        ] |> List.mapi (fun i traits -> { hitDieSize = 10; traits = Grants (QuantizedFeature(SecondWind, i))::traits })
+        ] |> List.mapi (fun i traits -> { hitDieSize = 10; traits = Grants (QuantizedFeature(SecondWind, i+1))::traits })
 }
 
 type FixedPointOrOffer<'t, 'offer> = FixedPoint of 't | Offer of 'offer
-// If I make an offer, there needs to be a way for you to accept that offer, and a result of doing so
-let iterateTowardsFeatures (sheet: Charsheet): FixedPointOrOffer<Charsheet, Feature list * Consequent list> =
-    ()
+
+module Feature =
+    // ensure that only the highest-level version of any quantized feature is retained
+    let consolidate (features: Feature list) =
+        features |> List.filter (function QuantizedFeature(tag, n) -> not (features |> List.exists(function QuantizedFeature(tag', n') when tag = tag' -> n' > n | _ -> false)) | _ -> true)
+                    |> List.fold (fun accum item -> match item with QuantizedFeature(tag, n) -> (if accum |> List.contains item then accum else item::accum) | _ -> item::accum) []
+    let collectGrants (offers: Consequent list) =
+        offers |> List.collect(function Grants f -> [f] | GrantsAll fs -> fs | _ -> [])
+open Feature
+
+module Choice =
+    let enumerate<'t, 'option> (getChoices: 't -> (int * 'option list) option) (chaining: 'option -> 't list) (roots: 't list) =
+        ()
+    let validate<'t, 'option> (getChoices: 't -> (int * 'option list) option) (chaining: 'option -> 't list) (roots: 't list) =
+        ()
+
+fighter.levels |> List.collect(fun l -> l.traits |> collectGrants) |> consolidate
