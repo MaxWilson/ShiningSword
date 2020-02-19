@@ -156,7 +156,7 @@ let levelOf xp =
 
 let report (charSheet: CharSheet) =
     let stats = charSheet.stats
-    let stats = sprintf "Str: %d Dex: %d Con: %d Int: %d Wis: %d Cha: %d" stats.str stats.dex stats.con stats.int stats.wis stats.cha
+    let stats = sprintf "Str: %d Dex: %d Con: %d Int: %d Wis: %d Cha: %d%s" stats.str stats.dex stats.con stats.int stats.wis stats.cha (if charSheet.mythmaker then " [Mythic]" else "")
     printfn "%s: %s\n%s" charSheet.name (sprintf "Level %d %A %s" (levelOf charSheet.xp) charSheet.gender charSheet.template.name) stats
 
 let cheap() =
