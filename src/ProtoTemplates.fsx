@@ -8,7 +8,11 @@ open Common
 type Datum = | Number of int | Text of string
 type CharData = Map<string, Datum>
 
-let rollStats() =
+let roll3d6() =
+    let roll() =
+        List.init 3 (thunk1 rand 6) |> List.sum
+    List.init 6 (ignore1 roll)
+let roll4d6k3() =
     let roll() =
         List.init 4 (thunk1 rand 6) |> List.sortDescending |> List.take 3 |> List.sum
     List.init 6 (ignore1 roll)
@@ -19,6 +23,7 @@ type Gender = Male | Female
 type Constraint =
     | AtLeast of Stat * int
     | Gender of Gender
+    | Mythmaker
 
 type NameGen = Gender -> string
 
@@ -43,11 +48,19 @@ type CharSheet = {
     gender: Gender
     template: Template
     stats: Stats
+    xp: int
+    mythmaker: bool
     }
 
-rollStats()
+let lookup (s: Stats) = function
+    | Str -> s.str
+    | Dex -> s.dex
+    | Con -> s.con
+    | Int -> s.int
+    | Wis -> s.wis
+    | Cha -> s.cha
 
-let satisfice (template: Template) (nameGen: NameGen option) stats : CharSheet option =
+let satisfice (template: Template) (nameGen: NameGen option) stats mythic : CharSheet option =
     let statsSatisfice (pri: (Stat * int) list) (stats: _ list) =
         let augment stats =
             stats
@@ -76,7 +89,18 @@ let satisfice (template: Template) (nameGen: NameGen option) stats : CharSheet o
                 statsInOrderByPriority
                 |> flip List.zip (stats |> List.sortDescending)
                 |> List.fold assign empty
-            Some stats
+            let violations =
+                template.constraints |> Seq.filter (function
+                | AtLeast(stat, minimum) ->
+                    let v = lookup stats stat
+                    v < minimum
+                | Mythmaker ->
+                    mythic = false // violation if not a mythmaker
+                | _ -> false // otherwise not a violation
+                )
+            if violations |> Seq.isEmpty then
+                Some stats
+            else None
         else
             None
     let genderSatisfice() =
@@ -89,26 +113,78 @@ let satisfice (template: Template) (nameGen: NameGen option) stats : CharSheet o
           gender = gender
           stats = stats
           template = template
+          xp = 0
+          mythmaker = mythic
           }
         |> Some
-    | None -> None
+    | _ -> None
 
 let defaultNames = function
     | Male -> ["Varic the Red"; "Durmstrong"; "Sad Sam"] |> chooseRandom
     | Female -> ["Mad Marta"; "Slashing Sally"; "Dynamo"] |> chooseRandom
+
 let templates = [
-    { name = "Holy Warrior"; nameGen = defaultNames; statPriorities = [Cha, 1; Str, 2; Con, 2; Wis, 3]; constraints = [AtLeast(Cha, 16); AtLeast(Wis, 12); AtLeast(Str, 15)] }
-    { name = "Monklock"; nameGen = defaultNames; statPriorities = [Cha, 1; Dex, 2; Con, 3; Wis, 2]; constraints = [AtLeast(Cha, 16); AtLeast(Wis, 15); AtLeast(Dex, 15)] }
-    { name = "Eldritch Knight Sharpshooter"; nameGen = defaultNames; statPriorities = [Dex, 1; Con, 2; Int, 3]; constraints = [AtLeast(Dex, 15); AtLeast(Con, 12);] }
-    { name = "Valentinian"; nameGen = defaultNames; statPriorities = [Dex, 1; Con, 2; Int, 3]; constraints = [AtLeast(Dex, 15); AtLeast(Con, 12);] }
+    { name = "Holy Warrior"; nameGen = defaultNames; statPriorities = [Cha, 1; Str, 2; Con, 2; Wis, 3]; constraints = [AtLeast(Cha, 16); AtLeast(Wis, 12); AtLeast(Str, 15); Mythmaker] }
+    { name = "Shadow Ninja"; nameGen = defaultNames; statPriorities = [Dex, 1; Con, 3; Wis, 2]; constraints = [AtLeast(Wis, 16); AtLeast(Dex, 16); ] }
+    { name = "Monklock"; nameGen = defaultNames; statPriorities = [Cha, 1; Dex, 2; Con, 3; Wis, 2]; constraints = [AtLeast(Cha, 16); AtLeast(Wis, 15); AtLeast(Dex, 15); Mythmaker] }
+    { name = "Nimble Cataphract"; nameGen = defaultNames; statPriorities = [Dex, 1; Con, 2]; constraints = [AtLeast(Dex, 15); AtLeast(Con, 12);] }
+    { name = "Armored Cataphract"; nameGen = defaultNames; statPriorities = [Str, 1; Con, 2]; constraints = [AtLeast(Str, 15); AtLeast(Con, 12);] }
+    { name = "Eldritch Knight Sharpshooter"; nameGen = defaultNames; statPriorities = [Dex, 1; Con, 2; Int, 3]; constraints = [AtLeast(Dex, 15); AtLeast(Con, 12); Mythmaker] }
+    { name = "Valentinian"; nameGen = defaultNames; statPriorities = [Dex, 1; Con, 2; Int, 3]; constraints = [AtLeast(Dex, 15); AtLeast(Con, 12); Mythmaker] }
     { name = "Thief"; nameGen = defaultNames; statPriorities = [Dex, 1; Con, 2]; constraints = [AtLeast(Dex, 13)] }
     { name = "Thug"; nameGen = defaultNames; statPriorities = [Str, 1; Con, 2]; constraints = [AtLeast(Str, 13)] }
     { name = "Dregs"; nameGen = defaultNames; statPriorities = []; constraints = [] }
     ]
 
-let generate() =
-    let stats = rollStats()
-    let templates = templates |> Seq.sortBy(fun t -> List.init (1 + t.constraints.Length) (thunk1 rand 6))
-    templates |> Seq.pick (fun t -> satisfice t None stats)
+let instantiate guaranteedMythic stats =
+    let templates = templates |> Seq.sortByDescending(fun t -> List.init (1 + t.constraints.Length) (thunk1 rand 6))
+    let mythic = guaranteedMythic || rand 100 <= 10
+    templates |> Seq.pick (fun t -> satisfice t None stats mythic)
 
-[for x in 1..10 -> x, generate()]
+let mutable gp = 3000
+let deduct price =
+    gp <- gp - price
+
+let mutable roster : CharSheet list = []
+
+let add charSheet =
+    roster <- roster @ [charSheet]
+    charSheet
+
+let levelOf xp =
+    1 + (sqrt ((xp / 100) |> float) |> int)
+
+let report (charSheet: CharSheet) =
+    let stats = charSheet.stats
+    let stats = sprintf "Str: %d Dex: %d Con: %d Int: %d Wis: %d Cha: %d" stats.str stats.dex stats.con stats.int stats.wis stats.cha
+    printfn "%s: %s\n%s" charSheet.name (sprintf "Level %d %A %s" (levelOf charSheet.xp) charSheet.gender charSheet.template.name) stats
+
+let cheap() =
+    deduct 100
+    roll3d6() |> instantiate false |> add |> report
+    printfn "%d gp left" gp
+
+let elite() =
+    deduct 700
+    roll4d6k3() |> instantiate false |> add |> report
+    printfn "%d gp left" gp
+
+let mythic() =
+    deduct 1000
+    roll4d6k3() |> instantiate true |> add |> report
+    printfn "%d gp left" gp
+
+let day gpEarned xpEarned =
+    gp <- gp + gpEarned
+    roster <- [for r in roster -> { r with xp = r.xp + (xpEarned / roster.Length)}]
+    let expenses = ([for r in roster -> levelOf r.xp * (if r.mythmaker then 200 else 100)]) |> List.sum
+    deduct expenses
+    printfn "Earned %d gp and %d XP\nPaid %d gp\nBalance: %d gp in purse" gpEarned xpEarned expenses gp
+    for r in roster do
+        report r
+
+
+cheap()
+elite()
+mythic()
+day 5000 1000

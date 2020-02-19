@@ -16,13 +16,10 @@ let chooseRandom (lst: 't seq) =
     let n = random.Next (Seq.length lst)
     match lst with
     | :? array<'t> as lst ->
-        printfn "It's a array!"
         lst.[n]
     | :? List<'t> as lst ->
-        printfn "It's a list!"
         lst.[n]
     | _ ->
-        printfn "It's a seq!"
         lst |> Seq.skip(n-1) |> Seq.head
 
 let shouldntHappen _ =
