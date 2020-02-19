@@ -12,8 +12,18 @@ let matchfail v = sprintf "No match found for %A. This is a bug." v |> invalidOp
 let notImpl() = failwith "Not implemented yet. Email Max if you want this feature."
 let betweenInclusive a b n = min a b <= n && n <= max a b
 
-let chooseRandom (lst: _ []) =
-    lst.[random.Next lst.Length]
+let chooseRandom (lst: 't seq) =
+    let n = random.Next (Seq.length lst)
+    match lst with
+    | :? array<'t> as lst ->
+        printfn "It's a array!"
+        lst.[n]
+    | :? List<'t> as lst ->
+        printfn "It's a list!"
+        lst.[n]
+    | _ ->
+        printfn "It's a seq!"
+        lst |> Seq.skip(n-1) |> Seq.head
 
 let shouldntHappen _ =
     System.Diagnostics.Debugger.Break()
