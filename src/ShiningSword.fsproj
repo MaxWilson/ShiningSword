@@ -41,6 +41,7 @@
     <Compile Include="UI\Ribbit.fs" />
     <Compile Include="UI\App.fs" />
     <None Include="Script1.fsx" />
+    <None Include="ProtoTemplates.fsx" />
     <None Include="Script2.fsx" />
     <None Include="XPRules.fsx" />
     <None Include="NameMaker.fsx" />
