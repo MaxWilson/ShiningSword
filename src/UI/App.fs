@@ -2,7 +2,6 @@ module App
 open UI.Ribbit
 open Elmish
 
-open Elmish.React
 //open Elmish.Debug
 #if DEBUG
 open Elmish.HMR

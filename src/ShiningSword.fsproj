@@ -4,6 +4,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <OutputPath>bin</OutputPath>
+    <LangVersion>preview</LangVersion>
   </PropertyGroup>
   <ItemGroup>
     <!-- Global to the app -->
@@ -16,6 +17,7 @@
     <Compile Include="Domain\Commands.fs" />
     <Compile Include="Domain\Domain.fs" />
     <Compile Include="View\ViewComponents.fs" />
+    <Compile Include="UI\Prelude.fs" />
     <Compile Include="UI\Ribbit.fs" />
     <Compile Include="UI\App.fs" />
     <None Include="Script1.fsx" />

@@ -14,6 +14,7 @@
     "@babel/core": "^7.4.0",
     "@babel/preset-env": "^7.4.2",
     "babel-loader": "^8.0.5",
+    "bulma": "^0.7.5",
     "copy-webpack-plugin": "^5.0.2",
     "core-js": "3",
     "html-webpack-plugin": "^3.2.0",
@@ -25,10 +26,9 @@
     "webpack-cli": "^3.3.0"
   },
   "devDependencies": {
-    "bulma": "^0.7.4",
     "css-loader": "^2.1.1",
-    "fable-compiler": "^2.2.0",
-    "fable-loader": "^2.1.2",
+    "fable-compiler": "^2.4.22",
+    "fable-loader": "^2.1.9",
     "fable-utils": "^1.0.6",
     "loglevel": "^1.5.0",
     "node-sass": "^4.5.3",
