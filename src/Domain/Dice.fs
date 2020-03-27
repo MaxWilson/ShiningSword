@@ -2,7 +2,6 @@ module Domain.Dice
 
 open Common
 open Domain
-open Domain.Prelude
 
 type Fulfiller<'externalProperty> = 'externalProperty -> Dice<'externalProperty> option // will attempt to resolve a structure with 'holes' in it to the same type of structure but with fewer 'holes' in it
 

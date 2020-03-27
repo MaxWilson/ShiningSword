@@ -5,13 +5,14 @@ open Elmish
 open Common
 
 // make sure errors are not silent: show them as Alerts (ugly but better than nothing for now)
-open Fable.React
-open Fable.React.Props
 open Data
 open Data.Functor
 open Domain
-open Domain.Properties
-open Domain.Commands
+open Domain.Prelude
+open Feliz
+open UI
+open UI.Feliz.Html
+open UI.Feliz.Prop
 
 type Id = int
 type ConsoleLog = { cmdText: string; eventId: Id option }
@@ -21,37 +22,47 @@ module Lens =
 type Cmd = ENTER of string | RESET | Error of string | FulfillProperty of Key * value:string | FulfillRoll of EventId * int
 let summaryOf (m:Domain.Model) =
     let data = m.data
-    [
-        thead[][
-            tr[][
-                yield th[][str "Name"]
-                for p in m.properties do yield th[][str p.name]
+    table [
+        children [
+            thead [
+                tr [
+                    yield th "Name"
+                    for p in m.properties do yield th p.name
+                ]
+            ]
+            tbody [
+                for (id, name) in m.roster |> SymmetricMap.toSeq do
+                    yield tr[
+                        yield td name
+                        for p in m.properties ->
+                            match data |> Map.tryFind (id, p.name) with
+                            | Some v -> v.ToString() |> td
+                            | None -> "???" |> td
+                    ]
             ]
         ]
-        tbody[][
-            for (id, name) in m.roster |> SymmetricMap.toSeq do
-                yield tr[][
-                    yield td[][str name]
-                    for p in m.properties ->
-                        match data |> Map.tryFind (id, p.name) with
-                        | Some v -> td[][str (v.ToString())]
-                        | None -> td[][str "???"]
-                ]
-        ]
     ]
-open Common.Overloads
+module Css =
+    let error = className "error"
+    let resolved = className "resolved"
+    let blocked = className "blocked"
+    let summaryPane = className "summaryPane"
+    let queryPane = className "queryPane"
+    let bordered = className "bordered"
+    let sidebar = className "sidebar"
+
 let view m dispatch =
     try
         let log = [
             for c in m.console do
                 match c.eventId |> Option.bind (fun id -> m.domainModel.eventLog |> tryFind id) with
                 | None -> // failed to parse command
-                    yield li[ClassName "error"][str (sprintf "Didn't understand '%s'" c.cmdText)]
+                    yield li [Css.error; sprintf "Didn't understand '%s'" c.cmdText |> text]
                 | Some e ->
                     match e.status with
                     | Ready v ->
                         if v <> Nothing then
-                            yield li[ClassName "resolved"][str <| v.ToString()]
+                            yield li [Css.resolved; v.ToString() |> text]
                     | Awaiting(_) ->
                         let d = m.domainModel
                         let rec getDependency = function
@@ -68,53 +79,65 @@ let view m dispatch =
                             try
                                 try
                                     let dependencies = getDependency (EventRef eventId) |> String.join ", "
-                                    li[ClassName "blocked"][str <| sprintf "%s (needs %s)" c.cmdText dependencies]
-                                with e -> li[ClassName "blocked"][str <| sprintf "Couldn't render %s because '%s'" c.cmdText (e.ToString())]
-                            with _ -> li[ClassName "blocked"][str <| sprintf "Couldn't render #%d" eventId]
+                                    li[sprintf "%s (needs %s)" c.cmdText dependencies |> text; Css.blocked]
+                                with e -> li[sprintf "Couldn't render %s because '%s'" c.cmdText (e.ToString()) |> text; Css.blocked]
+                            with _ -> li[sprintf "Couldn't render #%d" eventId |> text; Css.blocked]
             ]
-        div [ClassName ("frame" + if log = [] then "" else " withSidebar")] [
-            yield div[ClassName "summaryPane"][
-                    table [] (summaryOf m.domainModel)
-                ]
-            let notWhitespace = (not << System.String.IsNullOrWhiteSpace)
-            yield div[ClassName "queryPane"] [
-                View.ViewComponents.localForm (sprintf "Enter a %s please:" (choose [|nameof ClassName; "bubbles"|])) [AutoFocus true] notWhitespace (ENTER >> dispatch)
-                br[]
-                match m.domainModel.blocking.forward |> Map.keys
-                        |> List.ofSeq with
-                | [] -> ()
-                | blocked -> div[][
-                    for blockage in blocked do
-                        match blockage with
-                        | PropertyRef((id, prop) as key) ->
-                            yield View.ViewComponents.localForm
-                                (sprintf "Enter value for %s's %s" (m.domainModel.roster |> find id) prop)
-                                [ClassName "bordered"]
-                                notWhitespace
-                                (fun v -> dispatch (FulfillProperty (key, v)))
-                        | EventRef(id) ->
-                            match m.domainModel.eventLog |> find id |> Event.Status with
-                            | AwaitingRoll r ->
-                                yield View.ViewComponents.localForm
-                                    (sprintf "Roll %s" <| Dice.toString r)
-                                    [ClassName "bordered"]
-                                    notWhitespace
-                                    (fun v ->
-                                        match System.Int32.TryParse v with
-                                        | true, n -> dispatch (FulfillRoll(id, n))
-                                        | _ -> dispatch (Error <| sprintf "'%s' is not a number" v))
-                            | _ -> ()
+        div [
+            className ("frame" + if log = [] then "" else " withSidebar")
+            children [
+                div [
+                    Css.summaryPane
+                    children [summaryOf m.domainModel]
                     ]
-                br[]
-                ]
-            if log <> [] then
-                yield div[ClassName "sidebar"][
-                    ul[] log
-                    button[OnClick (fun _ -> dispatch RESET)][str "Clear"]
+                let notWhitespace = (not << System.String.IsNullOrWhiteSpace)
+                div [
+                    Css.queryPane
+                    children [
+                        localForm "Enter a command please:" [autoFocus true] notWhitespace (ENTER >> dispatch)
+                        br[]
+                        match m.domainModel.blocking.forward |> Map.keys
+                                |> List.ofSeq with
+                        | [] -> ()
+                        | blocked -> div [
+                            for blockage in blocked do
+                                match blockage with
+                                | PropertyRef((id, prop) as key) ->
+                                    yield localForm
+                                        (sprintf "Enter value for %s's %s" (m.domainModel.roster |> find id) prop)
+                                        [Css.bordered]
+                                        notWhitespace
+                                        (fun v -> dispatch (FulfillProperty (key, v)))
+                                | EventRef(id) ->
+                                    match m.domainModel.eventLog |> find id |> Event.Status with
+                                    | AwaitingRoll r ->
+                                        yield localForm
+                                            (sprintf "Roll %s" <| Dice.toString r)
+                                            [Css.bordered]
+                                            notWhitespace
+                                            (fun v ->
+                                                match System.Int32.TryParse v with
+                                                | true, n -> dispatch (FulfillRoll(id, n))
+                                                | _ -> dispatch (Error <| sprintf "'%s' is not a number" v))
+                                    | _ -> ()
+                            ]
+                        br[]
+                        ]
+                    ]
+                if log <> [] then
+                    div[
+                        Css.sidebar
+                        children [
+                            ul log
+                            button[
+                                onClick (fun _ -> dispatch RESET)
+                                text "Clear"]
+                        ]
+                    ]
                 ]
         ]
     with e ->
-        div[][str (e.ToString())]
+        div (e.ToString())
 
 let init _ = { console = []; domainModel = Domain.fresh }, Cmd.Empty
 let update msg model =

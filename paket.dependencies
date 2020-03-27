@@ -6,6 +6,7 @@ nuget Expecto.FsCheck
 nuget Fable.Elmish.HMR
 nuget Fable.Fetch
 nuget Fable.Promise
+nuget Feliz
 nuget FSharp.Core
 nuget Fable.Core
 nuget Fable.Elmish.React
@@ -13,5 +14,5 @@ nuget Fable.Elmish.Browser
 nuget Fable.Elmish.Debugger
 
 clitool dotnet-fable
-nuget Fulma
 nuget Thoth.Json.Net
+nuget Zanaptak.TypedCssClasses
