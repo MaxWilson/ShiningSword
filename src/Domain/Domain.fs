@@ -11,7 +11,12 @@ open Domain.Commands
 
 type EventId = Id
 /// causedBy = parent, causes = children
-type Event = { status: Evaluation<Executable>; originalExecutable: Executable; causedBy: EventId option; causes: EventId list }
+type Event = {
+    status: Evaluation<Executable>;
+    originalExecutable: Executable;
+    causedBy: EventId option;
+    causes: EventId list
+    }
     with static member Status (e:Event) = e.status
 let (|AwaitingRoll|_|) = function
     | Awaiting(Evaluate(Roll d) | SetProperty(_, Roll d) | ChangeProperty(_, Roll d)) -> Some d
@@ -25,6 +30,22 @@ type Model = {
         blockedThreads: EventId list
         eventLog: FastList<Event>
     }
+
+/// model that is not at a fixed point
+type ModelIntermediateState = {
+    model: Model
+    processingQueue: Queue.Data<Reference>
+}
+    with
+    static member create(model) = { model = model; processingQueue = Queue.create }
+    static member create ref = fun model -> { model = model; processingQueue = Queue.create |> Queue.add ref }
+    static member extract = function
+        | { model = model; processingQueue = q } when Queue.isEmpty q ->
+            model
+        | m -> failwithf "Tried to extract model from a non-fixedpoint: %A" m
+    member this.isFixedPoint = this.processingQueue |> Queue.isEmpty 
+    member this.await(ref) = { this with processingQueue = this.processingQueue |> Queue.add ref }
+
 let fresh = {
         properties = []
         roster = SymmetricMap.empty()
@@ -128,10 +149,10 @@ let addProperty propertyName model =
     else
         { model with properties = model.properties @ [{name = propertyName}] }
 
-let progress exec (completed: Set<Reference>) (model:Model): Model =
+let progress exec (completed: Set<Reference>) (model:Model): ModelIntermediateState =
     // interacts with: model.blocking, model.eventLog, model.data (properties)
     // post-invariant: new model has reached a fixed point w/ regard to blocking/eventLog/data
-    let rec iterate (completed: Set<Reference>) (model:Model): Model =
+    let rec iterate (completed: Set<Reference>) (model:Model): ModelIntermediateState =
         // look up all the events which are directly or undirectly unblocked by this reference and progress them
         let progressing = completed |> Seq.collect (fun ref -> match model.blocking.forward |> Map.tryFind ref with Some refs -> refs | None -> [])
                                     |> Seq.distinct
@@ -157,7 +178,7 @@ let progress exec (completed: Set<Reference>) (model:Model): Model =
                     | Awaiting(executions) ->
                         completed, model
         match unblocked |> Array.fold reallyExecute (Set.empty, model) with
-        | c, model when c.IsEmpty -> model
+        | c, model when c.IsEmpty -> model |> ModelIntermediateState.create
         | completed, model -> iterate completed model
     iterate completed model
 
@@ -167,7 +188,7 @@ let private await (eventId, executable) refs model =
     model |> Lens.over Lens.eventLog (transform eventId (fun e -> { e with status = (Awaiting executable) }))
         |> blockOn eventId refs
 
-let rec private executeHelper model eventId executable =
+let rec private executeHelper model eventId executable : Model =
     match executable with
     | Evaluate expr ->
         match eval eventId model expr with
@@ -183,6 +204,7 @@ let rec private executeHelper model eventId executable =
             keys
             |> List.fold (setProperty v) model
             |> progress executeHelper (Set.ofList (EventRef eventId::(keys |> List.map PropertyRef)))
+            |> ModelIntermediateState.extract
             |> resolve eventId Nothing
         | Awaiting(refs, (expr, model)) -> await (eventId, SetProperty(keys, expr)) refs model
     | ChangeProperty (keys, expr) ->
@@ -200,19 +222,26 @@ let rec private executeHelper model eventId executable =
                 keys
                 |> List.fold (setProperty v) model
                 |> progress executeHelper (Set.ofList (EventRef eventId::(keys |> List.map PropertyRef)))
+                |> ModelIntermediateState.extract
                 |> resolve eventId Nothing
             | Awaiting(refs, (expr, model)) -> await (eventId, ChangeProperty(keys, expr)) refs model
         | _ -> await (eventId, executable) blocked model
 
 let setProperty key (value:Value) model =
     model |> addProperty (snd key) |> Lens.over Lens.data (Map.add key value)
-        |> progress executeHelper (Set.ofList [PropertyRef key])
+        |> ModelIntermediateState.create (PropertyRef key)
 
 let fulfillRoll eventId n model =
     model
         |> Lens.over Lens.eventLog (transform eventId (fun e -> { e with status = Ready (Number n) }))
-        |> progress executeHelper (Set.ofList [EventRef eventId])
-
+        |> ModelIntermediateState.create (EventRef eventId)
+    
 let execute model cmd =
     let eventId, model = model |> addEvent { status = Awaiting cmd; originalExecutable = cmd; causedBy = None; causes = [] }
-    eventId, executeHelper model eventId cmd
+    eventId, (executeHelper model eventId cmd)
+
+let rec progressToFixedPoint = function
+    | (m: ModelIntermediateState) when m.isFixedPoint -> m.model
+    | m ->
+        let m' = m.model |> progress executeHelper (Set.ofList (m.processingQueue |> Queue.normalize).frontList)
+        m' |> progressToFixedPoint

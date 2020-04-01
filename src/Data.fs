@@ -107,3 +107,18 @@ module SymmetricRelation =
                 | vs -> map |> Map.add key vs // replace with a new, shortened list
             let forward' = v1s |> List.fold deleteFrom d.forward
             { d with forward = forward'; backward = d.backward |> Map.remove v2 }
+
+module Queue =
+    type Data<'t> = { frontList: 't list; reversedList: 't list }
+    [<GeneralizableValue>]
+    let create<'t> = { frontList = []; reversedList = [] }: Data<'t>
+    let isEmpty (queue: Data<_>) = queue.frontList = [] && queue.reversedList = []
+    let add input (queue: Data<_>) = { queue with reversedList = input::queue.reversedList }
+    let normalize = function
+        | { reversedList = [] } as queue -> queue
+        | { frontList = front; reversedList = rev } -> { frontList = front @ (List.rev rev); reversedList = [] }
+    let (|Pop|) (queue: Data<_>) = 
+        match normalize queue with
+        | { frontList = h::rest } as queue -> (h, ({ queue with frontList = rest })) |> Some
+        | _ -> None
+    

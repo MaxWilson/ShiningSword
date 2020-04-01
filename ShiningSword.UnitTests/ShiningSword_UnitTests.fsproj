@@ -8,12 +8,13 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Packrat.Parsing.Tests.fs" />
+    <Compile Include="Data.Tests.fs" />
     <Compile Include="Ribbit.Tests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Expecto" Version="8.*" />
-    <PackageReference Update="FSharp.Core" Version="4.7.1"/>
+    <PackageReference Update="FSharp.Core" Version="4.7.1" />
     <PackageReference Include="YoloDev.Expecto.TestSdk" Version="0.*" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.*" />
   </ItemGroup>

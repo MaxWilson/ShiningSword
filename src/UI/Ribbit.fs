@@ -157,9 +157,9 @@ let update msg model =
         | Error err ->
             { model with console = model.console @ [logError ("Error: " + err)] }, Cmd.Empty
         | FulfillProperty(key, v) ->
-            { model with domainModel = model.domainModel |> Domain.setProperty key (System.Int32.Parse v |> Number) }, Cmd.Empty
+            { model with domainModel = model.domainModel |> Domain.setProperty key (System.Int32.Parse v |> Number) |> progressToFixedPoint }, Cmd.Empty
         | FulfillRoll(eventId, v) ->
-            { model with domainModel = model.domainModel |> Domain.fulfillRoll eventId v }, Cmd.Empty
+            { model with domainModel = model.domainModel |> Domain.fulfillRoll eventId v |> progressToFixedPoint }, Cmd.Empty
     with err ->
         { model with console = model.console @ [logError ("Exception: " + err.ToString())] }, Cmd.Empty
 

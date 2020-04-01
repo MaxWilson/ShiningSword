@@ -54,9 +54,6 @@ let get (eventId, model: Model) =
     | Awaiting _ as v -> Tests.failtestf "Expected result to be available synchronously but got %A" v
 type Spec = ParseOnly | CheckValue of setup:string list * Value | CheckRolledValue of setup:string list * Value * (string*int) list
 
-type T1 = T1 of int
-type T2 = T2 of int
-
 [<AbstractClass;Sealed>]
 type Helper =
     static member fulfillRolls fulfiller model =
@@ -75,7 +72,7 @@ type Helper =
             let tryFulfill model (eventId, d:Dice<_>) =
                 match fulfiller d with
                 | Some n ->
-                    fulfillRoll eventId n model
+                    fulfillRoll eventId n model |> progressToFixedPoint
                 | None -> model
             dice |> Seq.fold tryFulfill model
         fulfillRolls fulfiller model
@@ -86,11 +83,7 @@ type Helper =
                 listOfRandoms |> List.tryFind (fst >> (=) target) |> Option.map snd
             Helper.fulfillRolls fulfiller
         supply listOfRandoms
-    static member plus (T1 x) = fun (T1 y) -> T1 (x + y)
-    static member plus (T2 x) = fun (T2 y) -> T2 (x + y)
-    static member plus (T1 x, T1 y) = T1 (x + y)
-    static member plus (T2 x, T2 y) = T2 (x + y)
-    static member plus (x, y) = (x + y)
+
 open Helper
 #if INTERACTIVE
 let m = Domain.fresh |> exec "add Eladriel" |> snd
@@ -130,13 +123,6 @@ let tests = testList "ribbit" [
         "export save maxwilson/party1", IO(Save("maxwilson/party1", true)), ParseOnly
         "load import maxwilson/party1", IO(Load("maxwilson/party1", true)), ParseOnly
         ]
-    testCase ".example" <| fun _ ->
-        ("testCase", "no match") ||> Expect.equal (nameof testCase)
-        (T1 5, "No match") ||> Expect.equal (plus (T1 2, T1 3))
-        (T1 5, "No match") ||> Expect.equal (plus (T1 2) (T1 3))
-        (T2 7, "No match") ||> Expect.equal (plus (T2 4, T2 3))
-        (T2 7, "No match") ||> Expect.equal (plus (T2 4) (T2 3))
-        (7, "No match") ||> Expect.equal (plus (3,4))
 
     testList ".parsing" [
         testCase ".Basic parsing" <| fun _ ->
