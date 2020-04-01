@@ -1,9 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <TargetFramework>net472</TargetFramework>
   </PropertyGroup>
-
   <ItemGroup>
     <Compile Include="Parsing.Unit.fs" />
     <Compile Include="Interaction.Unit.fs" />
@@ -12,23 +11,16 @@
     <Compile Include="Parsing.DataEngine.Unit.fs" />
     <Compile Include="Ribbit.Scenario.fs" />
   </ItemGroup>
-
-  <ItemGroup />
-
   <ItemGroup>
+    <PackageReference Update="FSharp.Core" Version="4.7.1" />
     <PackageReference Include="xunit" Version="2.4.1" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.4.1">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </PackageReference>
   </ItemGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\src\ShiningSword.fsproj" />
   </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Update="FSharp.Core" Version="4.7" />
-  </ItemGroup>
-
+  <Import Project="..\.paket\Paket.Restore.targets" />
 </Project>
