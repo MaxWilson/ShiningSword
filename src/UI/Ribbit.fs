@@ -39,6 +39,7 @@ let summaryOf (m:Domain.Model) =
                 ]
         ]
     ]
+open Common.Overloads
 let view m dispatch =
     try
         let log = [
@@ -77,7 +78,7 @@ let view m dispatch =
                 ]
             let notWhitespace = (not << System.String.IsNullOrWhiteSpace)
             yield div[ClassName "queryPane"] [
-                View.ViewComponents.localForm "Enter a command please:" [AutoFocus true] notWhitespace (ENTER >> dispatch)
+                View.ViewComponents.localForm (sprintf "Enter a %s please:" (choose [|nameof ClassName; "bubbles"|])) [AutoFocus true] notWhitespace (ENTER >> dispatch)
                 br[]
                 match m.domainModel.blocking.forward |> Map.keys
                         |> List.ofSeq with
@@ -119,7 +120,7 @@ let init _ = { console = []; domainModel = Domain.fresh }, Cmd.Empty
 let update msg model =
     let exec txt cmd =
         let eventId, domain' = Domain.execute model.domainModel cmd
-        { model with domainModel = domain'; console = (model.console@[{ cmdText = txt; eventId = Some eventId }]) }
+        { model with domainModel = domain'; console = (model.console @ [{ cmdText = txt; eventId = Some eventId }]) }
     let logError txt = { cmdText = txt; eventId = None }
     try
         match msg with
@@ -128,14 +129,14 @@ let update msg model =
             Browser.Dom.console.log(model.domainModel.roster |> SymmetricMap.toSeq |> Array.ofSeq)
             match Domain.tryParseExecutable model.domainModel cmd with
             | Some cmd' -> exec cmd cmd', Cmd.Empty
-            | _ -> { model with console = model.console@[logError (sprintf "Could not parse '%s'" cmd)] }, Cmd.Empty
+            | _ -> { model with console = model.console @ [logError (sprintf "Could not parse '%s'" cmd)] }, Cmd.Empty
         | RESET -> init()
         | Error err ->
-            { model with console = model.console@[logError ("Error: " + err)] }, Cmd.Empty
+            { model with console = model.console @ [logError ("Error: " + err)] }, Cmd.Empty
         | FulfillProperty(key, v) ->
             { model with domainModel = model.domainModel |> Domain.setProperty key (System.Int32.Parse v |> Number) }, Cmd.Empty
         | FulfillRoll(eventId, v) ->
             { model with domainModel = model.domainModel |> Domain.fulfillRoll eventId v }, Cmd.Empty
     with err ->
-        { model with console = model.console@[logError ("Exception: " + err.ToString())] }, Cmd.Empty
+        { model with console = model.console @ [logError ("Exception: " + err.ToString())] }, Cmd.Empty
 

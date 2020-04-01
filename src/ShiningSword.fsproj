@@ -1,11 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>preview</LangVersion>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <OutputPath>bin</OutputPath>
   </PropertyGroup>
   <ItemGroup>
+    <EmbeddedResource Remove="Model\**" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Update="FSharp.Core" Version="4.7.1" />
     <!-- Global to the app -->
     <Compile Include="Common.fs" />
     <Compile Include="Data.fs" />
@@ -29,7 +34,6 @@
     <!-- App -->
   </ItemGroup>
   <ItemGroup>
-    <Folder Include="Model\" />
     <Folder Include="Modules\" />
   </ItemGroup>
   <Import Project="..\.paket\Paket.Restore.targets" />

@@ -15,6 +15,11 @@ let betweenInclusive a b n = min a b <= n && n <= max a b
 let chooseRandom (lst: _ []) =
     lst.[random.Next lst.Length]
 
+[<Sealed; AbstractClass>]
+type Overloads =
+    static member choose src = chooseRandom src
+    static member choose src = chooseRandom (Array.ofList src)
+
 let shouldntHappen _ =
     System.Diagnostics.Debugger.Break()
     failwith "This shouldn't ever happen. If it does there's a bug"
