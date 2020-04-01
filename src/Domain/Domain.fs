@@ -38,6 +38,7 @@ type ModelIntermediateState = {
 }
     with
     static member create(model) = { model = model; processingQueue = Queue.create }
+    static member create(model, refs) = { model = model; processingQueue = Queue.ofList refs }
     static member create ref = fun model -> { model = model; processingQueue = Queue.create |> Queue.add ref }
     static member extract = function
         | { model = model; processingQueue = q } when Queue.isEmpty q ->
@@ -45,6 +46,7 @@ type ModelIntermediateState = {
         | m -> failwithf "Tried to extract model from a non-fixedpoint: %A" m
     member this.isFixedPoint = this.processingQueue |> Queue.isEmpty 
     member this.await(ref) = { this with processingQueue = this.processingQueue |> Queue.add ref }
+    member this.map(f) = { this with model = f this.model }
 
 let fresh = {
         properties = []
@@ -59,6 +61,7 @@ module Lens =
     let blocking = Lens.lens (fun d -> d.blocking) (fun v d -> { d with blocking = v})
     let blockedThreads = Lens.lens (fun d -> d.blockedThreads) (fun v d -> { d with blockedThreads = v})
     let eventLog = Lens.lens (fun d -> d.eventLog) (fun v d -> { d with eventLog = v})
+
 let addEvent e model =
     let m = model |> Lens.over Lens.eventLog (add e)
     m.eventLog.lastId.Value, m
@@ -143,16 +146,73 @@ let addName name model =
     else
         let id = 1 + (if model.roster |> SymmetricMap.isEmpty then 0 else model.roster |> SymmetricMap.toSeq |> Seq.map fst |> Seq.max)
         model |> Lens.over Lens.creatureIds (add (id, name))
+
+// define a property
 let addProperty propertyName model =
     if (model:Model).properties |> List.exists (fun p -> p.name = propertyName) then
         model
     else
         { model with properties = model.properties @ [{name = propertyName}] }
 
-let progress exec (completed: Set<Reference>) (model:Model): ModelIntermediateState =
+let unblock ref (model': ModelIntermediateState) =
+    let progressing =
+        match model'.model.blocking.forward |> Map.tryFind ref with Some refs -> refs | None -> []
+        |> Seq.distinct
+        |> Array.ofSeq
+    let blocking' = SymmetricRelation.removeAllForward ref model'.model.blocking
+    // might still be blocked by other dependencies
+    let unblocked = progressing |> Array.filter(fun ref -> blocking'.backward.ContainsKey ref |> not)
+    let q = unblocked |> Array.fold (fun state ref -> Queue.add ref state) model'.processingQueue
+    { model' with model = { model'.model with blocking = blocking' }; processingQueue = q }
+
+let private resolve eventId value (model': ModelIntermediateState) =
+    model'.map(fun model ->
+        model |> Lens.over Lens.eventLog (transform eventId (fun e -> { e with status = (Ready value) }))
+        )
+    |> unblock (EventRef eventId)
+let private await (eventId, executable) refs model =
+    model
+    |> Lens.over Lens.eventLog (transform eventId (fun e -> { e with status = (Awaiting executable) }))
+    |> blockOn eventId refs
+
+let private executeHelper (model':ModelIntermediateState) eventId executable : ModelIntermediateState =
+    let setProperty v (model': ModelIntermediateState) key =
+        model'.map(fun model ->
+            model
+            |> addProperty (snd key)
+            |> Lens.over Lens.data (Map.add key v))
+        |> unblock (PropertyRef key)
+    match executable with
+    | Evaluate expr ->
+        match eval eventId model'.model expr with
+        | Ready v -> resolve eventId v model'
+        | Awaiting(refs, (expr, model)) ->
+            { model' with model = await (eventId, Evaluate expr) refs model }
+    | AddRow name -> model'.map(fun model -> addName name model) |> resolve eventId Nothing
+    | SetProperty (keys, expr) ->
+        match eval eventId model'.model expr with
+        | Ready v ->
+            keys |> List.fold (setProperty v) model' |> resolve eventId Nothing
+        | Awaiting(refs, (expr, model)) ->
+            { model' with model = await (eventId, SetProperty(keys, expr)) refs model }
+    | ChangeProperty (keys, expr) ->
+        let blocked = keys |> List.filter (fun key -> model'.model.data.ContainsKey key |> not) |> List.map PropertyRef
+        match blocked with
+        | [] ->
+            match eval eventId model'.model expr with
+            | Ready v ->
+                let model = keys |> List.fold (setProperty v) model'
+
+                model
+                |> progress executeHelper (Set.ofList (EventRef eventId::(keys |> List.map PropertyRef)))
+                |> ModelIntermediateState.extract
+                |> resolve eventId Nothing
+            | Awaiting(refs, (expr, model)) -> await (eventId, ChangeProperty(keys, expr)) refs model
+        | _ -> await (eventId, executable) blocked model'
+
+let progress (model:ModelIntermediateState): ModelIntermediateState =
     // interacts with: model.blocking, model.eventLog, model.data (properties)
-    // post-invariant: new model has reached a fixed point w/ regard to blocking/eventLog/data
-    let rec iterate (completed: Set<Reference>) (model:Model): ModelIntermediateState =
+    let iterate (completed: List<Reference>) (model:Model): ModelIntermediateState =
         // look up all the events which are directly or undirectly unblocked by this reference and progress them
         let progressing = completed |> Seq.collect (fun ref -> match model.blocking.forward |> Map.tryFind ref with Some refs -> refs | None -> [])
                                     |> Seq.distinct
@@ -161,80 +221,42 @@ let progress exec (completed: Set<Reference>) (model:Model): ModelIntermediateSt
         // might still be blocked by other dependencies
         let unblocked = progressing |> Array.filter(fun ref -> blocking'.backward.ContainsKey ref |> not)
         let model = { model with blocking = blocking' }
-        let reallyExecute ((completed, model: Model) as input) ref : Set<Reference> * Model =
+        let reallyExecute (input: ModelIntermediateState) ref : ModelIntermediateState =
+            let model = input.model
+            let completed = input.processingQueue |> Queue.eject
             match ref with
             | PropertyRef(key) ->
                 match model.data.TryFind key with
-                | Some v -> (completed |> Set.add ref), model // this property is "complete" now in this model, signal for further chaining
+                | Some v -> (ref :: completed |> Set.add ref), model // this property is "complete" now in this model, signal for further chaining
                 | None -> input // this property is not completed yet
             | EventRef(eventId) ->
                 match model.eventLog.rows.[eventId].status with
                 | Ready v -> input // shouldn't happen probably
                 | Awaiting(executable) ->
-                    let model = exec model eventId executable
-                    match model.eventLog |> find eventId |> Event.Status with
-                    | Ready v ->
-                        (completed |> Set.add (EventRef eventId)), model
+                    let model': ModelIntermediateState = executeHelper input eventId executable
+                    match model.model.eventLog |> find eventId |> Event.Status with
+                    | Ready v -> model'
+                        ((EventRef eventId) :: completed), model
                     | Awaiting(executions) ->
                         completed, model
-        match unblocked |> Array.fold reallyExecute (Set.empty, model) with
+        match unblocked |> Array.fold reallyExecute ([], model) with
         | c, model when c.IsEmpty -> model |> ModelIntermediateState.create
-        | completed, model -> iterate completed model
-    iterate completed model
+        | completed, model -> ModelIntermediateState.create(model, completed)
+    match model.processingQueue |> Queue.eject with
+    | [] -> model
+    | queue ->
+        iterate queue model.model
 
-let private resolve eventId value model =
-    model |> Lens.over Lens.eventLog (transform eventId (fun e -> { e with status = (Ready value) }))
-let private await (eventId, executable) refs model =
-    model |> Lens.over Lens.eventLog (transform eventId (fun e -> { e with status = (Awaiting executable) }))
-        |> blockOn eventId refs
-
-let rec private executeHelper model eventId executable : Model =
-    match executable with
-    | Evaluate expr ->
-        match eval eventId model expr with
-        | Ready v -> resolve eventId v model
-        | Awaiting(refs, (expr, model)) ->
-            await (eventId, Evaluate expr) refs model
-    | AddRow name -> addName name model |> resolve eventId Nothing
-    | SetProperty (keys, expr) ->
-        let setProperty v model key =
-            model |> addProperty (snd key) |> Lens.over Lens.data (Map.add key v)
-        match eval eventId model expr with
-        | Ready v ->
-            keys
-            |> List.fold (setProperty v) model
-            |> progress executeHelper (Set.ofList (EventRef eventId::(keys |> List.map PropertyRef)))
-            |> ModelIntermediateState.extract
-            |> resolve eventId Nothing
-        | Awaiting(refs, (expr, model)) -> await (eventId, SetProperty(keys, expr)) refs model
-    | ChangeProperty (keys, expr) ->
-        let setProperty v model key =
-            let changeVal (data:Map<Key,Value>) =
-                match data |> Map.tryFind key with
-                | Some v0 -> data |> Map.add key (v0 + v)
-                | None -> data |> Map.add key v
-            model |> addProperty (snd key) |> Lens.over Lens.data changeVal
-        let blocked = keys |> List.filter (fun key -> model.data.ContainsKey key |> not) |> List.map PropertyRef
-        match blocked with
-        | [] ->
-            match eval eventId model expr with
-            | Ready v ->
-                keys
-                |> List.fold (setProperty v) model
-                |> progress executeHelper (Set.ofList (EventRef eventId::(keys |> List.map PropertyRef)))
-                |> ModelIntermediateState.extract
-                |> resolve eventId Nothing
-            | Awaiting(refs, (expr, model)) -> await (eventId, ChangeProperty(keys, expr)) refs model
-        | _ -> await (eventId, executable) blocked model
 
 let setProperty key (value:Value) model =
-    model |> addProperty (snd key) |> Lens.over Lens.data (Map.add key value)
-        |> ModelIntermediateState.create (PropertyRef key)
+    model
+    |> addProperty (snd key) |> Lens.over Lens.data (Map.add key value)
+    |> ModelIntermediateState.create (PropertyRef key)
 
 let fulfillRoll eventId n model =
     model
-        |> Lens.over Lens.eventLog (transform eventId (fun e -> { e with status = Ready (Number n) }))
-        |> ModelIntermediateState.create (EventRef eventId)
+    |> Lens.over Lens.eventLog (transform eventId (fun e -> { e with status = Ready (Number n) }))
+    |> ModelIntermediateState.create (EventRef eventId)
     
 let execute model cmd =
     let eventId, model = model |> addEvent { status = Awaiting cmd; originalExecutable = cmd; causedBy = None; causes = [] }
