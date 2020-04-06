@@ -44,7 +44,7 @@ type ModelIntermediateState = {
         | { model = model; processingQueue = q } when Queue.isEmpty q ->
             model
         | m -> failwithf "Tried to extract model from a non-fixedpoint: %A" m
-    member this.isFixedPoint = this.processingQueue |> Queue.isEmpty 
+    member this.isFixedPoint = this.processingQueue |> Queue.isEmpty
     member this.await(ref) = { this with processingQueue = this.processingQueue |> Queue.add ref }
     member this.map(f) = { this with model = f this.model }
 
@@ -204,16 +204,16 @@ let private executeHelper (model':ModelIntermediateState) eventId executable : M
                 let model = keys |> List.fold (setProperty v) model'
 
                 model
-                |> progress executeHelper (Set.ofList (EventRef eventId::(keys |> List.map PropertyRef)))
-                |> ModelIntermediateState.extract
                 |> resolve eventId Nothing
-            | Awaiting(refs, (expr, model)) -> await (eventId, ChangeProperty(keys, expr)) refs model
-        | _ -> await (eventId, executable) blocked model'
+            | Awaiting(refs, (expr, model)) ->
+                { model' with model = await (eventId, ChangeProperty(keys, expr)) refs model }
+        | _ -> { model' with model = await (eventId, executable) blocked model'.model }
 
 let progress (model:ModelIntermediateState): ModelIntermediateState =
     // interacts with: model.blocking, model.eventLog, model.data (properties)
-    let iterate (completed: List<Reference>) (model:Model): ModelIntermediateState =
+    let iterate (completed: List<Reference>) (model':ModelIntermediateState): ModelIntermediateState =
         // look up all the events which are directly or undirectly unblocked by this reference and progress them
+        let model = model'.model
         let progressing = completed |> Seq.collect (fun ref -> match model.blocking.forward |> Map.tryFind ref with Some refs -> refs | None -> [])
                                     |> Seq.distinct
                                     |> Array.ofSeq
@@ -221,31 +221,32 @@ let progress (model:ModelIntermediateState): ModelIntermediateState =
         // might still be blocked by other dependencies
         let unblocked = progressing |> Array.filter(fun ref -> blocking'.backward.ContainsKey ref |> not)
         let model = { model with blocking = blocking' }
+        let model' = { model' with model = model }
         let reallyExecute (input: ModelIntermediateState) ref : ModelIntermediateState =
             let model = input.model
             let completed = input.processingQueue |> Queue.eject
             match ref with
             | PropertyRef(key) ->
                 match model.data.TryFind key with
-                | Some v -> (ref :: completed |> Set.add ref), model // this property is "complete" now in this model, signal for further chaining
+                | Some v ->
+                    // this property is "complete" now in this model, signal for further chaining
+                    input.await(ref)
                 | None -> input // this property is not completed yet
             | EventRef(eventId) ->
                 match model.eventLog.rows.[eventId].status with
                 | Ready v -> input // shouldn't happen probably
                 | Awaiting(executable) ->
                     let model': ModelIntermediateState = executeHelper input eventId executable
-                    match model.model.eventLog |> find eventId |> Event.Status with
-                    | Ready v -> model'
-                        ((EventRef eventId) :: completed), model
+                    match model'.model.eventLog |> find eventId |> Event.Status with
+                    | Ready v ->
+                        model'.await(ref)
                     | Awaiting(executions) ->
-                        completed, model
-        match unblocked |> Array.fold reallyExecute ([], model) with
-        | c, model when c.IsEmpty -> model |> ModelIntermediateState.create
-        | completed, model -> ModelIntermediateState.create(model, completed)
+                        model'
+        unblocked |> Array.fold reallyExecute model'
     match model.processingQueue |> Queue.eject with
     | [] -> model
     | queue ->
-        iterate queue model.model
+        iterate queue model
 
 
 let setProperty key (value:Value) model =
@@ -257,13 +258,12 @@ let fulfillRoll eventId n model =
     model
     |> Lens.over Lens.eventLog (transform eventId (fun e -> { e with status = Ready (Number n) }))
     |> ModelIntermediateState.create (EventRef eventId)
-    
-let execute model cmd =
-    let eventId, model = model |> addEvent { status = Awaiting cmd; originalExecutable = cmd; causedBy = None; causes = [] }
-    eventId, (executeHelper model eventId cmd)
 
 let rec progressToFixedPoint = function
     | (m: ModelIntermediateState) when m.isFixedPoint -> m.model
     | m ->
-        let m' = m.model |> progress executeHelper (Set.ofList (m.processingQueue |> Queue.normalize).frontList)
-        m' |> progressToFixedPoint
+        m |> progress |> progressToFixedPoint
+
+let execute model cmd =
+    let eventId, model = model |> addEvent { status = Awaiting cmd; originalExecutable = cmd; causedBy = None; causes = [] }
+    eventId, (executeHelper (model |> ModelIntermediateState.create) eventId cmd) |> progressToFixedPoint

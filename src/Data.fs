@@ -121,8 +121,8 @@ module Queue =
     let eject = function
         | { reversedList = [] } as queue -> queue.frontList
         | { frontList = front; reversedList = rev } -> front @ (List.rev rev)
-    let (|Pop|) (queue: Data<_>) = 
+    let (|Pop|) (queue: Data<_>) =
         match eject queue with
-        | h::rest -> (h, ({ queue with frontList = rest })) |> Some
+        | h::rest -> (h, ({ queue with frontList = rest; reversedList = [] })) |> Some
         | _ -> None
-    
+
