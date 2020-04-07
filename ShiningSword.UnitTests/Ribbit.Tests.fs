@@ -52,7 +52,7 @@ let get (eventId, model: Model) =
     match model.eventLog.rows.[eventId].status with
     | Ready v -> v
     | Awaiting _ as v -> Tests.failtestf "Expected result to be available synchronously but got %A" v
-type Spec = ParseOnly | CheckValue of setup:string list * Value | CheckRolledValue of setup:string list * Value * (string*int) list
+type Spec = ParseOnly | CheckValue of setup:string list * Value | CheckRolledValue of setup:string list * Value * rolls: ((string*int) list)
 
 [<AbstractClass;Sealed>]
 type Helper =
@@ -112,7 +112,7 @@ let tests = testList "ribbit" [
         "Eladriel gains 2d6 HP", whatever,
             CheckRolledValue(["Eladriel.HP = 40"], Nothing, ["2d6", 4])
         "Eladriel.HP", whatever,
-            CheckRolledValue(["Eladriel loses 2d6 HP";"Eladriel.HP = 40"], Number 36, ["2d6", 4])
+            CheckRolledValue(["Eladriel.HP = 40";"Eladriel loses 2d6 HP"], Number 36, ["2d6", 4])
         "/Suddenly [d10] trolls attack!", (Exact <| Log [Text "Suddenly "; LogExpression ("d10", Roll (Dice(1,10))); Text " trolls attack!"]), ParseOnly
         "avg 4.att 20 6a 2d6+5", whatever, ParseOnly
         "d20+6 at least 14?0:12d6", whatever, ParseOnly

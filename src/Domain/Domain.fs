@@ -199,10 +199,13 @@ let private executeHelper (model':ModelIntermediateState) eventId executable : M
         let blocked = keys |> List.filter (fun key -> model'.model.data.ContainsKey key |> not) |> List.map PropertyRef
         match blocked with
         | [] ->
+            let updateProperty v model' key =
+                let v = (model'.model.data.[key]) + v
+                setProperty v model' key
+            // all keys are present, just extract current value and get them
             match eval eventId model'.model expr with
             | Ready v ->
-                let model = keys |> List.fold (setProperty v) model'
-
+                let model = keys |> List.fold (updateProperty v) model'
                 model
                 |> resolve eventId Nothing
             | Awaiting(refs, (expr, model)) ->
@@ -246,7 +249,7 @@ let progress (model:ModelIntermediateState): ModelIntermediateState =
     match model.processingQueue |> Queue.eject with
     | [] -> model
     | queue ->
-        iterate queue model
+        iterate queue { model with processingQueue = Queue.create }
 
 
 let setProperty key (value:Value) model =

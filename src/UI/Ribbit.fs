@@ -95,6 +95,12 @@ let view m dispatch =
                     Css.queryPane
                     children [
                         localForm "Enter a command please:" [autoFocus true] notWhitespace (ENTER >> dispatch)
+                        button [text "Fibb"; onClick (fun s ->
+                            let rec fibb = function
+                            | 0 | 1 -> 1
+                            | n -> (fibb (n-1)) + (fibb (n-2))
+                            Browser.Dom.window.alert(fibb(40).ToString())
+                            )]
                         br[]
                         match m.domainModel.blocking.forward |> Map.keys
                                 |> List.ofSeq with
@@ -143,7 +149,7 @@ let init _ = { console = []; domainModel = Domain.fresh }, Cmd.Empty
 let update msg model =
     let exec txt cmd =
         let eventId, domain' = Domain.execute model.domainModel cmd
-        { model with domainModel = domain'; console = (model.console @ [{ cmdText = txt; eventId = Some eventId }]) }
+        { model with domainModel = unbox domain'; console = (model.console @ [{ cmdText = txt; eventId = Some eventId }]) }
     let logError txt = { cmdText = txt; eventId = None }
     try
         match msg with

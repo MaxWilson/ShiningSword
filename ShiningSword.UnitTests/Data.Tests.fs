@@ -4,7 +4,7 @@ open Expecto
 open Data
 
 [<Tests>]
-let tests = testList "Data structures" [
+let tests = testList "Data structures.Queue." [
     testCase "queue" <| fun _ ->
         let q = Queue.create |> Queue.add 1 |> Queue.add 2 |> Queue.add 3
         let v, q = q |> Queue.(|Pop|) |> Option.get
