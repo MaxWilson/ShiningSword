@@ -1,3 +1,4 @@
+[<AutoOpen>]
 module Common
 
 let flip f x y = f y x
@@ -40,11 +41,11 @@ let shuffleCopy =
         a // return the copy
 
 // Lens code based on http://www.fssnip.net/7Pk/title/Polymorphic-lenses by Vesa Karvonen
-type LensValue<'T> = Option<'T>
-type Lens<'InState,'ValGet,'ValSet,'OutState> = ('ValGet -> LensValue<'ValSet>) -> 'InState -> LensValue<'OutState>
-type SimpleLens<'Outer, 'Inner> = Lens<'Outer, 'Inner, 'Inner, 'Outer>
-type RecursiveOptionLens<'t> = SimpleLens<'t, 't option>
 module Lens =
+    type LensValue<'T> = Option<'T>
+    type Lens<'InState,'ValGet,'ValSet,'OutState> = ('ValGet -> LensValue<'ValSet>) -> 'InState -> LensValue<'OutState>
+    type SimpleLens<'Outer, 'Inner> = Lens<'Outer, 'Inner, 'Inner, 'Outer>
+    type RecursiveOptionLens<'t> = SimpleLens<'t, 't option>
     let get (l: Lens<'InState,'ValGet,'ValSet,'OutState>) s =
         let r = ref Unchecked.defaultof<_>
         s |> l (fun a -> r := a; None) |> ignore
@@ -83,47 +84,6 @@ module List =
         | h::t -> match f state h with
                     | Ok state' -> tryMapFold f state' t
                     | e -> e
-
-module Fraction =
-    open System.Numerics
-
-    let expn (base' : BigInteger) power = // workaround for ** not functioning right in Fable, https://github.com/fable-compiler/Fable/issues/1517
-        List.init power (thunk base') |> List.fold (*) 1I
-
-    let ratio precision (m:BigInteger) (n:BigInteger) = (m*(expn 10I precision)/n |> float)/(float (expn 10I precision))
-
-    type Fraction = { numerator: BigInteger; denominator: BigInteger }
-    let create n m = { numerator = n; denominator = m }
-    let toFloat { numerator = n; denominator = m } = ratio 3 n m
-    let toPercent { numerator = n; denominator = m } = ratio 1 (n*100I) m
-
-module Tuple =
-    let mapfst f (x,y) = (f x, y)
-    let mapsnd f (x,y) = (x, f y)
-    let lfst f = Lens.lens fst (fun v (_,x) -> (v,x)) f
-    let lsnd f = Lens.lens snd (fun v (x,_) -> (x,v)) f
-    let get1of3 (x, _, _) = x
-    let get2of3 (_, x, _) = x
-    let get3of3 (_, _, x) = x
-
-module Result =
-    let OkOnly = function
-        | Ok(v) -> v
-        | v -> matchfail v
-
-module Hierarchy =
-    type Hierarchy<'leaf, 'interior> = Leaf of 'leaf | Nested of 'interior * children: (Hierarchy<'leaf, 'interior> list)
-    let rec map fleaf fnested = function
-        | Leaf(v) -> Leaf (fleaf v)
-        | Nested(v, children) -> Nested(fnested v, children |> List.map (map fleaf fnested))
-    let mapReduce map reduce hierarchy =
-        let rec help parents = function
-            | Leaf v -> map parents v
-            | Nested(v, children) as node ->
-                let ctx = node::parents
-                let children' = children |> List.map (help ctx)
-                reduce v children'
-        help [] hierarchy
 
 module Map =
     let keys (m:Map<_,_>) = m |> Seq.map(fun (KeyValue(k,_)) -> k)

@@ -6,8 +6,13 @@
     <OutputPath>bin</OutputPath>
   </PropertyGroup>
   <ItemGroup>
+    <EmbeddedResource Remove="Model\**" />
+    <EmbeddedResource Remove="Modules\**" />
+  </ItemGroup>
+  <ItemGroup>
     <!-- Global to the app -->
     <Compile Include="Common.fs" />
+    <Compile Include="Arch.fs" />
     <Compile Include="Data.fs" />
     <Compile Include="Abstractions\Parsing.fs" />
     <Compile Include="Domain\Prelude.fs" />
@@ -27,10 +32,6 @@
     <!-- Home -->
     <!-- Navbar -->
     <!-- App -->
-  </ItemGroup>
-  <ItemGroup>
-    <Folder Include="Model\" />
-    <Folder Include="Modules\" />
   </ItemGroup>
   <Import Project="..\.paket\Paket.Restore.targets" />
 </Project>
