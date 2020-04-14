@@ -8,12 +8,10 @@
     <LangVersion>preview</LangVersion>
   </PropertyGroup>
   <ItemGroup>
-    <EmbeddedResource Remove="Model\**" />
-  </ItemGroup>
-  <ItemGroup>
     <PackageReference Update="FSharp.Core" Version="4.7.1" />
     <!-- Global to the app -->
     <Compile Include="Common.fs" />
+    <Compile Include="Arch.fs" />
     <Compile Include="Data.fs" />
     <Compile Include="Abstractions\Parsing.fs" />
     <Compile Include="Domain\Prelude.fs" />
@@ -34,9 +32,6 @@
     <!-- Home -->
     <!-- Navbar -->
     <!-- App -->
-  </ItemGroup>
-  <ItemGroup>
-    <Folder Include="Modules\" />
   </ItemGroup>
   <Import Project="..\.paket\Paket.Restore.targets" />
 </Project>
