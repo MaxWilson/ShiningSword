@@ -20,6 +20,7 @@
     <Compile Include="Domain\Commands.fs" />
     <Compile Include="Domain\Domain.fs" />
     <Compile Include="View\ViewComponents.fs" />
+    <None Include="sass\main.sass" />
     <Compile Include="UI\Prelude.fs" />
     <Compile Include="UI\Ribbit.fs" />
     <Compile Include="UI\App.fs" />

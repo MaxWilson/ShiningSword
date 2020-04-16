@@ -3,7 +3,7 @@ $purple: #7a325d
 $primary: $purple
 $black: #202020
 
-@import '../node_modules/bulma/bulma'
+@import '../../node_modules/bulma/bulma'
 
 html, body, #elmish-app
   display: inline-block // prevent margin collapse which will make vertical scrollbar appear for no reason, see https://stackoverflow.com/questions/12989931/body-height-100-displaying-vertical-scrollbar
@@ -70,7 +70,7 @@ button:focus
 .github
   color: $black !important // Override bulma
   border-color: $black
-  
+
 .queryDialog
   grid-area: main
   min-height: 180px
@@ -79,12 +79,12 @@ button:focus
 .interaction
   grid-area: main
   margin: 10px
-  
+
 .logDisplay
   grid-area: log
   overflow-y: auto
   margin: 10px
-  
+
 .partySummary
   grid-area: summary
   margin: 10px
@@ -98,7 +98,7 @@ button:focus
 
 .mainPage
   display: grid
-  
+
 @media (min-width: 800px)
   .mainPage
     grid-template-areas: "main log" "summary log" ". log"

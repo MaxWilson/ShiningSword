@@ -9,7 +9,7 @@ open Elmish.HMR
 
 // make sure errors are not silent: show them as Alerts (ugly but better than nothing for now)
 open Fable.Core.JsInterop
-importAll "../../sass/main.sass"
+importAll "../sass/main.sass"
 
 module Url =
     type ParseResult = Battle | Neither

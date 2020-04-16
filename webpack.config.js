@@ -17,7 +17,7 @@ var CONFIG = {
     // See https://github.com/jantimon/html-webpack-plugin
     indexHtmlTemplate: "./src/index.html",
     fsharpEntry: "./src/ShiningSword.fsproj",
-    cssEntry: "./sass/main.sass",
+    cssEntry: "./src/sass/main.sass",
     outputDir: "./deploy",
     assetsDir: "./assets",
     devServerPort: 8443,
