@@ -13,6 +13,7 @@ open Feliz
 open UI
 open UI.Feliz.Html
 open UI.Feliz.Prop
+open UI.Display
 
 type Id = int
 type ConsoleLog = { cmdText: string; eventId: Id option }
@@ -90,18 +91,15 @@ let view m dispatch =
                     Css.summaryPane
                     children [summaryOf m.domainModel]
                     ]
+                div [
+                    className "display"
+                    children [foo (match m.console with | [] -> "Nothing yet" | lst -> (lst |> List.last).cmdText)]
+                    ]
                 let notWhitespace = (not << System.String.IsNullOrWhiteSpace)
                 div [
                     Css.queryPane
                     children [
                         localForm "Enter a command please:" [autoFocus true] notWhitespace (ENTER >> dispatch)
-                        button [text "Fibb"; onClick (fun s ->
-                            let rec fibb = function
-                            | 0 | 1 -> 1
-                            | n -> (fibb (n-1)) + (fibb (n-2))
-                            Browser.Dom.window.alert(fibb(40).ToString())
-                            )]
-                        br[]
                         match m.domainModel.blocking.forward |> Map.keys
                                 |> List.ofSeq with
                         | [] -> ()

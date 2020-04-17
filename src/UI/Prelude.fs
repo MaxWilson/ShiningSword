@@ -56,6 +56,7 @@ module Prelude =
                         , [|query|])
                     Html.form [
                         prop.onSubmit <| fun v ->
+                            v.preventDefault()
                             let v = st.current
                             if validator v then
                                 st.update ""

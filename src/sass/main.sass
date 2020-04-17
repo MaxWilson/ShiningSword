@@ -14,32 +14,34 @@ html, body, #elmish-app
   padding: 1vw
 .frame
   display: grid
-  grid-template-areas: "a a" "b b"
+  grid-template-areas: "top top" "mid mid" "bottom bottom"
   grid-template-rows: 3fr 1fr
   height: 100%
   box-sizing: border-box
+  .display
+    grid-area: mid
   .summaryPane
     border-width: thin
     border-color: black
     border-style: solid
     padding: 0.5em
-    grid-area: a
+    grid-area: top
     background-color: lightgrey
     color: black
     td,th
       min-width: 10em
   .queryPane
     padding: 1vw
-    grid-area: b
+    grid-area: bottom
     background-color: green
 
 .frame.withSidebar
-  grid-template-areas: "a s" "b b"
+  grid-template-areas: "top s" "mid s" "bottom bottom"
   grid-template-columns: 3fr 1fr
   .summaryPane
-    grid-area: a
+    grid-area: top
   .queryPane
-    grid-area: b
+    grid-area: bottom
   .sidebar
     grid-area: s
     border-style: solid
