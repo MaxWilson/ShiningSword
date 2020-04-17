@@ -1,6 +1,7 @@
 module App
 open UI.Ribbit
 open Elmish
+open Overloads
 
 //open Elmish.Debug
 #if DEBUG
@@ -30,13 +31,30 @@ module Url =
         let page = locationParser (|Page|_|)
     let parse = Parse.page
 
+open UI.Display
 module App =
     type Model = UI.Ribbit.Model
-    type Msg = Battle of UI.Ribbit.Cmd
-    let update msg model =
+    type Msg = Battle of UI.Ribbit.Cmd | UpdateAnimationTime of AnimationTime
+    let duration = AnimationTime 3000.
+    let update msg (model: Model) =
         match msg with
         | Battle msg ->
-            UI.Ribbit.update msg model
+            let model' =
+                match msg with
+                | ENTER msg ->
+                    let newAnimation =
+                        { FadingText.color = choose [Color.Black; Color.Red; Color.Grey]
+                          FadingText.duration = duration
+                          FadingText.endTime = model.animations.currentTime + duration
+                          text = msg
+                        }
+                    let filterExpired (texts: FadingText list) =
+                        texts |> List.filter (fun t -> t.endTime >= model.animations.currentTime)
+                    { model with animations = { model.animations with texts = newAnimation::model.animations.texts |> filterExpired } }
+                | _ -> model
+            UI.Ribbit.update msg model'
+        | UpdateAnimationTime (AnimationTime time as t) ->
+            { model with animations = { model.animations with currentTime = t }}, Cmd.Empty
     let init = function
         | Url.ParseResult.Battle ->
             UI.Ribbit.init ()
@@ -52,12 +70,17 @@ module App =
 
 open App
 Program.mkProgram init update view
-|> Program.withSubscription(fun m -> Cmd.ofSub(fun d ->
-    Browser.Dom.window.onerror <-
-    fun msg _src _lineNo _colNo err ->
-        if msg.ToString().Contains "SocketProtocolError" = false then
-            d (App.Msg.Battle <| UI.Ribbit.Error (sprintf "Error: %A" msg))
-        ))
+|> Program.withSubscription(fun m ->
+    Cmd.ofSub(fun dispatch ->
+        Browser.Dom.window.onerror <-
+            fun msg _src _lineNo _colNo err ->
+                if msg.ToString().Contains "SocketProtocolError" = false then
+                    (App.Msg.Battle <| UI.Ribbit.Error (sprintf "Error: %A" msg)) |> dispatch
+        let rec animationLoop time =
+            time |> AnimationTime |> UpdateAnimationTime |> dispatch
+            Browser.Dom.window.requestAnimationFrame(animationLoop) |> ignore
+        Browser.Dom.window.requestAnimationFrame(animationLoop) |> ignore
+    ))
 #if DEBUG
 |> Program.toNavigable Url.parse App.urlUpdate
 //|> Program.withDebugger

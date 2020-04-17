@@ -17,7 +17,7 @@ open UI.Display
 
 type Id = int
 type ConsoleLog = { cmdText: string; eventId: Id option }
-type Model = { console: ConsoleLog list; domainModel: Domain.Model }
+type Model = { console: ConsoleLog list; domainModel: Domain.Model; animations: FadingTexts }
 module Lens =
     let domainModel = Lens.lens (fun d -> d.domainModel) (fun v d -> { d with domainModel = v })
 type Cmd = ENTER of string | RESET | Error of string | FulfillProperty of Key * value:string | FulfillRoll of EventId * int
@@ -93,7 +93,7 @@ let view m dispatch =
                     ]
                 div [
                     className "display"
-                    children [foo (match m.console with | [] -> "Nothing yet" | lst -> (lst |> List.last).cmdText)]
+                    children [render m.animations]
                     ]
                 let notWhitespace = (not << System.String.IsNullOrWhiteSpace)
                 div [
@@ -143,7 +143,7 @@ let view m dispatch =
     with e ->
         div (e.ToString())
 
-let init _ = { console = []; domainModel = Domain.fresh }, Cmd.Empty
+let init _ = { console = []; domainModel = Domain.fresh; animations = { currentTime = AnimationTime 0.; texts = [] } }, Cmd.Empty
 let update msg model =
     let exec txt cmd =
         let eventId, domain' = Domain.execute model.domainModel cmd
@@ -152,8 +152,6 @@ let update msg model =
     try
         match msg with
         | ENTER cmd ->
-            Browser.Dom.console.log(model.domainModel)
-            Browser.Dom.console.log(model.domainModel.roster |> SymmetricMap.toSeq |> Array.ofSeq)
             match Domain.tryParseExecutable model.domainModel cmd with
             | Some cmd' -> exec cmd cmd', Cmd.Empty
             | _ -> { model with console = model.console @ [logError (sprintf "Could not parse '%s'" cmd)] }, Cmd.Empty
