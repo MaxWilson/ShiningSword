@@ -12,6 +12,7 @@ nuget Fable.Core
 nuget Fable.Elmish.React
 nuget Fable.Elmish.Browser
 nuget Fable.Elmish.Debugger
+nuget FSharpPlus
 nuget Mono.Cecil
 
 clitool dotnet-fable

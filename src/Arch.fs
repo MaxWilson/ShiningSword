@@ -1,3 +1,1 @@
 module Arch
-
-open Common
