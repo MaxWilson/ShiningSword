@@ -11,6 +11,7 @@
     <PackageReference Update="FSharp.Core" Version="4.7.1" />
     <!-- Global to the app -->
     <Compile Include="Common.fs" />
+    <Compile Include="Aether.fs" />
     <Compile Include="Arch.fs" />
     <Compile Include="Data.fs" />
     <Compile Include="Abstractions\Parsing.fs" />
@@ -25,6 +26,7 @@
     <Compile Include="UI\Display.fs" />
     <Compile Include="UI\Ribbit.fs" />
     <Compile Include="UI\App.fs" />
+    <None Include="TypeClassExperiment.fsx" />
     <None Include="Script1.fsx" />
     <None Include="Script2.fsx" />
     <None Include="XPRules.fsx" />

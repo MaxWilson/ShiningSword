@@ -1,4 +1,4 @@
-﻿module ShiningSword_UnitTests
+module ShiningSword_UnitTests
 open Expecto
 
 [<EntryPoint>]

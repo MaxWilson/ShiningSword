@@ -10,20 +10,39 @@ let thunk2 f arg1 arg2 _ = f arg1 arg2
 let thunk3 f arg1 arg2 arg3 _ = f arg1 arg2 arg3
 let ignore1 f _ = f()
 let matchfail v = sprintf "No match found for %A. This is a bug." v |> invalidOp
+/// Placeholder while we're doing type-focused development, before implementation
 let notImpl() = failwith "Not implemented yet. Email Max if you want this feature."
-let betweenInclusive a b n = min a b <= n && n <= max a b
-
-let chooseRandom (lst: _ []) =
-    lst.[random.Next lst.Length]
-
-[<Sealed; AbstractClass>]
-type Overloads =
-    static member choose src = chooseRandom src
-    static member choose src = chooseRandom (Array.ofList src)
-
 let shouldntHappen _ =
     System.Diagnostics.Debugger.Break()
-    failwith "This shouldn't ever happen. If it does there's a bug"
+    failwith "This shouldn't ever happen. If it does there's a bug."
+let betweenInclusive a b n = min a b <= n && n <= max a b
+
+let chooseRandom (options: _ seq) =
+    options |> Seq.skip (random.Next (Seq.length options)) |> Seq.head
+
+module Optics =
+    type 't LensValue = Value of 't | Ignore
+    type Lens<'state, 'value> =
+        Lens of (('value -> LensValue<'value>) -> 'state -> LensValue<'state>)
+    type Compose =
+        static member compose(Lens(l1), Lens(l2)): Lens<_,_> = notImpl()
+
+    let inline (=>)(lhs, rhs) = Compose.compose(lhs, rhs)
+    let inline read (Lens(l): Lens<'state,'value>) (state: 'state) : 'value =
+        let mutable retval = Unchecked.defaultof<_>
+        l (fun v -> retval <- v; Ignore) state |> ignore
+        retval
+    let inline over (Lens(l): Lens<'state,'value>) (f : 'value -> 'value) (state:'state): 'state =
+        match l (f >> Value) state with
+        | Value v -> v
+        | Ignore -> shouldntHappen()
+    let inline write (l: Lens<'state,'value>) (value:'value) (state: 'state) : 'state =
+        over l (fun _ -> value) state
+    let inline lens (get: 'state -> 'value) (set: 'value -> 'state -> 'state) : Lens<'state, 'value> =
+        Lens(fun f s ->
+            match get s |> f with
+            | Value f -> set f s |> Value
+            | Ignore -> Ignore)
 
 let oxfordJoin = function
     | _::_::_::_rest as lst -> // length 3 or greater

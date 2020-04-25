@@ -1,7 +1,6 @@
 module App
 open UI.Ribbit
 open Elmish
-open Overloads
 
 //open Elmish.Debug
 #if DEBUG
@@ -43,7 +42,7 @@ module App =
                 match msg with
                 | ENTER msg ->
                     let newAnimation =
-                        { FadingText.color = choose [Color.Black; Color.Red; Color.Grey]
+                        { FadingText.color = chooseRandom [Color.Black; Color.Red; Color.Grey]
                           FadingText.duration = duration
                           FadingText.endTime = model.animations.currentTime + duration
                           text = msg
