@@ -3,6 +3,7 @@ module Data
 open Expecto
 open Data
 open Optics
+open Optics.Operations
 
 [<Tests>]
 let tests = testList "Data structures." [
@@ -16,7 +17,7 @@ let tests = testList "Data structures." [
         Expect.equal vs [2;3;4;5] "Wrong order"
     testCase "Optics.lenses" <| fun _ ->
         let data = (1,2)
-        let fst_ f = lens (fst) (fun v (_, snd) -> v, snd) f
+        let fst_() = lens (fst) (fun v (_, snd) -> v, snd)
         let compose = (fst_ => lens snd (fun v (fst, _) -> fst,v))
         Expect.equal (read fst_ data) 1 "Unexpected read result"
         Expect.equal (write fst_ 99 data) (99, 2) "Unexpected write result"
@@ -27,19 +28,19 @@ let tests = testList "Data structures." [
         let data1 = ["a";"b"]
         let data2 = Ok "ok"
         let list_ ix = prism (List.tryItem ix) (fun v l -> l.[0..(ix-1)]@v::l.[ix+1..])
-        Expect.equal (readP (list_ 0) data1) (Some "a") "Unexpected read result"
-        Expect.equal (writeP (list_ 0) "99" data1) ["99"; "b"] "Unexpected write result"
-        Expect.equal (overP (list_ 0) (fun x -> x + x) data1) ["aa";"b"] "Unexpected over result"
-        Expect.equal (readP (list_ 2) data1) None "Unexpected read result"
-        Expect.equal (writeP (list_ 2) "99" data1) ["a"; "b"] "Unexpected write result"
-        Expect.equal (overP (list_ 2) (fun x -> x + x) data1) ["a";"b"] "Unexpected over result"
+        Expect.equal (read (list_ 0) data1) (Some "a") "Unexpected read result"
+        Expect.equal (write (list_ 0) "99" data1) ["99"; "b"] "Unexpected write result"
+        Expect.equal (over (list_ 0) (fun x -> x + x) data1) ["aa";"b"] "Unexpected over result"
+        Expect.equal (read (list_ 2) data1) None "Unexpected read result"
+        Expect.equal (write (list_ 2) "99" data1) ["a"; "b"] "Unexpected write result"
+        Expect.equal (over (list_ 2) (fun x -> x + x) data1) ["a";"b"] "Unexpected over result"
         let ok_ = prism (function Ok v -> Some v | _ -> None) (fun v _ -> Ok v)
         let err_ = prism (function Error v -> Some v | _ -> None) (fun v _ -> Error v)
-        Expect.equal (readP ok_ data2) (Some "ok") "Unexpected read result"
-        Expect.equal (readP err_ data2) None "Unexpected read result"
-        Expect.equal (writeP ok_ "99" data2) (Ok "99") "Unexpected write result"
-        Expect.equal (writeP err_ "99" data2) (Ok "ok") "Unexpected write result"
-        Expect.equal (overP ok_ (fun x -> x + x) data2) (Ok "okok") "Unexpected over result"
-        Expect.equal (overP err_ (fun x -> x + x) data2) (Ok "ok") "Unexpected over result"
+        Expect.equal (read ok_ data2) (Some "ok") "Unexpected read result"
+        Expect.equal (read err_ data2) None "Unexpected read result"
+        Expect.equal (write ok_ "99" data2) (Ok "99") "Unexpected write result"
+        Expect.equal (write err_ "99" data2) (Ok "ok") "Unexpected write result"
+        Expect.equal (over ok_ (fun x -> x + x) data2) (Ok "okok") "Unexpected over result"
+        Expect.equal (over err_ (fun x -> x + x) data2) (Ok "ok") "Unexpected over result"
         ()
     ]
