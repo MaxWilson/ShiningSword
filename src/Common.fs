@@ -21,31 +21,55 @@ let chooseRandom (options: _ seq) =
     options |> Seq.skip (random.Next (Seq.length options)) |> Seq.head
 
 module Optics =
-    type 't LensValue = Value of 't | Ignore
+    type 't LensValue = Return of 't | Ignore
     type 't LensInput = 't -> 't LensValue // in practice will either be a reader or a writer, analogous to Id or Const
     type LensOutput<'state> = 'state -> LensValue<'state>
+    type PrismOutput<'state> = 'state -> LensValue<'state>
     type Lens<'state, 'value> = ('value LensInput -> LensOutput<'state>)
-    type Convert =
+    type Prism<'state, 'value> = (('value option) LensInput -> PrismOutput<'state>)
+    type Impl =
         static member compose(outerLens: Lens<_,_>, innerLens: Lens<_,_>): Lens<_,_> =
             (innerLens >> outerLens)
-    let inline (=>)(outer: Lens<_,_>) (inner) = Convert.compose(outer,inner)
+        static member read(lens: Lens<'state, 'value>, state: 'state): 'value =
+            let mutable retval = Unchecked.defaultof<_>
+            lens (fun v -> retval <- v; Ignore) state |> ignore
+            retval
+        static member readP(prism: Prism<'state, 'value>, state: 'state): 'value option =
+            let mutable retval = None
+            prism (fun v -> retval <- v; Ignore) state |> ignore
+            retval
+    let inline (=>)(outer: Lens<_,_>) (inner) = Impl.compose(outer,inner)
     let inline read (l: Lens<'state,'value>) (state: 'state) : 'value =
-        let mutable retval = Unchecked.defaultof<_>
-        l (fun v -> retval <- v; Ignore) state |> ignore
-        retval
+        Impl.read(l, state)
+    let inline readP (p: Prism<'state,'value>) (state: 'state) : 'value option =
+        Impl.readP(p, state)
     let inline over (l: Lens<'state,'value>) (f : 'value -> 'value) (state:'state): 'state =
-        match l (f >> Value) state with
-        | Value v -> v
+        match l (f >> Return) state with
+        | Return v -> v
+        | Ignore -> shouldntHappen()
+    let inline overP (l: Prism<'state,'value>) (f : 'value -> 'value) (state:'state): 'state =
+        match l (Option.map f >> Return) state with
+        | Return v -> v
         | Ignore -> shouldntHappen()
     let inline write (l: Lens<'state,'value>) (value:'value) (state: 'state) : 'state =
         over l (fun _ -> value) state
+    let inline writeP (l: Prism<'state,'value>) (value:'value) (state: 'state) : 'state =
+        overP l (fun _ -> value) state
     let inline lens (get: 'state -> 'value) (set: 'value -> 'state -> 'state) : Lens<_,_> =
         let lens : Lens<'state, 'value> =
             fun (f:LensInput<_>) s ->
                 match (get s |> f : LensValue<_>) with
-                | Value f -> Value (set f s)
+                | Return v -> Return (set v s)
                 | Ignore -> Ignore
         lens
+    let inline prism (get: 'state -> 'value option) (set: 'value -> 'state -> 'state) : Prism<_,_> =
+        let prism : Prism<'state, 'value> =
+            fun (f:LensInput<_>) s ->
+                match get s |> f with
+                | Return (Some v) -> Return (set v s)
+                | Return None -> Return s
+                | Ignore -> Ignore
+        prism
 
 let oxfordJoin = function
     | _::_::_::_rest as lst -> // length 3 or greater

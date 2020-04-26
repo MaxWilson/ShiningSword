@@ -26,9 +26,20 @@ let tests = testList "Data structures." [
     testCase "Optics.prisms" <| fun _ ->
         let data1 = ["a";"b"]
         let data2 = Ok "ok"
-        let list_ ix = lens (List.item ix) (fun v l -> l.[0..(ix-1)]@v::l.[ix+1..])
-        Expect.equal (read (list_ 0) data1) "a" "Unexpected read result"
-        Expect.equal (write (list_ 0) "99" data1) ["99"; "b"] "Unexpected write result"
-        Expect.equal (over (list_ 0) (fun x -> x + x) data1) ["aa";"b"] "Unexpected over result"
+        let list_ ix = prism (List.tryItem ix) (fun v l -> l.[0..(ix-1)]@v::l.[ix+1..])
+        Expect.equal (readP (list_ 0) data1) (Some "a") "Unexpected read result"
+        Expect.equal (writeP (list_ 0) "99" data1) ["99"; "b"] "Unexpected write result"
+        Expect.equal (overP (list_ 0) (fun x -> x + x) data1) ["aa";"b"] "Unexpected over result"
+        Expect.equal (readP (list_ 2) data1) None "Unexpected read result"
+        Expect.equal (writeP (list_ 2) "99" data1) ["a"; "b"] "Unexpected write result"
+        Expect.equal (overP (list_ 2) (fun x -> x + x) data1) ["a";"b"] "Unexpected over result"
+        let ok_ = prism (function Ok v -> Some v | _ -> None) (fun v _ -> Ok v)
+        let err_ = prism (function Error v -> Some v | _ -> None) (fun v _ -> Error v)
+        Expect.equal (readP ok_ data2) (Some "ok") "Unexpected read result"
+        Expect.equal (readP err_ data2) None "Unexpected read result"
+        Expect.equal (writeP ok_ "99" data2) (Ok "99") "Unexpected write result"
+        Expect.equal (writeP err_ "99" data2) (Ok "ok") "Unexpected write result"
+        Expect.equal (overP ok_ (fun x -> x + x) data2) (Ok "okok") "Unexpected over result"
+        Expect.equal (overP err_ (fun x -> x + x) data2) (Ok "ok") "Unexpected over result"
         ()
     ]
