@@ -2,6 +2,7 @@ module Data
 
 open Expecto
 open Data
+open Optics
 
 [<Tests>]
 let tests = testList "Data structures." [
@@ -15,9 +16,11 @@ let tests = testList "Data structures." [
         Expect.equal vs [2;3;4;5] "Wrong order"
     testCase "Lens.tuples" <| fun _ ->
         let data = (1,2)
-        let lfst = Optics.lens (fst) (fun v (_, snd) -> v, snd)
-        Expect.equal (Optics.read lfst data) 1 "Unexpected read result"
-        Expect.equal (Optics.write lfst 99 data) (99, 2) "Unexpected write result"
-        Expect.equal (Optics.over lfst ((*)2) data) (2, 2) "Unexpected over result"
+        let lfst f = lens (fst) (fun v (_, snd) -> v, snd) f
+        let compose = (lfst => lens snd (fun v (fst, _) -> fst,v))
+        Expect.equal (read lfst data) 1 "Unexpected read result"
+        Expect.equal (write lfst 99 data) (99, 2) "Unexpected write result"
+        Expect.equal (over lfst ((*)2) data) (2, 2) "Unexpected over result"
+        Expect.equal (over compose ((*)11) ((5,6),7)) ((5,66),7) "Unexpected over result"
         ()
     ]

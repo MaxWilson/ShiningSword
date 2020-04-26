@@ -22,27 +22,30 @@ let chooseRandom (options: _ seq) =
 
 module Optics =
     type 't LensValue = Value of 't | Ignore
-    type Lens<'state, 'value> =
-        Lens of (('value -> LensValue<'value>) -> 'state -> LensValue<'state>)
-    type Compose =
-        static member compose(Lens(l1), Lens(l2)): Lens<_,_> = notImpl()
-
-    let inline (=>)(lhs, rhs) = Compose.compose(lhs, rhs)
-    let inline read (Lens(l): Lens<'state,'value>) (state: 'state) : 'value =
+    type 't LensInput = 't -> 't LensValue // in practice will either be a reader or a writer, analogous to Id or Const
+    type LensOutput<'state> = 'state -> LensValue<'state>
+    type Lens<'state, 'value> = ('value LensInput -> LensOutput<'state>)
+    type Convert =
+        static member compose(outerLens: Lens<_,_>, innerLens: Lens<_,_>): Lens<_,_> =
+            (innerLens >> outerLens)
+    let inline (=>)(outer: Lens<_,_>) (inner) = Convert.compose(outer,inner)
+    let inline read (l: Lens<'state,'value>) (state: 'state) : 'value =
         let mutable retval = Unchecked.defaultof<_>
         l (fun v -> retval <- v; Ignore) state |> ignore
         retval
-    let inline over (Lens(l): Lens<'state,'value>) (f : 'value -> 'value) (state:'state): 'state =
+    let inline over (l: Lens<'state,'value>) (f : 'value -> 'value) (state:'state): 'state =
         match l (f >> Value) state with
         | Value v -> v
         | Ignore -> shouldntHappen()
     let inline write (l: Lens<'state,'value>) (value:'value) (state: 'state) : 'state =
         over l (fun _ -> value) state
-    let inline lens (get: 'state -> 'value) (set: 'value -> 'state -> 'state) : Lens<'state, 'value> =
-        Lens(fun f s ->
-            match get s |> f with
-            | Value f -> set f s |> Value
-            | Ignore -> Ignore)
+    let inline lens (get: 'state -> 'value) (set: 'value -> 'state -> 'state) : Lens<_,_> =
+        let lens : Lens<'state, 'value> =
+            fun (f:LensInput<_>) s ->
+                match (get s |> f : LensValue<_>) with
+                | Value f -> Value (set f s)
+                | Ignore -> Ignore
+        lens
 
 let oxfordJoin = function
     | _::_::_::_rest as lst -> // length 3 or greater
