@@ -1,26 +1,56 @@
-module rec Optics
+module Optics
 
-type 't LensValue = Return of 't | Ignore
-type 't LensInput = 't -> 't LensValue // in practice will either be a reader or a writer, analogous to Id or Const
-type LensOutput<'state> = 'state -> LensValue<'state>
-type PrismOutput<'state> = 'state -> LensValue<'state>
-type Lens<'state, 'value> = Lens of ('value LensInput -> LensOutput<'state>)
+type 't OpticResult = Update of 't | Ignore
+type 't OpticInput = 't -> 't OpticResult // in practice will either be a reader or a writer, analogous to Id or Const
+type OpticOutput<'state> = 'state -> OpticResult<'state>
+type Lens<'state, 'value> = Lens of ('value OpticInput -> OpticOutput<'state>)
     with
-    static member (=>)(outerLens: Lens<_,_>, innerLens: Lens<_,_>) =
-        Operations.compose(outerLens, innerLens)
-    static member (=>)(outerLens: unit -> Lens<_,_>, innerLens: Lens<_,_>) =
-        Operations.compose(outerLens(), innerLens)
-    static member (=>)(outerLens: Lens<_,_>, innerLens: unit -> Lens<_,_>) =
-        Operations.compose(outerLens, innerLens())
-    static member (=>)(outerLens: unit -> Lens<_,_>, innerLens: unit -> Lens<_,_>) =
-        Operations.compose(outerLens(), innerLens())
+    member this.d = match this with Lens(l) -> l
+    static member (=>)(outer: Lens<_,_>, inner: Lens<_,_>) =
+        Lens(outer.d << inner.d)
+    static member (=>)(outer: unit -> Lens<_,_>, inner: Lens<_,_>) =
+        Lens(outer().d << inner.d)
+    static member (=>)(outer: Lens<_,_>, inner: unit -> Lens<_,_>) =
+        Lens(outer.d << inner().d)
+    static member (=>)(outer: Lens<_,_>, inner: Prism<_,_>) : Lens<_,_> =
+        notImpl()
+    static member (=>)(outer: unit -> Lens<_,_>, inner: Prism<_,_>) : Lens<_,_> =
+        notImpl()
+    static member (=>)(outer: Lens<_,_>, inner: unit -> Prism<_,_>) : Lens<_,_> =
+        notImpl()
+    static member create (get: 'state -> 'value) (set: 'value -> 'state -> 'state) : Lens<'state, 'value> =
+        fun (f:OpticInput<_>) s ->
+            match (get s |> f : OpticResult<_>) with
+            | Update v -> Update (set v s)
+            | Ignore -> Ignore
+        |> Lens
 
-type Prism<'state, 'value> = Prism of (('value option) LensInput -> PrismOutput<'state>)
+
+and Prism<'state, 'value> = Prism of (('value option) OpticInput -> OpticOutput<'state>)
+    with
+    member this.d = match this with Prism(l) -> l
+    static member (=>)(outer: Prism<_,_>, inner: Prism<_,_>) =
+        Prism(outer.d << inner.d)
+    static member (=>)(outer: unit -> Prism<_,_>, inner: Prism<_,_>) =
+        Prism(outer().d << inner.d)
+    static member (=>)(outer: Prism<_,_>, inner: unit -> Prism<_,_>) =
+        Prism(outer.d << inner().d)
+    static member (=>)(outer: Prism<_,_>, inner: Lens<_,_>) : Prism<_,_> =
+        notImpl()
+    static member (=>)(outer: unit -> Prism<_,_>, inner: Lens<_,_>) : Prism<_,_> =
+        notImpl()
+    static member (=>)(outer: Prism<_,_>, inner: unit -> Lens<_,_>) : Prism<_,_> =
+        notImpl()
+    static member create (get: 'state -> 'value option) (set: 'value -> 'state -> 'state) : Prism<'state, 'value> =
+        fun (f:OpticInput<_>) s ->
+            match get s |> f with
+            | Update (Some v) -> Update (set v s)
+            | Update None -> Ignore
+            | Ignore -> Ignore
+        |> Prism
 
 [<AbstractClass; Sealed>]
 type Operations =
-    static member compose(Lens outerLens, Lens innerLens): Lens<_,_> =
-        Lens(innerLens >> outerLens)
     static member read(Lens lens: Lens<'state, 'value>): 'state -> 'value =
         fun state ->
             let mutable retval = Unchecked.defaultof<_>
@@ -33,14 +63,14 @@ type Operations =
             retval
     static member over (Lens l: Lens<'state,'value>) : ('value -> 'value) -> 'state -> 'state =
         fun (f : 'value -> 'value) (state:'state) ->
-            match l (f >> Return) state with
-            | Return v -> v
+            match l (f >> Update) state with
+            | Update v -> v
             | Ignore -> shouldntHappen()
     static member over (Prism prism: Prism<'state,'value>) : ('value -> 'value) -> 'state -> 'state =
         fun (f : 'value -> 'value) (state:'state) ->
-            match prism (Option.map f >> Return) state with
-            | Return v -> v
-            | Ignore -> shouldntHappen()
+            match prism (Option.map f >> Update) state with
+            | Update v -> v
+            | Ignore -> state
     static member write (lens: Lens<'state,'value>) : 'value -> 'state -> 'state =
         fun (value:'value) (state: 'state) ->
             Operations.over lens (fun _ -> value) state
@@ -62,20 +92,7 @@ type Operations =
         Operations.write(prism())
 
 let inline lens (get: 'state -> 'value) (set: 'value -> 'state -> 'state) : Lens<_,_> =
-    let lens : Lens<'state, 'value> =
-        fun (f:LensInput<_>) s ->
-            match (get s |> f : LensValue<_>) with
-            | Return v -> Return (set v s)
-            | Ignore -> Ignore
-        |> Lens
-    lens
+    Lens.create get set
 
 let inline prism (get: 'state -> 'value option) (set: 'value -> 'state -> 'state) : Prism<_,_> =
-    let prism : Prism<'state, 'value> =
-        fun (f:LensInput<_>) s ->
-            match get s |> f with
-            | Return (Some v) -> Return (set v s)
-            | Return None -> Return s
-            | Ignore -> Ignore
-        |> Prism
-    prism
+    Prism.create get set

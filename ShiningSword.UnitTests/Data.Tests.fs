@@ -6,7 +6,7 @@ open Optics
 open Optics.Operations
 
 [<Tests>]
-let tests = testList "Data structures." [
+let tests = testList "Data structures" [
     testCase "Queue.queue" <| fun _ ->
         let q = Queue.create |> Queue.add 1 |> Queue.add 2 |> Queue.add 3
         let v, q = q |> Queue.(|Pop|) |> Option.get
@@ -17,11 +17,13 @@ let tests = testList "Data structures." [
         Expect.equal vs [2;3;4;5] "Wrong order"
     testCase "Optics.lenses" <| fun _ ->
         let data = (1,2)
-        let fst_() = lens (fst) (fun v (_, snd) -> v, snd)
+        let fst_() = lens (fst) (fun v d -> v, snd d)
+        let snd_() = lens snd (fun v d -> fst d, v)
         let compose = (fst_ => lens snd (fun v (fst, _) -> fst,v))
         Expect.equal (read fst_ data) 1 "Unexpected read result"
         Expect.equal (write fst_ 99 data) (99, 2) "Unexpected write result"
         Expect.equal (over fst_ ((*)2) data) (2, 2) "Unexpected over result"
+        Expect.equal (over (fst_() => snd_) ((*)11) ((5,6),7)) ((5,66),7) "Unexpected over result"
         Expect.equal (over compose ((*)11) ((5,6),7)) ((5,66),7) "Unexpected over result"
         ()
     testCase "Optics.prisms" <| fun _ ->
@@ -43,4 +45,12 @@ let tests = testList "Data structures." [
         Expect.equal (over ok_ (fun x -> x + x) data2) (Ok "okok") "Unexpected over result"
         Expect.equal (over err_ (fun x -> x + x) data2) (Ok "ok") "Unexpected over result"
         ()
+    testCase "Optics.compose prisms and lenses" <| fun _ ->
+        let list_ ix = prism (List.tryItem ix) (fun v l -> l.[0..(ix-1)]@v::l.[ix+1..])
+        let fst_ () = lens fst (fun v d -> v, snd d)
+        let twice v = v + v
+        Expect.equal (over (list_ 2 => fst_) twice [1,"a"; 2, "b"; 3, "c"]) [1,"a"; 2, "b"; 6, "c"] "Lens didn't compose with prism correctly"
+        Expect.equal (over (list_ 3 => fst_) twice [1,"a"; 2, "b"; 3, "c"]) [1,"a"; 2, "b"; 3, "c"] "Lens didn't compose with prism correctly"
+        Expect.equal (over (fst_() => list_ 2) twice ([1;2;3], "abc")) ([1;2;6], "abc") "Lens didn't compose with prism correctly"
+        Expect.equal (over (fst_() => list_ 3) twice ([1;2;3], "abc")) ([1;2;3], "abc") "Lens didn't compose with prism correctly"
     ]
