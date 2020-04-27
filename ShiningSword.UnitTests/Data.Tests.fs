@@ -24,6 +24,9 @@ let tests = testList "Data structures." [
         Expect.equal (over fst_ ((*)2) data) (2, 2) "Unexpected over result"
         Expect.equal (over compose ((*)11) ((5,6),7)) ((5,66),7) "Unexpected over result"
         ()
+    testCase "Optics.verify short-circuiting on read" <| fun _ ->
+        let data = (1,2)
+        Expect.equal (read (lens fst (fun v d -> failwith "shouldn't err")) data) 1 "Should be able to read efficiently without writing"
     testCase "Optics.prisms" <| fun _ ->
         let data1 = ["a";"b"]
         let data2 = Ok "ok"
