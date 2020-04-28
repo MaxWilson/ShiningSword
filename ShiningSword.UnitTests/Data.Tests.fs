@@ -56,4 +56,5 @@ let tests = testList "Data structures" [
         Expect.equal (over (list_ 3 => fst_) twice [1,"a"; 2, "b"; 3, "c"]) [1,"a"; 2, "b"; 3, "c"] "Lens didn't compose with prism correctly"
         Expect.equal (over (fst_() => list_ 2) twice ([1;2;3], "abc")) ([1;2;6], "abc") "Lens didn't compose with prism correctly"
         Expect.equal (over (fst_() => list_ 3) twice ([1;2;3], "abc")) ([1;2;3], "abc") "Lens didn't compose with prism correctly"
+        Expect.equal (over (fst_() => list_ 3 => list_ 2) twice ([[];[];[5;5;];[1;2;3]], "abc")) ([[];[];[5;5];[1;2;6]], "abc") "Lens didn't compose with prism correctly"
     ]
