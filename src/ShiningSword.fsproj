@@ -12,7 +12,6 @@
     <!-- Global to the app -->
     <Compile Include="Common.fs" />
     <Compile Include="Optics.fs" />
-    <Compile Include="Aether.fs" />
     <Compile Include="Arch.fs" />
     <Compile Include="Data.fs" />
     <Compile Include="Abstractions\Parsing.fs" />

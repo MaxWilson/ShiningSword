@@ -20,9 +20,9 @@ let tests = testList "Data structures" [
         let fst_() = lens (fst) (fun v d -> v, snd d)
         let snd_() = lens snd (fun v d -> fst d, v)
         let compose = (fst_ => lens snd (fun v (fst, _) -> fst,v))
-        Expect.equal (read fst_ data) 1 "Unexpected read result"
-        Expect.equal (write fst_ 99 data) (99, 2) "Unexpected write result"
-        Expect.equal (over fst_ ((*)2) data) (2, 2) "Unexpected over result"
+        Expect.equal (data |> read fst_) 1 "Unexpected read result"
+        Expect.equal (data |> write fst_ 99) (99, 2) "Unexpected write result"
+        Expect.equal (data |> over fst_ ((*)2)) (2, 2) "Unexpected over result"
         Expect.equal (over (fst_() => snd_) ((*)11) ((5,6),7)) ((5,66),7) "Unexpected over result"
         Expect.equal (over compose ((*)11) ((5,6),7)) ((5,66),7) "Unexpected over result"
         ()

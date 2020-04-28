@@ -6,6 +6,8 @@ open Data
 open Data.Functor
 open Packrat
 open Domain.Properties
+open Optics
+open Optics.Operations
 open Domain.Dice
 open Domain.Commands
 
@@ -55,15 +57,15 @@ let fresh = {
         blockedThreads = []
         eventLog = FastList.fresh()
         }
-module Lens =
-    let data = Lens.lens (fun d -> d.data) (fun v d -> { d with data = v})
-    let creatureIds = Lens.lens (fun d -> d.roster) (fun v d -> { d with roster = v})
-    let blocking = Lens.lens (fun d -> d.blocking) (fun v d -> { d with blocking = v})
-    let blockedThreads = Lens.lens (fun d -> d.blockedThreads) (fun v d -> { d with blockedThreads = v})
-    let eventLog = Lens.lens (fun d -> d.eventLog) (fun v d -> { d with eventLog = v})
+
+let data_ = lens (fun d -> d.data) (fun v d -> { d with data = v})
+let creatureIds_ = lens (fun d -> d.roster) (fun v d -> { d with roster = v})
+let blocking_ = lens (fun d -> d.blocking) (fun v d -> { d with blocking = v})
+let blockedThreads_ = lens (fun d -> d.blockedThreads) (fun v d -> { d with blockedThreads = v})
+let eventLog_ = lens (fun d -> d.eventLog) (fun v d -> { d with eventLog = v})
 
 let addEvent e model =
-    let m = model |> Lens.over Lens.eventLog (add e)
+    let m = model |> over eventLog_ (add e)
     m.eventLog.lastId.Value, m
 
 let blockOn eventId refs model =
@@ -71,7 +73,7 @@ let blockOn eventId refs model =
         refs
         |> List.fold (fun data key -> data |> SymmetricRelation.add key (EventRef eventId)) blocking
     { model with blockedThreads = eventId :: model.blockedThreads }
-            |> Lens.over Lens.blocking (addKeys eventId)
+            |> over blocking_ (addKeys eventId)
 
 let addBlockingEvent parentId e model =
     let eventId, model =
@@ -145,7 +147,7 @@ let addName name model =
         model
     else
         let id = 1 + (if model.roster |> SymmetricMap.isEmpty then 0 else model.roster |> SymmetricMap.toSeq |> Seq.map fst |> Seq.max)
-        model |> Lens.over Lens.creatureIds (add (id, name))
+        model |> over creatureIds_ (add (id, name))
 
 // define a property
 let addProperty propertyName model =
@@ -167,12 +169,12 @@ let unblock ref (model': ModelIntermediateState) =
 
 let private resolve eventId value (model': ModelIntermediateState) =
     model'.map(fun model ->
-        model |> Lens.over Lens.eventLog (transform eventId (fun e -> { e with status = (Ready value) }))
+        model |> over eventLog_ (transform eventId (fun e -> { e with status = (Ready value) }))
         )
     |> unblock (EventRef eventId)
 let private await (eventId, executable) refs model =
     model
-    |> Lens.over Lens.eventLog (transform eventId (fun e -> { e with status = (Awaiting executable) }))
+    |> over eventLog_ (transform eventId (fun e -> { e with status = (Awaiting executable) }))
     |> blockOn eventId refs
 
 let private executeHelper (model':ModelIntermediateState) eventId executable : ModelIntermediateState =
@@ -180,7 +182,7 @@ let private executeHelper (model':ModelIntermediateState) eventId executable : M
         model'.map(fun model ->
             model
             |> addProperty (snd key)
-            |> Lens.over Lens.data (Map.add key v))
+            |> over data_ (Map.add key v))
         |> unblock (PropertyRef key)
     match executable with
     | Evaluate expr ->
@@ -254,12 +256,12 @@ let progress (model:ModelIntermediateState): ModelIntermediateState =
 
 let setProperty key (value:Value) model =
     model
-    |> addProperty (snd key) |> Lens.over Lens.data (Map.add key value)
+    |> addProperty (snd key) |> over data_ (Map.add key value)
     |> ModelIntermediateState.create (PropertyRef key)
 
 let fulfillRoll eventId n model =
     model
-    |> Lens.over Lens.eventLog (transform eventId (fun e -> { e with status = Ready (Number n) }))
+    |> over eventLog_ (transform eventId (fun e -> { e with status = Ready (Number n) }))
     |> ModelIntermediateState.create (EventRef eventId)
 
 let rec progressToFixedPoint = function

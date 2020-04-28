@@ -14,12 +14,13 @@ open UI
 open UI.Feliz.Html
 open UI.Feliz.Prop
 open UI.Display
+open Optics
 
 type Id = int
 type ConsoleLog = { cmdText: string; eventId: Id option }
 type Model = { console: ConsoleLog list; domainModel: Domain.Model; animations: FadingTexts }
 module Lens =
-    let domainModel = Lens.lens (fun d -> d.domainModel) (fun v d -> { d with domainModel = v })
+    let domainModel = lens (fun d -> d.domainModel) (fun v d -> { d with domainModel = v })
 type Cmd = ENTER of string | RESET | Error of string | FulfillProperty of Key * value:string | FulfillRoll of EventId * int
 let summaryOf (m:Domain.Model) =
     let data = m.data

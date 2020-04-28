@@ -15,20 +15,11 @@ let notImpl() = failwith "Not implemented yet. Email Max if you want this featur
 let shouldntHappen _ =
     System.Diagnostics.Debugger.Break()
     failwith "This shouldn't ever happen. If it does there's a bug."
+let emptyString = System.String.Empty
 let betweenInclusive a b n = min a b <= n && n <= max a b
 
 let chooseRandom (options: _ seq) =
     options |> Seq.skip (random.Next (Seq.length options)) |> Seq.head
-
-let oxfordJoin = function
-    | _::_::_::_rest as lst -> // length 3 or greater
-        match List.rev lst with
-        | last::rest ->
-            sprintf "%s, and %s" (System.String.Join(", ", List.rev rest)) last
-        | _ -> shouldntHappen()
-    | [a;b] -> sprintf "%s and %s" a b
-    | [a] -> a
-    | [] -> "Nothing at all!" // shouldn't happen
 
 let shuffleCopy =
     let swap (a: _[]) x y =
@@ -40,25 +31,16 @@ let shuffleCopy =
         a |> Array.iteri (fun i _ -> swap a i (random.Next(i, Array.length a)))
         a // return the copy
 
-// Lens code based on http://www.fssnip.net/7Pk/title/Polymorphic-lenses by Vesa Karvonen
-module Lens =
-    type LensValue<'T> = Option<'T>
-    type Lens<'InState,'ValGet,'ValSet,'OutState> = ('ValGet -> LensValue<'ValSet>) -> 'InState -> LensValue<'OutState>
-    type SimpleLens<'Outer, 'Inner> = Lens<'Outer, 'Inner, 'Inner, 'Outer>
-    type RecursiveOptionLens<'t> = SimpleLens<'t, 't option>
-    let get (l: Lens<'InState,'ValGet,'ValSet,'OutState>) s =
-        let r = ref Unchecked.defaultof<_>
-        s |> l (fun a -> r := a; None) |> ignore
-        !r
-    let over (l: Lens<'InState,'ValGet,'ValSet,'OutState>) f =
-        l (f >> Some) >> Option.get
-    let set (l: Lens<'InState,'ValGet,'ValSet,'OutState>) b = over l <| fun _ -> b
-    let lens get set : Lens<'InState,'ValGet,'ValSet,'OutState> =
-        fun f s ->
-            ((get s |> f : LensValue<_>) |> Option.map (fun f -> set f s))
-
-let emptyString = System.String.Empty
 module String =
+    let oxfordJoin = function
+        | _::_::_::_rest as lst -> // length 3 or greater
+            match List.rev lst with
+            | last::rest ->
+                sprintf "%s, and %s" (System.String.Join(", ", List.rev rest)) last
+            | _ -> shouldntHappen()
+        | [a;b] -> sprintf "%s and %s" a b
+        | [a] -> a
+        | [] -> emptyString
     let join delimiter strings = System.String.Join((delimiter: string), (strings: string seq))
     let equalsIgnoreCase lhs rhs = System.String.Equals(lhs, rhs, System.StringComparison.InvariantCultureIgnoreCase)
     let firstWord input =
