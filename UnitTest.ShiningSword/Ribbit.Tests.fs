@@ -223,4 +223,6 @@ let tests = testList "ribbit" [
                 | CheckRolledValue(setupSteps, expectedResult, rolls) ->
                     checkValue rolls setupSteps m expectedResult
             ))
+    testCase "Foo" <| fun _ ->
+        Expect.equal "abcdef" "abdef" "Not equal"
     ]

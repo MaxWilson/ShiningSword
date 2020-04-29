@@ -7,7 +7,9 @@ Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "ShiningSword", "src\Shining
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Battle", "Battle\Battle.fsproj", "{63988A6F-40D3-45F5-BA4A-A280E856B85A}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "UnitTest.ShiningSword", "UnitTest.ShiningSword\UnitTest.ShiningSword.fsproj", "{B66FB7A9-B815-4313-882A-AB9371F8D88D}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "UnitTest.ShiningSword", "UnitTest.ShiningSword\UnitTest.ShiningSword.fsproj", "{B66FB7A9-B815-4313-882A-AB9371F8D88D}"
+EndProject
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "YoloDev.Expecto.TestSdk", "..\YoloDev.Expecto.TestSdk\src\YoloDev.Expecto.TestSdk\YoloDev.Expecto.TestSdk.fsproj", "{EF459F3D-242E-44F7-8F0E-193B7688832F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -27,6 +29,10 @@ Global
 		{B66FB7A9-B815-4313-882A-AB9371F8D88D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B66FB7A9-B815-4313-882A-AB9371F8D88D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B66FB7A9-B815-4313-882A-AB9371F8D88D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EF459F3D-242E-44F7-8F0E-193B7688832F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EF459F3D-242E-44F7-8F0E-193B7688832F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EF459F3D-242E-44F7-8F0E-193B7688832F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EF459F3D-242E-44F7-8F0E-193B7688832F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

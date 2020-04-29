@@ -17,6 +17,7 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.*" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\YoloDev.Expecto.TestSdk\src\YoloDev.Expecto.TestSdk\YoloDev.Expecto.TestSdk.fsproj" />
     <ProjectReference Include="..\src\ShiningSword.fsproj" />
   </ItemGroup>
   <Import Project="..\.paket\Paket.Restore.targets" />
