@@ -13,6 +13,7 @@
     <Compile Include="Common.fs" />
     <Compile Include="Optics.fs" />
     <Compile Include="Arch.fs" />
+    <Compile Include="Impl.fs" />
     <Compile Include="Data.fs" />
     <Compile Include="Abstractions\Parsing.fs" />
     <Compile Include="Domain\Prelude.fs" />

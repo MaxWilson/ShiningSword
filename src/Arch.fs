@@ -1,14 +1,20 @@
 module Arch
+open Optics
 
+type Todo() =
+    do notImpl()
 type Id = int
-type Roll = exn
-type Expression = exn
-type Statement = exn
+type Roll = Todo
+type Expression = Todo
+type Statement = Todo
 type PropertyId = Id
-type PropertyDefinition = exn
-type Ref = exn
-type Value = exn
+type PropertyDefinition = Todo
+type Ref = Todo
+type Value = Todo
 type PropertyKey = Id * PropertyId
+type AffordanceChoice = Todo
+type IncrementId<'state, 'id> = Lens<'state, 'id> -> 'state -> 'state * 'id
+
 type GameState = {
     lastCreatureId: Id option
     properties: Map<PropertyKey, Value>
@@ -19,3 +25,6 @@ type IntermediateGameState = {
     processingQueue: Ref list
     }
 type IterateToFixedPoint = IntermediateGameState -> GameState
+type BehaviorChoosesAffordance<'behavior, 'behaviorState, 'affordanceChoice> = 'behavior * 'behaviorState * GameState -> 'behaviorState * 'affordanceChoice
+type AffordanceTriggersAction = Todo
+

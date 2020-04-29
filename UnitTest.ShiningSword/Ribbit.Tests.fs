@@ -84,7 +84,6 @@ type Helper =
             Helper.fulfillRolls fulfiller
         supply listOfRandoms
 
-open Helper
 #if INTERACTIVE
 let m = Domain.fresh |> exec "add Eladriel" |> snd
 let roll rolls (id, model) = (id, supply rolls model)
