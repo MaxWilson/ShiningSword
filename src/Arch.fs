@@ -14,7 +14,7 @@ type Value = Todo
 type PropertyKey = Id * PropertyId
 type AffordanceChoice = Todo
 type IncrementId<'state, 'id> = Lens<'state, 'id> -> 'state -> 'state * 'id
-
+type BlockableComputation<'t> = Complete of 't | BlockedOn of Ref
 type GameState = {
     lastCreatureId: Id option
     properties: Map<PropertyKey, Value>
@@ -25,6 +25,6 @@ type IntermediateGameState = {
     processingQueue: Ref list
     }
 type IterateToFixedPoint = IntermediateGameState -> GameState
-type BehaviorChoosesAffordance<'behavior, 'behaviorState, 'affordanceChoice> = 'behavior * 'behaviorState * GameState -> 'behaviorState * 'affordanceChoice
+type BehaviorChoosesAffordance<'behavior, 'behaviorState, 'affordanceChoice> = 'behavior * 'behaviorState * GameState -> BlockableComputation<'behaviorState * 'affordanceChoice>
 type AffordanceTriggersAction = Todo
 
