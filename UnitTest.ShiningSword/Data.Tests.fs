@@ -17,8 +17,6 @@ let tests = testList "Data structures" [
         Expect.equal vs [2;3;4;5] "Wrong order"
     testCase "Optics.lenses" <| fun _ ->
         let data = (1,2)
-        let fst_() = lens (fst) (fun v d -> v, snd d)
-        let snd_() = lens snd (fun v d -> fst d, v)
         let compose = (fst_ => lens snd (fun v (fst, _) -> fst,v))
         Expect.equal (data |> read fst_) 1 "Unexpected read result"
         Expect.equal (data |> write fst_ 99) (99, 2) "Unexpected write result"

@@ -17,5 +17,6 @@ nuget FSharpPlus
 
 clitool dotnet-fable
 nuget Thoth.Json.Net
+nuget Unquote
 nuget YoloDev.Expecto.TestSdk 0.9.2
 nuget Zanaptak.TypedCssClasses

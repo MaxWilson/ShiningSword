@@ -70,7 +70,7 @@ NUGET
       Fable.Browser.Dom (>= 1.0) - restriction: >= netstandard2.0
       Fable.Core (>= 3.1.5) - restriction: >= netstandard2.0
       FSharp.Core (>= 4.7) - restriction: >= netstandard2.0
-    Feliz (0.80)
+    Feliz (0.81)
       Fable.Core (>= 3.1.5) - restriction: >= netstandard2.0
       Fable.React (>= 6.0) - restriction: >= netstandard2.0
       FSharp.Core (>= 4.7) - restriction: >= netstandard2.0
@@ -154,6 +154,8 @@ NUGET
       Fable.Core (>= 3.0 < 4.0) - restriction: && (< net46) (>= netstandard2.0)
       FSharp.Core (>= 4.6.2) - restriction: || (>= net46) (>= netstandard2.0)
       Newtonsoft.Json (>= 11.0.2) - restriction: || (>= net46) (>= netstandard2.0)
+    Unquote (5.0)
+      FSharp.Core (>= 4.6.2) - restriction: || (>= net45) (>= netstandard2.0)
     YoloDev.Expecto.TestSdk (0.9.2)
       Expecto (>= 9.0 < 10.0) - restriction: >= netcoreapp2.1
       FSharp.Core (>= 4.6) - restriction: >= netcoreapp2.1

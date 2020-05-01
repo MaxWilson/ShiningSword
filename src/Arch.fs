@@ -3,7 +3,8 @@ open Optics
 
 type Todo() =
     do notImpl()
-type Id = int
+type Id = int // an Id is something which is unique within a given context
+type GenerateId<'state, 'id> = Lens<'state, 'id> -> 'state -> 'state * 'id
 type Roll = Todo
 type Expression = Todo
 type Statement = Todo
@@ -13,7 +14,6 @@ type Ref = Todo
 type Value = Todo
 type PropertyKey = Id * PropertyId
 type AffordanceChoice = Todo
-type IncrementId<'state, 'id> = Lens<'state, 'id> -> 'state -> 'state * 'id
 type BlockableComputation<'t> = Complete of 't | BlockedOn of Ref
 type GameState = {
     lastCreatureId: Id option

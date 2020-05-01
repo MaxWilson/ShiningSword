@@ -99,3 +99,6 @@ let inline lens (get: 'state -> 'value) (set: 'value -> 'state -> 'state) : Lens
 
 let inline prism (get: 'state -> 'value option) (set: 'value -> 'state -> 'state) : Prism<_,_> =
     Prism.create get set
+
+let fst_() = lens fst (fun v st -> v, snd st)
+let snd_() = lens snd (fun v st -> fst st, v)

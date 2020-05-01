@@ -7,6 +7,7 @@
     <GenerateProgramFile>false</GenerateProgramFile>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Impl.Tests.fs" />
     <Compile Include="Packrat.Parsing.Tests.fs" />
     <Compile Include="Data.Tests.fs" />
     <Compile Include="Ribbit.Tests.fs" />
