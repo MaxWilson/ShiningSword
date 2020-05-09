@@ -21,7 +21,7 @@ let tests = testList "Data structures" [
         Expect.equal (data |> read fst_) 1 "Unexpected read result"
         Expect.equal (data |> write fst_ 99) (99, 2) "Unexpected write result"
         Expect.equal (data |> over fst_ ((*)2)) (2, 2) "Unexpected over result"
-        Expect.equal (over (fst_() => snd_) ((*)11) ((5,6),7)) ((5,66),7) "Unexpected over result"
+        Expect.equal (over (inv fst_ => snd_) ((*)11) ((5,6),7)) ((5,66),7) "Unexpected over result"
         Expect.equal (over compose ((*)11) ((5,6),7)) ((5,66),7) "Unexpected over result"
         ()
     testCase "Optics.verify short-circuiting on read" <| fun _ ->
@@ -52,7 +52,7 @@ let tests = testList "Data structures" [
         let twice v = v + v
         Expect.equal (over (list_ 2 => fst_) twice [1,"a"; 2, "b"; 3, "c"]) [1,"a"; 2, "b"; 6, "c"] "Lens didn't compose with prism correctly"
         Expect.equal (over (list_ 3 => fst_) twice [1,"a"; 2, "b"; 3, "c"]) [1,"a"; 2, "b"; 3, "c"] "Lens didn't compose with prism correctly"
-        Expect.equal (over (fst_() => list_ 2) twice ([1;2;3], "abc")) ([1;2;6], "abc") "Lens didn't compose with prism correctly"
-        Expect.equal (over (fst_() => list_ 3) twice ([1;2;3], "abc")) ([1;2;3], "abc") "Lens didn't compose with prism correctly"
-        Expect.equal (over (fst_() => list_ 3 => list_ 2) twice ([[];[];[5;5;];[1;2;3]], "abc")) ([[];[];[5;5];[1;2;6]], "abc") "Lens didn't compose with prism correctly"
+        Expect.equal (over (inv fst_ => list_ 2) twice ([1;2;3], "abc")) ([1;2;6], "abc") "Lens didn't compose with prism correctly"
+        Expect.equal (over (inv fst_ => list_ 3) twice ([1;2;3], "abc")) ([1;2;3], "abc") "Lens didn't compose with prism correctly"
+        Expect.equal (over (inv fst_ => list_ 3 => list_ 2) twice ([[];[];[5;5;];[1;2;3]], "abc")) ([[];[];[5;5];[1;2;6]], "abc") "Lens didn't compose with prism correctly"
     ]

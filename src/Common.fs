@@ -17,7 +17,8 @@ let shouldntHappen _ =
     failwith "This shouldn't ever happen. If it does there's a bug."
 let emptyString = System.String.Empty
 let betweenInclusive a b n = min a b <= n && n <= max a b
-
+/// invoke f without requiring parens
+let inv f = f()
 let chooseRandom (options: _ seq) =
     options |> Seq.skip (random.Next (Seq.length options)) |> Seq.head
 
