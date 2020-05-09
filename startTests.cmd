@@ -1,1 +1,1 @@
-%~dp0\ShiningSword.UnitTests\startTests.cmd
+%~dp0UnitTest.ShiningSword\startTests.cmd

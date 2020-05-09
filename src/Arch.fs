@@ -15,7 +15,7 @@ type Address = Todo
 type Value = Todo
 type PropertyKey = Id * PropertyId
 type AffordanceChoice = Todo
-type BlockableComputation<'t> = Complete of 't | BlockedOn of Address
+type BlockableComputation<'t, 'addr> = Complete of 't | BlockedOn of 'addr
 type GameState = {
     lastCreatureId: Id option
     properties: Map<PropertyKey, Value>
@@ -26,6 +26,6 @@ type IntermediateGameState = {
     processingQueue: Address list
     }
 type IterateToFixedPoint = IntermediateGameState -> GameState
-type BehaviorChoosesAffordance<'behavior, 'behaviorState, 'affordanceChoice> = 'behavior * 'behaviorState * GameState -> BlockableComputation<'behaviorState * 'affordanceChoice>
+type BehaviorChoosesAffordance<'state, 'affordance, 'addr> = 'state -> BlockableComputation<'state * 'affordance, 'addr>
 type AffordanceTriggersAction = Todo
 
