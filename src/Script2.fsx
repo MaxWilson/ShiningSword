@@ -1,5 +1,8 @@
 #load "Common.fs"
+#load "Optics.fs"
 open Common
+open Optics
+open Optics.Operations
 module Scope =
     type PropertyName = string
     type RowId = int
@@ -22,7 +25,7 @@ module Scope =
         outstandingQueries: Key list
         }
     module Lens =
-        let PropertyValues = Lens.lens (fun d -> d.propertyValues) (fun v d -> { d with propertyValues = v })
+        let PropertyValues = lens (fun d -> d.propertyValues) (fun v d -> { d with propertyValues = v })
     type DataResult = { data: Data; value: Value } with
         static member Create(d,v) = { data = d; value = v }
     let getData d = d.data
@@ -42,7 +45,7 @@ module Scope =
     let nameList = { name = "NameList"; defaultValue = fun _ d -> Immediate <| DataResult.Create(d, List [||]) }
     let empty : Data = { propertyValues = Map.empty; outstandingQueries = [] }
     let write property rowId v data =
-        DataResult.Create(data |> Lens.over Lens.PropertyValues (Map.add (rowId, property.name) v), v)
+        DataResult.Create(data |> over Lens.PropertyValues (Map.add (rowId, property.name) v), v)
     let tryRead property rowId data : DataResult option =
         let key = (rowId, property.name)
         match data.propertyValues |> Map.tryFind key with
