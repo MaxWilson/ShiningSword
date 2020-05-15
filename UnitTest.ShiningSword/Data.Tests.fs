@@ -23,7 +23,6 @@ let tests = testList "Data structures" [
         Expect.equal (data |> over fst_ ((*)2)) (2, 2) "Unexpected over result"
         Expect.equal (over (inv fst_ => snd_) ((*)11) ((5,6),7)) ((5,66),7) "Unexpected over result"
         Expect.equal (over compose ((*)11) ((5,6),7)) ((5,66),7) "Unexpected over result"
-        ()
     testCase "Optics.verify short-circuiting on read" <| fun _ ->
         let data = (1,2)
         Expect.equal (read (lens fst (fun v d -> failwith "shouldn't err")) data) 1 "Should be able to read efficiently without writing"
@@ -45,7 +44,6 @@ let tests = testList "Data structures" [
         Expect.equal (write err_ "99" data2) (Ok "ok") "Unexpected write result"
         Expect.equal (over ok_ (fun x -> x + x) data2) (Ok "okok") "Unexpected over result"
         Expect.equal (over err_ (fun x -> x + x) data2) (Ok "ok") "Unexpected over result"
-        ()
     testCase "Optics.compose prisms and lenses" <| fun _ ->
         let list_ ix = prism (List.tryItem ix) (fun v l -> l.[0..(ix-1)]@v::l.[ix+1..])
         let fst_ () = lens fst (fun v d -> v, snd d)
