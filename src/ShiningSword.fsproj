@@ -28,6 +28,7 @@
     <Compile Include="UI\Ribbit.fs" />
     <Compile Include="UI\App.fs" />
     <None Include="TypeClassExperiment.fsx" />
+    <None Include="BehaviorExperiment.fsx" />
     <None Include="Script1.fsx" />
     <None Include="Script2.fsx" />
     <None Include="XPRules.fsx" />
