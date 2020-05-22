@@ -5,9 +5,9 @@ open Optics
 open Optics.Operations
 
 let inv f = f ()
-type Effect<'query, 'input, 't> =
-    | Log of string * (unit -> Effect<'query, 'input, 't>)
-    | Read of query: 'query * continuation: ('input -> Effect<'query, 'input, 't>)
+type ReadEffect<'query, 'input, 't> =
+    | Log of string * (unit -> ReadEffect<'query, 'input, 't>)
+    | Read of query: 'query * continuation: ('input -> ReadEffect<'query, 'input, 't>)
     | Result of 't
 
 let rec bind f = function
@@ -41,7 +41,7 @@ type Eventual<'q, 'input, 't> = Ready of 't | Awaiting of ('q * ('input -> Event
 let step e =
     let rec loop accum = function
         | Result v -> Ready({| log = List.rev accum; value = v |})
-        | Read(query, cont: _ -> Effect<_, _,_>) ->
+        | Read(query, cont: _ -> ReadEffect<_, _,_>) ->
             Awaiting(({| query = query; logOutput = List.rev accum |}), (fun e -> cont e |> loop []))
         | Log(msg, cont) ->
             cont() |> loop (msg::accum)
