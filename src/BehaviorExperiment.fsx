@@ -39,7 +39,7 @@ let extractResult e =
 type Eventual<'q, 'input, 't> = Ready of 't | Awaiting of ('q * ('input -> Eventual<'q, 'input, 't>))
 let step e =
     let rec loop accum = function
-        | Result v -> Ready(v, List.rev accum)
+        | Result v -> Ready({| log = List.rev accum; value = v |})
         | Read(query, cont: Input -> Effect<_>) ->
             Awaiting(({| query = query; logOutput = List.rev accum |}), (fun e -> cont e |> loop []))
         | Log(msg, cont) ->
@@ -47,21 +47,30 @@ let step e =
     loop [] e
 module String =
     let join (input: string seq) = System.String.Join("\n", input)
-type Capability<'t> = Capability of label: string * (unit -> 't)
-let closure e =
-    match step e with
-    | Ready(v, logOut) -> v.ToString(), []
-    | Awaiting(data, cont) ->
-        let makeCapability (i: int) : Capability<Eventual<_,_,_>> =
-            Capability(i.ToString(), fun () -> i.ToString() |> cont)
-        sprintf "%s\n%s" (String.join data.logOutput) data.query, [1..10] |> List.map makeCapability
+type Capability<'t> = Capability of label: string * (unit -> string * Capability<'t> list)
+let viewOfEventual model =
+    let rec view model : string * (Capability<_> list) =
+        match model with
+        | Ready(result: {| log: string list; value: _ |}) ->
+            sprintf "%s\n%s" (result.log |> String.join) (inv result.value.ToString), []
+        | Awaiting(data : {| query: string; logOutput: string list |}, cont) ->
+            let makeCapability (i: int) : Capability<string * Capability<_> list> =
+                let label = i.ToString()
+                let dispatch cmd =
+                    let model = cont cmd
+                    view model
+                Capability(label, fun() -> dispatch label)
+            let ret = sprintf "%s\n%s" (String.join data.logOutput) data.query, [1..10] |> List.map makeCapability
+            sprintf "%s\n%s" (String.join data.logOutput) data.query, [1..10] |> List.map makeCapability
+    view model
 let rec fixedPoint = function
     | output, [] -> output |> printfn "Value: %s"
     | output, capabilities ->
         printfn "%s" output
-        let (Capability(label, cap)) = capabilities |> chooseRandom
+        let (Capability(label, exercise)) = capabilities |> chooseRandom
         printfn "Exercising %s" label
-        cap() |> closure |> fixedPoint
+        let result : {||} = cap()
+
 
 
 
