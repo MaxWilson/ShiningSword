@@ -22,6 +22,8 @@ type EffectBuilder() =
     member this.Return e = Result e
 let log msg = Log(msg, fun() -> Result())
 let logf fmt = Printf.ksprintf log fmt
+let read prompt = Read(prompt, fun ans -> Result(ans))
+let readf fmt = Printf.ksprintf read fmt
 
 let effect = EffectBuilder()
 
@@ -47,21 +49,22 @@ let step e =
     loop [] e
 module String =
     let join (input: string seq) = System.String.Join("\n", input)
-type Capability<'t> = Capability of label: string * (unit -> string * Capability<'t> list)
+type Model<'t> = 't * (Capability<'t>) list
+and Capability<'t> = Capability of label: string * exercise: (unit -> Model<'t>)
+//type Capability<'t> = Capability of label: string * (unit -> string * Capability<'t> list)
 let viewOfEventual model =
-    let rec view model : string * (Capability<_> list) =
+    let rec view model : string Model =
         match model with
         | Ready(result: {| log: string list; value: _ |}) ->
             sprintf "%s\n%s" (result.log |> String.join) (inv result.value.ToString), []
         | Awaiting(data : {| query: string; logOutput: string list |}, cont) ->
-            let makeCapability (i: int) : Capability<string * Capability<_> list> =
+            let makeCapability (i: int) : Capability<string> =
                 let label = i.ToString()
-                let dispatch cmd =
+                let dispatch cmd : string Model =
                     let model = cont cmd
                     view model
                 Capability(label, fun() -> dispatch label)
-            let ret = sprintf "%s\n%s" (String.join data.logOutput) data.query, [1..10] |> List.map makeCapability
-            sprintf "%s\n%s" (String.join data.logOutput) data.query, [1..10] |> List.map makeCapability
+            sprintf "%s\n%s" (String.join data.logOutput) data.query, [1..1000] |> List.map makeCapability
     view model
 let rec fixedPoint = function
     | output, [] -> output |> printfn "Value: %s"
@@ -69,10 +72,8 @@ let rec fixedPoint = function
         printfn "%s" output
         let (Capability(label, exercise)) = capabilities |> chooseRandom
         printfn "Exercising %s" label
-        let result : {||} = cap()
-
-
-
+        let result = exercise()
+        result |> fixedPoint
 
 let rec fib = function
     | 0 | 1 -> effect { return 1 }
@@ -83,8 +84,22 @@ let rec fib = function
         return (a + b)
         }
 
-fib 10 |> extractResult
-fib 10 |> closure |> fixedPoint
+fib 10 |> step |> viewOfEventual |> fixedPoint
+
+let getNum =
+    let rec loop accum = effect {
+        match System.Numerics.BigInteger.TryParse accum with
+        | true, n when n % 3 = 0 ->
+            return accum
+        | n ->
+            let! v = readf "%A is not divible by 13. Enter another number" accum
+            let! retval = loop (accum + v)
+            return retval
+        }
+    loop ""
+getNum |> step |> viewOfEventual |> fixedPoint
+
+
 match fib 10 |> closure with
 | label, Capability(clabel, cont)::rest ->
     printfn "%s\n%s" label clabel
