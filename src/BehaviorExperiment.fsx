@@ -5,9 +5,9 @@ open Optics
 open Optics.Operations
 
 let inv f = f ()
-type Effect<'input, 't> =
-    | Log of string * (unit -> Effect<'input, 't>)
-    | Read of query: string * continuation: ('input -> Effect<'input, 't>)
+type Effect<'query, 'input, 't> =
+    | Log of string * (unit -> Effect<'query, 'input, 't>)
+    | Read of query: 'query * continuation: ('input -> Effect<'query, 'input, 't>)
     | Result of 't
 
 let rec bind f = function
@@ -41,7 +41,7 @@ type Eventual<'q, 'input, 't> = Ready of 't | Awaiting of ('q * ('input -> Event
 let step e =
     let rec loop accum = function
         | Result v -> Ready({| log = List.rev accum; value = v |})
-        | Read(query, cont: _ -> Effect<_,_>) ->
+        | Read(query, cont: _ -> Effect<_, _,_>) ->
             Awaiting(({| query = query; logOutput = List.rev accum |}), (fun e -> cont e |> loop []))
         | Log(msg, cont) ->
             cont() |> loop (msg::accum)
@@ -56,14 +56,14 @@ let viewOfEventual model =
         match model with
         | Ready(result: {| log: string list; value: _ |}) ->
             sprintf "%s\n%s" (result.log |> String.join) (inv result.value.ToString), []
-        | Awaiting(data : {| query: string; logOutput: string list |}, cont) ->
+        | Awaiting(data : {| query: int; logOutput: string list |}, cont) ->
             let makeCapability (i: int) : Capability<string> =
                 let label = i.ToString()
                 let dispatch cmd : string Model =
                     let model = cont cmd
                     view model
                 Capability(label, fun() -> dispatch i)
-            sprintf "%s\n%s" (String.join data.logOutput) data.query, [1..1000] |> List.map makeCapability
+            sprintf "%s\n%d" (String.join data.logOutput) data.query, [1..1000] |> List.map makeCapability
     view model
 let rec fixedPoint = function
     | output, [] -> output |> printfn "Value: %s"
@@ -89,7 +89,7 @@ let getNum =
     let rec loop accum = effect {
         if accum % 13I = 0I then return accum
         else
-            let! (v: int) = readf "%A is not divible by 13. Enter another number" accum
+            let! (v: int) = read 13
             let! retval = loop (accum + (System.Numerics.BigInteger v))
             return retval
         }
