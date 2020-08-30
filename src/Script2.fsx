@@ -1,107 +1,58 @@
 #load "Common.fs"
+#load "Optics.fs"
 open Common
-module Scope =
-    type PropertyName = string
-    type RowId = int
-    type Key = RowId option * PropertyName
-    type Value =
-        | Number of int | Text of string
-        | List of Value[]
-        | StructuredData of Map<string, Value>
-        with
-        static member AsText =
-            function
-                | Text v -> v
-                | _ -> shouldntHappen()
-        static member AsNumber =
-            function
-                | Number v -> v
-                | _ -> shouldntHappen()
-    type Data = {
-        propertyValues: Map<Key, Value>
-        outstandingQueries: Key list
+open Optics
+open Optics.Operations
+
+module Row =
+    type d = Map<string, obj>
+    type Property<'t> = Lens<d, 't option>
+    type 't Status = Ready of 't | Deferred
+    let fresh = Map.empty
+    let private set k v d =
+        match v with
+        | Some v -> Map.add k (box v) d
+        | None -> Map.remove k d
+    let stringProp name : Property<string> =
+        lens (Map.tryFind name >> Option.map unbox<string>) (set name)
+    let numProp name : Property<int> =
+        lens (Map.tryFind name >> Option.map unbox<int>) (set name)
+    let rowProp name : Property<d> =
+        lens (Map.tryFind name >> Option.map unbox<d>) (set name)
+    let intListProp name : Property<int list> =
+        lens (Map.tryFind name >> Option.map unbox<int list>) (set name)
+    let rowListProp name : Property<d list> =
+        lens (Map.tryFind name >> Option.map unbox<d list>) (set name)
+    let stringListProp name : Property<string list> =
+        lens (Map.tryFind name >> Option.map unbox<string list>) (set name)
+    let apply (p: Property<'t>) (row: d) =
+        match read p row with
+        | Some v -> Ready v
+        | _ -> Deferred
+open Row
+let rec id = numProp (nameof id)
+let rec name = stringProp (nameof name)
+let r = fresh
+r |> writeSome name "Bob" |> read name
+r |> read name
+
+module Environment =
+    type d<'key, 'value when 'key: comparison> = {
+        data: Map<'key, 'value>
+        freshkey: unit -> 'key * d<'key, 'value>
         }
-    module Lens =
-        let PropertyValues = Lens.lens (fun d -> d.propertyValues) (fun v d -> { d with propertyValues = v })
-    type DataResult = { data: Data; value: Value } with
-        static member Create(d,v) = { data = d; value = v }
-    let getData d = d.data
-    let getValue d = d.value
-    type QueryResult = Immediate of DataResult | Deferred of requiredValues: Key list
-    type PropertyDefinition = {
-        name: PropertyName
-        defaultValue: Key -> Data -> QueryResult
-        }
-    let parseNumber input =
-        match System.Int32.TryParse input with
-        | true, x -> Number x |> Some
-        | _ -> None
-    let parseText input =
-        if System.String.IsNullOrWhiteSpace input then None
-        else Some (Text <| input.Trim())
-    let nameList = { name = "NameList"; defaultValue = fun _ d -> Immediate <| DataResult.Create(d, List [||]) }
-    let empty : Data = { propertyValues = Map.empty; outstandingQueries = [] }
-    let write property rowId v data =
-        DataResult.Create(data |> Lens.over Lens.PropertyValues (Map.add (rowId, property.name) v), v)
-    let tryRead property rowId data : DataResult option =
-        let key = (rowId, property.name)
-        match data.propertyValues |> Map.tryFind key with
-        | Some v ->
-            DataResult.Create(data, v) |> Some
-        | None ->
-            None
-    let read property rowId data : QueryResult =
-        match data |> tryRead property rowId with
-        | Some v -> Immediate v
-        | None ->
-            match property.defaultValue (rowId, property.name) data with
-            | Immediate { data = data; value = v } ->
-                Immediate (write property rowId v data)
-            | deferred -> deferred
-    let rec private inquireBase getName parser (key: Key) data =
-        Deferred [key]
-    let rec private inquire0 inquireBase getName parser (key: Key) data =
-        let data =
-            match key with
-            | (Some id, propertyName) ->
-                let dr: DataResult = getName (Some id) data
-                let name = (dr.value |> Value.AsText)
-                printfn "Enter %s's %s:" name propertyName
-                data
-            | None, propertyName ->
-               printfn "Enter %s:" propertyName
-               data
-        match parser (System.Console.ReadLine()) with
-        | Some v -> DataResult.Create(data, v)
-        | _ ->
-            printf "I don't understand. "
-            inquireBase getName parser key data
-    let name =
-        let getNameSubstitute (rowId: RowId option) data = DataResult.Create(data, Text (sprintf "Creature #%d" rowId.Value))
-        let generateNameOrAsk key data =
-            match key with
-            | Some rowId, _ ->
-                match read nameList (Some rowId) data with
-                | Immediate { data = data; value = List names } when names.Length > 0 ->
-                    Immediate <| DataResult.Create(data, chooseRandom names)
-                | _ -> Deferred [Some rowId, "Name"] // inquireBase getNameSubstitute parseText (Some rowId, "Name") data
-            | _ -> failwith "Name doesn't make sense at the global scope"
-        { name = "Name"; defaultValue = generateNameOrAsk }
-    let inquire = inquireBase (read name)
 
-open Scope
-
-let d = empty
-let getValue = function | Deferred _ -> None | Immediate dr -> Some dr.value
-let str = { PropertyDefinition.name = "Strength"; defaultValue = inquire parseNumber }
-d |> write str (Some 11) (Number 19) |> getData |> read str (Some 11) |> getValue
-
-
-module REPL =
-    type Command = Command
-    let parse (input: string): Command option =
-        Some Command
-    let exec (cmd: Command) (data: Data) : Data =
-        data
-
-
+open Environment
+type NumberOrStringOrList = Number of int | String of string | List of NumberOrStringOrList
+type GameState = {
+    env: Environment.d<(int * string),NumberOrStringOrList>
+    }
+type Step = {
+    id: int
+    name: string
+    parent: int option
+    }
+type Steps = {
+    gameState: GameState
+    env: Environment.d<int, Step>
+    }
