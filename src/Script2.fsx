@@ -44,15 +44,26 @@ module Environment =
 
 open Environment
 type NumberOrStringOrList = Number of int | String of string | List of NumberOrStringOrList
+
+type RowKey = int * string
 type GameState = {
-    env: Environment.d<(int * string),NumberOrStringOrList>
+    data: Environment.d<RowKey,NumberOrStringOrList>
     }
-type Step = {
-    id: int
-    name: string
-    parent: int option
-    }
-type Steps = {
-    gameState: GameState
-    env: Environment.d<int, Step>
-    }
+
+type Wildcard() = do failwith "Not impl"
+
+[<AbstractClass>]
+type Awaiter(msg: string, dest: RowKey) =
+    abstract tryFulfill: GameState -> string -> GameState option
+
+type 't Value = Ready of 't | Awaiting of Awaiter
+
+[<AbstractClass>]
+type API() =
+    // state + actor, event = state'
+    abstract startAction: Wildcard -> GameState -> GameState
+    // state + event = state'
+    abstract startEvent: Wildcard -> GameState -> GameState
+    // read: property + GameState -> result + GameState
+    abstract read: Property<'t> -> GameState -> 't Value * GameState
+
