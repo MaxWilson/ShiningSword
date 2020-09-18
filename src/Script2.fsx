@@ -66,4 +66,9 @@ type API() =
     abstract startEvent: Wildcard -> GameState -> GameState
     // read: property + GameState -> result + GameState
     abstract read: Property<'t> -> GameState -> 't Value * GameState
+    // step + event = state'
+    abstract startStep: Wildcard -> GameState -> GameState
+    // data + event = state'
+    abstract setData: Wildcard -> GameState -> GameState
+
 
