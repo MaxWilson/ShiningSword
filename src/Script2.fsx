@@ -4,6 +4,25 @@ open Common
 open Optics
 open Optics.Operations
 
+// normally in F# we do things functionally, but when there's going to be an event loop
+// in the middle, it's useful to do our script programming with top-level state too
+// so that we're writing APIs in the same mode we'll be consuming them.
+module Stateful =
+    let iter f (state: byref<'t>) =
+        state <- f state
+        state
+    let rec iterUntil fstop fiter (state: byref<'t>) =
+        if fstop state then state
+        else
+            iter fiter &state |> ignore
+            iterUntil fstop fiter &state
+open Stateful
+//// tests
+//let mutable x = 0
+//let flip f x y = f y x
+//let z = flip (>) 3
+//iterUntil (flip (>) 3) ((+)1) &x
+
 module Row =
     type d = Map<string, obj>
     type Property<'t> = Lens<d, 't option>
@@ -35,6 +54,10 @@ let rec name = stringProp (nameof name)
 let r = fresh
 r |> writeSome name "Bob" |> read name
 r |> read name
+let mutable r1 = fresh
+iter (writeSome name "Bob") &r1
+iter (writeSome id 3) &r1
+iter (over id (Option.map ((+) 1))) &r1
 
 module Environment =
     type d<'key, 'value when 'key: comparison> = {
@@ -74,4 +97,11 @@ type API() =
     // data + event = state'
     abstract setData: Wildcard -> GameState -> GameState
 
+// null stubs for developing the interface
+let setup (api: API) _ = Unchecked.defaultof<GameState>
+let star = Unchecked.defaultof<Wildcard>
+let api = Unchecked.defaultof<API>
+
+// test 1: shoot a Fireball!
+let mutable state = setup api ([1, "orc"; 4, "ogre"])
 
