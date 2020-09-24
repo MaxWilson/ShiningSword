@@ -2,7 +2,7 @@
 #load "Optics.fs"
 open Common
 open Optics
-open Optics.Operations
+open type Optics.Operations
 
 // normally in F# we do things functionally, but when there's going to be an event loop
 // in the middle, it's useful to do our script programming with top-level state too
