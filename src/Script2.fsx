@@ -62,22 +62,30 @@ iter (over id (Option.map ((+) 1))) &r1
 module Environment =
     type d<'key, 'value when 'key: comparison> = {
         data: Map<'key, 'value>
-        freshkey: unit -> 'key * d<'key, 'value>
+        freshkey: d<'key, 'value> -> 'key * d<'key, 'value>
         }
 
 open Environment
 type NumberOrStringOrList = Number of int | String of string | List of NumberOrStringOrList
 
-type RowKey = int * string
+type RowKey = int
 type Wildcard() = do failwith "Not impl"
 type Id = Event of int | Step of int
 [<AbstractClass>]
 type Awaiter(msg: string, dest: RowKey) =
     abstract tryFulfill: GameState -> string -> GameState option
 and GameState = {
-    data: Environment.d<RowKey,NumberOrStringOrList>
+    data: Environment.d<RowKey,Row.d>
     awaiting: Awaiter list
     }
+    with
+    static member fresh() =
+        let rec nextKey key d =
+            key, { d with freshkey = nextKey (key+1) }
+        {
+        data = { data = Map.empty; freshkey = nextKey 1 }
+        awaiting = []
+        }
 
 type 't Value = Ready of 't | Awaiting of Awaiter
 type 't Result = 't Value * GameState
@@ -103,5 +111,6 @@ let star = Unchecked.defaultof<Wildcard>
 let api = Unchecked.defaultof<API>
 
 // test 1: shoot a Fireball!
+let mutable state = Unchecked.
 let mutable state = setup api ([1, "orc"; 4, "ogre"])
 
