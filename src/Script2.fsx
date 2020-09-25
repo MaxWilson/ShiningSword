@@ -160,6 +160,7 @@ iter &state (supplyData (getIndividualByName "ogre1" state |> Some) hp 42)
 iter &state (supplyData (getIndividualByName "ogre4" state |> Some) hp 46)
 for id in (getRollRequirementsByDescription "saving throw" state) do // everybody rolls a 1 for test simplicity
     iter &state (fulfill id 1) |> ignore
+iter &state fixpoint // finish processing any events including inflicting damage
 iterSnd &state (read hp (getIndividualByName "orc" state)) = Some 4
 iterSnd &state (read hp (getIndividualByName "ogre1" state)) = Some 31 // wounded by Fireball
 iterSnd &state (read hp (getIndividualByName "ogre2" state)) = None // still unknown
