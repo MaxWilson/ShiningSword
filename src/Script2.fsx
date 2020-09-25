@@ -110,6 +110,25 @@ type API() =
     // data + event = state'
     abstract setData: Wildcard -> GameState -> GameState
 
+module Loader =
+    type LoadKind = ByName of string | FromTemplate of int * string
+    type Output = LoadKind list
+    type InputBuilder() =
+        [<CustomOperation("template")>]
+        member _.Template (monad, template) = monad@[FromTemplate(1,template)]
+        [<CustomOperation("template")>]
+        member _.Template (monad, n, template) = monad@[FromTemplate(n,template)]
+        [<CustomOperation("add")>]
+        member _.Add (monad, name) =
+            monad@[ByName(name)]
+        member _.Zero() = []
+        member _.Yield(()) = []
+        member _.Yield(name:string) = [ByName name]
+        member _.Combine(lhs, rhs) = lhs@rhs
+        member _.Delay(f) = f()
+        member _.For(monad,f) = monad@(f())
+    let build = InputBuilder()
+
 // null stubs for developing the interface
 let loadIndividuals _ state : GameState = GameState.fresh
 let star = Unchecked.defaultof<Wildcard>
@@ -150,7 +169,7 @@ let hp = Row.numProp "HP"
 let ruleSet = {| properties = [hp] |}
 let mutable state = GameState.fresh
 iter &state (define ruleSet)
-iter &state (loadIndividuals ([1, "orc"; 4, "ogre"]))
+iter &state (loadIndividuals (Loader.build { "Frodo"; template "orc"; template 4 "ogre" }))
 iter &state (startEvent "Fireball")
 iter &state fixpoint
 iterSnd &state (read hp (getIndividualByName "orc" state)) = None
@@ -166,27 +185,3 @@ iterSnd &state (read hp (getIndividualByName "ogre1" state)) = Some 31 // wounde
 iterSnd &state (read hp (getIndividualByName "ogre2" state)) = None // still unknown
 iterSnd &state (read hp (getIndividualByName "ogre3" state)) = None // still unknown
 iterSnd &state (read hp (getIndividualByName "ogre1" state)) = Some 35 // wounded by Fireball
-
-type LoadKind = ByName of string | FromTemplate of int * string
-type Output = LoadKind list
-type Maker() =
-    [<CustomOperation("template")>]
-    member _.Template (monad, template) = monad@[FromTemplate(1,template)]
-    [<CustomOperation("template")>]
-    member _.Template (monad, n, template) = monad@[FromTemplate(n,template)]
-    [<CustomOperation("add")>]
-    member _.Add (monad, name) =
-        monad@[ByName(name)]
-    member _.Zero() = []
-    member _.Yield(()) = []
-    member _.Yield(name:string) = [ByName name]
-    member _.Combine(lhs, rhs) = lhs@rhs
-    member _.Delay(f) = f()
-    member _.For(monad,f) = monad@(f())
-let load = Maker()
-load {
-    template 2 "ogre"
-    template "demon"
-    add "bob"
-    "sam"
-}
