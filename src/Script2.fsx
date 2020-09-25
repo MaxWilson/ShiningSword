@@ -8,20 +8,25 @@ open type Optics.Operations
 // in the middle, it's useful to do our script programming with top-level state too
 // so that we're writing APIs in the same mode we'll be consuming them.
 module Stateful =
-    let iter f (state: byref<'t>) =
+    let iter (state: byref<'t>) f =
         state <- f state
         state
-    let rec iterUntil fstop fiter (state: byref<'t>) =
+    let iterSnd (state: byref<'t>) f =
+        let result, state' = f state
+        state <- state'
+        result
+    let rec iterUntil (state: byref<'t>) fstop fiter =
         if fstop state then state
         else
-            iter fiter &state |> ignore
-            iterUntil fstop fiter &state
+            iter &state fiter |> ignore
+            iterUntil &state fstop fiter
 open Stateful
 //// tests
 //let mutable x = 0
 //let flip f x y = f y x
 //let z = flip (>) 3
-//iterUntil (flip (>) 3) ((+)1) &x
+//iterUntil &x (flip (>) 3) ((+)1)
+//iterSnd &x (fun x -> x*x, x+1)
 
 module Row =
     type d = Map<string, obj>
@@ -55,9 +60,9 @@ let r = fresh
 r |> writeSome name "Bob" |> read name
 r |> read name
 let mutable r1 = fresh
-iter (writeSome name "Bob") &r1
-iter (writeSome id 3) &r1
-iter (over id (Option.map ((+) 1))) &r1
+iter &r1 (writeSome name "Bob")
+iter &r1 (writeSome id 3)
+iter &r1 (over id (Option.map ((+) 1)))
 
 module Environment =
     type d<'key, 'value when 'key: comparison> = {
@@ -79,7 +84,7 @@ and GameState = {
     awaiting: Awaiter list
     }
     with
-    static member fresh() =
+    static member fresh =
         let rec nextKey key d =
             key, { d with freshkey = nextKey (key+1) }
         {
@@ -106,11 +111,59 @@ type API() =
     abstract setData: Wildcard -> GameState -> GameState
 
 // null stubs for developing the interface
-let setup (api: API) _ = Unchecked.defaultof<GameState>
+let loadIndividuals _ state : GameState = GameState.fresh
 let star = Unchecked.defaultof<Wildcard>
-let api = Unchecked.defaultof<API>
+
+let startEvent _ state : GameState = notImpl()
+let fixpoint state : GameState = notImpl()
+let define _ state : GameState = notImpl()
+let read (prop: Row.Property<'t>) rowId state : 't option * GameState = notImpl()
+type RollId = int
+type IndividualId = RowKey // individuals are a subset of data
+type PropertyName = string
+type DataId = RowKey option * PropertyName
+let requiredData (state: GameState) : DataId list = notImpl()
+let requiredRolls (state: GameState) : RollId list = notImpl()
+let describeRoll (id: RollId) (state: GameState): string = notImpl()
+let individuals (state: GameState) : IndividualId list = notImpl()
+let describeIndividual (id: IndividualId) (state: GameState): string = notImpl()
+let roll(n, d) = notImpl()
+let fulfill roll n state : GameState = notImpl()
+let supplyData (rowId: RowKey option) (property:Property<'t>) (value: 't) state : GameState = notImpl()
+
+// helper function for testing, not really used at runtime
+let getRollRequirementsByDescription descriptionSubstring state =
+    requiredRolls state
+    |> List.filter (fun id -> (describeRoll id state).Contains descriptionSubstring)
+let getRollRequirementByDescription descriptionSubstring state =
+    getRollRequirementsByDescription descriptionSubstring state
+    |> List.head
+let getIndividualsByName nameSubstring state =
+    individuals state
+    |> List.filter (fun id -> (describeIndividual id state).Contains nameSubstring)
+let getIndividualByName nameSubstring state =
+    getIndividualsByName nameSubstring state
+    |> List.head
 
 // test 1: shoot a Fireball!
-let mutable state = Unchecked.
-let mutable state = setup api ([1, "orc"; 4, "ogre"])
+let hp = Row.numProp "HP"
+let ruleSet = {| properties = [hp] |}
+let mutable state = GameState.fresh
+iter &state (define ruleSet)
+iter &state (loadIndividuals ([1, "orc"; 4, "ogre"]))
+iter &state (startEvent "Fireball")
+iter &state fixpoint
+iterSnd &state (read hp (getIndividualByName "orc" state)) = None
+iter &state (fulfill (getRollRequirementByDescription "8d6" state) 11)
+iter &state (supplyData (getIndividualByName "orc" state |> Some) hp 15)
+iter &state (supplyData (getIndividualByName "ogre1" state |> Some) hp 42)
+iter &state (supplyData (getIndividualByName "ogre4" state |> Some) hp 46)
+for id in (getRollRequirementsByDescription "saving throw" state) do // everybody rolls a 1 for test simplicity
+    iter &state (fulfill id 1) |> ignore
+iterSnd &state (read hp (getIndividualByName "orc" state)) = Some 4
+iterSnd &state (read hp (getIndividualByName "ogre1" state)) = Some 31 // wounded by Fireball
+iterSnd &state (read hp (getIndividualByName "ogre2" state)) = None // still unknown
+iterSnd &state (read hp (getIndividualByName "ogre3" state)) = None // still unknown
+iterSnd &state (read hp (getIndividualByName "ogre1" state)) = Some 35 // wounded by Fireball
+
 
