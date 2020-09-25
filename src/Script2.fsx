@@ -177,8 +177,6 @@ type Maker() =
     [<CustomOperation("add")>]
     member _.Add (monad, name) =
         monad@[ByName(name)]
-    member _.Return (v: string) = [ByName v]
-    member _.Return (n: int, v: string) = [FromTemplate(n, v)]
     member _.Zero() = []
     member _.Yield(()) = []
     member _.Yield(name:string) = [ByName name]
