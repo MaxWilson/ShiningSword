@@ -69,6 +69,8 @@ module Environment =
         data: Map<'key, 'value>
         freshkey: d<'key, 'value> -> 'key * d<'key, 'value>
         }
+    let add k v d =
+        { d with data = d.data |> Map.add k v }
 open Environment
 
 module SymmetricLookup =
@@ -122,7 +124,7 @@ type Awaiter(msg: string, dest: RowKey) =
     abstract tryFulfill: GameState -> string -> GameState option
 and GameState = {
     data: Environment.d<RowKey,Row.d>
-    roster: SymmetricLookup.d<string, IndividualId>
+    roster: Map<IndividualId, string>
     awaiting: Awaiter list
     }
     with
@@ -131,7 +133,7 @@ and GameState = {
             key, { d with freshkey = nextKey (key+1) }
         {
         data = { data = Map.empty; freshkey = nextKey 1 }
-        roster = SymmetricLookup.fresh
+        roster = Map.empty
         awaiting = []
         }
 
@@ -173,7 +175,23 @@ module Loader =
     let build = InputBuilder()
 
 // null stubs for developing the interface
-let loadIndividuals _ state : GameState = GameState.fresh
+let loadIndividuals references (state: GameState) : GameState =
+    let loadByName name (state: GameState) =
+        let id, data = state.data.freshkey state.data
+        let state = { state with
+                        roster = state.roster |> Map.add id name
+                        data = data |> Environment.add id Row.fresh
+                        }
+        state
+    let loadFromTemplate (n, template) (state: GameState) =
+        // for now, loadByTemplate is just a lazy way of generating names
+        // but it really ought to set up kinds too.
+        [1..n] |> List.fold (fun state n -> loadByName ($"{template} #{n}") state) state
+    references
+    |> List.fold (fun state -> function
+                    | Loader.ByName name -> loadByName name state
+                    | Loader.FromTemplate(n, template) -> loadFromTemplate(n,template) state)
+                 state
 let star = Unchecked.defaultof<Wildcard>
 
 let startEvent _ state : GameState = notImpl()
@@ -183,8 +201,8 @@ let read (prop: Row.Property<'t>) rowId state : 't option * GameState = notImpl(
 let requiredData (state: GameState) : DataId list = notImpl()
 let requiredRolls (state: GameState) : RollId list = notImpl()
 let describeRoll (id: RollId) (state: GameState): string = notImpl()
-let individuals (state: GameState) : IndividualId list = notImpl()
-let describeIndividual (id: IndividualId) (state: GameState): string = notImpl()
+let individuals (state: GameState) : IndividualId list = state.roster |> Map.keys |> List.ofSeq
+let describeIndividual (id: IndividualId) (state: GameState): string = state.roster.[id]
 let roll(n, d) = notImpl()
 let fulfill roll n state : GameState = notImpl()
 let supplyData (rowId: RowKey option) (property:Property<'t>) (value: 't) state : GameState = notImpl()
@@ -214,13 +232,13 @@ iter &state fixpoint
 iterSnd &state (read hp (getIndividualByName "orc" state)) = None
 iter &state (fulfill (getRollRequirementByDescription "8d6" state) 11)
 iter &state (supplyData (getIndividualByName "orc" state |> Some) hp 15)
-iter &state (supplyData (getIndividualByName "ogre1" state |> Some) hp 42)
-iter &state (supplyData (getIndividualByName "ogre4" state |> Some) hp 46)
+iter &state (supplyData (getIndividualByName "ogre #1" state |> Some) hp 42)
+iter &state (supplyData (getIndividualByName "ogre #4" state |> Some) hp 46)
 for id in (getRollRequirementsByDescription "saving throw" state) do // everybody rolls a 1 for test simplicity
     iter &state (fulfill id 1) |> ignore
 iter &state fixpoint // finish processing any events including inflicting damage
 iterSnd &state (read hp (getIndividualByName "orc" state)) = Some 4
-iterSnd &state (read hp (getIndividualByName "ogre1" state)) = Some 31 // wounded by Fireball
-iterSnd &state (read hp (getIndividualByName "ogre2" state)) = None // still unknown
-iterSnd &state (read hp (getIndividualByName "ogre3" state)) = None // still unknown
-iterSnd &state (read hp (getIndividualByName "ogre1" state)) = Some 35 // wounded by Fireball
+iterSnd &state (read hp (getIndividualByName "ogre #1" state)) = Some 31 // wounded by Fireball
+iterSnd &state (read hp (getIndividualByName "ogre #2" state)) = None // still unknown
+iterSnd &state (read hp (getIndividualByName "ogre #3" state)) = None // still unknown
+iterSnd &state (read hp (getIndividualByName "ogre #1" state)) = Some 35 // wounded by Fireball
