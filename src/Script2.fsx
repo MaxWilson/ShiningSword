@@ -69,18 +69,60 @@ module Environment =
         data: Map<'key, 'value>
         freshkey: d<'key, 'value> -> 'key * d<'key, 'value>
         }
-
 open Environment
+
+module SymmetricLookup =
+    type d<'key, 'value when 'key: comparison and 'value: comparison> = {
+        forward: Map<'key, 'value list>
+        backward: Map<'value, 'key list>
+        }
+    let add k v d =
+        let addOrCreate k v m =
+            let vs' =
+                match m |> Map.tryFind k with
+                | None -> [v]
+                | Some vs -> v::vs
+            m |> Map.add k vs'
+        { d with
+            forward = d.forward |> addOrCreate k v
+            backward = d.backward |> addOrCreate v k }
+    let private remove k v m =
+        match m |> Map.tryFind k with
+        | None -> m
+        | Some vs ->
+            match vs |> List.filter ((<>) v) with
+            | [] -> m |> Map.remove k
+            | vs' -> m |> Map.add k vs'
+    let removeForward k d =
+        let vs = match d.forward |> Map.tryFind k with Some vs -> vs | None -> []
+        { d with
+            forward = d.forward |> Map.remove k
+            backward = vs |> List.fold (fun map v -> remove v k map) d.backward }
+    let removeBackward v d =
+        let ks = match d.backward |> Map.tryFind v with Some vs -> vs | None -> []
+        { d with
+            forward = ks |> List.fold (fun map k -> remove k v map) d.forward
+            backward = d.backward |> Map.remove v }
+
+    let fresh = { forward = Map.empty; backward = Map.empty }
+open SymmetricLookup
+
 type NumberOrStringOrList = Number of int | String of string | List of NumberOrStringOrList
 
 type RowKey = int
 type Wildcard() = do failwith "Not impl"
 type Id = Event of int | Step of int
+type RollId = int
+type IndividualId = RowKey // individuals are a subset of data
+type PropertyName = string
+type DataId = RowKey option * PropertyName
+
 [<AbstractClass>]
 type Awaiter(msg: string, dest: RowKey) =
     abstract tryFulfill: GameState -> string -> GameState option
 and GameState = {
     data: Environment.d<RowKey,Row.d>
+    roster: SymmetricLookup.d<string, IndividualId>
     awaiting: Awaiter list
     }
     with
@@ -89,6 +131,7 @@ and GameState = {
             key, { d with freshkey = nextKey (key+1) }
         {
         data = { data = Map.empty; freshkey = nextKey 1 }
+        roster = SymmetricLookup.fresh
         awaiting = []
         }
 
@@ -137,10 +180,6 @@ let startEvent _ state : GameState = notImpl()
 let fixpoint state : GameState = notImpl()
 let define _ state : GameState = notImpl()
 let read (prop: Row.Property<'t>) rowId state : 't option * GameState = notImpl()
-type RollId = int
-type IndividualId = RowKey // individuals are a subset of data
-type PropertyName = string
-type DataId = RowKey option * PropertyName
 let requiredData (state: GameState) : DataId list = notImpl()
 let requiredRolls (state: GameState) : RollId list = notImpl()
 let describeRoll (id: RollId) (state: GameState): string = notImpl()
