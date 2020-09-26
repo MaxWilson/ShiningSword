@@ -132,7 +132,13 @@ module Option =
 module List =
     let nth_ n =
         prism (fun (l: _ list) -> if n >= l.Length then None else List.item n l |> Some) (fun v d -> d |> List.mapi (fun i x -> if i = n then v else x))
-    /// some__ is for if you know you're guaranteed to have nth_ because you've already checked it
+    /// nth__ is for if you know you're guaranteed to have nth_ because you've already checked it
     let nth__ n =
         lens (List.item n) (fun v d -> d |> List.mapi (fun i x -> if i = n then v else x))
 
+module Map =
+    let keyed_ key =
+        prism (Map.tryFind key) (Map.add key)
+    /// keyed__ is for if you know you're guaranteed to have nth_ because you've already checked it
+    let keyed__ key =
+        lens (Map.find key) (Map.add key)

@@ -54,15 +54,16 @@ module Row =
         | Some v -> Ready v
         | _ -> Deferred
 open Row
-let rec id = numProp (nameof id)
-let rec name = stringProp (nameof name)
+let rec Id = numProp (nameof Id)
+let rec Kind = numProp (nameof Kind) // for data parent relationships: orc #1 is a kind of orc and inherits data from it, etc.
+let rec Name = stringProp (nameof Name)
 let r = fresh
-r |> writeSome name "Bob" |> read name
-r |> read name
+r |> writeSome Name "Bob" |> read Name
+r |> read Name
 let mutable r1 = fresh
-iter &r1 (writeSome name "Bob")
-iter &r1 (writeSome id 3)
-iter &r1 (over id (Option.map ((+) 1)))
+iter &r1 (writeSome Name "Bob")
+iter &r1 (writeSome Id 3)
+iter &r1 (over Id (Option.map ((+) 1)))
 
 module Environment =
     type d<'key, 'value when 'key: comparison> = {
@@ -71,6 +72,8 @@ module Environment =
         }
     let add k v d =
         { d with data = d.data |> Map.add k v }
+    let data_ = lens(fun d -> d.data) (fun v d -> { d with data = v })
+
 open Environment
 
 module SymmetricLookup =
@@ -123,6 +126,7 @@ type DataId = RowKey option * PropertyName
 type Awaiter(msg: string, dest: RowKey) =
     abstract tryFulfill: GameState -> string -> GameState option
 and GameState = {
+    globalData: Row.d
     data: Environment.d<RowKey,Row.d>
     roster: Map<IndividualId, string>
     awaiting: Awaiter list
@@ -132,10 +136,12 @@ and GameState = {
         let rec nextKey key d =
             key, { d with freshkey = nextKey (key+1) }
         {
+        globalData = Row.fresh
         data = { data = Map.empty; freshkey = nextKey 1 }
         roster = Map.empty
         awaiting = []
         }
+    static member data_ = lens(fun d -> d.data) (fun v d -> { d with data = v })
 
 type 't Value = Ready of 't | Awaiting of Awaiter
 type 't Result = 't Value * GameState
@@ -174,7 +180,13 @@ module Loader =
         member _.For(monad,f) = monad@(f())
     let build = InputBuilder()
 
-// null stubs for developing the interface
+let supplyData (rowId: RowKey option) (property:Property<'t>) (value: 't) state : GameState =
+    // for now, just sets data, but later on should check for any just-unblocked work
+    match rowId with
+    | Some rowId ->
+        state |> writeSome (GameState.data_ => Environment.data_ => (Map.keyed_ rowId) => property) value
+    | None ->
+        { state with globalData = state.globalData |> writeSome property value }
 let loadIndividuals references (state: GameState) : GameState =
     let loadByName name (state: GameState) =
         let id, data = state.data.freshkey state.data
@@ -184,20 +196,24 @@ let loadIndividuals references (state: GameState) : GameState =
                         }
         state
     let loadFromTemplate (n, template) (state: GameState) =
-        // for now, loadByTemplate is just a lazy way of generating names
-        // but it really ought to set up kinds too.
         [1..n] |> List.fold (fun state n -> loadByName ($"{template} #{n}") state) state
     references
     |> List.fold (fun state -> function
                     | Loader.ByName name -> loadByName name state
                     | Loader.FromTemplate(n, template) -> loadFromTemplate(n,template) state)
                  state
+
+// stubs for developing the interface
 let star = Unchecked.defaultof<Wildcard>
 
 let startEvent _ state : GameState = notImpl()
 let fixpoint state : GameState = notImpl()
 let define _ state : GameState = notImpl()
-let read (prop: Row.Property<'t>) rowId state : 't option * GameState = notImpl()
+let read (property: Row.Property<'t>) (rowId: RowKey) (state: GameState) : 't option * GameState =
+    // currently has no notion of "blocked". Will add that later, as a None.
+    match state |> read (GameState.data_ => Environment.data_ => (Map.keyed_ rowId) => property) with
+    | Some(Some v) -> Some v, state
+    | _ -> None, state // bad rowId or unset property
 let requiredData (state: GameState) : DataId list = notImpl()
 let requiredRolls (state: GameState) : RollId list = notImpl()
 let describeRoll (id: RollId) (state: GameState): string = notImpl()
@@ -205,7 +221,6 @@ let individuals (state: GameState) : IndividualId list = state.roster |> Map.key
 let describeIndividual (id: IndividualId) (state: GameState): string = state.roster.[id]
 let roll(n, d) = notImpl()
 let fulfill roll n state : GameState = notImpl()
-let supplyData (rowId: RowKey option) (property:Property<'t>) (value: 't) state : GameState = notImpl()
 
 // helper function for testing, not really used at runtime
 let getRollRequirementsByDescription descriptionSubstring state =
