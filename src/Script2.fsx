@@ -256,4 +256,4 @@ iterSnd &state (read hp (getIndividualByName "orc" state)) = Some 4
 iterSnd &state (read hp (getIndividualByName "ogre #1" state)) = Some 31 // wounded by Fireball
 iterSnd &state (read hp (getIndividualByName "ogre #2" state)) = None // still unknown
 iterSnd &state (read hp (getIndividualByName "ogre #3" state)) = None // still unknown
-iterSnd &state (read hp (getIndividualByName "ogre #1" state)) = Some 35 // wounded by Fireball
+iterSnd &state (read hp (getIndividualByName "ogre #4" state)) = Some 35 // wounded by Fireball
