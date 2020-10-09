@@ -165,20 +165,50 @@ module Loader =
     type LoadKind = ByName of string | FromTemplate of int * string
     type Output = LoadKind list
     type InputBuilder() =
-        [<CustomOperation("template")>]
-        member _.Template (monad, template) = monad@[FromTemplate(1,template)]
-        [<CustomOperation("template")>]
-        member _.Template (monad, n, template) = monad@[FromTemplate(n,template)]
+        [<CustomOperation("template", MaintainsVariableSpaceUsingBind=false)>]
+        member _.Template (monad, template) =
+            printfn "Template1: %A + %A ==> %A" monad template (monad@[FromTemplate(1,template)])
+            monad@[FromTemplate(1,template)]
+        [<CustomOperation("template", MaintainsVariableSpaceUsingBind=false)>]
+        member _.Template (monad, n, template) =
+            printfn "Template2: %A + %A %A ==> %A" monad n template (monad@[FromTemplate(n,template)])
+            monad@[FromTemplate(n,template)]
         [<CustomOperation("add")>]
         member _.Add (monad, name) =
+            printfn "Add: %A + %A ==> %A" monad name (monad@[ByName(name)])
             monad@[ByName(name)]
         member _.Zero() = []
         member _.Yield(()) = []
-        member _.Yield(name:string) = [ByName name]
-        member _.Combine(lhs, rhs) = lhs@rhs
-        member _.Delay(f) = f()
+        member _.Yield(n:int) =
+            printfn "Yield %A" n
+            [ByName "Int"]
+        member _.Yield(name:string) =
+            printfn "Yield %A" name
+            [ByName name]
+        member _.Return(name:string) =
+            printfn "Return %A" name
+            ByName name
+        member _.Combine(lhs, rhs) =
+            let rhs = rhs()
+            let result = lhs@rhs
+            printfn "%A + %A ==> %A" lhs rhs result
+            result
+        member _.Delay(f) =
+            let x = System.Guid.NewGuid()
+            fun() ->
+                printfn "Delay %A" x
+                printfn "Delayed %A: %A" x (f())
+                f()
         member _.For(monad,f) = monad@(f())
+        member _.Run(f) = f()
     let build = InputBuilder()
+
+Loader.build {
+    let x = 2 in
+        "Frodo"
+    template "Orc"
+    //template 4 "ogre"
+    }
 
 let supplyData (rowId: RowKey option) (property:Property<'t>) (value: 't) state : GameState =
     // for now, just sets data, but later on should check for any just-unblocked work
