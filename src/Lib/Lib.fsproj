@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
@@ -10,12 +10,13 @@
     <Compile Include="Common.fs" />
     <Compile Include="Optics.fs" />
     <Compile Include="AutoWizard.fs" />
-    <Compile Include="Ribbit\Model.fs" />
-    <Compile Include="Ribbit\AutoGen.fs">
-        <MyriadFile>Ribbit\Model.fs</MyriadFile>
+    <Compile Include="Domain\RuleEngine.fs" />
+    <Compile Include="Domain\Model.fs" />
+    <Compile Include="Domain\AutoGen.fs">
+        <MyriadFile>Domain\Model.fs</MyriadFile>
         <MyriadNameSpace>Domain</MyriadNameSpace>
     </Compile>
-    <Compile Include="Ribbit\Augment.fs" />
+    <Compile Include="Domain\Augment.fs" />
     <None Include="Script1.fsx" />
     <PackageReference Include="Myriad.Core" Version="0.4.1" />
     <PackageReference Include="Myriad.Plugins" Version="0.4.1" />
