@@ -9,6 +9,10 @@ Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Battle", "Battle\Battle.fsp
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "ShiningSword_UnitTests", "ShiningSword.UnitTests\ShiningSword_UnitTests.fsproj", "{5AB4EB45-9666-432F-BA78-19F2D7E9C7F7}"
 EndProject
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Myriadic", "src\Myriadic\Myriadic.fsproj", "{763EC346-7DAF-49A7-AE25-8767AEAEFF59}"
+EndProject
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Lib", "src\Lib\Lib.fsproj", "{BA24E110-6605-4C9F-9E53-E15D4DE35B03}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +31,14 @@ Global
 		{5AB4EB45-9666-432F-BA78-19F2D7E9C7F7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5AB4EB45-9666-432F-BA78-19F2D7E9C7F7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5AB4EB45-9666-432F-BA78-19F2D7E9C7F7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{763EC346-7DAF-49A7-AE25-8767AEAEFF59}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{763EC346-7DAF-49A7-AE25-8767AEAEFF59}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{763EC346-7DAF-49A7-AE25-8767AEAEFF59}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{763EC346-7DAF-49A7-AE25-8767AEAEFF59}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BA24E110-6605-4C9F-9E53-E15D4DE35B03}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BA24E110-6605-4C9F-9E53-E15D4DE35B03}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BA24E110-6605-4C9F-9E53-E15D4DE35B03}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BA24E110-6605-4C9F-9E53-E15D4DE35B03}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -177,8 +177,8 @@ module Loader =
         member _.Add (monad, name) =
             printfn "Add: %A + %A ==> %A" monad name (monad@[ByName(name)])
             monad@[ByName(name)]
-        member _.Zero() = []
-        member _.Yield(()) = []
+        member _.Zero() = printfn "Zero"; []
+        member _.Yield(()) = printfn "Yield"; []
         member _.Yield(n:int) =
             printfn "Yield %A" n
             [ByName "Int"]
@@ -189,23 +189,28 @@ module Loader =
             printfn "Return %A" name
             ByName name
         member _.Combine(lhs, rhs) =
+            printfn "Combining %A %A" lhs rhs
             let rhs = rhs()
             let result = lhs@rhs
             printfn "%A + %A ==> %A" lhs rhs result
             result
         member _.Delay(f) =
             let x = System.Guid.NewGuid()
+            printfn "Delay prep %A" x
             fun() ->
-                printfn "Delay %A" x
-                printfn "Delayed %A: %A" x (f())
-                f()
-        member _.For(monad,f) = monad@(f())
+                printfn "Un-delaying %A" x
+                let r = f()
+                printfn "Delayed %A: %A" x r
+                r
+        member _.For(monad,f) =
+            printfn "For"
+            monad@(f())
         member _.Run(f) = f()
     let build = InputBuilder()
 
 Loader.build {
-    let x = 2 in
-        "Frodo"
+    template 4 "Ogre"
+    let x = 2 in "Frodo"
     template "Orc"
     //template 4 "ogre"
     }
