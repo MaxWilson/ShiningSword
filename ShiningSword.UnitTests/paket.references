@@ -1,2 +1,4 @@
 Expecto
 Expecto.FsCheck
+FSharp.Core
+Microsoft.NET.Test.Sdk
