@@ -86,7 +86,7 @@ m |> exec "d20+7" |> roll ["1d20+7", 9] |> get
 m |> exec "Eladriel gains 2d6 HP" |> thenExec "Eladriel has 10 HP" |> roll ["2d6", 4]
 #endif
 [<Tests>]
-let tests = testList "ribbit" [
+let tests = testList "ribbit.unit" [
     let uiCommandExamplars = [
         "John.HP", Exact(Evaluate(Ref(PropertyRef(2, "HP")))),
             CheckValue(["add John"; "John has 10 HP"], Number 10)
@@ -116,8 +116,8 @@ let tests = testList "ribbit" [
         "load import maxwilson/party1", IO(Load("maxwilson/party1", true)), ParseOnly
         ]
 
-    testList ".parsing" [
-        testCase ".Basic parsing" <| fun _ ->
+    testList "parsing" [
+        testCase "Basic parsing" <| fun _ ->
             // In this context, all external references are mapped to unit ()
             let (|Term|_|) = Domain.Dice.Parse.(|Term|_|) (Domain.Properties.Parse.(|PropertyReference|_|) ignore)
             let parse x =
@@ -131,7 +131,7 @@ let tests = testList "ribbit" [
                 | Term(x, End) -> x
                 | v -> parseFail v
             Expect.equal (parse "3d6+1") (Binary(Dice(3,6), Plus, Modifier 1)) "Should understand simple basic rolls"
-        testCase ".Parse references" <| fun _ ->
+        testCase "Parse references" <| fun _ ->
             let parse x =
                 let adaptor : RosterAdaptor = {
                     isValidNamePrefix = "Bob".StartsWith
@@ -146,8 +146,8 @@ let tests = testList "ribbit" [
             Expect.equal (parse "3d6+Bob's STR") (Binary(Dice(3,6), Plus, External(PropertyRef(0, "STR")))) "Should understand references to external things"
         ]
 
-    testList ".evaluation" [
-        testCase ".Basic rolls" <| fun _ ->
+    testList "evaluation" [
+        testCase "Basic rolls" <| fun _ ->
             // In this context, all external references are mapped to unit ()
             let (|Term|_|) = Domain.Dice.Parse.(|Term|_|) (Domain.Properties.Parse.(|PropertyReference|_|) ignore)
             let parse x =
@@ -162,7 +162,7 @@ let tests = testList "ribbit" [
                 | v -> parseFail v
             let resolve = resolveSynchronously (thunk None) >> (function (Binary(Dice.Dice(3,6), Plus, Modifier 1)) -> 11 | _ -> shouldntHappen())
             Expect.equal (parse "3d6+1" |> resolve) 11 "Should understand simple basic rolls"
-        testCase ".Parse references" <| fun _ ->
+        testCase "Parse references" <| fun _ ->
             let parse x =
                 let adaptor : RosterAdaptor = {
                     isValidNamePrefix = "Bob".StartsWith
@@ -177,7 +177,7 @@ let tests = testList "ribbit" [
             let resolve = resolveSynchronously (function PropertyRef(0, "STR") -> Modifier 5 |> Some | _ -> None) >> (function (Dice.Binary(Dice.Dice(3,6), Plus, Modifier 5)) -> 9 | v -> matchfail v)
             Expect.equal (parse "3d6+Bob's STR" |> resolve) 9 "Should understand references to external things"
         ]
-    testList ".exemplars"
+    testList "exemplars"
         (uiCommandExamplars |> List.map (fun (cmdTxt, verifier, evalResult) ->
             testCase (sprintf ".%s: %s" (if evalResult = ParseOnly then "Parse" else "Execute") (cmdTxt.Replace(".", "_"))) <| fun _ ->
                 let m = Domain.fresh |> exec "add Eladriel" |> snd
