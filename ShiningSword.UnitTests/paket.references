@@ -2,3 +2,4 @@ Expecto
 Expecto.FsCheck
 FSharp.Core
 Microsoft.NET.Test.Sdk
+YoloDev.Expecto.TestSDK

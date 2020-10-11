@@ -19,3 +19,4 @@ nuget Myriad.Core 0.4.1
 nuget Myriad.Plugins 0.4.1
 nuget Myriad.Sdk 0.4.1
 nuget Thoth.Json.Net
+nuget YoloDev.Expecto.TestSDK
