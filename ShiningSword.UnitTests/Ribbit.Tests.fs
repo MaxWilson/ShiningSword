@@ -16,7 +16,7 @@ module Queue =
 
 type State = {
     data: Map<Key, obj>
-    blocked: Map<Key, Logic<unit>>
+    blocked: Map<Key, Logic<unit> list>
     workQueue: Logic<unit> Queue.d
     log: string list
     }
@@ -36,23 +36,22 @@ module Logic =
         | Some (:? 't as v) -> Some v
         | _ -> None
 
-    let readThen read demand (id: int, prop: Prop<'t>) (thenLogic: 't -> Logic<'t>) : Logic<'t> =
-        let rec logic state =
-            match read id prop state with
-            | Some v ->
-                thenLogic v state
-            | None ->
-                state |> demand (id, prop.name) logic
-        logic
-
-    let demand (id, propName) logic state =
-        { state with blocked = state.blocked |> Map.add (id, propName) logic }
-
-    let fulfill (id, prop: Prop<'t>) (value: 't) state =
-        state
+    let demand (id, propName as key) logic state =
+        match state.blocked |> Map.tryFind key with
+        | None ->
+            { state with blocked = state.blocked |> Map.add (id, propName) [logic] }
+        | Some current ->
+            { state with blocked = state.blocked |> Map.add (id, propName) (current@[logic]) }
 
     let addToQueue logic state =
         { state with workQueue = Queue.append logic state.workQueue }
+
+    let fulfill (id, prop: Prop<'t>) (value: 't) state =
+        let state = { state with data = state.data |> Map.add (id, prop.name) (box value) }
+        match state.blocked |> Map.tryFind (id, prop.name) with
+        | None | Some [] -> state
+        | Some unblocked ->
+            unblocked |> List.fold (flip addToQueue) state
 
     // Like Task.Continue or Async.Map
     let continueWith f logic =
