@@ -6,8 +6,8 @@ open Expecto.Flip
 open FsCheck
 
 type Key = int * string
-type Logic<'state, 'result> = 'state -> 'state * LogicOutput<'state, 'result>
-and LogicOutput<'state, 'result> = Ready of 'result | Awaiting of Logic<'state, 'result>
+type Logic<'state, 'demand, 'result> = 'state -> 'state * LogicOutput<'state, 'demand, 'result>
+and LogicOutput<'state, 'demand, 'result> = Ready of 'result | Awaiting of demand:'demand * followup:Logic<'state, 'demand, 'result>
 
 module Queue =
     type 't d = 't list
@@ -26,7 +26,8 @@ type State = {
         data = Map.empty
         workQueue = Queue.empty
         log = [] }
-and Logic<'t> = Logic<State, 't>
+and Demand = Key option
+and Logic<'t> = Logic<State, Demand, 't>
 
 type Prop<'t> = { name: string }
 module Logic =
@@ -35,7 +36,7 @@ module Logic =
         | Some (:? 't as v) -> Some v
         | _ -> None
 
-    let readThen read demand (id: int, prop: Prop<'t>) (thenLogic: 't -> Logic<State, 't>) : Logic<State, 't> =
+    let readThen read demand (id: int, prop: Prop<'t>) (thenLogic: 't -> Logic<'t>) : Logic<'t> =
         let rec logic state =
             match read id prop state with
             | Some v ->
@@ -59,36 +60,52 @@ module Logic =
             match logic state with
             | state, Ready v ->
                 f v state
-            | state, Awaiting logic ->
-                state, Awaiting (logic |> continueWith)
+            | state, Awaiting(demand, logic) ->
+                state, Awaiting (demand, logic |> continueWith)
         continueWith logic
 
     let andLog logic =
         logic |> continueWith (fun msg state -> { state with log = state.log @ [msg] }, Ready ())
 
-    let spawn (logic: Logic<string>) state =
-        match (logic |> andLog) state with
+    let processLogic = function
         | state, Ready () ->
             state
-        | state, Awaiting logic ->
+        | state, Awaiting(Some demand', logic) ->
+            state |> demand demand' logic
+        | state, Awaiting(None, logic) ->
             state |> addToQueue logic
 
-    let untilFixedPoint state =
+    let spawn (logic: Logic<string>) state =
+        (logic |> andLog) state |> processLogic
+
+    let rec untilFixedPoint state =
         let queue = state.workQueue
         let state = { state with workQueue = Queue.empty }
-        let processLogic state logic =
-            match logic state with
-            | state, Ready() -> state
-            | state, Awaiting logic -> state |> addToQueue logic
-        queue |> List.fold processLogic state
+        match queue |> List.fold (fun state logic -> logic state |> processLogic) state with
+        | { workQueue = [] } as state -> state
+        | state -> state |> untilFixedPoint
 
-    type LogicBuilder() =
+module LogicBuilder =
+    type Builder() =
         member _.Return x =
             fun state -> state, Ready x
         member _.ReturnFrom logic = logic
+        member _.Bind (logic: Logic<'t>, rhs: 't -> Logic<'r>) : Logic<'r> =
+            Logic.continueWith rhs logic
 
-    let logic = LogicBuilder()
+
+    let logic = Builder()
+    let read id prop state =
+        match Logic.read id prop state with
+        | Some v -> state, Ready v
+        | None ->
+            let actualRead state =
+                let value = Logic.read id prop state |> Option.get
+                state, Ready value
+            state, Awaiting(Some (id, prop.name), actualRead)
+
 open Logic
+open LogicBuilder
 
 [<Tests>]
 let tests = testList "ribbit.scenario" [
@@ -103,13 +120,22 @@ let tests = testList "ribbit.scenario" [
             })
         |> verifyLog "abc"
     testCase "Scenario 2: workQueue and fixed points" <| fun _ ->
-        let rest state = state, Awaiting(fun state -> state, Ready "xyz")
+        let rest state = state, Awaiting(None, fun state -> state, Awaiting(None, fun state -> state, Ready "xyz"))
         State.fresh
         |> spawn (logic {
                 return! rest
             })
         |> untilFixedPoint
         |> verifyLog "xyz"
-    ptestCase "Scenario 3: demands and fulfillment" <| fun _ ->
-        ()
+    testCase "Scenario 3: demands and fulfillment" <| fun _ ->
+        let HP : Prop<int> = { name = "HP" }
+        State.fresh
+        |> spawn (logic
+            {
+                let! hp = read 2 HP
+                return sprintf "Bob has %d HP" hp
+            })
+        |> fulfill (2, HP) 27
+        |> untilFixedPoint
+        |> verifyLog "Bob has 27 HP"
     ]
