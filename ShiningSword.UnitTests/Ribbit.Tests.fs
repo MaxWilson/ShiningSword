@@ -51,7 +51,7 @@ module Logic =
         state
 
     let addToQueue logic state =
-        state
+        { state with workQueue = Queue.append logic state.workQueue }
 
     // Like Task.Continue or Async.Map
     let continueWith f logic =
@@ -71,14 +71,21 @@ module Logic =
         | state, Ready () ->
             state
         | state, Awaiting logic ->
-            { state with workQueue = Queue.append logic state.workQueue }
+            state |> addToQueue logic
 
     let untilFixedPoint state =
-        state
+        let queue = state.workQueue
+        let state = { state with workQueue = Queue.empty }
+        let processLogic state logic =
+            match logic state with
+            | state, Ready() -> state
+            | state, Awaiting logic -> state |> addToQueue logic
+        queue |> List.fold processLogic state
 
     type LogicBuilder() =
         member _.Return x =
             fun state -> state, Ready x
+        member _.ReturnFrom logic = logic
 
     let logic = LogicBuilder()
 open Logic
@@ -86,14 +93,23 @@ open Logic
 [<Tests>]
 let tests = testList "ribbit.scenario" [
     let verifyLog msg state =
-        Expect.contains "Missing message" msg state.log
+        Expect.contains (sprintf "Missing message: '%s' was not in %A.\nState: %A" msg state.log state) msg state.log
     testCase "stub" <| fun _ ->
         Expect.equal "Placeholder" 42 (RuleEngine.placeholder 40 + 2)
-    testCase "Scenario1" <| fun _ ->
+    testCase "Scenario 1: spawn, basic logging" <| fun _ ->
         State.fresh
         |> spawn (logic {
                 return "abc"
             })
-        |> untilFixedPoint
         |> verifyLog "abc"
+    testCase "Scenario 2: workQueue and fixed points" <| fun _ ->
+        let rest state = state, Awaiting(fun state -> state, Ready "xyz")
+        State.fresh
+        |> spawn (logic {
+                return! rest
+            })
+        |> untilFixedPoint
+        |> verifyLog "xyz"
+    ptestCase "Scenario 3: demands and fulfillment" <| fun _ ->
+        ()
     ]
