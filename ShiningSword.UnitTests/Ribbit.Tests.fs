@@ -4,10 +4,10 @@ open Common
 open Expecto
 open Expecto.Flip
 open FsCheck
+open Domain.RuleEngine
+open Domain.RuleEngine.Logic
 
 type Key = int * string
-type Logic<'state, 'demand, 'result> = 'state -> 'state * LogicOutput<'state, 'demand, 'result>
-and LogicOutput<'state, 'demand, 'result> = Ready of 'result | Awaiting of demand:'demand * followup:Logic<'state, 'demand, 'result>
 
 module Queue =
     type 't d = 't list
@@ -16,13 +16,13 @@ module Queue =
 
 type State = {
     data: Map<Key, obj>
-    blocked: Map<Key, Logic<unit> list>
+    outstandingQueries: Map<Key, Logic<unit> list>
     workQueue: Logic<unit> Queue.d
     log: string list
     }
     with
     static member fresh = {
-        blocked = Map.empty
+        outstandingQueries = Map.empty
         data = Map.empty
         workQueue = Queue.empty
         log = [] }
@@ -37,31 +37,21 @@ module Logic =
         | _ -> None
 
     let demand (id, propName as key) logic state =
-        match state.blocked |> Map.tryFind key with
+        match state.outstandingQueries |> Map.tryFind key with
         | None ->
-            { state with blocked = state.blocked |> Map.add (id, propName) [logic] }
+            { state with outstandingQueries = state.outstandingQueries |> Map.add (id, propName) [logic] }
         | Some current ->
-            { state with blocked = state.blocked |> Map.add (id, propName) (current@[logic]) }
+            { state with outstandingQueries = state.outstandingQueries |> Map.add (id, propName) (current@[logic]) }
 
     let addToQueue logic state =
         { state with workQueue = Queue.append logic state.workQueue }
 
     let fulfill (id, prop: Prop<'t>) (value: 't) state =
         let state = { state with data = state.data |> Map.add (id, prop.name) (box value) }
-        match state.blocked |> Map.tryFind (id, prop.name) with
+        match state.outstandingQueries |> Map.tryFind (id, prop.name) with
         | None | Some [] -> state
         | Some unblocked ->
-            unblocked |> List.fold (flip addToQueue) ({ state with blocked = state.blocked |> Map.remove (id, prop.name) })
-
-    // Like Task.Continue or Async.Map
-    let continueWith f logic =
-        let rec continueWith logic state =
-            match logic state with
-            | state, Ready v ->
-                f v state
-            | state, Awaiting(demand, logic) ->
-                state, Awaiting (demand, logic |> continueWith)
-        continueWith logic
+            unblocked |> List.fold (flip addToQueue) ({ state with outstandingQueries = state.outstandingQueries |> Map.remove (id, prop.name) })
 
     let andLog logic =
         logic |> continueWith (fun msg state -> { state with log = state.log @ [msg] }, Ready ())
@@ -92,7 +82,6 @@ module LogicBuilder =
         member _.Bind (logic: Logic<'t>, rhs: 't -> Logic<'r>) : Logic<'r> =
             Logic.continueWith rhs logic
 
-
     let logic = Builder()
     let read id prop state =
         match Logic.read id prop state with
@@ -115,8 +104,6 @@ let tests = testList "ribbit.scenario" [
         | Some msg ->
             Tests.failtest msg
         | None -> state
-    testCase "stub" <| fun _ ->
-        Expect.equal "Placeholder" 42 (RuleEngine.placeholder 40 + 2)
     testCase "Scenario 1: spawn, basic logging" <| fun _ ->
         State.fresh
         |> spawn (logic {
@@ -140,13 +127,13 @@ let tests = testList "ribbit.scenario" [
                 return sprintf "Bob has %d HP" hp
             })
         |> verify (fun state ->
-            if state.log.IsEmpty && state.blocked |> Map.containsKey (2, "HP") then None
+            if state.log.IsEmpty && state.outstandingQueries |> Map.containsKey (2, "HP") then None
             else Some "Nothing should complete until 2's HP are available"
             )
         |> fulfill (2, HP) 27
         |> verify (function
             | { log = _::_  } -> Some "Nothing should complete until 2's HP are available"
-            | state when not state.blocked.IsEmpty -> Some "Should be unblocked now"
+            | state when not state.outstandingQueries.IsEmpty -> Some "Should be unblocked now"
             | _ -> None
             )
         |> untilFixedPoint
