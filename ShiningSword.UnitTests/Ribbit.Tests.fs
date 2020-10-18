@@ -51,7 +51,7 @@ module Logic =
         match state.blocked |> Map.tryFind (id, prop.name) with
         | None | Some [] -> state
         | Some unblocked ->
-            unblocked |> List.fold (flip addToQueue) state
+            unblocked |> List.fold (flip addToQueue) ({ state with blocked = state.blocked |> Map.remove (id, prop.name) })
 
     // Like Task.Continue or Async.Map
     let continueWith f logic =
@@ -110,6 +110,11 @@ open LogicBuilder
 let tests = testList "ribbit.scenario" [
     let verifyLog msg state =
         Expect.contains (sprintf "Missing message: '%s' was not in %A.\nState: %A" msg state.log state) msg state.log
+    let verify f state =
+        match f state with
+        | Some msg ->
+            Tests.failtest msg
+        | None -> state
     testCase "stub" <| fun _ ->
         Expect.equal "Placeholder" 42 (RuleEngine.placeholder 40 + 2)
     testCase "Scenario 1: spawn, basic logging" <| fun _ ->
@@ -134,7 +139,16 @@ let tests = testList "ribbit.scenario" [
                 let! hp = read 2 HP
                 return sprintf "Bob has %d HP" hp
             })
+        |> verify (fun state ->
+            if state.log.IsEmpty && state.blocked |> Map.containsKey (2, "HP") then None
+            else Some "Nothing should complete until 2's HP are available"
+            )
         |> fulfill (2, HP) 27
+        |> verify (function
+            | { log = _::_  } -> Some "Nothing should complete until 2's HP are available"
+            | state when not state.blocked.IsEmpty -> Some "Should be unblocked now"
+            | _ -> None
+            )
         |> untilFixedPoint
         |> verifyLog "Bob has 27 HP"
     ]
