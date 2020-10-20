@@ -125,3 +125,30 @@ module Draft =
         | Feat of Feat
         | ASI of Stat * int
         | Skill of Skill
+
+module Queue =
+    type 't d = 't list
+    let append item queue = queue@[item]
+    let empty = []
+
+module Ribbit =
+    type Key = int * string
+    type Logic<'state, 'demand, 'result> = 'state -> 'state * LogicOutput<'state, 'demand, 'result>
+    and LogicOutput<'state, 'demand, 'result> = Ready of 'result | Awaiting of demand:'demand * followup:Logic<'state, 'demand, 'result>
+
+    type Prop<'t> = { name: string }
+    [<Generator.Lens>]
+    type State = {
+        data: Map<Key, obj>
+        outstandingQueries: Map<Key, Logic<unit> list>
+        workQueue: Logic<unit> Queue.d
+        log: string list
+        }
+        with
+        static member fresh = {
+            outstandingQueries = Map.empty
+            data = Map.empty
+            workQueue = Queue.empty
+            log = [] }
+    and Demand = Key option
+    and Logic<'t> = Logic<State, Demand, 't>
