@@ -57,14 +57,14 @@ module Logic =
         | state -> state |> untilFixedPoint
 
     module Builder =
-        type Builder() =
+        type Builder<'state,'demand>() =
             member _.Return x =
                 fun state -> state, Ready x
             member _.ReturnFrom logic = logic
-            member _.Bind (logic: Logic<'t>, rhs: 't -> Logic<'r>) : Logic<'r> =
+            member _.Bind (logic: Logic<'state, 'demand, 't>, rhs: 't -> Logic<'state, 'demand, 'r>) : Logic<'state, 'demand, 'r> =
                 continueWith rhs logic
 
-        let logic = Builder()
+        let logic = Builder<State, Demand>()
         let read id prop state =
             match read id prop state with
             | Some v -> state, Ready v
