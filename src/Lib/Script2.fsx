@@ -159,28 +159,44 @@ let xpOf (monsters: Monster list) =
     monsters |> List.map snd |> dmgcalculate 4
 let countUp items = items |> List.groupBy id |> List.map (fun (item, copies) -> (copies |> List.length), item)
 type Budget = Under | On | Over
-let isInBudget (nPC: int, pcLevel:int) monsters =
+let dmgBudget (nPC: int, pcLevel:int) monsters =
     let cost = (monsters |> List.map snd |> dmgcalculate nPC)
     let levelData = xpBudgets.[pcLevel - 1]
-    let threshold = nPC * levelData.deadly
-    let budget = nPC * levelData.deadly * 2
+    let threshold = nPC * levelData.hard
+    let budget = nPC * levelData.deadly
     if cost < threshold then Under
     elif cost >= budget then Over
     else On
-let makeDeadlyEncounter (monsters: Monster Offering) (nPC: int, pcLevel:int) =
-    simpleAssemble [] prepend (fun (monsters, _, monsters', count) -> count > 100 || isInBudget (nPC, pcLevel) monsters = On) 
-        monsters (fun ((monster, cr), encounter) -> cr <= float (pcLevel + 2) && (isInBudget (nPC, pcLevel) ((monster, cr)::encounter)) <> Over)
+let ssBudget (nPC: int, pcLevel:int) monsters =
+    let cost = (monsters |> List.map snd |> sscalculate)
+    let levelData = xpBudgets.[pcLevel - 1]
+    let threshold = nPC * levelData.hard
+    let budget = nPC * levelData.deadly
+    if cost < threshold then Under
+    elif cost >= budget then Over
+    else On
+let makeHardEncounter budgetCalc (monsters: Monster Offering) (nPC: int, pcLevel:int) =
+    simpleAssemble [] prepend (fun (monsters, _, monsters', count) -> count > 1000 || budgetCalc (nPC, pcLevel) monsters = On) 
+        monsters (fun ((monster, cr), encounter) ->
+            cr <= float (pcLevel + 2)
+                && ((monster, cr)::encounter) |> List.groupBy fst |> List.length <= 3 // don't want more than 3 types of monsters
+                && (budgetCalc (nPC, pcLevel) ((monster, cr)::encounter)) <> Over)
     |> List.map fst
     |> countUp
 let menagerie = [
-    "Goblin", 0.25;
-    "Mind Flayer", 7.;
-    "Hill Giant", 5.;
-    "Star Spawn Grue", 0.25;
-    "Star Spawn Mangler", 5.;
-    "Star Spawn Hulk", 10.;
-    "Drow Warrior", 0.25;
+    "Goblin", 0.25
+    "Mind Flayer", 7.
+    "Hill Giant", 5.
+    "Star Spawn Grue", 0.25
+    "Star Spawn Mangler", 5.
+    "Star Spawn Hulk", 10.
+    "Drow Warrior", 0.25
     "Angry Peasant Zombie", 0.5
+    "Young White Dragon", 6.
+    "Young Red Dragon", 10.
+    "Beholder", 13.
     ]
-makeDeadlyEncounter menagerie
-    (4, 10)
+makeHardEncounter dmgBudget menagerie (4, 10)
+makeHardEncounter ssBudget menagerie (4, 10)
+makeHardEncounter dmgBudget menagerie (4, 20)
+makeHardEncounter ssBudget menagerie (4, 20)
