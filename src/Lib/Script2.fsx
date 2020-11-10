@@ -13,26 +13,29 @@ Assemble: modules UNDER constraints
 *)
 
 type 't Constraint = 't -> bool
-type 't Offering = 't List
-type Assemble<'choiceModule, 'choiceAssembly> = 'choiceModule Offering -> ('choiceModule*'choiceAssembly) Constraint -> 'choiceAssembly
+type 't Offering = 't Constraint -> 't Option
+let randomOffering modules constraints =
+    match modules |> List.filter constraints with
+    | [] -> None
+    | validChoices -> Some (chooseRandom validChoices)
+
+type Assemble<'choiceModule, 'choiceAssembly> = 'choiceModule Offering -> ('choiceAssembly -> 'choiceModule Constraint) -> 'choiceAssembly
 let simpleAssemble zero aggregate suffice: Assemble<'m, 'asm> =
     // using None = Backtrack, Some = valid result
     fun modules constraints ->
         let rec loop(asm, count) =
-            match modules |> List.filter (fun m -> constraints(m, asm)) with
-            | [] -> loop(zero, count+1)
-            | validChoices ->
-                let choice = chooseRandom validChoices
+            match modules (constraints(asm)) with
+            | None -> loop(zero, count+1)
+            | Some choice ->
                 let asm' = aggregate asm choice
                 if suffice(asm, choice, asm', count) then asm'
                 else
                     loop(asm', count+1)
         loop(zero, 0)
- 
 
 let prepend rest head = (head::rest)
 simpleAssemble [] prepend (fun (_, _, asm, count) -> (List.sum asm) >= 10 || count > 20)
-    [1..10] (fun (m, asm) -> m + (List.sum asm) <= 10)
+    (randomOffering [1..10]) (fun asm m -> m + (List.sum asm) <= 10)
 
 module DMGish =
     open type System.Math
@@ -177,12 +180,24 @@ let ssBudget (nPC: int, pcLevel:int) monsters =
     else On
 let makeHardEncounter budgetCalc (monsters: Monster Offering) (nPC: int, pcLevel:int) =
     simpleAssemble [] prepend (fun (monsters, _, monsters', count) -> count > 1000 || budgetCalc (nPC, pcLevel) monsters = On) 
-        monsters (fun ((monster, cr), encounter) ->
+        monsters (fun encounter (monster, cr) ->
             cr <= float (pcLevel + 2)
                 && ((monster, cr)::encounter) |> List.groupBy fst |> List.length <= 3 // don't want more than 3 types of monsters
                 && (budgetCalc (nPC, pcLevel) ((monster, cr)::encounter)) <> Over)
     |> List.map fst
     |> countUp
+
+let weightedChoice n monsters constraints =
+    let rec recur = function
+    | [] -> None
+    | m::_ when rand 100 <= n && constraints m -> Some m
+    | _::rest -> recur rest
+    recur monsters
+
+// prefer mobs over singles in an exponential ratio
+let weightedSwarms n monsters =
+    weightedChoice n (monsters |> Array.ofList |> shuffleCopy |> Array.sortBy snd |> List.ofArray)
+    
 let menagerie = [
     "Goblin", 0.25
     "Mind Flayer", 7.
@@ -196,7 +211,9 @@ let menagerie = [
     "Young Red Dragon", 10.
     "Beholder", 13.
     ]
-makeHardEncounter dmgBudget menagerie (4, 10)
-makeHardEncounter ssBudget menagerie (4, 10)
-makeHardEncounter dmgBudget menagerie (4, 20)
-makeHardEncounter ssBudget menagerie (4, 20)
+let randomMonster = randomOffering menagerie
+makeHardEncounter dmgBudget randomMonster (4, 10)
+makeHardEncounter ssBudget randomMonster (4, 10)
+makeHardEncounter dmgBudget randomMonster (4, 20)
+makeHardEncounter ssBudget randomMonster (4, 20)
+makeHardEncounter dmgBudget (weightedSwarms 30 menagerie) (4, 10)
