@@ -17,6 +17,7 @@
     <Compile Include="Domain\Augment.fs" />
     <Compile Include="Domain\RuleEngine.fs" />
     <None Include="Script1.fsx" />
+    <None Include="Script2.fsx" />
     <ProjectReference Include="..\Myriadic\Myriadic.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
