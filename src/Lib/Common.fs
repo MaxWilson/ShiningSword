@@ -21,6 +21,12 @@ let betweenInclusive a b n = min a b <= n && n <= max a b
 let inv f = f()
 let chooseRandom (options: _ seq) =
     options |> Seq.skip (random.Next (Seq.length options)) |> Seq.head
+// iterate a mutable value
+let iter (data: byref<_>) f =
+    data <- f data
+    data
+/// iter and ignore the result
+let iteri (data: byref<_>) f = data <- f data
 
 let shuffleCopy =
     let swap (a: _[]) x y =
@@ -71,3 +77,13 @@ module List =
 module Map =
     let keys (m:Map<_,_>) = m |> Seq.map(fun (KeyValue(k,_)) -> k)
     let values (m:Map<_,_>) = m |> Seq.map(fun (KeyValue(_,v)) -> v)
+    let addForce key f (m: Map<_,_>) =
+        match m |> Map.tryFind key with
+        | Some v ->
+            let v' = f v
+            if v = v' then m
+            else m |> Map.add key v'
+        | None ->
+            m |> Map.add key (f Map.empty)
+    let findForce key (m: Map<_,_>) =
+        m |> Map.tryFind key |> Option.defaultValue Map.empty
