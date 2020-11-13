@@ -11,7 +11,9 @@ open files with Notepad (done),
 then create GraphViz files by hand and open them (done),
 then generate graphs and transform them into Graphviz files and open them (done),
 then make it interactive (nothing to do).
-Stretch goal: make graphviz show layouts spatially in some kind of grid where north/south are actually aligned that way.
+Stretch goals:
+make graphviz show layouts spatially in some kind of grid where north/south are actually aligned that way.
+eliminate double-printing of directions by using two colors (done).
 *)
 
 open System.Diagnostics
@@ -144,10 +146,15 @@ module DungeonRoom =
             dungeon.rooms
             |> Seq.map (fun (KeyValue(id, Room(label))) -> $"  {id} [shape=box,label=\"{label}\"];")
             |> String.join "\n"
+        let colorOf = function
+            | North -> "red;0.5:blue;0.5" // blue exit is northbound, red is southbound
+            | West -> "green;0.5:yellow;0.5" // yellow exit is westbound, green is eastbound
+            | _ -> failwith "not needed"
         let edges =
             [for KeyValue(id, exits) in dungeon.exits do
                 for KeyValue(direction, dest) in exits do
-                    $"  {id}->{dest}[label=\"{direction}\"];"
+                    if direction = North || direction = West then
+                        $"  {id}->{dest}[color=\"{colorOf direction}\",dir=none];"
                 ]
             |> String.join "\n"
         sprintf "digraph G { %s\n%s }" nodes edges
