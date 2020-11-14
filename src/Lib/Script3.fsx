@@ -161,4 +161,21 @@ module DungeonRoom =
 
 open DungeonRoom
 // demonstrate usage:
-generate 10 |> toGraphViz |> dumpToFile |> dot
+generate 20 |> toGraphViz |> dumpToFile |> dot
+
+let gnolls n =
+    let space = Array2D.create 30 30 '.'
+    let rec addGnoll() =
+        let x, y = random.Next 30, random.Next 30
+        if space.[x, y] = '.' then
+            space.[x, y] <- 'G'
+        else
+            addGnoll()
+    for _ in 1..n do
+        addGnoll()
+    [for x in 0..Array2D.length1 space - 1 do
+        space.[x, *] |> System.String
+        ]
+    |> String.join "\n"
+
+gnolls 50 |> dumpToFile |> notepad
