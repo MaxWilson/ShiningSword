@@ -1,6 +1,9 @@
 [<AutoOpen>]
 module Common
 
+open Optics
+open type Optics.Operations
+
 let flip f x y = f y x
 let random = System.Random()
 let rand x = 1 + random.Next x
@@ -87,3 +90,11 @@ module Map =
             m |> Map.add key (f Map.empty)
     let findForce key (m: Map<_,_>) =
         m |> Map.tryFind key |> Option.defaultValue Map.empty
+
+type IdGenerator = NextId of int
+    with
+    static member fresh = NextId 1
+    static member newId (idGenerator_: Lens<'m, IdGenerator>) (model: 'm) =
+        let mutable id' = 0
+        let model' = model |> over idGenerator_ (fun (NextId id) -> id' <- id; NextId (id'+1))
+        id', model'

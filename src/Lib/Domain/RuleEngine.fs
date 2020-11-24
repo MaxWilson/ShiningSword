@@ -35,8 +35,8 @@ module Logic =
         | Some unblocked ->
             unblocked |> List.fold (flip addToQueue) ({ state with outstandingQueries = state.outstandingQueries |> Map.remove (id, prop.name) })
 
-    let andLog logic =
-        logic |> continueWith (fun msg state -> { state with log = state.log @ [msg] }, Ready ())
+    let andLog id logic =
+        logic |> continueWith (fun msg state -> { state with resolved = state.resolved |> Map.add id msg; log = Queue.append id state.log }, Ready ())
 
     let processLogic = function
         | state, Ready () ->
@@ -47,7 +47,8 @@ module Logic =
             state |> addToQueue logic
 
     let spawn (logic: Logic<string>) state =
-        (logic |> andLog) state |> processLogic
+        let id, state = state |> IdGenerator.newId State.ids_
+        (logic |> andLog id) state |> processLogic
 
     let rec untilFixedPoint state =
         let queue = state.workQueue

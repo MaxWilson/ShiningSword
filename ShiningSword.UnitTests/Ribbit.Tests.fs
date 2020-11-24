@@ -15,7 +15,8 @@ open Domain.RuleEngine.Logic.Builder
 [<Tests>]
 let tests = testList "ribbit.scenario" [
     let verifyLog msg state =
-        Expect.contains (sprintf "Missing message: '%s' was not in %A.\nState: %A" msg state.log state) msg state.log
+        let msgs = state.log |> Queue.read |> List.map (fun id -> state.resolved.[id])
+        Expect.contains (sprintf "Missing message: '%s' was not in %A.\nState: %A" msg msgs state) msg msgs
     let verify f state =
         match f state with
         | Some msg ->

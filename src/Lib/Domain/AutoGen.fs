@@ -682,12 +682,19 @@ module DraftSheet =
 module State =
     open Domain.Model.Ribbit
 
+    let ids_ =
+        Optics.lens (fun (data: State) -> data.ids) (fun (value: IdGenerator) (data: State) -> { data with ids = value })
+
     let data_ =
-        Optics.lens (fun (data: State) -> data.data) (fun (value: Map<Key, obj>) (data: State) ->
+        Optics.lens (fun (data: State) -> data.data) (fun (value: Map<DataKey, obj>) (data: State) ->
             { data with data = value })
 
+    let resolved_ =
+        Optics.lens (fun (data: State) -> data.resolved) (fun (value: Map<RowKey, string>) (data: State) ->
+            { data with resolved = value })
+
     let outstandingQueries_ =
-        Optics.lens (fun (data: State) -> data.outstandingQueries) (fun (value: Map<Key, Logic<unit> list>) (data: State) ->
+        Optics.lens (fun (data: State) -> data.outstandingQueries) (fun (value: Map<DataKey, Logic<unit> list>) (data: State) ->
             { data with outstandingQueries = value })
 
     let workQueue_ =
@@ -695,4 +702,5 @@ module State =
             { data with workQueue = value })
 
     let log_ =
-        Optics.lens (fun (data: State) -> data.log) (fun (value: string list) (data: State) -> { data with log = value })
+        Optics.lens (fun (data: State) -> data.log) (fun (value: RowKey Queue.d) (data: State) ->
+            { data with log = value })

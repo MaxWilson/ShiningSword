@@ -6,8 +6,8 @@
   </PropertyGroup>
   <ItemGroup>
     <MyriadSdkGenerator Include="$(MSBuildThisFileDirectory)\..\Myriadic\bin\Debug\netstandard2.1\Myriadic.dll" />
-    <Compile Include="Common.fs" />
     <Compile Include="Optics.fs" />
+    <Compile Include="Common.fs" />
     <Compile Include="AutoWizard.fs" />
     <Compile Include="Domain\Model.fs" />
     <Compile Include="Domain\AutoGen.fs">

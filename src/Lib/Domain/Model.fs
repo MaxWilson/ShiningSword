@@ -130,25 +130,32 @@ module Queue =
     type 't d = 't list
     let append item queue = queue@[item]
     let empty = []
+    let read (queue: _ d) = queue
 
 module Ribbit =
-    type Key = int * string
+    type RowKey = int
+    type PropertyName = string
+    type DataKey = RowKey * PropertyName
     type Logic<'state, 'demand, 'result> = 'state -> 'state * LogicOutput<'state, 'demand, 'result>
     and LogicOutput<'state, 'demand, 'result> = Ready of 'result | Awaiting of demand:'demand * followup:Logic<'state, 'demand, 'result>
 
     type Prop<'t> = { name: string }
     [<Generator.Lens>]
     type State = {
-        data: Map<Key, obj>
-        outstandingQueries: Map<Key, Logic<unit> list>
+        ids: IdGenerator
+        data: Map<DataKey, obj>
+        resolved: Map<RowKey, string>
+        outstandingQueries: Map<DataKey, Logic<unit> list>
         workQueue: Logic<unit> Queue.d
-        log: string list
+        log: RowKey Queue.d
         }
         with
         static member fresh = {
+            ids = IdGenerator.fresh
             outstandingQueries = Map.empty
             data = Map.empty
+            resolved = Map.empty
             workQueue = Queue.empty
-            log = [] }
-    and Demand = Key option
+            log = Queue.empty }
+    and Demand = DataKey option
     and Logic<'t> = Logic<State, Demand, 't>
