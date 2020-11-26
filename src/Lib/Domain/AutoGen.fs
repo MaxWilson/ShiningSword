@@ -689,9 +689,9 @@ module State =
         Optics.lens (fun (data: State) -> data.data) (fun (value: Map<DataKey, obj>) (data: State) ->
             { data with data = value })
 
-    let resolved_ =
-        Optics.lens (fun (data: State) -> data.resolved) (fun (value: Map<RowKey, string>) (data: State) ->
-            { data with resolved = value })
+    let settled_ =
+        Optics.lens (fun (data: State) -> data.settled) (fun (value: Map<RowKey, string>) (data: State) ->
+            { data with settled = value })
 
     let outstandingQueries_ =
         Optics.lens (fun (data: State) -> data.outstandingQueries) (fun (value: Map<DataKey, Logic<unit> list>) (data: State) ->

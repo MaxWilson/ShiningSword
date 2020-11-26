@@ -144,7 +144,7 @@ module Ribbit =
     type State = {
         ids: IdGenerator
         data: Map<DataKey, obj>
-        resolved: Map<RowKey, string>
+        settled: Map<RowKey, string>
         outstandingQueries: Map<DataKey, Logic<unit> list>
         workQueue: Logic<unit> Queue.d
         log: RowKey Queue.d
@@ -154,7 +154,7 @@ module Ribbit =
             ids = IdGenerator.fresh
             outstandingQueries = Map.empty
             data = Map.empty
-            resolved = Map.empty
+            settled = Map.empty
             workQueue = Queue.empty
             log = Queue.empty }
     and Demand = DataKey option
