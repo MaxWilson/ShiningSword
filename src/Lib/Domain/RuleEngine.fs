@@ -1,6 +1,7 @@
 module Domain.RuleEngine
 open Domain.Model
 open Domain.Model.Ribbit
+open type Ops
 
 module Logic =
     // Like Task.Continue or Async.Map
@@ -21,22 +22,22 @@ module Logic =
     let demand (id, propName as key) logic state =
         match state.outstandingQueries |> Map.tryFind key with
         | None ->
-            { state with outstandingQueries = state.outstandingQueries |> Map.add (id, propName) [logic] }
+            { state with outstandingQueries = addTo state.outstandingQueries (id, propName) [logic] }
         | Some current ->
-            { state with outstandingQueries = state.outstandingQueries |> Map.add (id, propName) (current@[logic]) }
+            { state with outstandingQueries = addTo state.outstandingQueries (id, propName) (current@[logic]) }
 
     let addToQueue logic state =
-        { state with workQueue = Queue.append logic state.workQueue }
+        { state with workQueue = add(logic, state.workQueue) }
 
     let fulfill (id, prop: Prop<'t>) (value: 't) state =
-        let state = { state with data = state.data |> Map.add (id, prop.name) (box value) }
+        let state = { state with data = addTo state.data (id, prop.name) (box value) }
         match state.outstandingQueries |> Map.tryFind (id, prop.name) with
         | None | Some [] -> state
         | Some unblocked ->
             unblocked |> List.fold (flip addToQueue) ({ state with outstandingQueries = state.outstandingQueries |> Map.remove (id, prop.name) })
 
     let andLog id logic =
-        logic |> continueWith (fun msg state -> { state with settled = state.settled |> Map.add id msg; log = Queue.append id state.log }, Ready ())
+        logic |> continueWith (fun msg state -> { state with settled = addTo state.settled id msg; log = addTo state.log id }, Ready ())
 
     let processLogic = function
         | state, Ready () ->

@@ -41,6 +41,11 @@ let shuffleCopy =
         a |> Array.iteri (fun i _ -> swap a i (random.Next(i, Array.length a)))
         a // return the copy
 
+// generic place for overloaded operations like add. Can be extended (see below).
+type Ops =
+    static member add(key, value, data: Map<_,_>) = data |> Map.add key value
+    static member addTo (data:Map<_,_>) = fun key value -> Ops.add(key, value, data)
+    
 module String =
     let oxfordJoin = function
         | _::_::_::_rest as lst -> // length 3 or greater
@@ -98,3 +103,14 @@ type IdGenerator = NextId of int
         let mutable id' = 0
         let model' = model |> over idGenerator_ (fun (NextId id) -> id' <- id; NextId (id'+1))
         id', model'
+
+module Queue =
+    type 't d = 't list
+    let append item queue = queue@[item]
+    let empty = []
+    let read (queue: _ d) = queue
+
+type Ops with
+    static member add(item, data: _ Queue.d) = Queue.append item data
+    static member addTo (data:_ Queue.d) = fun item -> Ops.add(item, data)
+    

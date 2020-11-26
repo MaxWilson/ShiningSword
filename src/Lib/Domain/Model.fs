@@ -126,12 +126,6 @@ module Draft =
         | ASI of Stat * int
         | Skill of Skill
 
-module Queue =
-    type 't d = 't list
-    let append item queue = queue@[item]
-    let empty = []
-    let read (queue: _ d) = queue
-
 module Ribbit =
     type RowKey = int
     type PropertyName = string

@@ -1,6 +1,6 @@
 #I __SOURCE_DIRECTORY__
-#load @"Common.fs"
 #load @"Optics.fs"
+#load @"Common.fs"
 
 module DMGish =
     open type System.Math
