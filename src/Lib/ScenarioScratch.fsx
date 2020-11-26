@@ -27,4 +27,4 @@ iter &model (spawn
         return sprintf "Bob has %d HP" hp
     }))
 iter &model (fulfill (2,HP) 27)
-Logic.read 2 HP model |> Option.get
+tryRead 2 HP model |> Option.get

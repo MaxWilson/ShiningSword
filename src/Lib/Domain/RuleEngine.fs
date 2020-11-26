@@ -14,7 +14,7 @@ module Logic =
                 state, Awaiting (demand, logic |> continueWith)
         continueWith logic
 
-    let read id (prop: Prop<'t>) (state: State) =
+    let tryRead id (prop: Prop<'t>) (state: State) =
         match state.data |> Map.tryFind (id, prop.name) with
         | Some (:? 't as v) -> Some v
         | _ -> None
@@ -67,11 +67,11 @@ module Logic =
                 continueWith rhs logic
 
         let read id prop state =
-            match read id prop state with
+            match tryRead id prop state with
             | Some v -> state, Ready v
             | None ->
                 let actualRead state =
-                    let value = read id prop state |> Option.get
+                    let value = tryRead id prop state |> Option.get
                     state, Ready value
                 state, Awaiting(Some (id, prop.name), actualRead)
         let logic = Builder<State, Demand>()
