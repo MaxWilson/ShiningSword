@@ -66,12 +66,9 @@ module Logic =
             member _.Bind (logic: Logic<'state, 'demand, 't>, rhs: 't -> Logic<'state, 'demand, 'r>) : Logic<'state, 'demand, 'r> =
                 continueWith rhs logic
 
-        let read id prop state =
+        let rec read id prop state =
             match tryRead id prop state with
             | Some v -> state, Ready v
             | None ->
-                let actualRead state =
-                    let value = tryRead id prop state |> Option.get
-                    state, Ready value
-                state, Awaiting(Some (id, prop.name), actualRead)
+                state, Awaiting(Some (id, prop.name), read id prop)
         let logic = Builder<State, Demand>()
