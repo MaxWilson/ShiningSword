@@ -1,7 +1,7 @@
 module Domain.Model
 #if INTERACTIVE
 module Generator =
-    type LensesAttribute() =
+    type LensAttribute() =
         inherit System.Attribute()
     type DuCasesAttribute() =
         inherit System.Attribute()
