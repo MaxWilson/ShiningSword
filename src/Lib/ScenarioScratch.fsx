@@ -20,11 +20,17 @@ open Domain.RuleEngine.Logic.Builder
 
 let mutable model = Ribbit.State.fresh
 let HP : Prop<int> = { name = "HP" }
-iter &model (spawn
+let Target : Prop<RowKey> = { name = "Target" }
+let Amount: Prop<int> = { name = "Amount" }
+iter &model (defineAffordance "Take Damage" [Target; Amount]
     (logic
     {
-        let! hp = read 2 HP
-        return sprintf "Bob has %d HP" hp
+        let! target = readCurrent Target
+        let! amount = readCurrent Amount
+        let! hp = read target HP
+        do! write target HP (hp - amount) 
+        return sprintf "Bob takes %d damage, has %d HP left" amount hp
     }))
+iter &model (triggerAffordance "Take Damage" [Target, 2])
 iter &model (fulfill (2,HP) 27)
-tryRead 2 HP model |> Option.get
+tryRead 2 HP model |> Option.get = 25
