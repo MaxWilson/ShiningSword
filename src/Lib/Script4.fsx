@@ -27,8 +27,8 @@ and Expr =
     | Call of Prim * list<Expr>
     | Const of Value
     | If of Expr * Expr * Expr
-    | Let of assign:Expr * body:(Expr -> Expr)
-    | LetRec of (Lazy<Expr> -> Expr * Expr)
+    | Let of assign:Expr * body:(Value -> Expr)
+    | LetRec of (Lazy<Value> -> Value * Expr)
 
 // Implements primitive operations
 let Op prim =
@@ -71,7 +71,7 @@ let rec Eval (expr: Expr) : Value =
         | Bool true  -> Eval y
         | Bool false -> Eval z
     | Let (x, f) ->
-        Eval (f (Const (Eval x)))
+        Eval (f (Eval x))
     | LetRec f ->
         let rec x = lazy fst pair
         and body  = snd pair
@@ -89,13 +89,12 @@ let Fac n =
         let fac =
             fun [x] ->
                 let (Lazy fac) = fac
-                If (x =? i 0, i 1, x *? (fac ^^ (x -? i 1)))
+                If (x =? i 0, i 1, x *? (Const fac ^^ (x -? i 1)))
             |> Lambda
-            |> Const
-        (fac, fac ^^ n)
+        (fac, Const fac ^^ n)
 
 // show how to use let, binding Fac to the F# parameter factorial
 Eval (
     Let(
         Const (Lambda(fun [arg] -> Fac arg)),
-        fun factorial -> Apply(factorial, [Const (Int 10)])))
+        fun factorial -> Apply(Const factorial, [Const (Int 10)])))
