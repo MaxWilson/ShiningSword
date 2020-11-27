@@ -3,6 +3,9 @@
 // Oh, it works because (Lazy x) is equivalent to x.Force.
 // And also because a lazy value is still an actual object,
 //   can be passed around without being immediately evaluated.
+// What did we learn from this? ... I think we may have learned that
+//   Ribbit should be FOAS to support the necessary lazy data entry,
+//   so we can inject values into the environment when they're available.
 
 // Primitive operations supported by the interpreter
 type Prim =
@@ -24,7 +27,7 @@ and Expr =
     | Call of Prim * list<Expr>
     | Const of Value
     | If of Expr * Expr * Expr
-    | Let of Expr * (Expr -> Expr)
+    | Let of assign:Expr * body:(Expr -> Expr)
     | LetRec of (Lazy<Expr> -> Expr * Expr)
 
 // Implements primitive operations
@@ -75,12 +78,8 @@ let rec Eval (expr: Expr) : Value =
         and pair  = f x
         Eval body
 
-// Simple factorial function in F#
-let rec Fac x =
-    if x = 0 then 1 else x * Fac (x - 1)
-
 // Simple factorial function four our Scheme interpreter
-let Fac10 =
+let Fac n =
     let i x = Const (Int x)
     let ( =? ) a b = Call (Eq, [a; b])
     let ( *? ) a b = Call (Mul, [a; b])
@@ -93,34 +92,10 @@ let Fac10 =
                 If (x =? i 0, i 1, x *? (fac ^^ (x -? i 1)))
             |> Lambda
             |> Const
-        (fac, fac ^^ i 10)
+        (fac, fac ^^ n)
 
-Fac 10
-|> printfn "%A"
-
-Eval Fac10
-|> printfn "%A"
-
-let i x = Const (Int x)
-let ( =? ) a b = Call (Eq, [a; b])
-let ( *? ) a b = Call (Mul, [a; b])
-let ( -? ) a b = Call (Sub, [a; b])
-let ( ^^ ) f x = Apply (f, [x])
-let r1 = fun lazyFunc ->
-    let func =
-        fun [x] ->
-            let (Lazy fac) = lazyFunc
-            If (x =? i 0, i 1, x *? (fac ^^ (x -? i 1)))
-        |> Lambda
-        |> Const
-    (func, func ^^ i 10) // first arg here "func" will become value of fac, second becomes body of letrec
-let rec x = lazy fst pair
-and body  = snd pair
-and pair  = r1 x
-
-let plus (Lazy x) (Lazy y) = x + 1
-let lazyAdd x y =
-    lazy (printfn "%d + %d = %d" x y (x+y); x+y)
-let lazyVal x =
-    lazy (printfn "%d" x; x)
-plus (lazyAdd 3 4) (lazyVal 4)
+// show how to use let, binding Fac to the F# parameter factorial
+Eval (
+    Let(
+        Const (Lambda(fun [arg] -> Fac arg)),
+        fun factorial -> Apply(factorial, [Const (Int 10)])))
