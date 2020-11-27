@@ -37,7 +37,7 @@ let tests = testList "ribbit.scenario" [
         |> untilFixedPoint
         |> verifyLog "xyz"
     testCase "Scenario 3: demands and fulfillment" <| fun _ ->
-        let HP : Prop<int> = { name = "HP" }
+        let HP = intProp "HP"
         State.fresh
         |> spawn (logic
             {

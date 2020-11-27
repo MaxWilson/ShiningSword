@@ -14,7 +14,7 @@ module Logic =
                 state, Awaiting (demand, logic |> continueWith)
         continueWith logic
 
-    let tryRead id (prop: Prop<'t>) (state: State) =
+    let tryRead id (prop: Prop<obj, 't>) (state: State) =
         match state.data |> Map.tryFind (id, prop.name) with
         | Some (:? 't as v) -> Some v
         | _ -> None
@@ -29,7 +29,7 @@ module Logic =
     let addToQueue logic state =
         { state with workQueue = add(logic, state.workQueue) }
 
-    let fulfill (id, prop: Prop<'t>) (value: 't) state =
+    let fulfill (id, prop: Prop<obj, 't>) (value: 't) state =
         let state = { state with data = addTo state.data (id, prop.name) (box value) }
         match state.outstandingQueries |> Map.tryFind (id, prop.name) with
         | None | Some [] -> state

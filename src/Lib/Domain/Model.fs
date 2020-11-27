@@ -133,10 +133,37 @@ module Ribbit =
     type Logic<'state, 'demand, 'result> = 'state -> 'state * LogicOutput<'state, 'demand, 'result>
     and LogicOutput<'state, 'demand, 'result> = Ready of 'result | Awaiting of demand:'demand * followup:Logic<'state, 'demand, 'result>
 
-    type Prop<'t> = { name: string }
+    type TypeImplementationBase<'sharedType> =
+        /// Returns true if value satisfies type
+        abstract isSatisfied: 'sharedType -> bool
+        abstract dataType: System.Type
+
+    type TypeImplementation<'sharedType, 't>
+        (impl:
+            {| extract: 'sharedType -> 't option;
+            parse: string -> 't option |}) =
+        member _.extract v = impl.extract v
+        member _.parse v = impl.parse v
+        interface TypeImplementationBase<'sharedType> with
+            member _.isSatisfied v = impl.extract v |> Option.isSome
+            member _.dataType = typeof<'t>
+
+    type Property(name, dataType) =
+        member _.dataType = dataType
+        member _.name = name
+
+    type ParameterDefinition = {        
+        name: string
+        dataType: TypeImplementationBase<obj>
+        defaultValue: obj option
+        property: Property // Where to actually store the data. Is this really the right way to pass in parameters?
+        }
+
     [<Generator.Lens>]
     type State = {
         ids: IdGenerator
+        properties: Map<string, Property>
+        eventDefinitions: Map<string, EventDefinition>
         data: Map<DataKey, obj>
         settled: Map<RowKey, string>
         outstandingQueries: Map<DataKey, Logic<unit> list>
@@ -146,6 +173,8 @@ module Ribbit =
         with
         static member fresh = {
             ids = IdGenerator.fresh
+            properties = Map.empty
+            eventDefinitions = Map.empty
             outstandingQueries = Map.empty
             data = Map.empty
             settled = Map.empty
@@ -153,3 +182,41 @@ module Ribbit =
             log = Queue.empty }
     and Demand = DataKey option
     and Logic<'t> = Logic<State, Demand, 't>
+    and EventDefinition = {
+        isAffordance: bool
+        parameters: ParameterDefinition
+        body: Logic<string>
+        }
+
+    type Prop<'sharedType, 't>(name: PropertyName, type', impl: TypeImplementation<'sharedType, 't>) =
+        inherit Property(name, type')
+        member _.extract data = impl.extract data
+        member _.parse stringInput = impl.parse stringInput
+        member _.extract (rowId: RowKey, data) =
+            match data |> Map.tryFind (rowId, name) with
+            | Some(data) -> impl.extract data
+            | None -> None
+        member this.isFulfilled(rowId: RowKey, data) =
+            this.extract(rowId, data).IsSome
+    let intProp name =
+        let impl =
+            TypeImplementation<obj, int>(
+                {|  extract = function :?int as x -> Some x | _ -> None
+                    parse = fun str -> match System.Int32.TryParse str with true, v -> Some v | _ -> None
+                    |})
+        Prop<obj, int>(name, typeof<int>, impl)
+    let stringProp name =
+        let impl =
+            TypeImplementation<obj, string>(
+                {|  extract = function :?string as x -> Some x | _ -> None
+                    parse = Some
+                    |})
+        Prop<obj, string>(name, typeof<int>, impl)
+    let rowKeyProp name =
+        let impl =
+            TypeImplementation<obj, RowKey>(
+                {|  extract = function :?int as x -> Some x | _ -> None
+                    parse = fun str -> match System.Int32.TryParse str with true, v -> Some v | _ -> None
+                    |})
+        Prop<obj, RowKey>(name, typeof<RowKey>, impl)
+

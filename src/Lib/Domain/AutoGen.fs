@@ -685,6 +685,14 @@ module State =
     let ids_ =
         Optics.lens (fun (data: State) -> data.ids) (fun (value: IdGenerator) (data: State) -> { data with ids = value })
 
+    let properties_ =
+        Optics.lens (fun (data: State) -> data.properties) (fun (value: Map<string, Property>) (data: State) ->
+            { data with properties = value })
+
+    let eventDefinitions_ =
+        Optics.lens (fun (data: State) -> data.eventDefinitions) (fun (value: Map<string, EventDefinition>) (data: State) ->
+            { data with eventDefinitions = value })
+
     let data_ =
         Optics.lens (fun (data: State) -> data.data) (fun (value: Map<DataKey, obj>) (data: State) ->
             { data with data = value })

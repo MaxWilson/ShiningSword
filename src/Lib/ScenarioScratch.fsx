@@ -19,9 +19,9 @@ open Domain.RuleEngine.Logic
 open Domain.RuleEngine.Logic.Builder
 
 let mutable model = Ribbit.State.fresh
-let HP : Prop<int> = { name = "HP" }
-let Target : Prop<RowKey> = { name = "Target" }
-let Amount: Prop<int> = { name = "Amount" }
+let HP = intProp "HP"
+let Target = rowKeyProp "Target"
+let Amount = intProp "Amount"
 iter &model (defineAffordance "Take Damage" [Target; Amount]
     (logic
     {
