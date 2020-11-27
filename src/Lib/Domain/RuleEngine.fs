@@ -5,7 +5,7 @@ open type Ops
 
 module Logic =
     // Like Task.Continue or Async.Map
-    let continueWith f logic =
+    let continueWith f (logic: HOASLogic<_,_,_>) =
         let rec continueWith logic state =
             match logic state with
             | state, Ready v ->
@@ -43,18 +43,21 @@ module Logic =
         | state, Ready () ->
             state
         | state, Awaiting(Some demand', logic) ->
-            state |> demand demand' logic
+            state |> demand demand' (HOAS logic)
         | state, Awaiting(None, logic) ->
-            state |> addToQueue logic
+            state |> addToQueue (HOAS logic)
 
     let spawn (logic: Logic<string>) state =
         let id, state = state |> IdGenerator.newId State.ids_
-        (logic |> andLog id) state |> processLogic
+        match logic with
+        | HOAS logic ->
+            (logic |> andLog id) state |> processLogic
+        | FOAS -> notImpl()
 
     let rec untilFixedPoint state =
         let queue = state.workQueue
         let state = { state with workQueue = Queue.empty }
-        match queue |> List.fold (fun state logic -> logic state |> processLogic) state with
+        match queue |> List.fold (fun state -> function HOAS logic -> logic state |> processLogic | FOAS -> notImpl()) state with
         | { workQueue = [] } as state -> state
         | state -> state |> untilFixedPoint
 
@@ -63,8 +66,9 @@ module Logic =
             member _.Return x =
                 fun state -> state, Ready x
             member _.ReturnFrom logic = logic
-            member _.Bind (logic: Logic<'state, 'demand, 't>, rhs: 't -> Logic<'state, 'demand, 'r>) : Logic<'state, 'demand, 'r> =
+            member _.Bind (logic: HOASLogic<'state, 'demand, 't>, rhs: 't -> HOASLogic<'state, 'demand, 'r>) : HOASLogic<'state, 'demand, 'r> =
                 continueWith rhs logic
+            member _.Run x = HOAS x
 
         let rec read id prop state =
             match tryRead id prop state with

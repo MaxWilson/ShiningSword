@@ -130,8 +130,11 @@ module Ribbit =
     type RowKey = int
     type PropertyName = string
     type DataKey = RowKey * PropertyName
-    type Logic<'state, 'demand, 'result> = 'state -> 'state * LogicOutput<'state, 'demand, 'result>
-    and LogicOutput<'state, 'demand, 'result> = Ready of 'result | Awaiting of demand:'demand * followup:Logic<'state, 'demand, 'result>
+    type Logic<'state, 'demand, 'result> =
+        | HOAS of HOASLogic<'state, 'demand, 'result>
+        | FOAS
+    and HOASLogic<'state, 'demand, 'result> = ('state -> 'state * HOASLogicOutput<'state, 'demand, 'result>)
+    and HOASLogicOutput<'state, 'demand, 'result> = Ready of 'result | Awaiting of demand:'demand * followup:HOASLogic<'state, 'demand, 'result>
 
     type TypeImplementationBase<'sharedType> =
         /// Returns true if value satisfies type

@@ -1,6 +1,6 @@
 #I __SOURCE_DIRECTORY__
-#load @"Common.fs"
 #load @"Optics.fs"
+#load @"Common.fs"
 
 // This script is purely for messing around with procedural generation and stuff.
 (*
