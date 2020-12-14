@@ -19,6 +19,9 @@ module Logic =
         | Some (:? 't as v) -> Some v
         | _ -> None
 
+    let defineAffordance name props logic state =
+        state
+
     let demand (id, propName as key) logic state =
         match state.outstandingQueries |> Map.tryFind key with
         | None ->
@@ -53,6 +56,9 @@ module Logic =
         | HOAS logic ->
             (logic |> andLog id) state |> processLogic
         | FOAS -> notImpl()
+
+    let triggerAffordance name propValues state =
+        state
 
     let rec untilFixedPoint state =
         let queue = state.workQueue
