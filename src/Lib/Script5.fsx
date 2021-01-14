@@ -6,12 +6,15 @@
 
 // If we want to do FSI development in the same pattern as React development, this script POCs the development process
 
-let gameIter (model: byref<'t>) view update =
-    let showView model = printfn "%s" (view model)
-    let m = model
-    model <- update model
-    if m <> model then
-        showView model
+let gameIter (model: _ ref) view =
+    let showView model = printfn "%s" (view !model)
+    // show the initial model
+    showView model
+    fun update ->
+        let m = model
+        model := update !model
+        if m <> model then
+            showView model
 
 type GuessingGame = {
     theAnswer: int option
@@ -70,9 +73,11 @@ let guessingGame userInput (ui: UI) =
                     }
                 }
 
-let mutable game = UI.fresh()
-
-let guess n = gameIter &game (fun ui -> $"{ui.display}          \t[Score: {ui.state.score}]") (guessingGame n)
+let game = UI.fresh() |> ref
+let view = (fun ui -> $"{ui.display}          \t[Score: {ui.state.score}]")
+let guess =
+    let update = gameIter game view
+    guessingGame >> update
 guess 500
 guess 750
 guess 625
