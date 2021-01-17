@@ -22,6 +22,7 @@
     <None Include="Script3.fsx" />
     <None Include="Script4.fsx" />
     <None Include="Script5.fsx" />
+    <None Include="Script6.fsx" />
     <ProjectReference Include="..\Myriadic\Myriadic.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
