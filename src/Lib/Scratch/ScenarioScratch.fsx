@@ -3,6 +3,7 @@
 // as a precursor to writing or updating unit tests.
 
 #I __SOURCE_DIRECTORY__
+#I ".."
 #load @"Optics.fs"
 #load @"Common.fs"
 #load @"AutoWizard.fs"

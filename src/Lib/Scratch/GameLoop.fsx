@@ -1,6 +1,6 @@
 
 #I __SOURCE_DIRECTORY__
-#I "bin/debug/netstandard2.1"
+#I ".."
 #load @"Optics.fs"
 #load @"Common.fs"
 
@@ -9,8 +9,7 @@
 let gameIter (model: byref<_>) view update =
     let m = model
     model <- update model
-    if m <> model then
-        printfn "%s" (view model)
+    view model
 
 type 'msg Dispatch = 'msg -> unit
 type 'msg Cmd = 'msg Dispatch -> unit
@@ -83,10 +82,11 @@ let rec guessingGame msg (ui: UI) =
                     }
                 }, Cmd.none
 
-let view = (fun ui -> $"{ui.display}          \t[Score: {ui.state.score} Guesses left: {ui.state.tableStakes}]")
+let print = printfn "%s"
+let view = (fun ui -> $"{ui.display}          \t[Score: {ui.state.score} Guesses left: {ui.state.tableStakes}]" |> print)
 let update = closureOfUpdate guessingGame
 let mutable game = UI.fresh()
-printfn "%s" (view game) // do the up-front print here
+(view game) // do the up-front print here
 let cmd msg = gameIter &game view (update msg)
 let guess n = cmd (Guess n)
 guess 500

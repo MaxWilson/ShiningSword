@@ -6,6 +6,13 @@
   </PropertyGroup>
   <ItemGroup>
     <MyriadSdkGenerator Include="$(MSBuildThisFileDirectory)\..\Myriadic\bin\Debug\netstandard2.1\Myriadic.dll" />
+    <None Include="Scratch\ScenarioScratch.fsx" />
+    <None Include="Scratch\Script1.fsx" />
+    <None Include="Scratch\Script2.fsx" />
+    <None Include="Scratch\Script3.fsx" />
+    <None Include="Scratch\Script4.fsx" />
+    <None Include="Scratch\GameLoop.fsx" />
+    <None Include="Scratch\RibbitFromScratch.fsx" />
     <Compile Include="Optics.fs" />
     <Compile Include="Common.fs" />
     <Compile Include="AutoWizard.fs" />
@@ -16,13 +23,6 @@
     </Compile>
     <Compile Include="Domain\Augment.fs" />
     <Compile Include="Domain\RuleEngine.fs" />
-    <None Include="ScenarioScratch.fsx" />
-    <None Include="Script1.fsx" />
-    <None Include="Script2.fsx" />
-    <None Include="Script3.fsx" />
-    <None Include="Script4.fsx" />
-    <None Include="Script5.fsx" />
-    <None Include="Script6.fsx" />
     <ProjectReference Include="..\Myriadic\Myriadic.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
