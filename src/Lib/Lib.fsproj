@@ -10,7 +10,7 @@
     <None Include="Scratch\Script1.fsx" />
     <None Include="Scratch\Script2.fsx" />
     <None Include="Scratch\Script3.fsx" />
-    <None Include="Scratch\Script4.fsx" />
+    <None Include="Scratch\HOASExpressions.fsx" />
     <None Include="Scratch\GameLoop.fsx" />
     <None Include="Scratch\RibbitFromScratch.fsx" />
     <Compile Include="Optics.fs" />
