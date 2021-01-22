@@ -7,10 +7,28 @@
 // do we need HOAS in this case? Only if we want eval to have typed output, I think, like eval<int> vs. eval<int -> int>.
 // for now let's do FOAS and see how far we get.
 
+(*
+
+Features of POC:
+
+1.) Lazy data entry (done)
+2.) Spawning
+3.) Parameters on spawned events
+4.) Implicit spawning/event triggering
+5.) Expressions vs. statements
+6.) Filter expressions on event triggers
+7.) Variable scoping with inheritance
+8.) Variable defaults (support primitives/external function calls)
+
+Scenario:
+3 orcs vs. orog
+Needs rules for HP, damage, attacks, initiative
+
+*)
+
 type VariableName = string
 type Label = Label of string
 
-// need a non-println-based way to ASK.
 type State = {
     data: Map<string, int>
     pending: (Label * VariableName list * Expr) list
@@ -80,7 +98,7 @@ let view state =
         for v in vars do
             printfn $"[{label}]: enter a value for {v}"
 let mutable game = State.ofList ["x", 10]
-let reset() = game <- State.ofList ["x", 10]
+let reset() = game <- State.ofList []
 let exec msg = GameLoop.gameIter &game view (update msg)
 let eval label expr = exec (Eval(label, expr))
 let supply name v = exec (Supply(name, v))
@@ -88,7 +106,7 @@ let d6 = Prim(fun state -> Const (rand 6), state)
 
 eval "3+7-5+x" (Add(Add(Add(Const 3, Const 7), Const -5), Ref "x"))
 eval "3+y-5+x" (Add(Add(Add(Const 3, Ref "y"), Const -5), Ref "x"))
-supply "y" 100
-game
+supply "y" -10
+supply "x" 12
 reset()
 eval "2d6" (Add(d6, d6))
