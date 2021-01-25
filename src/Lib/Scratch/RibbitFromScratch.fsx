@@ -67,6 +67,7 @@ and EventLogic =
     | Seq of EventLogic list
     | Spawn of EventName
     | Define of name: EventName * EventLogic
+    | Set of name: VariableName * Expr
 
 let rec evaluate state = function
     | Const n -> Yield n
@@ -89,57 +90,62 @@ let rec evaluate state = function
         let expr = op state
         evaluate state expr
 
-// returns state + requirements list, but when called externally, requirements should
-// always return None (i.e. dependencies should already be registered). Some requirements
-// should only happen during recursion on execute.
-let rec executeRecursively state event =
-    let blockOn (requirements, logic) state =
-        { state with pending = (requirements, logic)::state.pending }, Some requirements
+let rec set (name:VariableName, v) state =
+    let unblock var v ((vars, expr): (VariableName list * EventLogic) as pendingRow) =
+        if vars |> List.exists ((=) var) then
+            (vars |> List.filter ((<>) var)), expr // no longer waiting for var because it's here
+        else
+            pendingRow
+    let pending = state.pending |> List.map (unblock name v)
+    // now there might be unblocked rows
+    let unblocked, blocked = pending |> List.partition (fun (vars, _) -> List.isEmpty vars)
+    unblocked |> List.fold (fun state (_, event) -> execute state event) { state with pending = blocked; data = state.data |> Map.add name v }
+// returns a new state where event is either executed or added to pending list, with dependencies
+and execute state event =
+    let blockOn (requirements: Requirements, logic) state =
+        { state with pending = (requirements, logic)::state.pending }
     let log msg state =
         { state with log = state.log @ [msg] }, None
-    match event with
-    | Log (label, expr) ->
-        match evaluate state expr with
-        | Yield v -> log $"{label}: {v}" state
-        | Require(expr', requirements) -> blockOn (requirements, Log(label, expr')) state
-    | Seq events ->
-        let rec loop state events =
-            match events with
-            | [] -> state, None
-            | h::t ->
-                match executeRecursively state h with
-                | state, None -> loop state t
-                | state, Some req -> blockOn (req, Seq t) state
-        loop state events
-    | Spawn eventName ->
-        match state.eventDefinitions |> Map.tryFind eventName with
-        | None -> log $"Logic Error! '{eventName}' is not a valid event name." state
-        | Some logic -> executeRecursively state logic
-    | Define(eventName, logic) ->
-        { state with eventDefinitions = state.eventDefinitions |> Map.add eventName logic }, None
+    let rec recur state = function
+        | Log (label, expr) ->
+            match evaluate state expr with
+            | Yield v -> log $"{label}: {v}" state
+            | Require(expr', requirements) -> state, Some(requirements, Log(label, expr'))
+        | Seq events ->
+            let rec loop (state: State) = function
+                | [] -> state, None
+                | h::t ->
+                    match recur state h with
+                    | state, None -> loop state t
+                    | state, Some(reqs, h') ->
+                        state, Some (reqs, Seq (h'::t))
+            loop state events
+        | Spawn eventName ->
+            match state.eventDefinitions |> Map.tryFind eventName with
+            | None -> log $"Logic Error! '{eventName}' is not a valid event name." state
+            | Some logic -> recur state logic
+        | Define(eventName, logic) ->
+            { state with eventDefinitions = state.eventDefinitions |> Map.add eventName logic }, None
+        | Set(name, expr) ->
+            match evaluate state expr with
+            | Yield v ->
+                set (name, v) state, None
+            | Require(expr', requirements) -> state, Some(requirements, Set(name, expr'))
+    match recur state event with
+    | state, None -> state
+    | state, Some(reqs, logic) -> blockOn (reqs, logic) state
 
 type Msg =
     | Supply of VariableName * int
     | Eval of label: string * Expr
+    | Exec of EventLogic
 
 let update msg state =
     match msg with
     | Eval(label, expr) ->
-        executeRecursively state (Log (label, expr)) |> fst
-    | Supply(name, v) ->
-        let unblock var v ((vars, expr): (VariableName list * EventLogic) as pendingRow) =
-            if vars |> List.exists ((=) var) then
-                (vars |> List.filter ((<>) var)), expr // no longer waiting for var because it's here
-            else
-                pendingRow        
-        let pending = state.pending |> List.map (unblock name v)
-        // now there might be unblocked rows
-        let unblocked, blocked = pending |> List.partition (fun (vars, _) -> List.isEmpty vars)
-        let progress state logic =
-            match executeRecursively state logic with
-            | state, None -> state
-            | state, Some req -> { state with pending = (req, logic)::state.pending }
-        unblocked |> List.fold (fun state (_, event) -> progress state event) { state with pending = blocked; data = state.data |> Map.add name v }
+        execute state (Log (label, expr))
+    | Exec logic -> execute state logic
+    | Supply(name, v) -> execute state (Set(name, Const v))
 
 let view state =
     for entry in state.log do
@@ -162,3 +168,4 @@ supply "x" 12
 reset()
 eval "2d6+y" (Add(Add(d6, d6), Ref "y"))
 supply "y" 3
+exec (Exec(Seq[Log("d6", d6); Set("z", d6); Log("3+7-5+z", Add(Add(Add(Const 3, Const 7), Const -5), Ref "z")) ]))
