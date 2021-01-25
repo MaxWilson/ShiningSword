@@ -17,7 +17,9 @@ Features of POC:
     (like event spawning or data requests), can return revised
     expression (event definition vs. event awaiting)).
     Initially just one event: Log(expr). (done)
-3.) Event Spawning
+3.) Event Spawning (Events triggered by Events instead of directly by Cmd).
+    Implies other things too, like Statements within events, or let's call
+    EventLogic. And that means that Log is an EventLogic. (done)
 4.) Parameters on spawned events
 5.) Implicit spawning/event triggering
 6.) Filter expressions on event triggers
@@ -35,6 +37,7 @@ Needs rules for HP, damage, attacks, initiative
 *)
 
 type VariableName = string
+type EventName = string
 type Label = Label of string
 type Requirements = VariableName list
 type Result<'expr, 'result> =
@@ -43,18 +46,27 @@ type Result<'expr, 'result> =
 
 type State = {
     data: Map<string, int>
-    pending: (Label * VariableName list * Event) list
+    pending: (VariableName list * EventLogic) list
     log: string list
+    eventDefinitions: Map<EventName, EventLogic>
     }
     with
-    static member ofList vars = { data = Map.ofList vars; pending = []; log = [] }
+    static member ofList vars = {
+        data = Map.ofList vars
+        pending = []
+        log = []
+        eventDefinitions = Map.empty
+        }
 and Expr =
     | Const of int
     | Add of Expr * Expr
     | Ref of name: VariableName
     | Prim of op: (State -> Expr)
-and Event =
-    Log of Expr
+and EventLogic =
+    | Log of label: string * Expr
+    | Seq of EventLogic list
+    | Spawn of EventName
+    | Define of name: EventName * EventLogic
 
 let rec evaluate state = function
     | Const n -> Yield n
@@ -77,38 +89,65 @@ let rec evaluate state = function
         let expr = op state
         evaluate state expr
 
+// returns state + requirements list, but when called externally, requirements should
+// always return None (i.e. dependencies should already be registered). Some requirements
+// should only happen during recursion on execute.
+let rec executeRecursively state event =
+    let blockOn (requirements, logic) state =
+        { state with pending = (requirements, logic)::state.pending }, Some requirements
+    let log msg state =
+        { state with log = state.log @ [msg] }, None
+    match event with
+    | Log (label, expr) ->
+        match evaluate state expr with
+        | Yield v -> log $"{label}: {v}" state
+        | Require(expr', requirements) -> blockOn (requirements, Log(label, expr')) state
+    | Seq events ->
+        let rec loop state events =
+            match events with
+            | [] -> state, None
+            | h::t ->
+                match executeRecursively state h with
+                | state, None -> loop state t
+                | state, Some req -> blockOn (req, Seq t) state
+        loop state events
+    | Spawn eventName ->
+        match state.eventDefinitions |> Map.tryFind eventName with
+        | None -> log $"Logic Error! '{eventName}' is not a valid event name." state
+        | Some logic -> executeRecursively state logic
+    | Define(eventName, logic) ->
+        { state with eventDefinitions = state.eventDefinitions |> Map.add eventName logic }, None
+
 type Msg =
     | Supply of VariableName * int
     | Eval of label: string * Expr
 
 let update msg state =
-    let exec label state event =
-        match event with
-        | Log expr ->
-            match evaluate state expr with
-            | Yield v -> { state with log = state.log @ [$"{label}: {v}"] }
-            | Require(expr', requirements) -> { state with pending = (Label label, requirements, Log expr')::state.pending }
     match msg with
     | Eval(label, expr) ->
-        exec label state (Log expr)
+        executeRecursively state (Log (label, expr)) |> fst
     | Supply(name, v) ->
-        let unblock var v ((label, vars, expr): (Label * VariableName list * Event) as pendingRow) =
+        let unblock var v ((vars, expr): (VariableName list * EventLogic) as pendingRow) =
             if vars |> List.exists ((=) var) then
-                label, (vars |> List.filter ((<>) var)), expr // no longer waiting for var because it's here
+                (vars |> List.filter ((<>) var)), expr // no longer waiting for var because it's here
             else
                 pendingRow        
         let pending = state.pending |> List.map (unblock name v)
         // now there might be unblocked rows
-        let unblocked, blocked = pending |> List.partition (fun (_, vars, _) -> List.isEmpty vars)
-        unblocked |> List.fold (fun state (Label label, _, event) -> exec label state event) { state with pending = blocked; data = state.data |> Map.add name v }
+        let unblocked, blocked = pending |> List.partition (fun (vars, _) -> List.isEmpty vars)
+        let progress state logic =
+            match executeRecursively state logic with
+            | state, None -> state
+            | state, Some req -> { state with pending = (req, logic)::state.pending }
+        unblocked |> List.fold (fun state (_, event) -> progress state event) { state with pending = blocked; data = state.data |> Map.add name v }
 
 let view state =
     for entry in state.log do
         printfn "%s" entry
     let mutable state = state
-    for (Label label, vars, _) in state.pending do
+    for (vars, _) in state.pending do
         for v in vars do
-            printfn $"[{label}]: enter a value for {v}"
+            printfn $"Enter a value for {v}"
 let mutable game = State.ofList ["x", 10]
 let reset() = game <- State.ofList []
 let exec msg = GameLoop.gameIter &game view (update msg)
