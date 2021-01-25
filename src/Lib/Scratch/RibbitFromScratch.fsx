@@ -12,13 +12,21 @@
 Features of POC:
 
 1.) Lazy data entry (done)
-2.) Spawning
-3.) Parameters on spawned events
-4.) Implicit spawning/event triggering
-5.) Expressions vs. statements
+2.) Expressions vs. Events. Expressions not logged directly,
+    do not directly modify state but only request modifications
+    (like event spawning or data requests), can return revised
+    expression (event definition vs. event awaiting)).
+    Initially just one event: Log(expr). 
+3.) Event Spawning
+4.) Parameters on spawned events
+5.) Implicit spawning/event triggering
 6.) Filter expressions on event triggers
 7.) Variable scoping with inheritance
 8.) Variable defaults (support primitives/external function calls)
+9.) Delta values ("subtract 2 from inherited value")
+10.) Temporal scopes ("this round", "until spell XYZ expires", etc.)
+11.) Show log hierarchy (interactive explore)
+12.) AI, Behaviors
 
 Scenario:
 3 orcs vs. orog
