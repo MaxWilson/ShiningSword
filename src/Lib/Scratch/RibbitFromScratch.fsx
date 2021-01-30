@@ -57,17 +57,20 @@ type State = {
         log = []
         eventDefinitions = Map.empty
         }
+and Value = int
 and Expr =
-    | Const of int
+    | Const of Value
     | Add of Expr * Expr
     | Ref of name: VariableName
-    | Prim of op: (State -> Expr)
+    | Inherent of params': Expr list * op: (Value list -> State -> Value)
+and Condition = Condition of Expr * ((Value -> bool) option)
 and EventLogic =
     | Log of label: string * Expr
     | Seq of EventLogic list
     | Spawn of EventName
     | Define of name: EventName * EventLogic
     | Set of name: VariableName * Expr
+    | If of Condition * EventLogic * EventLogic option
 
 let rec evaluate state = function
     | Const n -> Yield n
@@ -86,9 +89,20 @@ let rec evaluate state = function
         match state.data |> Map.tryFind name with
         | Some v -> Yield v
         | None -> Require(expr, [name])
-    | Prim(op) ->
-        let expr = op state
-        evaluate state expr
+    | Inherent(params', op) ->
+        let rec recur argsR = function
+            | [] -> // no more parameters, arguments are ready
+                let args = List.rev argsR
+                op args state |> Yield
+            | hparam::rest ->
+                match evaluate state hparam with
+                | Yield v -> recur (v::argsR) rest
+                | Require(expr, reqs) ->
+                    let args = List.rev argsR
+                    let op' args' state' =
+                        op (args@args') state'
+                    Require(Inherent(rest, op'), reqs)
+        recur [] params'
 
 let rec set (name:VariableName, v) state =
     let unblock var v ((vars, expr): (VariableName list * EventLogic) as pendingRow) =
@@ -131,6 +145,18 @@ and execute state event =
             | Yield v ->
                 set (name, v) state, None
             | Require(expr', requirements) -> state, Some(requirements, Set(name, expr'))
+        | If(Condition(expr, transform), then', else') ->
+            match evaluate state expr with
+            | Require(expr', reqs) ->
+                state, Some(reqs, If(Condition(expr', transform), then', else'))
+            | Yield v ->
+                match transform with
+                | None when v <> 0 -> recur state then'
+                | Some t when t v -> recur state then'
+                | _ ->
+                    match else' with
+                    | Some logic -> recur state logic
+                    | None -> state, None
     match recur state event with
     | state, None -> state
     | state, Some(reqs, logic) -> blockOn (reqs, logic) state
@@ -159,7 +185,9 @@ let reset() = game <- State.ofList []
 let exec msg = GameLoop.gameIter &game view (update msg)
 let eval label expr = exec (Eval(label, expr))
 let supply name v = exec (Supply(name, v))
-let d6 = Prim(fun state -> Const (rand 6))
+let d6 = Inherent([], fun _ _ -> (rand 6))
+let define name logic = exec (Exec (Define(name, logic)))
+let spawn name = exec (Exec (Spawn(name)))
 
 eval "3+7-5+x" (Add(Add(Add(Const 3, Const 7), Const -5), Ref "x"))
 eval "3+y-5+x" (Add(Add(Add(Const 3, Ref "y"), Const -5), Ref "x"))
@@ -169,3 +197,26 @@ reset()
 eval "2d6+y" (Add(Add(d6, d6), Ref "y"))
 supply "y" 3
 exec (Exec(Seq[Log("d6", d6); Set("z", d6); Log("3+7-5+z", Add(Add(Add(Const 3, Const 7), Const -5), Ref "z")) ]))
+exec (Exec(Define("halve x",
+            If(Condition(Ref "x", Some (flip (>=) 2)),
+                Seq [
+                    Log("x was", Ref "x")
+                    Set("x", Inherent([Ref "x"], fun [x] _state -> x / 2))
+                    Log("x is now", Ref "x")
+                ],
+                Some (Log ("x is already small enough", Ref "x"))))))
+define "halve z" <|
+    Set ("z", Inherent([Ref "z"], fun [z] _ -> z / 2))
+define "reduce z" <|
+    If(Condition(Ref "z", None),
+        Seq [
+        Spawn "halve z"
+        Set ("z", Inherent([Ref "z"; d6], fun [z; roll] _ -> z + roll))
+        ], None)
+exec (Exec(Spawn("halve x")))
+exec (Exec(Spawn("halve x")))
+supply "x" 120
+exec (Exec(Spawn("halve x")))
+exec (Exec(Spawn("halve x")))
+exec (Exec(Spawn("halve x")))
+
