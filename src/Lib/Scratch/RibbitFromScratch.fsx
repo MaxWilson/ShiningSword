@@ -20,7 +20,7 @@ Features of POC:
 3.) Event Spawning (Events triggered by Events instead of directly by Cmd).
     Implies other things too, like Statements within events, or let's call
     EventLogic. And that means that Log is an EventLogic. (done)
-4.) Parameters on spawned events
+4.) Parameters on spawned events (design work in progress)
 5.) Implicit spawning/event triggering
 6.) Filter expressions on event triggers
 7.) Variable scoping with inheritance
@@ -48,7 +48,7 @@ type State = {
     data: Map<string, int>
     pending: (VariableName list * EventLogic) list
     log: string list
-    eventDefinitions: Map<EventName, EventLogic>
+    eventDefinitions: Map<EventName, EventDefinition>
     }
     with
     static member ofList vars = {
@@ -64,13 +64,24 @@ and Expr =
     | Ref of name: VariableName
     | Inherent of params': Expr list * op: (Value list -> State -> Value)
 and Condition = Condition of Expr * ((Value -> bool) option)
+and EventDefinition = {
+    name: EventName
+    parameters: Parameter list
+    body: (Argument list -> EventLogic)
+    }
 and EventLogic =
     | Log of label: string * Expr
     | Seq of EventLogic list
     | Spawn of EventName
-    | Define of name: EventName * EventLogic
+    | Define of EventDefinition
     | Set of name: VariableName * Expr
     | If of Condition * EventLogic * EventLogic option
+and Parameter =
+    | ParamExpr of Expr
+    | ParamName of VariableName
+and Argument =
+    | ArgValue of Value
+    | ArgName of VariableName
 
 let rec evaluate state = function
     | Const n -> Yield n
@@ -137,9 +148,14 @@ and execute state event =
         | Spawn eventName ->
             match state.eventDefinitions |> Map.tryFind eventName with
             | None -> log $"Logic Error! '{eventName}' is not a valid event name." state
-            | Some logic -> recur state logic
-        | Define(eventName, logic) ->
-            { state with eventDefinitions = state.eventDefinitions |> Map.add eventName logic }, None
+            | Some def ->
+                let logic: EventLogic =
+                    match def.parameters with
+                    | [] -> def.body []
+                    | parameters -> notImpl() // how to evaluate parameters? What if not all the expressions are ready yet, where to store that? In pending?
+                recur state logic
+        | Define(eventDefinition) ->
+            { state with eventDefinitions = state.eventDefinitions |> Map.add eventDefinition.name eventDefinition }, None
         | Set(name, expr) ->
             match evaluate state expr with
             | Yield v ->
@@ -186,7 +202,7 @@ let exec msg = GameLoop.gameIter &game view (update msg)
 let eval label expr = exec (Eval(label, expr))
 let supply name v = exec (Supply(name, v))
 let d6 = Inherent([], fun _ _ -> (rand 6))
-let define name logic = exec (Exec (Define(name, logic)))
+let define name logic = exec (Exec (Define({ name = name; parameters = []; body = fun _ -> logic })))
 let spawn name = exec (Exec (Spawn(name)))
 
 eval "3+7-5+x" (Add(Add(Add(Const 3, Const 7), Const -5), Ref "x"))
@@ -197,14 +213,14 @@ reset()
 eval "2d6+y" (Add(Add(d6, d6), Ref "y"))
 supply "y" 3
 exec (Exec(Seq[Log("d6", d6); Set("z", d6); Log("3+7-5+z", Add(Add(Add(Const 3, Const 7), Const -5), Ref "z")) ]))
-exec (Exec(Define("halve x",
-            If(Condition(Ref "x", Some (flip (>=) 2)),
-                Seq [
-                    Log("x was", Ref "x")
-                    Set("x", Inherent([Ref "x"], fun [x] _state -> x / 2))
-                    Log("x is now", Ref "x")
-                ],
-                Some (Log ("x is already small enough", Ref "x"))))))
+define "halve x" <|
+    If(Condition(Ref "x", Some (flip (>=) 2)),
+        Seq [
+            Log("x was", Ref "x")
+            Set("x", Inherent([Ref "x"], fun [x] _state -> x / 2))
+            Log("x is now", Ref "x")
+        ],
+        Some (Log ("x is already small enough", Ref "x")))
 define "halve z" <|
     Set ("z", Inherent([Ref "z"], fun [z] _ -> z / 2))
 define "reduce z" <|
@@ -212,6 +228,7 @@ define "reduce z" <|
         Seq [
         Spawn "halve z"
         Set ("z", Inherent([Ref "z"; d6], fun [z; roll] _ -> z + roll))
+        Log("z", Ref "z")
         ], None)
 exec (Exec(Spawn("halve x")))
 exec (Exec(Spawn("halve x")))
@@ -219,4 +236,6 @@ supply "x" 120
 exec (Exec(Spawn("halve x")))
 exec (Exec(Spawn("halve x")))
 exec (Exec(Spawn("halve x")))
-
+spawn "reduce z"
+supply "z" 100
+game
