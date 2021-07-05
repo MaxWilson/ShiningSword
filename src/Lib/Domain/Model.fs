@@ -23,26 +23,26 @@ module Character =
         wis: int
         cha: int
         }
-    [<Generator.DuCases>]
+    [<Generator.DuCases "fields">]
     type Sex = Male | Female | Neither
-    [<Generator.DuCases>]
+    [<Generator.DuCases "fields">]
     type Feat = Sharpshooter | CrossbowExpert | HeavyArmorMaster | GreatWeaponMaster
-    [<Generator.DuCases>]
+    [<Generator.DuCases "fields">]
     type Skill = Athletics | Stealth | Perception | Insight
-    [<Generator.DuCases>]
+    [<Generator.DuCases "fields">]
     type ElfRace = High | Wood | Drow
-    [<Generator.DuCases>]
+    [<Generator.DuCases "fields">]
     type DwarfRace = Mountain | Hill
-    [<Generator.DuCases>]
+    [<Generator.DuCases "fields">]
     type HumanType = Standard | Variant of Skill * Feat * (Stat * Stat)
-    [<Generator.DuCases>]
+    [<Generator.DuCases "fields">]
     type Race = Human of HumanType | Elf of ElfRace | Dwarf of DwarfRace | Halforc | Goblin
 
-    [<Generator.DuCases>]
+    [<Generator.DuCases "fields">]
     type Class = Barbarian | Fighter | Monk | Rogue
-    [<Generator.DuCases>]
+    [<Generator.DuCases "fields">]
     type FightingStyle = Dueling | Archery | Defense | GreatWeaponFighting
-    [<Generator.DuCases>]
+    [<Generator.DuCases "fields">]
     type Subclass =
         | Champion
         | EldritchKnight
@@ -53,7 +53,7 @@ module Character =
 
     type ASIChoice = ASI of Stat * Stat | Feat of Feat
 
-    [<Generator.DuCases>]
+    [<Generator.DuCases "dus">]
     type ClassAbility =
         | ASIChoice of ASIChoice
         | FightingStyle of FightingStyle
@@ -85,7 +85,6 @@ type StatBlock = {
     ac: int
     }
 
-
 [<Generator.Lens>]
 type CharSheet = {
     statBlock: StatBlock
@@ -93,7 +92,6 @@ type CharSheet = {
     yearOfBirth: int
     sex: Sex
     }
-
 
 type StatSource = StatBlock of StatBlock | CharSheet of CharSheet
 
@@ -118,7 +116,7 @@ module Draft =
         }
         with
         member this.name = defaultArg this.explicitName this.autoName
-    [<Generator.DuCases>]
+    [<Generator.DuCases "fields">]
     type Trait =
         | Race of Race
         | Class of Class * Subclass option * int

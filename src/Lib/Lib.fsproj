@@ -1,11 +1,10 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>netstandard2.1</TargetFramework>
-    <LangVersion>preview</LangVersion>
+    <TargetFramework>net5.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <MyriadSdkGenerator Include="$(MSBuildThisFileDirectory)\..\Myriadic\bin\Debug\netstandard2.1\Myriadic.dll" />
+    <MyriadSdkGenerator Include="$(MSBuildThisFileDirectory)\..\Myriadic\bin\Debug\net5.0\Myriadic.dll" />
     <None Include="Scratch\ScenarioScratch.fsx" />
     <None Include="Scratch\Script1.fsx" />
     <None Include="Scratch\Script2.fsx" />

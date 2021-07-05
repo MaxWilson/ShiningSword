@@ -52,7 +52,7 @@ module internal CreateLenses =
             // (data : Record)
             let getArgs = SynSimplePats.SimplePats ([recordArg], r)
             // fun (data : Record) -> data.Property
-            let get = SynExpr.Lambda (false, false, getArgs, SynExpr.CreateLongIdent(false, getBody, None), r)
+            let get = SynExpr.Lambda (false, false, getArgs, SynExpr.CreateLongIdent(false, getBody, None), None, r)
 
             let valueIdent = Ident.Create "value"
             let valuePattern = SynSimplePat.Typed(SynSimplePat.Id (valueIdent, None, false, false, false, r), field.Type, r)
@@ -66,11 +66,11 @@ module internal CreateLenses =
 
             // (value : PropertyType) -> { data with Property = value }
             let innerLambdaWithValue =
-                SynExpr.Lambda (false, true, getArgs, recordUpdate, r)
+                SynExpr.Lambda (false, true, getArgs, recordUpdate, None, r)
 
             // fun (data : Record) (value : PropertyType) -> { data with Property = value }
             let set =
-                SynExpr.Lambda (false, true, valueArgPatterns, innerLambdaWithValue, r)
+                SynExpr.Lambda (false, true, valueArgPatterns, innerLambdaWithValue, None, r)
 
             wrap get set wrapperName
 
@@ -134,9 +134,9 @@ module internal CreateLenses =
                 let recordArg = SynSimplePat.Typed(SynSimplePat.Id (Ident.Create "_", None, false, false, false, r), duType, r)
                 let getArgs = SynSimplePats.SimplePats ([recordArg], r)
                 let innerLambdaWithValue =
-                    SynExpr.Lambda (false, true, getArgs, createCase, r)
+                    SynExpr.Lambda (false, true, getArgs, createCase, None, r)
 
-                SynExpr.Lambda (false, true, valueArgPatterns, innerLambdaWithValue, r)
+                SynExpr.Lambda (false, true, valueArgPatterns, innerLambdaWithValue, None, r)
 
             let get = SynExpr.MatchLambda(false, r, [matchCase], NoDebugPointAtLetBinding, range.Zero)
 
@@ -176,7 +176,7 @@ module internal CreateLenses =
                 Some wrapperIdent.idText
             | _ -> failwithf "Unsupported syntax of specifying the wrapper name for type %A." recordId
 
-        let openParent = SynModuleDecl.CreateOpen (LongIdentWithDots.Create (namespaceId |> List.map (fun ident -> ident.idText)))
+        let openParent = SynModuleDecl.CreateOpen (SynOpenDeclTarget.ModuleOrNamespace(namespaceId, r))
         let moduleInfo = SynComponentInfoRcd.Create moduleIdent
 
         match synTypeDefnRepr with
@@ -201,17 +201,22 @@ module internal CreateLenses =
             SynModuleDecl.CreateNestedModule(moduleInfo, declarations)
         | _ -> failwithf "%A is not a record type." recordId
 
-[<MyriadGenerator("lenses1")>]
+[<MyriadGenerator "lenses1">]
 type LensesGenerator() =
-
     interface IMyriadGenerator with
-        member __.Generate(namespace', ast: ParsedInput) =
+        member this.ValidInputExtensions: string seq = seq { ".fs"; ".fsx" }
+        member __.Generate(ctx) =
+            let ast =
+                Ast.fromFilename ctx.InputFilename
+                |> Async.RunSynchronously
+                |> Array.head
+                |> fst
             let namespaceAndRecords = Ast.extractRecords ast
             let openDecls = [
                 // sorry! This is a domain-specific hack! TODO: derive these properly, i.e. automatically.
-                SynModuleDecl.CreateOpen (LongIdentWithDots.Create ["AutoWizard"])
-                SynModuleDecl.CreateOpen (LongIdentWithDots.Create ["Domain"; "Model"])
-                SynModuleDecl.CreateOpen (LongIdentWithDots.Create ["Domain"; "Model"; "Character"])
+                SynModuleDecl.CreateOpen "AutoWizard"
+                SynModuleDecl.CreateOpen "Domain.Model"
+                SynModuleDecl.CreateOpen "Domain.Model.Character"
                 ]
             let recordsModules =
                 namespaceAndRecords
@@ -235,11 +240,11 @@ type LensesGenerator() =
                     |> List.map (CreateLenses.createLensModule ns))
 
             let namespaceOrModule =
-                { SynModuleOrNamespaceRcd.CreateNamespace(Ident.CreateLong namespace')
+                { SynModuleOrNamespaceRcd.CreateNamespace(Ident.CreateLong "AutoGen")
                     with
                         IsRecursive = true
                         Declarations = openDecls @ recordsModules @ duModules
 
                         }
 
-            namespaceOrModule
+            [namespaceOrModule]

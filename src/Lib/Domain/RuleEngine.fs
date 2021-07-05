@@ -1,6 +1,7 @@
 module Domain.RuleEngine
 open Domain.Model
 open Domain.Model.Ribbit
+open AutoGen
 open type Ops
 
 module Logic =
