@@ -1,5 +1,6 @@
 
-#I __SOURCE_DIRECTORY__
+//#I __SOURCE_DIRECTORY__
+#I "."
 #I ".."
 #load @"Optics.fs"
 #load @"Common.fs"
