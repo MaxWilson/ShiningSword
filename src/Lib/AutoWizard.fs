@@ -6,6 +6,8 @@
 module AutoWizard
 open Optics
 open type Optics.Operations
+open Common
+open type Common.Ops
 
 type 't LifecycleStage = Unset | Set | Complete of 't
     with member this.map f = match this with Complete v -> Complete (f v) | Unset -> Unset | Set -> Set
@@ -78,7 +80,7 @@ let ctor3(label, f, arg1, arg2, arg3)= SettingCtor3(label, f, arg1, arg2, arg3) 
 let both(arg1, arg2) = ctor2("both", c id, arg1, arg2)
 
 let pmatch (pattern : IPatternMatch<'t>) (x : Setting<'t>) = x.Match pattern
-let rec pattern<'t, 'appState, 'out> (getLens: ChoiceKey -> Optics.Lens<'appState, ChoiceState option>) (render:Render<'appState, 'out>) (state: 'appState) =
+let rec pattern<'t, 'appState, 'out> (getLens: ChoiceKey -> Optics.Lens<'appState, ChoiceState option>) (render:Render<'appState, 'out>) (state: 'appState) : IPatternMatch<'t>=
     let assertOutputType x = x :> obj :?> 'output // type system can't prove that 'output and 'out are the same type, so we assert it by casting because it always will be true
     let assertTType x = x :> obj :?> 'output // type system can't prove that 'input list and 't the same type, so we assert it by casting because it always will be true
     {
