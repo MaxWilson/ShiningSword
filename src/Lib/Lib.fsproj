@@ -13,6 +13,7 @@
     <None Include="Scratch\HOASExpressions.fsx" />
     <None Include="Scratch\GameLoop.fsx" />
     <None Include="Scratch\RibbitFromScratch.fsx" />
+    <None Include="Scratch\RibberFromScratch2.fsx" />
     <Compile Include="Optics.fsi" />
     <Compile Include="Optics.fs" />
     <Compile Include="Common.fsi" />
