@@ -152,7 +152,9 @@ type Game = {
     rosterReverse: Map<AgentId, string>
     data: Map<AgentId, Scope>
     events: Map<EventId, Event>
-    nextEventId: EventId
+    nextEventId: EventId // an id generator
+    dependencies: Map<VariableReference, EventId list> // to support execution chaining
+    dataDependencies: (AgentId*PropertyName) list // for display in UI. Local variables and event results can't be input by the user so don't need to go in this list.
     }
     with
     static member start instructions (g:Game) =
@@ -171,4 +173,15 @@ type Game = {
                     | Some(EventState(state)) -> Some(EventState { state with dependencies = ref::state.dependencies })
                     | _ -> shouldntHappen()
                     )
+                dependencies = g.dependencies |> Map.change ref (function
+                    | Some(lst) -> eventId::lst |> Some
+                    | None -> Some [eventId]
+                    )
+                dataDependencies =
+                    // add to dataDependencies if this is a new dependency, so it can be added to the UI
+                    match ref with
+                    | DataRef(agentId, propertyName) ->
+                        if g.dependencies |> Map.containsKey ref then g.dataDependencies
+                        else g.dataDependencies @ [agentId, propertyName]
+                    | _ -> g.dataDependencies
         }
