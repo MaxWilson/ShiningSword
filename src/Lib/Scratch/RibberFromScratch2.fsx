@@ -215,9 +215,16 @@ type Game = {
 
     static member supply (ctx: ExecutionContext) (ref:VariableReference) (value:RuntimeValue) (g:Game) =
         match g.dependencies |> Map.tryFind ref with
-        | None -> Game.set ctx ref value g
+        | None ->
+            Game.set ctx ref value g, ctx
         | Some dependencies ->
-            notImpl()
+            let g =
+                match ref with
+                | DataRef(agentId, propName) ->
+                    let dd = g.dataDependencies |> List.filter ((<>) (agentId, propName))
+                    { g with dataDependencies = dd; dependencies = g.dependencies |> Map.remove ref }
+                | _ -> { g with dependencies = g.dependencies |> Map.remove ref }
+            Game.set ctx ref value g, { ctx with workQueue = dependencies @ ctx.workQueue }
 
 let foo(game: Game, id: EventId, ref:VariableReference) =
     progress {| defer = Game.defer |} game
