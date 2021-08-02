@@ -97,7 +97,6 @@ let execute
         notImpl()
 
 type DeferF<'state> = EventId -> VariableReference -> 'state -> 'state
-
 let resume
     (api: {|
             placeholder: 'state -> 'state
@@ -139,6 +138,13 @@ type Scope = {
     }
 type Event = EventResult of RuntimeValue | EventState of EventState
 and EventState = { scope: Scope; instructionStack: Statement list; dependencies: VariableReference list }
+
+type ExecutionContext =
+    {
+    workQueue: EventId list // LIFO queue for ease of implementation but it probably doesn't matter what the order is
+    currentEvent: EventId option
+    }
+
 type Game = {
     roster: Map<string, AgentId list>
     rosterReverse: Map<AgentId, string>
@@ -177,6 +183,41 @@ type Game = {
                         else g.dataDependencies @ [agentId, propertyName]
                     | _ -> g.dataDependencies
         }
+    static member set (ctx: ExecutionContext) (ref:VariableReference) (value:RuntimeValue) (g:Game) =
+        match ref with
+        | DataRef(agentId, propName) ->
+            let data =
+                g.data |> Map.change agentId (function
+                | None -> { properties = Map.ofList [propName, value] } |> Some
+                | Some scope -> { scope with properties = scope.properties |> Map.add propName value } |> Some)
+            { g with data = data }
+        | LocalRef(propName) ->
+            let events =
+                match ctx.currentEvent with
+                | None -> shouldntHappen()
+                | Some eventId ->
+                    g.events |> Map.change eventId (function
+                    | Some (EventState state) ->
+                        let scope = { state.scope with properties = state.scope.properties |> Map.add propName value }
+                        Some (EventState { state with scope = scope })
+                    | _ -> shouldntHappen()
+                    )
+            { g with events = events }
+            
+        | EventRef(eventId) ->
+            let events =
+                g.events |> Map.change eventId (function
+                | Some (EventState state) ->
+                    Some (EventResult value)
+                | _ -> shouldntHappen()
+                )
+            { g with events = events }
+
+    static member supply (ctx: ExecutionContext) (ref:VariableReference) (value:RuntimeValue) (g:Game) =
+        match g.dependencies |> Map.tryFind ref with
+        | None -> Game.set ctx ref value g
+        | Some dependencies ->
+            notImpl()
 
 let foo(game: Game, id: EventId, ref:VariableReference) =
-    defer {| defer = Game.defer |} id ref game
+    progress {| defer = Game.defer |} game
