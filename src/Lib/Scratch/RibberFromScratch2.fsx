@@ -97,14 +97,6 @@ let execute
         notImpl()
 
 type DeferF<'state> = EventId -> VariableReference -> 'state -> 'state
-let defer
-    (api: {|
-            defer: DeferF<'state>
-        |})
-    (eventId: EventId)
-    (ref: VariableReference)
-    (state: 'state) =
-        api.defer eventId ref state
 
 let resume
     (api: {|
@@ -116,7 +108,7 @@ let resume
 
 let progress
     (api: {|
-            placeholder: 'state -> 'state
+             defer: DeferF<'state>
         |})
     (state: 'state) =
         notImpl()
@@ -185,3 +177,6 @@ type Game = {
                         else g.dataDependencies @ [agentId, propertyName]
                     | _ -> g.dataDependencies
         }
+
+let foo(game: Game, id: EventId, ref:VariableReference) =
+    defer {| defer = Game.defer |} id ref game
