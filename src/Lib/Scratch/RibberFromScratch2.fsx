@@ -4,7 +4,8 @@ module Rewrite
 #I ".."
 #load "Optics.fs"
 #load "Common.fs"
-
+open Optics
+open type Optics.Operations
 (*
 Concepts: Expression eval
 
@@ -33,37 +34,40 @@ and BinaryOperator =
     | AtLeast
     | AtMost
 
+type Statement =
+    | Eval of Expression
+    | Sequence of Statement list
 type CurrentExpressionValue = Result<RuntimeValue, VariableReference list>
 
 let evaluate
     (api: {|
             dereference: VariableReference -> 'state -> CurrentExpressionValue;
-            progress: VariableReference -> 'state -> 'state
+            progress: 'state -> 'state
         |})
     (state: 'state)
     expr
     : CurrentExpressionValue =
-        let binary = function
-        | String lhs, String rhs, Plus -> lhs + rhs |> String
-        | Number lhs, Number rhs, Plus -> lhs + rhs |> Number
-        | Boolean lhs, Boolean rhs, Plus -> (lhs || rhs) |> Boolean
-        | Number lhs, Number rhs, Minus -> lhs - rhs |> Number
-        | Number lhs, Number rhs, Times -> lhs * rhs |> Number
-        | Boolean lhs, Boolean rhs, Times -> (lhs && rhs) |> Boolean
-        | Number lhs, Number rhs, Divide -> lhs / rhs |> Number
-        | Number lhs, Number rhs, Equals -> (lhs = rhs) |> Boolean
-        | String lhs, String rhs, Equals -> (lhs = rhs) |> Boolean
-        | Boolean lhs, Boolean rhs, Equals -> lhs = rhs |> Boolean
-        | Number lhs, Number rhs, AtLeast -> lhs >= rhs |> Boolean
-        | Number lhs, Number rhs, AtMost -> lhs <= rhs |> Boolean
-        | _ -> Undefined
-
         let rec eval : Expression -> CurrentExpressionValue=
             function
             | Const v -> Ok v
             | BinaryOp(lhs, rhs, op) ->
                 match eval lhs, eval rhs with
-                | Ok lhs, Ok rhs -> binary(lhs, rhs, op) |> Ok
+                | Ok lhs, Ok rhs ->
+                    let binary = function
+                        | String lhs, String rhs, Plus -> lhs + rhs |> String
+                        | Number lhs, Number rhs, Plus -> lhs + rhs |> Number
+                        | Boolean lhs, Boolean rhs, Plus -> (lhs || rhs) |> Boolean
+                        | Number lhs, Number rhs, Minus -> lhs - rhs |> Number
+                        | Number lhs, Number rhs, Times -> lhs * rhs |> Number
+                        | Boolean lhs, Boolean rhs, Times -> (lhs && rhs) |> Boolean
+                        | Number lhs, Number rhs, Divide -> lhs / rhs |> Number
+                        | Number lhs, Number rhs, Equals -> (lhs = rhs) |> Boolean
+                        | String lhs, String rhs, Equals -> (lhs = rhs) |> Boolean
+                        | Boolean lhs, Boolean rhs, Equals -> lhs = rhs |> Boolean
+                        | Number lhs, Number rhs, AtLeast -> lhs >= rhs |> Boolean
+                        | Number lhs, Number rhs, AtMost -> lhs <= rhs |> Boolean
+                        | _ -> Undefined
+                    binary(lhs, rhs, op) |> Ok
                 | Error _ as lhs, Ok _ -> lhs
                 | Ok _, (Error _ as rhs) -> rhs
                 | Error lhs, Error rhs -> Error (lhs @ rhs)
@@ -82,3 +86,89 @@ let evaluate
                 // By evaluation time, Roll and StartEvent should have already been rewritten to Dereference expressions
                 Ok Undefined 
         eval expr
+
+let execute
+    (api: {|
+            dereference: VariableReference -> 'state -> CurrentExpressionValue;
+            progress: 'state -> 'state
+        |})
+    (state: 'state)
+    statements =
+        notImpl()
+
+type DeferF<'state> = EventId -> VariableReference -> 'state -> 'state
+let defer
+    (api: {|
+            defer: DeferF<'state>
+        |})
+    (eventId: EventId)
+    (ref: VariableReference)
+    (state: 'state) =
+        api.defer eventId ref state
+
+let resume
+    (api: {|
+            placeholder: 'state -> 'state
+        |})
+    (state: 'state) =
+        notImpl()
+
+
+let progress
+    (api: {|
+            placeholder: 'state -> 'state
+        |})
+    (state: 'state) =
+        notImpl()
+
+let query
+    (api: {|
+            placeholder: 'state -> VariableReference list
+        |})
+    (state: 'state) =
+        notImpl()
+
+let supply
+    (api: {|
+            data_: (AgentId * PropertyName) -> Lens<'state, RuntimeValue>
+            query: 'state -> VariableReference list
+        |})
+    (agent: AgentId, property: PropertyName)
+    (v: RuntimeValue)
+    (state: 'state)
+    =
+        let satisfies = api.query state
+        let lens = api.data_ (agent, property)
+        let state = state |> write lens v
+        state
+
+type Scope = {
+    properties: Map<PropertyName, RuntimeValue>
+    }
+type Event = EventResult of RuntimeValue | EventState of EventState
+and EventState = { scope: Scope; instructionStack: Statement list; dependencies: VariableReference list }
+type Game = {
+    roster: Map<string, AgentId list>
+    rosterReverse: Map<AgentId, string>
+    data: Map<AgentId, Scope>
+    events: Map<EventId, Event>
+    nextEventId: EventId
+    }
+    with
+    static member start instructions (g:Game) =
+        let eventId, g = g.nextEventId, { g with nextEventId = g.nextEventId + 1 }
+        {
+            g with
+                events = g.events |> Map.change eventId (function
+                    | None -> Some(EventState { scope = { properties = Map.empty }; instructionStack = instructions; dependencies = [] })
+                    | _ -> shouldntHappen()
+                    )
+        }
+    static member defer eventId ref (g:Game) =
+        {
+            g with
+                events = g.events |> Map.change eventId (function
+                    | Some(EventState(state)) -> Some(EventState { state with dependencies = ref::state.dependencies })
+                    | _ -> shouldntHappen()
+                    )
+        }
