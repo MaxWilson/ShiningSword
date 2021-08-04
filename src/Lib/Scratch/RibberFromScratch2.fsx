@@ -103,17 +103,12 @@ let execute
         notImpl()
 
 type DeferF<'state> = EventId -> VariableReference -> 'state -> 'state
-let resume
-    (api: {|
-            placeholder: 'state -> 'state
-        |})
-    (state: 'state) =
-        notImpl()
+type SupplyF<'state> = ExecutionContext -> VariableReference -> RuntimeValue -> 'state -> ('state * ExecutionContext)
 
-
-let progress
+let progressToFixedPoint
     (api: {|
              defer: DeferF<'state>
+             supply: SupplyF<'state>
         |})
     (state: 'state, ctx: ExecutionContext) =
         notImpl()
@@ -225,6 +220,7 @@ type Game = {
                     { g with dataDependencies = dd; dependencies = g.dependencies |> Map.remove ref }
                 | _ -> { g with dependencies = g.dependencies |> Map.remove ref }
             Game.set ctx ref value g, { ctx with workQueue = dependencies @ ctx.workQueue }
+    static member resume (ctx: ExecutionContext) (eventId: EventId) (g:Game): Event = notImpl()
 
 let foo(game: Game, id: EventId, ref:VariableReference) =
-    progress {| defer = Game.defer |} (game, { workQueue = []; currentEvent = None })
+    progressToFixedPoint {| defer = Game.defer; supply = Game.supply |} (game, { workQueue = []; currentEvent = None })
