@@ -95,28 +95,46 @@ type ExecutionContext =
 
 let execute
     (api: {|
-            dereference: VariableReference -> 'state -> CurrentExpressionValue;
-            progress: 'state -> 'state
+            dereference: VariableReference -> 'state -> CurrentExpressionValue
         |})
     (state: 'state)
-    statements =
+    statements
+        : 'state * Statement list * CurrentExpressionValue =
         notImpl()
 
-type DeferF<'state> = EventId -> VariableReference -> 'state -> 'state
+type DeferF<'state> = EventId -> Statement list -> VariableReference -> 'state -> 'state
+type CompleteF<'state> = EventId -> RuntimeValue -> 'state -> 'state
 type SupplyF<'state> = ExecutionContext -> VariableReference -> RuntimeValue -> 'state -> ('state * EventId list)
-type ResumeF<'state> = EventId -> 'state -> ('state * EventId list)
+type ResumeF<'state> = EventId -> 'state -> Statement list
 
 let progressToFixedPoint
     (api: {|
+             defer: DeferF<'state>
+             complete: CompleteF<'state>
              resume: ResumeF<'state>
+             supply: SupplyF<'state>
         |})
     (state: 'state, ctx: ExecutionContext) =
         let mutable queue = ctx.workQueue
         let mutable state = state
         while queue.IsEmpty |> not do
-            let state', newItems = api.resume (queue.Head) state
-            state <- state'
-            queue <- newItems @ queue.Tail
+            match queue with
+            | currentEvent::rest ->
+                queue <- rest
+                let statements = api.resume currentEvent state
+                match execute ({| dereference = fun _ -> notImpl() |}) state statements with
+                | state', _, Ok v ->
+                    state <- api.complete currentEvent v state'
+                    match api.supply { ExecutionContext.currentEvent = Some currentEvent; ExecutionContext.workQueue = [] } (EventRef currentEvent) v state with
+                    | state', unblockedWorkItems ->
+                        state <- state'
+                        queue <- unblockedWorkItems @ queue
+                | state', statements, Error dependencies ->
+                    let mutable state'' = state'
+                    for d in dependencies do
+                        state'' <- api.defer currentEvent statements d state''
+                    state <- state''
+            | _ -> ()
         state
 
 let query
