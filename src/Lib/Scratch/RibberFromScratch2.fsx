@@ -110,7 +110,6 @@ type ResumeF<'state> = EventId -> 'state -> Statement list
 let progressToFixedPoint
     (api: {|
              defer: DeferF<'state>
-             complete: CompleteF<'state>
              resume: ResumeF<'state>
              supply: SupplyF<'state>
         |})
@@ -124,8 +123,7 @@ let progressToFixedPoint
                 let statements = api.resume currentEvent state
                 match execute ({| dereference = fun _ -> notImpl() |}) state statements with
                 | state', _, Ok v ->
-                    state <- api.complete currentEvent v state'
-                    match api.supply { ExecutionContext.currentEvent = Some currentEvent; ExecutionContext.workQueue = [] } (EventRef currentEvent) v state with
+                    match api.supply { ExecutionContext.currentEvent = Some currentEvent; ExecutionContext.workQueue = [] } (EventRef currentEvent) v state' with
                     | state', unblockedWorkItems ->
                         state <- state'
                         queue <- unblockedWorkItems @ queue
@@ -162,7 +160,7 @@ type Scope = {
     properties: Map<PropertyName, RuntimeValue>
     }
 type Event = EventResult of RuntimeValue | EventState of EventState
-and EventState = { scope: Scope; instructionStack: Statement list; dependencies: VariableReference list }
+and EventState = { scope: Scope; instructionStack: Statement list; dependencies: Set<VariableReference> }
 
 type Game = {
     roster: Map<string, AgentId list>
@@ -179,15 +177,15 @@ type Game = {
         {
             g with
                 events = g.events |> Map.change eventId (function
-                    | None -> Some(EventState { scope = { properties = Map.empty }; instructionStack = instructions; dependencies = [] })
+                    | None -> Some(EventState { scope = { properties = Map.empty }; instructionStack = instructions; dependencies = Set.empty })
                     | _ -> shouldntHappen()
                     )
         }
-    static member defer eventId ref (g:Game) =
+    static member defer eventId statements ref (g:Game) =
         {
             g with
                 events = g.events |> Map.change eventId (function
-                    | Some(EventState(state)) -> Some(EventState { state with dependencies = ref::state.dependencies })
+                    | Some(EventState(state)) -> Some(EventState { state with dependencies = state.dependencies |> Set.add ref; instructionStack = statements })
                     | _ -> shouldntHappen()
                     )
                 dependencies = g.dependencies |> Map.change ref (function
@@ -235,7 +233,7 @@ type Game = {
     static member supply (ctx: ExecutionContext) (ref:VariableReference) (value:RuntimeValue) (g:Game) =
         match g.dependencies |> Map.tryFind ref with
         | None ->
-            Game.set ctx ref value g, ctx
+            Game.set ctx ref value g, []
         | Some dependencies ->
             let g =
                 match ref with
@@ -243,8 +241,12 @@ type Game = {
                     let dd = g.dataDependencies |> List.filter ((<>) (agentId, propName))
                     { g with dataDependencies = dd; dependencies = g.dependencies |> Map.remove ref }
                 | _ -> { g with dependencies = g.dependencies |> Map.remove ref }
-            Game.set ctx ref value g, { ctx with workQueue = dependencies @ ctx.workQueue }
-    static member resume (eventId: EventId) (g:Game): Game * EventId list = notImpl()
+            Game.set ctx ref value g, dependencies
+    static member resume (eventId: EventId) (g:Game) =
+        match g.events |> Map.tryFind eventId with
+        | Some (EventState state) ->
+            state.instructionStack
+        | _ -> shouldntHappen()
 
 let foo(game: Game, id: EventId, ref:VariableReference) =
-    progressToFixedPoint {| defer = Game.defer; resume = Game.resume|} (game, { workQueue = []; currentEvent = None })
+    progressToFixedPoint {| defer = Game.defer; resume = Game.resume; supply = Game.supply |} (game, { workQueue = []; currentEvent = None })
