@@ -203,15 +203,29 @@ type Game = {
     dataDependencies: (AgentId*PropertyName) list // for display in UI. Local variables and event results can't be input by the user so don't need to go in this list.
     }
     with
+    static member fresh = {
+        roster = Map.empty
+        rosterReverse = Map.empty
+        data = Map.empty
+        events = Map.empty
+        nextEventId = 1
+        dependencies = Map.empty
+        dataDependencies = []
+        }
     static member start instructions (g:Game) =
         let eventId, g = g.nextEventId, { g with nextEventId = g.nextEventId + 1 }
-        {
-            g with
-                events = g.events |> Map.change eventId (function
-                    | None -> Some(EventState { scope = { properties = Map.empty }; instructionStack = instructions; dependencies = Set.empty })
-                    | _ -> shouldntHappen()
-                    )
-        }
+        let g =
+            {
+                g with
+                    events = g.events |> Map.change eventId (function
+                        | None -> Some(EventState { scope = { properties = Map.empty }; instructionStack = instructions; dependencies = Set.empty })
+                        | _ -> shouldntHappen()
+                        )
+            }
+        let g = progressToFixedPoint
+                    {| dereference = Game.dereference; defer = Game.defer; resume = Game.resume; supply = Game.supply |}
+                    (g, { workQueue = [eventId]; currentEvent = Some eventId })
+        eventId, g
     static member defer eventId statements ref (g:Game) =
         {
             g with
@@ -309,3 +323,11 @@ type Game = {
 
 let foo(game: Game, id: EventId, ref:VariableReference) =
     progressToFixedPoint {| dereference = Game.dereference; defer = Game.defer; resume = Game.resume; supply = Game.supply |} (game, { workQueue = []; currentEvent = None })
+
+let g = Game.fresh
+let eventId, g1 =
+    Game.start [
+    Assign(LocalRef "abc", BinaryOp(Const(Number 1), Const(Number 4), Plus));
+    Return (Dereference (LocalRef "abc"))
+    ] g
+g1.events.[eventId]
