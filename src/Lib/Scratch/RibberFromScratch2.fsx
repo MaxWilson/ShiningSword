@@ -35,15 +35,29 @@ and BinaryOperator =
     | AtMost
 
 type Statement =
-    | Eval of Expression
+    | Return of Expression
+    | Assign of VariableReference * Expression
     | Sequence of Statement list
 type CurrentExpressionValue = Result<RuntimeValue, VariableReference list>
 
+type ExecutionContext =
+    {
+    workQueue: EventId list // LIFO queue for ease of implementation but it probably doesn't matter what the order is
+    currentEvent: EventId option
+    }
+
+type DereferenceF<'state> = ExecutionContext -> VariableReference -> 'state -> CurrentExpressionValue
+type DeferF<'state> = EventId -> Statement list -> VariableReference -> 'state -> 'state
+
+type CompleteF<'state> = EventId -> RuntimeValue -> 'state -> 'state
+type SupplyF<'state> = ExecutionContext -> VariableReference -> RuntimeValue -> 'state -> ('state * EventId list)
+type ResumeF<'state> = EventId -> 'state -> Statement list
+
 let evaluate
     (api: {|
-            dereference: VariableReference -> 'state -> CurrentExpressionValue;
-            progress: 'state -> 'state
+            dereference: DereferenceF<'state>
         |})
+    (ctx: ExecutionContext)
     (state: 'state)
     expr
     : CurrentExpressionValue =
@@ -81,34 +95,46 @@ let evaluate
                 | Ok _ -> Ok Undefined
                 | err -> err
             | Dereference ref ->
-                api.dereference ref state
+                api.dereference ctx ref state
             | Roll _ | StartEvent _ ->
                 // By evaluation time, Roll and StartEvent should have already been rewritten to Dereference expressions
                 Ok Undefined 
         eval expr
 
-type ExecutionContext =
-    {
-    workQueue: EventId list // LIFO queue for ease of implementation but it probably doesn't matter what the order is
-    currentEvent: EventId option
-    }
-
 let execute
     (api: {|
-            dereference: VariableReference -> 'state -> CurrentExpressionValue
+            dereference: DereferenceF<'state>
+            supply: SupplyF<'state>
         |})
+    (ctx: ExecutionContext)
     (state: 'state)
-    statements
-        : 'state * Statement list * CurrentExpressionValue =
-        notImpl()
-
-type DeferF<'state> = EventId -> Statement list -> VariableReference -> 'state -> 'state
-type CompleteF<'state> = EventId -> RuntimeValue -> 'state -> 'state
-type SupplyF<'state> = ExecutionContext -> VariableReference -> RuntimeValue -> 'state -> ('state * EventId list)
-type ResumeF<'state> = EventId -> 'state -> Statement list
+    (statements: Statement list)
+        : 'state * Statement list * CurrentExpressionValue * ExecutionContext =
+        let evalApi = {| dereference = api.dereference |}
+        let rec loop state ctx = function
+            | current::rest as stack ->
+                match current with
+                | Return expr ->
+                    match evaluate evalApi ctx state expr with
+                    | Ok v -> state, [], Ok v, ctx
+                    | awaiting -> state, [current], awaiting, ctx
+                | Assign(ref, expr) ->
+                    match evaluate evalApi ctx state expr with
+                    | Ok v ->
+                        let state, unblocked = api.supply ctx ref v state                        
+                        let ctx = { ctx with workQueue = unblocked @ ctx.workQueue }
+                        loop state ctx rest
+                    | awaiting -> state, stack, awaiting, ctx
+                | Sequence statements ->
+                    // unpack the statements onto the head of the instruction stack
+                    loop state ctx (statements @ rest)
+            | [] ->
+                state, [], Ok Undefined, ctx // returning a value from an event is optional, could just be assignments
+        loop state ctx statements
 
 let progressToFixedPoint
     (api: {|
+             dereference: DereferenceF<'state>
              defer: DeferF<'state>
              resume: ResumeF<'state>
              supply: SupplyF<'state>
@@ -121,13 +147,18 @@ let progressToFixedPoint
             | currentEvent::rest ->
                 queue <- rest
                 let statements = api.resume currentEvent state
-                match execute ({| dereference = fun _ -> notImpl() |}) state statements with
-                | state', _, Ok v ->
+                match execute
+                        {| dereference = api.dereference; supply = api.supply |}
+                        { currentEvent = Some currentEvent; workQueue = [] }
+                        state
+                        statements
+                      with
+                | state', _, Ok v, ctx ->
                     match api.supply { ExecutionContext.currentEvent = Some currentEvent; ExecutionContext.workQueue = [] } (EventRef currentEvent) v state' with
                     | state', unblockedWorkItems ->
                         state <- state'
-                        queue <- unblockedWorkItems @ queue
-                | state', statements, Error dependencies ->
+                        queue <- ctx.workQueue @ unblockedWorkItems @ queue
+                | state', statements, Error dependencies, ctx ->
                     let mutable state'' = state'
                     for d in dependencies do
                         state'' <- api.defer currentEvent statements d state''
@@ -247,6 +278,34 @@ type Game = {
         | Some (EventState state) ->
             state.instructionStack
         | _ -> shouldntHappen()
+    static member dereference (ctx: ExecutionContext) (ref:VariableReference) (g:Game) =
+        match ref with
+        | DataRef(agentId, propName) ->
+            match g.data |> Map.tryFind agentId with
+            | Some scope ->
+                match scope.properties |> Map.tryFind propName with
+                | Some v -> Ok v
+                | _ -> Error [ref]
+            | _ -> Error [ref]
+        | LocalRef guid ->
+            match ctx.currentEvent with
+            | None -> shouldntHappen()
+            | Some eventId ->
+                match g.events |> Map.tryFind eventId with
+                | Some (EventState state) ->
+                    match state.scope.properties |> Map.tryFind guid with
+                    | Some v -> Ok v
+                    | _ -> Error [ref]
+                | _ -> shouldntHappen()
+        | EventRef eventId ->
+            match ctx.currentEvent with
+            | None -> shouldntHappen()
+            | Some eventId ->
+                match g.events |> Map.tryFind eventId with
+                | Some (EventState state) ->
+                    Error [ref]
+                | Some (EventResult v) -> Ok v
+                | None -> shouldntHappen()
 
 let foo(game: Game, id: EventId, ref:VariableReference) =
-    progressToFixedPoint {| defer = Game.defer; resume = Game.resume; supply = Game.supply |} (game, { workQueue = []; currentEvent = None })
+    progressToFixedPoint {| dereference = Game.dereference; defer = Game.defer; resume = Game.resume; supply = Game.supply |} (game, { workQueue = []; currentEvent = None })
