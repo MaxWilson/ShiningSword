@@ -87,6 +87,12 @@ let evaluate
                 Ok Undefined 
         eval expr
 
+type ExecutionContext =
+    {
+    workQueue: EventId list // LIFO queue for ease of implementation but it probably doesn't matter what the order is
+    currentEvent: EventId option
+    }
+
 let execute
     (api: {|
             dereference: VariableReference -> 'state -> CurrentExpressionValue;
@@ -109,7 +115,7 @@ let progress
     (api: {|
              defer: DeferF<'state>
         |})
-    (state: 'state) =
+    (state: 'state, ctx: ExecutionContext) =
         notImpl()
 
 let query
@@ -138,12 +144,6 @@ type Scope = {
     }
 type Event = EventResult of RuntimeValue | EventState of EventState
 and EventState = { scope: Scope; instructionStack: Statement list; dependencies: VariableReference list }
-
-type ExecutionContext =
-    {
-    workQueue: EventId list // LIFO queue for ease of implementation but it probably doesn't matter what the order is
-    currentEvent: EventId option
-    }
 
 type Game = {
     roster: Map<string, AgentId list>
@@ -227,4 +227,4 @@ type Game = {
             Game.set ctx ref value g, { ctx with workQueue = dependencies @ ctx.workQueue }
 
 let foo(game: Game, id: EventId, ref:VariableReference) =
-    progress {| defer = Game.defer |} game
+    progress {| defer = Game.defer |} (game, { workQueue = []; currentEvent = None })
