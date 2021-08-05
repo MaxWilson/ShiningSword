@@ -45,6 +45,9 @@ type ExecutionContext =
     workQueue: EventId list // LIFO queue for ease of implementation but it probably doesn't matter what the order is
     currentEvent: EventId option
     }
+    with
+    static member fresh = { workQueue = []; currentEvent = None }
+    static member forEvent eventId = { ExecutionContext.fresh with currentEvent = Some eventId }
 
 type DereferenceF<'state> = ExecutionContext -> VariableReference -> 'state -> CurrentExpressionValue
 type DeferF<'state> = EventId -> Statement list -> VariableReference -> 'state -> 'state
@@ -52,6 +55,8 @@ type DeferF<'state> = EventId -> Statement list -> VariableReference -> 'state -
 type CompleteF<'state> = EventId -> RuntimeValue -> 'state -> 'state
 type SupplyF<'state> = ExecutionContext -> VariableReference -> RuntimeValue -> 'state -> ('state * EventId list)
 type ResumeF<'state> = EventId -> 'state -> Statement list
+type RunF<'state> = EventId -> 'state -> 'state
+
 
 let evaluate
     (api: {|
@@ -175,17 +180,20 @@ let query
 
 let supply
     (api: {|
-            data_: (AgentId * PropertyName) -> Lens<'state, RuntimeValue>
-            query: 'state -> VariableReference list
+            supply: SupplyF<'state>
+            dereference: DereferenceF<'state>
+            defer: DeferF<'state>
+            resume: ResumeF<'state>
+            supply: SupplyF<'state>
         |})
     (agent: AgentId, property: PropertyName)
     (v: RuntimeValue)
     (state: 'state)
-    =
-        let satisfies = api.query state
-        let lens = api.data_ (agent, property)
-        let state = state |> write lens v
-        state
+    =        
+        let state, unblocked = api.supply ExecutionContext.fresh (DataRef(agent, property)) v state
+        progressToFixedPoint
+            {| dereference = api.dereference; defer = api.defer; resume = api.resume; supply = api.supply |}
+            (state, { ExecutionContext.fresh with workQueue = unblocked })
 
 type Scope = {
     properties: Map<PropertyName, RuntimeValue>
@@ -198,6 +206,7 @@ type Game = {
     rosterReverse: Map<AgentId, string>
     data: Map<AgentId, Scope>
     events: Map<EventId, Event>
+    nextAgentId: AgentId // an id generator
     nextEventId: EventId // an id generator
     dependencies: Map<VariableReference, EventId list> // to support execution chaining
     dataDependencies: (AgentId*PropertyName) list // for display in UI. Local variables and event results can't be input by the user so don't need to go in this list.
@@ -208,10 +217,18 @@ type Game = {
         rosterReverse = Map.empty
         data = Map.empty
         events = Map.empty
+        nextAgentId = 1
         nextEventId = 1
         dependencies = Map.empty
         dataDependencies = []
         }
+    static member add name (g:Game) =
+        let id, g = g.nextAgentId, { g with nextAgentId = g.nextAgentId + 1 }
+        id, { g with roster = g.roster |> Map.change name (function Some ids -> Some(id::ids) | None -> Some [id]); rosterReverse = g.rosterReverse |> Map.add id name }
+    static member runEvent eventId (g:Game) =
+        progressToFixedPoint
+            {| dereference = Game.dereference; defer = Game.defer; resume = Game.resume; supply = Game.supply |}
+            (g, { workQueue = [eventId]; currentEvent = Some eventId })
     static member start instructions (g:Game) =
         let eventId, g = g.nextEventId, { g with nextEventId = g.nextEventId + 1 }
         let g =
@@ -222,10 +239,7 @@ type Game = {
                         | _ -> shouldntHappen()
                         )
             }
-        let g = progressToFixedPoint
-                    {| dereference = Game.dereference; defer = Game.defer; resume = Game.resume; supply = Game.supply |}
-                    (g, { workQueue = [eventId]; currentEvent = Some eventId })
-        eventId, g
+        eventId, (Game.runEvent eventId g)
     static member defer eventId statements ref (g:Game) =
         {
             g with
@@ -324,10 +338,15 @@ type Game = {
 let foo(game: Game, id: EventId, ref:VariableReference) =
     progressToFixedPoint {| dereference = Game.dereference; defer = Game.defer; resume = Game.resume; supply = Game.supply |} (game, { workQueue = []; currentEvent = None })
 
-let g = Game.fresh
-let eventId, g1 =
-    Game.start [
-    Assign(LocalRef "abc", BinaryOp(Const(Number 1), Const(Number 4), Plus));
-    Return (Dereference (LocalRef "abc"))
-    ] g
-g1.events.[eventId]
+let test() =
+    let bob, g = Game.fresh |> Game.add "Bob"
+    let eventId, g =
+        Game.start
+            [
+            Assign(LocalRef "abc", BinaryOp(Dereference(DataRef(bob, "AC")), Dereference(DataRef(bob, "ShieldBonus")), Plus))
+            Return (Dereference (LocalRef "abc"))
+            ] g
+    let api = {| supply = Game.supply; dereference = Game.dereference; defer = Game.defer; resume = Game.resume; supply = Game.supply |}
+    let g = g |> supply api (bob, "AC") (Number 18)// |> supply api (bob, "ShieldBonus") (Number 5)
+    g.events.[eventId]
+
