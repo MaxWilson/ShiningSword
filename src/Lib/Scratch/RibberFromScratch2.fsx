@@ -199,7 +199,7 @@ type Scope = {
     properties: Map<PropertyName, RuntimeValue>
     }
 type Event = EventResult of RuntimeValue | EventState of EventState
-and EventState = { scope: Scope; instructionStack: Statement list; dependencies: Set<VariableReference> }
+and EventState = { scope: Scope; instructionStack: Statement list }
 
 type Game = {
     roster: Map<string, AgentId list>
@@ -208,7 +208,7 @@ type Game = {
     events: Map<EventId, Event>
     nextAgentId: AgentId // an id generator
     nextEventId: EventId // an id generator
-    dependencies: Map<VariableReference, EventId list> // to support execution chaining
+    waitingEvents: Map<VariableReference, Set<EventId>> // to support execution chaining
     dataDependencies: (AgentId*PropertyName) list // for display in UI. Local variables and event results can't be input by the user so don't need to go in this list.
     }
     with
@@ -219,7 +219,7 @@ type Game = {
         events = Map.empty
         nextAgentId = 1
         nextEventId = 1
-        dependencies = Map.empty
+        waitingEvents = Map.empty
         dataDependencies = []
         }
     static member add name (g:Game) =
@@ -235,27 +235,23 @@ type Game = {
             {
                 g with
                     events = g.events |> Map.change eventId (function
-                        | None -> Some(EventState { scope = { properties = Map.empty }; instructionStack = instructions; dependencies = Set.empty })
+                        | None -> Some(EventState { scope = { properties = Map.empty }; instructionStack = instructions })
                         | _ -> shouldntHappen()
                         )
             }
         eventId, (Game.runEvent eventId g)
     static member defer eventId statements ref (g:Game) =
         {
-            g with
-                events = g.events |> Map.change eventId (function
-                    | Some(EventState(state)) -> Some(EventState { state with dependencies = state.dependencies |> Set.add ref; instructionStack = statements })
-                    | _ -> shouldntHappen()
-                    )
-                dependencies = g.dependencies |> Map.change ref (function
-                    | Some(lst) -> eventId::lst |> Some
-                    | None -> Some [eventId]
+            g with                
+                waitingEvents = g.waitingEvents |> Map.change ref (function
+                    | Some(lst) -> lst |> Set.add eventId |> Some
+                    | None -> Some (Set.ofList [eventId])
                     )
                 dataDependencies =
                     // add to dataDependencies if this is a new dependency, so it can be added to the UI
                     match ref with
                     | DataRef(agentId, propertyName) ->
-                        if g.dependencies |> Map.containsKey ref then g.dataDependencies
+                        if g.waitingEvents |> Map.containsKey ref then g.dataDependencies
                         else g.dataDependencies @ [agentId, propertyName]
                     | _ -> g.dataDependencies
         }
@@ -290,17 +286,18 @@ type Game = {
             { g with events = events }
 
     static member supply (ctx: ExecutionContext) (ref:VariableReference) (value:RuntimeValue) (g:Game) =
-        match g.dependencies |> Map.tryFind ref with
+        match g.waitingEvents |> Map.tryFind ref with
         | None ->
             Game.set ctx ref value g, []
         | Some dependencies ->
+            let g = { g with waitingEvents = g.waitingEvents |> Map.remove ref }
             let g =
                 match ref with
                 | DataRef(agentId, propName) ->
                     let dd = g.dataDependencies |> List.filter ((<>) (agentId, propName))
-                    { g with dataDependencies = dd; dependencies = g.dependencies |> Map.remove ref }
-                | _ -> { g with dependencies = g.dependencies |> Map.remove ref }
-            Game.set ctx ref value g, dependencies
+                    { g with dataDependencies = dd }
+                | _ -> g
+            Game.set ctx ref value g, dependencies |> List.ofSeq
     static member resume (eventId: EventId) (g:Game) =
         match g.events |> Map.tryFind eventId with
         | Some (EventState state) ->
@@ -347,6 +344,6 @@ let test() =
             Return (Dereference (LocalRef "abc"))
             ] g
     let api = {| supply = Game.supply; dereference = Game.dereference; defer = Game.defer; resume = Game.resume; supply = Game.supply |}
-    let g = g |> supply api (bob, "AC") (Number 18)// |> supply api (bob, "ShieldBonus") (Number 5)
+    let g = g |> supply api (bob, "AC") (Number 18) |> supply api (bob, "ShieldBonus") (Number 5)
     g.events.[eventId]
-
+test()
