@@ -11,19 +11,24 @@ Concepts: Expression eval
 
 *)
 
-type RuntimeValue = String of string | Number of int | Boolean of bool | Undefined
 type AgentId = int
 type EventId = int
+type RuntimeValue = String of string | Number of int | Boolean of bool | Id of int | Undefined
+type Name = string
 type PropertyName = string
-type VariableReference = DataRef of agent: AgentId * property: PropertyName | LocalRef of guid: string | EventRef of event:EventId
+type VariableReference =
+    | DataRef of agent: AgentId * property: PropertyName
+    | LocalRef of name: Name
+    | EventRef of event:EventId
+    | IndirectDataRef of agentIdLocalRef: Name * property: PropertyName
+    | IndirectEventRef of eventIdLocalRef: Name
 
 type Expression =
     | Const of RuntimeValue
     | BinaryOp of Expression * Expression * BinaryOperator
-    | Conditional of test: Expression * andThen: Expression * orElse: Expression option
     | Dereference of VariableReference
     | Roll of n:int * dSize: int * plus: int
-    | StartEvent of eventName: string * args: (PropertyName * Expression) list
+    | StartEvent of eventName: Name * args: (Name * Expression) list
 
 and BinaryOperator =
     | Plus
@@ -38,6 +43,7 @@ type Statement =
     | Return of Expression
     | Assign of VariableReference * Expression
     | Sequence of Statement list
+    | If of test: Expression * andThen: Statement * orElse: Statement option
 type CurrentExpressionValue = Result<RuntimeValue, VariableReference list>
 
 type ExecutionContext =
@@ -57,6 +63,10 @@ type SupplyF<'state> = ExecutionContext -> VariableReference -> RuntimeValue -> 
 type ResumeF<'state> = EventId -> 'state -> Statement list
 type RunF<'state> = EventId -> 'state -> 'state
 
+type RibbitRuntimeException (msg: string) =
+    inherit System.Exception(msg)
+
+let describeId = (function None -> "None" | Some v -> v.ToString())
 
 let evaluate
     (api: {|
@@ -90,15 +100,6 @@ let evaluate
                 | Error _ as lhs, Ok _ -> lhs
                 | Ok _, (Error _ as rhs) -> rhs
                 | Error lhs, Error rhs -> Error (lhs @ rhs)
-            | Conditional(test, andThen, orElse) ->
-                match eval test with
-                | Ok (Boolean true) -> eval andThen
-                | Ok (Boolean false) ->
-                    match orElse with
-                    | Some expr -> eval expr
-                    | _ -> Ok Undefined
-                | Ok _ -> Ok Undefined
-                | err -> err
             | Dereference ref ->
                 api.dereference ctx ref state
             | Roll _ | StartEvent _ ->
@@ -116,15 +117,16 @@ let execute
     (statements: Statement list)
         : 'state * Statement list * CurrentExpressionValue * ExecutionContext =
         let evalApi = {| dereference = api.dereference |}
+        let eval = evaluate evalApi
         let rec loop state ctx = function
             | current::rest as stack ->
                 match current with
                 | Return expr ->
-                    match evaluate evalApi ctx state expr with
+                    match eval ctx state expr with
                     | Ok v -> state, [], Ok v, ctx
                     | awaiting -> state, [current], awaiting, ctx
                 | Assign(ref, expr) ->
-                    match evaluate evalApi ctx state expr with
+                    match eval ctx state expr with
                     | Ok v ->
                         let state, unblocked = api.supply ctx ref v state                        
                         let ctx = { ctx with workQueue = unblocked @ ctx.workQueue }
@@ -133,6 +135,15 @@ let execute
                 | Sequence statements ->
                     // unpack the statements onto the head of the instruction stack
                     loop state ctx (statements @ rest)
+                | If(test, andThen, orElse) ->                    
+                    match eval ctx state test with
+                    | Ok (Boolean true) -> loop state ctx (andThen :: rest)
+                    | Ok (Boolean false) ->
+                        match orElse with
+                        | Some expr -> loop state ctx (expr :: rest)
+                        | _ -> loop state ctx rest
+                    | Ok _ -> shouldntHappen() // may need some "compile-time" checking to prevent this
+                    | awaiting -> state, stack, awaiting, ctx
             | [] ->
                 state, [], Ok Undefined, ctx // returning a value from an event is optional, could just be assignments
         loop state ctx statements
@@ -200,11 +211,13 @@ type Scope = {
     }
 type Event = EventResult of RuntimeValue | EventState of EventState
 and EventState = { scope: Scope; instructionStack: Statement list }
+and EventDefinition = { name: Name; mandatoryParams: PropertyName list; instructions: Statement list }
 
 type Game = {
     roster: Map<string, AgentId list>
     rosterReverse: Map<AgentId, string>
     data: Map<AgentId, Scope>
+    eventDefinitions: Map<Name, EventDefinition>
     events: Map<EventId, Event>
     nextAgentId: AgentId // an id generator
     nextEventId: EventId // an id generator
@@ -216,6 +229,7 @@ type Game = {
         roster = Map.empty
         rosterReverse = Map.empty
         data = Map.empty
+        eventDefinitions = Map.empty
         events = Map.empty
         nextAgentId = 1
         nextEventId = 1
@@ -229,6 +243,10 @@ type Game = {
         progressToFixedPoint
             {| dereference = Game.dereference; defer = Game.defer; resume = Game.resume; supply = Game.supply |}
             (g, { workQueue = [eventId]; currentEvent = Some eventId })
+    static member define (eventName: Name) instructions (g:Game) =
+        { g with
+            eventDefinitions = g.eventDefinitions |> Map.add eventName { name = eventName; mandatoryParams = []; instructions = instructions }
+            }
     static member start instructions (g:Game) =
         let eventId, g = g.nextEventId, { g with nextEventId = g.nextEventId + 1 }
         let g =
@@ -263,6 +281,14 @@ type Game = {
                 | None -> { properties = Map.ofList [propName, value] } |> Some
                 | Some scope -> { scope with properties = scope.properties |> Map.add propName value } |> Some)
             { g with data = data }
+        | IndirectDataRef(agentIdRef, propName) ->
+            match Game.dereference ctx (LocalRef agentIdRef) g with
+            | Ok agentId ->
+                match agentId with
+                | Id agentId ->
+                    Game.set ctx (DataRef(agentId, propName)) value g
+                | _ -> RibbitRuntimeException $"{agentIdRef} ({agentId}) is not a valid agentId" |> raise
+            | error -> notImpl() // may
         | LocalRef(propName) ->
             let events =
                 match ctx.currentEvent with
@@ -272,7 +298,7 @@ type Game = {
                     | Some (EventState state) ->
                         let scope = { state.scope with properties = state.scope.properties |> Map.add propName value }
                         Some (EventState { state with scope = scope })
-                    | _ -> shouldntHappen()
+                    | _ -> RibbitRuntimeException $"Can't set variable on an event that doesn't exist yet" |> raise
                     )
             { g with events = events }
             
@@ -312,6 +338,18 @@ type Game = {
                 | Some v -> Ok v
                 | _ -> Error [ref]
             | _ -> Error [ref]
+        | IndirectDataRef(agentIdRef, propName) ->
+            match Game.dereference ctx (LocalRef agentIdRef) g with
+            | Ok (Id agentId) ->
+                Game.dereference ctx (DataRef(agentId, propName)) g
+            | Ok agentId -> RibbitRuntimeException $"{agentIdRef} ({agentId}) is not a valid agentId" |> raise
+            | Error _ -> RibbitRuntimeException $"{agentIdRef} is not set on event #{ctx.currentEvent |> describeId}" |> raise
+        | IndirectEventRef(eventIdRef) ->
+            match Game.dereference ctx (LocalRef eventIdRef) g with
+            | Ok (Id eventId) ->
+                Game.dereference ctx (EventRef eventId) g
+            | Ok eventId -> RibbitRuntimeException $"{eventId} is not a valid eventId" |> raise
+            | Error _ -> RibbitRuntimeException $"{eventIdRef} is not set on event #{ctx.currentEvent |> describeId}" |> raise
         | LocalRef guid ->
             match ctx.currentEvent with
             | None -> shouldntHappen()
@@ -335,16 +373,28 @@ type Game = {
 let compile = id
 
 withState Game.fresh (state {
+    
     let! bob = transform1 (Game.add "Bob")
+    do! transform (Game.define "getShieldBonus" [
+        If(BinaryOp(Dereference(IndirectDataRef("self", "sp")), Const(Number(2)), AtLeast),
+            Sequence [
+                Assign(IndirectDataRef("self", "sp"),
+                            BinaryOp(Dereference(IndirectDataRef("self", "sp")), Const(Number(2)), Minus))
+                Return (Const (Number 5))
+            ],
+            Some(Return (Const (Number 0))))
+    ])
     let! eventId =
         transform1 (
           Game.start
             [
-                Assign(LocalRef "abc", BinaryOp(Dereference(DataRef(bob, "AC")), Dereference(DataRef(bob, "ShieldBonus")), Plus))
-                Return (Dereference (LocalRef "abc"))
+                Assign(LocalRef "__event_1", StartEvent("getShieldBonus", ["self", Const (Id bob)]))
+                Assign(LocalRef "ac", BinaryOp(Dereference(DataRef(bob, "AC")), Dereference(IndirectEventRef("__event_1")), Plus))
+                Return (Dereference (LocalRef "ac"))
             ] |> compile)
-    let api = {| supply = Game.supply; dereference = Game.dereference; defer = Game.defer; resume = Game.resume; supply = Game.supply |}
-    do! transform (supply api (bob, "AC") (Number 18) >> supply api (bob, "ShieldBonus") (Number 5))
+    let api = {| supply = Game.supply; dereference = Game.dereference; defer = Game.defer;
+                 resume = Game.resume; supply = Game.supply |}
+    do! transform (supply api (bob, "AC") (Number 18) >> supply api (bob, "sp") (Number 5))
     let! (g: Game) = get()
     return (g.events.[eventId])
 })
