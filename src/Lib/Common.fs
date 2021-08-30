@@ -114,3 +114,39 @@ type Ops with
     static member add(item, data: _ Queue.d) = Queue.append item data
     static member addTo (data:_ Queue.d) = fun item -> Ops.add(item, data)
     
+// Hit tip to https://gist.github.com/jwosty/5338fce8a6691bbd9f6f
+[<AutoOpen>]
+module StateMonad =
+    type StateBuilder() =
+        member this.Zero () = fun state -> (), state
+        member this.Return x state = x, state
+        member this.Bind (m, f) =
+            fun state ->
+                let x, state = m state
+                f x state
+        member this.Combine m1 m2 =
+            fun state ->
+                let _, state = m1 state
+                m2 state
+    let get() state = state, state
+    let transform f state =
+        let state = f state
+        (), state
+    let transform1 f state =
+        let arg1, state = f state
+        arg1, state
+    let set v state = (), v
+    let state = StateBuilder()
+    // run and discard unit result
+    let runNoResult state m =
+        let (), state' = m state
+        // discard result
+        state'
+
+let withState initialState monad =
+    let result, _ = monad initialState
+    result
+
+let toState initialState monad =
+    let _, finalState = monad initialState
+    finalState

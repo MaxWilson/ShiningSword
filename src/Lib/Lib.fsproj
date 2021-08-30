@@ -16,7 +16,6 @@
     <None Include="Scratch\RibberFromScratch2.fsx" />
     <Compile Include="Optics.fsi" />
     <Compile Include="Optics.fs" />
-    <Compile Include="Common.fsi" />
     <Compile Include="Common.fs" />
     <Compile Include="AutoWizard.fsi" />
     <Compile Include="AutoWizard.fs" />

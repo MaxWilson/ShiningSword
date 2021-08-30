@@ -332,52 +332,7 @@ type Game = {
                 | Some (EventResult v) -> Ok v
                 | None -> shouldntHappen()
 
-// Hit tip to https://gist.github.com/jwosty/5338fce8a6691bbd9f6f
-[<AutoOpen>]
-module StateMonad =
-    type StateBuilder() =
-        member this.Zero () = fun state -> (), state
-        member this.Return x state = x, state
-        member this.Bind (m, f) =
-            fun state ->
-                let x, state = m state
-                f x state
-        member this.Combine m1 m2 =
-            fun state ->
-                let _, state = m1 state
-                m2 state
-    let get() state = state, state
-    let transform f state =
-        let state = f state
-        (), state
-    let transform1 f state =
-        let arg1, state = f state
-        arg1, state
-    let set v state = (), v
-    let state = StateBuilder()
-    // run and discard unit result
-    let runNoResult state m =
-        let (), state' = m state
-        // discard result
-        state'
-
-let withState initialState monad =
-    let result, _ = monad initialState
-    result
-
-let toState initialState monad =
-    let _, finalState = monad initialState
-    finalState
-
-// example withState
-withState (3+3) (state {
-    do! transform ((*)10)
-    let! final = get()
-    return final
-})
-
-let foo(game: Game, id: EventId, ref:VariableReference) =
-    progressToFixedPoint {| dereference = Game.dereference; defer = Game.defer; resume = Game.resume; supply = Game.supply |} (game, { workQueue = []; currentEvent = None })
+let compile = id
 
 withState Game.fresh (state {
     let! bob = transform1 (Game.add "Bob")
@@ -387,7 +342,7 @@ withState Game.fresh (state {
             [
                 Assign(LocalRef "abc", BinaryOp(Dereference(DataRef(bob, "AC")), Dereference(DataRef(bob, "ShieldBonus")), Plus))
                 Return (Dereference (LocalRef "abc"))
-            ])
+            ] |> compile)
     let api = {| supply = Game.supply; dereference = Game.dereference; defer = Game.defer; resume = Game.resume; supply = Game.supply |}
     do! transform (supply api (bob, "AC") (Number 18) >> supply api (bob, "ShieldBonus") (Number 5))
     let! (g: Game) = get()
