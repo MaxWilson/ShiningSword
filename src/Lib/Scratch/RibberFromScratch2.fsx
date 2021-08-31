@@ -56,13 +56,13 @@ type ExecutionContext =
     static member forEvent eventId = { ExecutionContext.fresh with currentEvent = Some eventId }
 
 type DereferenceF<'state> = ExecutionContext -> VariableReference -> 'state -> CurrentExpressionValue
-type DeferF<'state> = EventId -> Statement list -> VariableReference -> 'state -> 'state
+type DeferF<'state> = EventId -> Statement list -> VariableReference list -> 'state -> 'state
 
 type CompleteF<'state> = EventId -> RuntimeValue -> 'state -> 'state
 type SupplyF<'state> = ExecutionContext -> VariableReference -> RuntimeValue -> 'state -> ('state * EventId list)
 type ResumeF<'state> = EventId -> 'state -> Statement list
 type RunF<'state> = EventId -> 'state -> 'state
-type StartByNameF<'state> = Name -> (Name * RuntimeValue) list -> 'state -> 'state
+type StartByNameF<'state> = Name -> (Name * RuntimeValue) list -> 'state -> EventId * 'state
 type RibbitRuntimeException (msg: string) =
     inherit System.Exception(msg)
 
@@ -119,7 +119,8 @@ let execute
         : 'state * Statement list * CurrentExpressionValue * ExecutionContext =
         let evalApi = {| dereference = api.dereference |}
         let eval = evaluate evalApi
-        let rec loop state ctx = function
+        let rec loop state ctx statements =
+            match statements with
             | current::rest as stack ->
                 match current with
                 | Return expr ->
@@ -132,8 +133,8 @@ let execute
                     match awaiting with
                     | [] ->
                         let actualParameters = args |> List.map (function (name, Ok v) -> name, v | _ -> shouldntHappen())
-                        let state = api.start eventName actualParameters state
-                        loop state ctx rest
+                        let eventId, state = api.start eventName actualParameters state
+                        loop state ctx (Assign(ref, Const (Id eventId))::rest)
                     | awaiting ->
                         state, stack, Error awaiting, ctx
                 | Assign(ref, expr) ->
@@ -187,10 +188,7 @@ let progressToFixedPoint
                         state <- state'
                         queue <- ctx.workQueue @ unblockedWorkItems @ queue
                 | state', statements, Error dependencies, ctx ->
-                    let mutable state'' = state'
-                    for d in dependencies do
-                        state'' <- api.defer currentEvent statements d state''
-                    state <- state''
+                    state <- api.defer currentEvent statements dependencies state'
             | _ -> ()
         state
 
@@ -275,24 +273,33 @@ type Game = {
         match g.eventDefinitions |> Map.tryFind name with
         | Some def ->
             let eventId, g = Game.start def.instructions args g
-            g
+            eventId, g
         | None ->
             RibbitRuntimeException $"No such event: '{name}'" |> raise
-    static member defer eventId statements ref (g:Game) =
-        {
-            g with                
-                waitingEvents = g.waitingEvents |> Map.change ref (function
-                    | Some(lst) -> lst |> Set.add eventId |> Some
-                    | None -> Some (Set.ofList [eventId])
+    static member defer eventId statements refs (g:Game) =
+        let updatedEvents =
+            g.events |>
+                Map.change eventId (function
+                    | Some(EventState state) ->
+                        Some(EventState { state with instructionStack = statements })
+                    | v -> v
                     )
-                dataDependencies =
-                    // add to dataDependencies if this is a new dependency, so it can be added to the UI
-                    match ref with
-                    | DataRef(agentId, propertyName) ->
-                        if g.waitingEvents |> Map.containsKey ref then g.dataDependencies
-                        else g.dataDependencies @ [agentId, propertyName]
-                    | _ -> g.dataDependencies
-        }
+        let updateRef g ref =
+            {
+                g with
+                    waitingEvents = g.waitingEvents |> Map.change ref (function
+                        | Some(lst) -> lst |> Set.add eventId |> Some
+                        | None -> Some (Set.ofList [eventId])
+                        )
+                    dataDependencies =
+                        // add to dataDependencies if this is a new dependency, so it can be added to the UI
+                        match ref with
+                        | DataRef(agentId, propertyName) ->
+                            if g.waitingEvents |> Map.containsKey ref then g.dataDependencies
+                            else g.dataDependencies @ [agentId, propertyName]
+                        | _ -> g.dataDependencies
+            }
+        refs |> List.fold updateRef { g with events = updatedEvents }
     static member set (ctx: ExecutionContext) (ref:VariableReference) (value:RuntimeValue) (g:Game) =
         match ref with
         | DataRef(agentId, propName) ->
@@ -381,18 +388,15 @@ type Game = {
                     | _ -> Error [ref]
                 | _ -> shouldntHappen()
         | EventRef eventId ->
-            match ctx.currentEvent with
+            match g.events |> Map.tryFind eventId with
+            | Some (EventState state) ->
+                Error [ref]
+            | Some (EventResult v) -> Ok v
             | None -> shouldntHappen()
-            | Some eventId ->
-                match g.events |> Map.tryFind eventId with
-                | Some (EventState state) ->
-                    Error [ref]
-                | Some (EventResult v) -> Ok v
-                | None -> shouldntHappen()
 
 let compile = id
 
-withState Game.fresh (state {    
+withState Game.fresh (state {
     let! bob = transform1 (Game.add "Bob")
     do! transform (Game.define "getShieldBonus" [
         If(BinaryOp(Dereference(IndirectDataRef("self", "sp")), Const(Number(2)), AtLeast),
