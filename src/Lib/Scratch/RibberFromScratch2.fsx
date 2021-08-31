@@ -260,13 +260,13 @@ type Game = {
         { g with
             eventDefinitions = g.eventDefinitions |> Map.add eventName { name = eventName; mandatoryParams = []; instructions = instructions }
             }
-    static member start instructions (g:Game) =
+    static member start instructions (args: (Name * RuntimeValue) list) (g:Game) =
         let eventId, g = g.nextEventId, { g with nextEventId = g.nextEventId + 1 }
         let g =
             {
                 g with
                     events = g.events |> Map.change eventId (function
-                        | None -> Some(EventState { scope = { properties = Map.empty }; instructionStack = instructions })
+                        | None -> Some(EventState { scope = { properties = Map.ofSeq args }; instructionStack = instructions })
                         | _ -> shouldntHappen()
                         )
             }
@@ -274,8 +274,8 @@ type Game = {
     static member startByName (name: Name) (args: (Name * RuntimeValue) list) (g:Game) =
         match g.eventDefinitions |> Map.tryFind name with
         | Some def ->
-            let eventId, g = Game.start def.instructions g
-            { g with events = g.events |> Map.change eventId (function (Some (EventState e)) -> Some <| EventState { e with scope = { e.scope with properties = Map.ofSeq args } } | _ -> shouldntHappen() ) }
+            let eventId, g = Game.start def.instructions args g
+            g
         | None ->
             RibbitRuntimeException $"No such event: '{name}'" |> raise
     static member defer eventId statements ref (g:Game) =
@@ -363,13 +363,13 @@ type Game = {
             | Ok (Id agentId) ->
                 Game.dereference ctx (DataRef(agentId, propName)) g
             | Ok agentId -> RibbitRuntimeException $"{agentIdRef} ({agentId}) is not a valid agentId" |> raise
-            | Error _ -> RibbitRuntimeException $"{agentIdRef} is not set on event #{ctx.currentEvent |> describeId}" |> raise
+            | error -> error
         | IndirectEventRef(eventIdRef) ->
             match Game.dereference ctx (LocalRef eventIdRef) g with
             | Ok (Id eventId) ->
                 Game.dereference ctx (EventRef eventId) g
             | Ok eventId -> RibbitRuntimeException $"{eventId} is not a valid eventId" |> raise
-            | Error _ -> RibbitRuntimeException $"{eventIdRef} is not set on event #{ctx.currentEvent |> describeId}" |> raise
+            | error -> error
         | LocalRef guid ->
             match ctx.currentEvent with
             | None -> shouldntHappen()
@@ -392,8 +392,7 @@ type Game = {
 
 let compile = id
 
-withState Game.fresh (state {
-    
+withState Game.fresh (state {    
     let! bob = transform1 (Game.add "Bob")
     do! transform (Game.define "getShieldBonus" [
         If(BinaryOp(Dereference(IndirectDataRef("self", "sp")), Const(Number(2)), AtLeast),
@@ -411,7 +410,7 @@ withState Game.fresh (state {
                 Assign(LocalRef "__event_1", StartEvent("getShieldBonus", ["self", Const (Id bob)]))
                 Assign(LocalRef "ac", BinaryOp(Dereference(DataRef(bob, "AC")), Dereference(IndirectEventRef("__event_1")), Plus))
                 Return (Dereference (LocalRef "ac"))
-            ] |> compile)
+            ] [] |> compile)
     let api = {| supply = Game.supply; dereference = Game.dereference; defer = Game.defer;
                  resume = Game.resume; supply = Game.supply; start = Game.startByName |}
     do! transform (supply api (bob, "AC") (Number 18) >> supply api (bob, "sp") (Number 5))
