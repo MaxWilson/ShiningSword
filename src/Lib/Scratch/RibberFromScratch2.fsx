@@ -62,7 +62,7 @@ type CompleteF<'state> = EventId -> RuntimeValue -> 'state -> 'state
 type SupplyF<'state> = ExecutionContext -> VariableReference -> RuntimeValue -> 'state -> ('state * EventId list)
 type ResumeF<'state> = EventId -> 'state -> Statement list
 type RunF<'state> = EventId -> 'state -> 'state
-
+type StartByNameF<'state> = Name -> (Name * RuntimeValue) list -> 'state -> 'state
 type RibbitRuntimeException (msg: string) =
     inherit System.Exception(msg)
 
@@ -111,6 +111,7 @@ let execute
     (api: {|
             dereference: DereferenceF<'state>
             supply: SupplyF<'state>
+            start: StartByNameF<'state>
         |})
     (ctx: ExecutionContext)
     (state: 'state)
@@ -125,6 +126,16 @@ let execute
                     match eval ctx state expr with
                     | Ok v -> state, [], Ok v, ctx
                     | awaiting -> state, [current], awaiting, ctx
+                | Assign(ref, StartEvent(eventName, args)) ->
+                    let args = args |> List.map (fun (name, expr) -> name, (eval ctx state expr))
+                    let awaiting = args |> List.collect (function (_, Error awaiting) -> awaiting | _ -> [])
+                    match awaiting with
+                    | [] ->
+                        let actualParameters = args |> List.map (function (name, Ok v) -> name, v | _ -> shouldntHappen())
+                        let state = api.start eventName actualParameters state
+                        loop state ctx rest
+                    | awaiting ->
+                        state, stack, Error awaiting, ctx
                 | Assign(ref, expr) ->
                     match eval ctx state expr with
                     | Ok v ->
@@ -154,6 +165,7 @@ let progressToFixedPoint
              defer: DeferF<'state>
              resume: ResumeF<'state>
              supply: SupplyF<'state>
+             start: StartByNameF<'state>
         |})
     (state: 'state, ctx: ExecutionContext) =
         let mutable queue = ctx.workQueue
@@ -164,7 +176,7 @@ let progressToFixedPoint
                 queue <- rest
                 let statements = api.resume currentEvent state
                 match execute
-                        {| dereference = api.dereference; supply = api.supply |}
+                        {| dereference = api.dereference; supply = api.supply; start = api.start |}
                         { currentEvent = Some currentEvent; workQueue = [] }
                         state
                         statements
@@ -196,6 +208,7 @@ let supply
             defer: DeferF<'state>
             resume: ResumeF<'state>
             supply: SupplyF<'state>
+            start: StartByNameF<'state>
         |})
     (agent: AgentId, property: PropertyName)
     (v: RuntimeValue)
@@ -203,11 +216,11 @@ let supply
     =        
         let state, unblocked = api.supply ExecutionContext.fresh (DataRef(agent, property)) v state
         progressToFixedPoint
-            {| dereference = api.dereference; defer = api.defer; resume = api.resume; supply = api.supply |}
+            {| dereference = api.dereference; defer = api.defer; resume = api.resume; supply = api.supply; start = api.start |}
             (state, { ExecutionContext.fresh with workQueue = unblocked })
 
 type Scope = {
-    properties: Map<PropertyName, RuntimeValue>
+    properties: Map<Name, RuntimeValue>
     }
 type Event = EventResult of RuntimeValue | EventState of EventState
 and EventState = { scope: Scope; instructionStack: Statement list }
@@ -241,7 +254,7 @@ type Game = {
         id, { g with roster = g.roster |> Map.change name (function Some ids -> Some(id::ids) | None -> Some [id]); rosterReverse = g.rosterReverse |> Map.add id name }
     static member runEvent eventId (g:Game) =
         progressToFixedPoint
-            {| dereference = Game.dereference; defer = Game.defer; resume = Game.resume; supply = Game.supply |}
+            {| dereference = Game.dereference; defer = Game.defer; resume = Game.resume; supply = Game.supply; start = Game.startByName |}
             (g, { workQueue = [eventId]; currentEvent = Some eventId })
     static member define (eventName: Name) instructions (g:Game) =
         { g with
@@ -258,6 +271,13 @@ type Game = {
                         )
             }
         eventId, (Game.runEvent eventId g)
+    static member startByName (name: Name) (args: (Name * RuntimeValue) list) (g:Game) =
+        match g.eventDefinitions |> Map.tryFind name with
+        | Some def ->
+            let eventId, g = Game.start def.instructions g
+            { g with events = g.events |> Map.change eventId (function (Some (EventState e)) -> Some <| EventState { e with scope = { e.scope with properties = Map.ofSeq args } } | _ -> shouldntHappen() ) }
+        | None ->
+            RibbitRuntimeException $"No such event: '{name}'" |> raise
     static member defer eventId statements ref (g:Game) =
         {
             g with                
@@ -393,7 +413,7 @@ withState Game.fresh (state {
                 Return (Dereference (LocalRef "ac"))
             ] |> compile)
     let api = {| supply = Game.supply; dereference = Game.dereference; defer = Game.defer;
-                 resume = Game.resume; supply = Game.supply |}
+                 resume = Game.resume; supply = Game.supply; start = Game.startByName |}
     do! transform (supply api (bob, "AC") (Number 18) >> supply api (bob, "sp") (Number 5))
     let! (g: Game) = get()
     return (g.events.[eventId])
