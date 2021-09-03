@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net5.0</TargetFramework>
@@ -16,14 +16,16 @@
     <None Include="Scratch\RibberFromScratch2.fsx" />
     <Compile Include="Optics.fs" />
     <Compile Include="Common.fs" />
+    <Compile Include="Parsing.fs" />
     <Compile Include="AutoWizard.fs" />
-    <Compile Include="Domain\Model.fs" />
-    <Compile Include="Domain\AutoGen.fs">
+    <Compile Include="Ribbit\Model.fs" />
+    <Compile Include="Ribbit\AutoGen.fs">
       <MyriadFile>Domain\Model.fs</MyriadFile>
       <MyriadNameSpace>Domain</MyriadNameSpace>
     </Compile>
-    <Compile Include="Domain\Augment.fs" />
-    <Compile Include="Domain\RuleEngine.fs" />
+    <Compile Include="Ribbit\Augment.fs" />
+    <Compile Include="Ribbit\Parse.fs" />
+    <Compile Include="Ribbit\RuleEngine.fs" />
     <ProjectReference Include="..\Myriadic\Myriadic.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />

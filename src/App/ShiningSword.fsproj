@@ -12,7 +12,6 @@
     <Compile Include="Common.fs" />
     <Compile Include="Optics.fs" />
     <Compile Include="Data.fs" />
-    <Compile Include="Abstractions\Parsing.fs" />
     <Compile Include="Domain\Prelude.fs" />
     <Compile Include="Domain\Properties.fs" />
     <Compile Include="Domain\Dice.fs" />
@@ -30,6 +29,9 @@
     <!-- Home -->
     <!-- Navbar -->
     <!-- App -->
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Lib\Lib.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>
