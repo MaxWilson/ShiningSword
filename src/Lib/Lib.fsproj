@@ -1,22 +1,35 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>netstandard2.1</TargetFramework>
-    <LangVersion>preview</LangVersion>
+    <TargetFramework>net5.0</TargetFramework>
+    <OtherFlags></OtherFlags>
   </PropertyGroup>
   <ItemGroup>
-    <MyriadSdkGenerator Include="$(MSBuildThisFileDirectory)\..\Myriadic\bin\Debug\netstandard2.1\Myriadic.dll" />
-    <Compile Include="Common.fs" />
+    <MyriadSdkGenerator Include="$(MSBuildThisFileDirectory)\..\Myriadic\bin\Debug\net5.0\Myriadic.dll" />
+    <None Include="Scratch\ScenarioScratch.fsx" />
+    <None Include="Scratch\Script1.fsx" />
+    <None Include="Scratch\Script2.fsx" />
+    <None Include="Scratch\Script3.fsx" />
+    <None Include="Scratch\HOASExpressions.fsx" />
+    <None Include="Scratch\GameLoop.fsx" />
+    <None Include="Scratch\RibbitFromScratch.fsx" />
+    <None Include="Scratch\RibberFromScratch2.fsx" />
+    <Compile Include="Optics.fsi" />
     <Compile Include="Optics.fs" />
+    <Compile Include="Common.fs" />
+    <Compile Include="AutoWizard.fsi" />
     <Compile Include="AutoWizard.fs" />
-    <Compile Include="Domain\RuleEngine.fs" />
+    <Compile Include="Domain\Model.fsi" />
     <Compile Include="Domain\Model.fs" />
+    <Compile Include="Domain\AutoGen.fsi" />
     <Compile Include="Domain\AutoGen.fs">
       <MyriadFile>Domain\Model.fs</MyriadFile>
       <MyriadNameSpace>Domain</MyriadNameSpace>
     </Compile>
+    <Compile Include="Domain\Augment.fsi" />
     <Compile Include="Domain\Augment.fs" />
-    <None Include="Script1.fsx" />
+    <Compile Include="Domain\RuleEngine.fsi" />
+    <Compile Include="Domain\RuleEngine.fs" />
     <ProjectReference Include="..\Myriadic\Myriadic.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />

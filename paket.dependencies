@@ -6,17 +6,20 @@ nuget Expecto.FsCheck
 nuget Fable.Elmish.HMR
 nuget Fable.Fetch
 nuget Fable.Promise
-nuget FSharp.Core 4.7.2
+nuget FSharp.Core
 nuget Fable.Core
 nuget Fable.Elmish.React
 nuget Fable.Elmish.Browser
 nuget Fable.Elmish.Debugger
+nuget Microsoft.NETCore.Platforms = 5.0.2
+nuget FSharp.Compiler.Service = 38.0.2
+nuget FsAst = 0.8.0.0
 
 clitool dotnet-fable
 nuget Fulma
 nuget Microsoft.NET.Test.Sdk >= 16.0
-nuget Myriad.Core 0.4.1
-nuget Myriad.Plugins 0.4.1
-nuget Myriad.Sdk 0.4.1
+nuget Myriad.Core
+nuget Myriad.Plugins
+nuget Myriad.Sdk
 nuget Thoth.Json.Net
 nuget YoloDev.Expecto.TestSDK

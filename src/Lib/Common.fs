@@ -1,6 +1,9 @@
 [<AutoOpen>]
 module Common
 
+open Optics
+open type Optics.Operations
+
 let flip f x y = f y x
 let random = System.Random()
 let rand x = 1 + random.Next x
@@ -21,6 +24,12 @@ let betweenInclusive a b n = min a b <= n && n <= max a b
 let inv f = f()
 let chooseRandom (options: _ seq) =
     options |> Seq.skip (random.Next (Seq.length options)) |> Seq.head
+// iterate a mutable value
+let iter (data: byref<_>) f =
+    data <- f data
+    data
+/// iter and ignore the result
+let iteri (data: byref<_>) f = data <- f data
 
 let shuffleCopy =
     let swap (a: _[]) x y =
@@ -32,6 +41,11 @@ let shuffleCopy =
         a |> Array.iteri (fun i _ -> swap a i (random.Next(i, Array.length a)))
         a // return the copy
 
+// generic place for overloaded operations like add. Can be extended (see below).
+type Ops =
+    static member add(key, value, data: Map<_,_>) = data |> Map.add key value
+    static member addTo (data:Map<_,_>) = fun key value -> Ops.add(key, value, data)
+    
 module String =
     let oxfordJoin = function
         | _::_::_::_rest as lst -> // length 3 or greater
@@ -71,3 +85,68 @@ module List =
 module Map =
     let keys (m:Map<_,_>) = m |> Seq.map(fun (KeyValue(k,_)) -> k)
     let values (m:Map<_,_>) = m |> Seq.map(fun (KeyValue(_,v)) -> v)
+    let addForce key f (m: Map<_,_>) =
+        match m |> Map.tryFind key with
+        | Some v ->
+            let v' = f v
+            if v = v' then m
+            else m |> Map.add key v'
+        | None ->
+            m |> Map.add key (f Map.empty)
+    let findForce key (m: Map<_,_>) =
+        m |> Map.tryFind key |> Option.defaultValue Map.empty
+
+type IdGenerator = NextId of int
+    with
+    static member fresh = NextId 1
+    static member newId (idGenerator_: Lens<'m, IdGenerator>) (model: 'm) =
+        let mutable id' = 0
+        let model' = model |> over idGenerator_ (fun (NextId id) -> id' <- id; NextId (id'+1))
+        id', model'
+
+module Queue =
+    type 't d = 't list
+    let append item queue = queue@[item]
+    let empty = []
+    let read (queue: _ d) = queue
+
+type Ops with
+    static member add(item, data: _ Queue.d) = Queue.append item data
+    static member addTo (data:_ Queue.d) = fun item -> Ops.add(item, data)
+    
+// Hit tip to https://gist.github.com/jwosty/5338fce8a6691bbd9f6f
+[<AutoOpen>]
+module StateMonad =
+    type StateBuilder() =
+        member this.Zero () = fun state -> (), state
+        member this.Return x state = x, state
+        member this.Bind (m, f) =
+            fun state ->
+                let x, state = m state
+                f x state
+        member this.Combine m1 m2 =
+            fun state ->
+                let _, state = m1 state
+                m2 state
+    let get() state = state, state
+    let transform f state =
+        let state = f state
+        (), state
+    let transform1 f state =
+        let arg1, state = f state
+        arg1, state
+    let set v state = (), v
+    let state = StateBuilder()
+    // run and discard unit result
+    let runNoResult state m =
+        let (), state' = m state
+        // discard result
+        state'
+
+let withState initialState monad =
+    let result, _ = monad initialState
+    result
+
+let toState initialState monad =
+    let _, finalState = monad initialState
+    finalState

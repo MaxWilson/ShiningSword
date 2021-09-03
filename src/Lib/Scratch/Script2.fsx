@@ -1,6 +1,42 @@
 #I __SOURCE_DIRECTORY__
-#load @"Common.fs"
+#I ".."
 #load @"Optics.fs"
+#load @"Common.fs"
+
+// This script is purely for messing around with procedural generation and stuff.
+(*
+
+Let's try generating combinations of rooms, room features, and monsters.
+
+High-level concept: assemble
+Assemble: modules UNDER constraints
+
+*)
+
+type 't Constraint = 't -> bool
+type 't Offering = 't Constraint -> 't Option
+let randomOffering modules constraints =
+    match modules |> List.filter constraints with
+    | [] -> None
+    | validChoices -> Some (chooseRandom validChoices)
+
+type Assemble<'choiceModule, 'choiceAssembly> = 'choiceModule Offering -> ('choiceAssembly -> 'choiceModule Constraint) -> 'choiceAssembly
+let simpleAssemble zero aggregate suffice: Assemble<'m, 'asm> =
+    // using None = Backtrack, Some = valid result
+    fun modules constraints ->
+        let rec loop(asm, count) =
+            match modules (constraints(asm)) with
+            | None -> loop(zero, count+1)
+            | Some choice ->
+                let asm' = aggregate asm choice
+                if suffice(asm, choice, asm', count) then asm'
+                else
+                    loop(asm', count+1)
+        loop(zero, 0)
+
+let prepend rest head = (head::rest)
+simpleAssemble [] prepend (fun (_, _, asm, count) -> (List.sum asm) >= 10 || count > 20)
+    (randomOffering [1..10]) (fun asm m -> m + (List.sum asm) <= 10)
 
 module DMGish =
     open type System.Math
@@ -121,19 +157,64 @@ module DMGish =
 
 let levelOf xp = DMGish.levelAdvancement |> Array.findBack (fun a -> xp >= a.XPReq)
 open DMGish
-let simulate racialXpPerLevel years =
-    let mutable xp = 0
-    for year in 1..years do
-        for days in 1..300 do
-            xp <- xp + ((xp |> levelOf).level |> racialXpPerLevel)
-        printfn "After %s of training, level %d (%d XP)" (if year = 1 then "1 year" else sprintf "%d years" year) (levelOf xp).level xp
-simulate (fun lvl -> lvl |> float |> sqrt |> int |> max 1) 300
 
-for b in xpBudgets do
-    printfn "%d: %d\t%d" b.level (b.medium/50) (b.daily/50)
+type Monster = string * float
+let xpOf (monsters: Monster list) =
+    monsters |> List.map snd |> dmgcalculate 4
+let countUp items = items |> List.groupBy id |> List.map (fun (item, copies) -> (copies |> List.length), item)
+type Budget = Under | On | Over
+let dmgBudget (nPC: int, pcLevel:int) monsters =
+    let cost = (monsters |> List.map snd |> dmgcalculate nPC)
+    let levelData = xpBudgets.[pcLevel - 1]
+    let threshold = nPC * levelData.hard
+    let budget = nPC * levelData.deadly
+    if cost < threshold then Under
+    elif cost >= budget then Over
+    else On
+let ssBudget (nPC: int, pcLevel:int) monsters =
+    let cost = (monsters |> List.map snd |> sscalculate)
+    let levelData = xpBudgets.[pcLevel - 1]
+    let threshold = nPC * levelData.hard
+    let budget = nPC * levelData.deadly
+    if cost < threshold then Under
+    elif cost >= budget then Over
+    else On
+let makeHardEncounter budgetCalc (monsters: Monster Offering) (nPC: int, pcLevel:int) =
+    simpleAssemble [] prepend (fun (monsters, _, monsters', count) -> count > 1000 || budgetCalc (nPC, pcLevel) monsters = On) 
+        monsters (fun encounter (monster, cr) ->
+            cr <= float (pcLevel + 2)
+                && ((monster, cr)::encounter) |> List.groupBy fst |> List.length <= 3 // don't want more than 3 types of monsters
+                && (budgetCalc (nPC, pcLevel) ((monster, cr)::encounter)) <> Over)
+    |> List.map fst
+    |> countUp
 
-for ix, cr in monsterCR |> Array.indexed do
-    let budget = xpBudgets |> Array.find (fun b -> b.level >= min 20 (ceil cr.CR |> int))
-    printfn "%5.2g: %8d %8g %8.2f %8.2f" cr.CR cr.XPReward (float cr.XPReward / 200.) (float budget.deadly) ((cr.XPReward / 200 |> float) ** (2./3.))
+let weightedChoice n monsters constraints =
+    let rec recur = function
+    | [] -> None
+    | m::_ when rand 100 <= n && constraints m -> Some m
+    | _::rest -> recur rest
+    recur monsters
 
-
+// prefer mobs over singles in an exponential ratio
+let weightedSwarms n monsters =
+    weightedChoice n (monsters |> Array.ofList |> shuffleCopy |> Array.sortBy snd |> List.ofArray)
+    
+let menagerie = [
+    "Goblin", 0.25
+    "Mind Flayer", 7.
+    "Hill Giant", 5.
+    "Star Spawn Grue", 0.25
+    "Star Spawn Mangler", 5.
+    "Star Spawn Hulk", 10.
+    "Drow Warrior", 0.25
+    "Angry Peasant Zombie", 0.5
+    "Young White Dragon", 6.
+    "Young Red Dragon", 10.
+    "Beholder", 13.
+    ]
+let randomMonster = randomOffering menagerie
+makeHardEncounter dmgBudget randomMonster (4, 10)
+makeHardEncounter ssBudget randomMonster (4, 10)
+makeHardEncounter dmgBudget randomMonster (4, 20)
+makeHardEncounter ssBudget randomMonster (4, 20)
+makeHardEncounter dmgBudget (weightedSwarms 30 menagerie) (4, 10)

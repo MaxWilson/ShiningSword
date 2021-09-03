@@ -57,7 +57,7 @@ let addBlockingEvent parentId e model =
     eventId, model |> blockOn eventId [EventRef eventId]
 
 let adaptorOf (model: Model) =
-    let startsWith txt prefix =
+    let startsWith txt (prefix: string) =
         (txt:string).StartsWith prefix
     {
     isValidNamePrefix = fun prefix -> model.roster |> Data.SymmetricMap.values |> Seq.exists (fun n -> startsWith n prefix)
