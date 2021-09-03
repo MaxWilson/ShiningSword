@@ -1,13 +1,19 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>preview</LangVersion>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <OutputPath>bin</OutputPath>
   </PropertyGroup>
   <ItemGroup>
+    <EmbeddedResource Remove="Model\**" />
+    <EmbeddedResource Remove="Modules\**" />
+  </ItemGroup>
+  <ItemGroup>
     <!-- Global to the app -->
     <Compile Include="Common.fs" />
+    <Compile Include="Optics.fs" />
     <Compile Include="Data.fs" />
     <Compile Include="Abstractions\Parsing.fs" />
     <Compile Include="Domain\Prelude.fs" />
@@ -28,9 +34,5 @@
     <!-- Navbar -->
     <!-- App -->
   </ItemGroup>
-  <ItemGroup>
-    <Folder Include="Model\" />
-    <Folder Include="Modules\" />
-  </ItemGroup>
-  <Import Project="..\.paket\Paket.Restore.targets" />
+  <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>
