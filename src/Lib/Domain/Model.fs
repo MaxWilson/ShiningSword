@@ -127,99 +127,86 @@ module Model =
             | Skill of Skill
 
     module Ribbit =
-        type RowKey = int
+        
+        type AgentId = int
+        type EventId = int
+        type RuntimeValue = String of string | Number of int | Boolean of bool | Id of int | Undefined
+        type Name = string
         type PropertyName = string
-        type DataKey = RowKey * PropertyName
-        type Logic<'state, 'demand, 'result> =
-            | HOAS of HOASLogic<'state, 'demand, 'result>
-            | FOAS
-        and HOASLogic<'state, 'demand, 'result> = ('state -> 'state * HOASLogicOutput<'state, 'demand, 'result>)
-        and HOASLogicOutput<'state, 'demand, 'result> = Ready of 'result | Awaiting of demand:'demand * followup:HOASLogic<'state, 'demand, 'result>
-
-        type TypeImplementationBase<'sharedType> =
-            /// Returns true if value satisfies type
-            abstract isSatisfied: 'sharedType -> bool
-            abstract dataType: System.Type
-
-        type TypeImplementation<'sharedType, 't>
-            (impl:
-                {| extract: 'sharedType -> 't option;
-                parse: string -> 't option |}) =
-            member _.extract v = impl.extract v
-            member _.parse v = impl.parse v
-            interface TypeImplementationBase<'sharedType> with
-                member _.isSatisfied v = impl.extract v |> Option.isSome
-                member _.dataType = typeof<'t>
-
-        type Property(name, dataType) =
-            member _.dataType = dataType
-            member _.name = name
-
-        type ParameterDefinition = {        
-            name: string
-            dataType: TypeImplementationBase<obj>
-            defaultValue: obj option
-            property: Property // Where to actually store the data. Is this really the right way to pass in parameters?
-            }
-
-        [<Generator.Lens>]
-        type State = {
-            ids: IdGenerator
-            properties: Map<string, Property>
-            eventDefinitions: Map<string, EventDefinition>
-            data: Map<DataKey, obj>
-            settled: Map<RowKey, string>
-            outstandingQueries: Map<DataKey, Logic<unit> list>
-            workQueue: Logic<unit> Queue.d
-            log: RowKey Queue.d
+        type VariableReference =
+            | DataRef of agent: AgentId * property: PropertyName
+            | LocalRef of name: Name
+            | EventRef of event:EventId
+            | IndirectDataRef of agentIdLocalRef: Name * property: PropertyName
+            | IndirectEventRef of eventIdLocalRef: Name
+        
+        type Expression =
+            | Const of RuntimeValue
+            | BinaryOp of Expression * Expression * BinaryOperator
+            | Dereference of VariableReference
+            | Roll of n:int * dSize: int * plus: int
+            | StartEvent of eventName: Name * args: (Name * Expression) list
+        
+        and BinaryOperator =
+            | Plus
+            | Minus
+            | Times
+            | Divide
+            | Equals
+            | AtLeast
+            | AtMost
+        
+        type Statement =
+            | Return of Expression
+            | Assign of VariableReference * Expression
+            | Sequence of Statement list
+            | If of test: Expression * andThen: Statement * orElse: Statement option
+        type CurrentExpressionValue = Result<RuntimeValue, VariableReference list>
+        
+        type ExecutionContext =
+            {
+            workQueue: EventId list // LIFO queue for ease of implementation but it probably doesn't matter what the order is
+            currentEvent: EventId option
             }
             with
-            static member fresh = {
-                ids = IdGenerator.fresh
-                properties = Map.empty
-                eventDefinitions = Map.empty
-                outstandingQueries = Map.empty
-                data = Map.empty
-                settled = Map.empty
-                workQueue = Queue.empty
-                log = Queue.empty }
-        and Demand = DataKey option
-        and Logic<'t> = Logic<State, Demand, 't>
-        and EventDefinition = {
-            isAffordance: bool
-            parameters: ParameterDefinition
-            body: Logic<string>
-            }
+            static member fresh = { workQueue = []; currentEvent = None }
+            static member forEvent eventId = { ExecutionContext.fresh with currentEvent = Some eventId }
+        
+        type DereferenceF<'state> = ExecutionContext -> VariableReference -> 'state -> CurrentExpressionValue
+        type DeferF<'state> = EventId -> Statement list -> VariableReference list -> 'state -> 'state
+        
+        type CompleteF<'state> = EventId -> RuntimeValue -> 'state -> 'state
+        type SupplyF<'state> = ExecutionContext -> VariableReference -> RuntimeValue -> 'state -> ('state * EventId list)
+        type ResumeF<'state> = EventId -> 'state -> Statement list
+        type RunF<'state> = EventId -> 'state -> 'state
+        type StartByNameF<'state> = Name -> (Name * RuntimeValue) list -> 'state -> EventId * 'state
 
-        type Prop<'sharedType, 't>(name: PropertyName, type', impl: TypeImplementation<'sharedType, 't>) =
-            inherit Property(name, type')
-            member _.extract data = impl.extract data
-            member _.parse stringInput = impl.parse stringInput
-            member _.extract (rowId: RowKey, data) =
-                match data |> Map.tryFind (rowId, name) with
-                | Some(data) -> impl.extract data
-                | None -> None
-            member this.isFulfilled(rowId: RowKey, data) =
-                this.extract(rowId, data).IsSome
-        let intProp name =
-            let impl =
-                TypeImplementation<obj, int>(
-                    {|  extract = function :?int as x -> Some x | _ -> None
-                        parse = fun str -> match System.Int32.TryParse str with true, v -> Some v | _ -> None
-                        |})
-            Prop<obj, int>(name, typeof<int>, impl)
-        let stringProp name =
-            let impl =
-                TypeImplementation<obj, string>(
-                    {|  extract = function :?string as x -> Some x | _ -> None
-                        parse = Some
-                        |})
-            Prop<obj, string>(name, typeof<int>, impl)
-        let rowKeyProp name =
-            let impl =
-                TypeImplementation<obj, RowKey>(
-                    {|  extract = function :?int as x -> Some x | _ -> None
-                        parse = fun str -> match System.Int32.TryParse str with true, v -> Some v | _ -> None
-                        |})
-            Prop<obj, RowKey>(name, typeof<RowKey>, impl)
+        type Api<'state> = {
+                dereference: DereferenceF<'state>
+                defer: DeferF<'state>
+                resume: ResumeF<'state>
+                supply: SupplyF<'state>
+                start: StartByNameF<'state>
+            }
+        type RibbitRuntimeException (msg: string) =
+            inherit System.Exception(msg)
+
+        type Scope = {
+            properties: Map<Name, RuntimeValue>
+            }
+        type Event = EventResult of RuntimeValue | EventState of EventState
+        and EventState = { scope: Scope; instructionStack: Statement list }
+        and EventDefinition = { name: Name; mandatoryParams: PropertyName list; instructions: Statement list }
+        
+        type Game = {
+            roster: Map<string, AgentId list>
+            rosterReverse: Map<AgentId, string>
+            data: Map<AgentId, Scope>
+            eventDefinitions: Map<Name, EventDefinition>
+            events: Map<EventId, Event>
+            nextAgentId: AgentId // an id generator
+            nextEventId: EventId // an id generator
+            waitingEvents: Map<VariableReference, Set<EventId>> // to support execution chaining
+            dataDependencies: (AgentId*PropertyName) list // for display in UI. Local variables and event results can't be input by the user so don't need to go in this list.
+            }
 

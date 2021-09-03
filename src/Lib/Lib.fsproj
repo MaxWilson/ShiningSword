@@ -14,21 +14,15 @@
     <None Include="Scratch\GameLoop.fsx" />
     <None Include="Scratch\RibbitFromScratch.fsx" />
     <None Include="Scratch\RibberFromScratch2.fsx" />
-    <Compile Include="Optics.fsi" />
     <Compile Include="Optics.fs" />
     <Compile Include="Common.fs" />
-    <Compile Include="AutoWizard.fsi" />
     <Compile Include="AutoWizard.fs" />
-    <Compile Include="Domain\Model.fsi" />
     <Compile Include="Domain\Model.fs" />
-    <Compile Include="Domain\AutoGen.fsi" />
     <Compile Include="Domain\AutoGen.fs">
       <MyriadFile>Domain\Model.fs</MyriadFile>
       <MyriadNameSpace>Domain</MyriadNameSpace>
     </Compile>
-    <Compile Include="Domain\Augment.fsi" />
     <Compile Include="Domain\Augment.fs" />
-    <Compile Include="Domain\RuleEngine.fsi" />
     <Compile Include="Domain\RuleEngine.fs" />
     <ProjectReference Include="..\Myriadic\Myriadic.fsproj" />
   </ItemGroup>
