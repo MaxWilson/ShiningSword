@@ -20,7 +20,7 @@
     <Compile Include="AutoWizard.fs" />
     <Compile Include="Ribbit\Model.fs" />
     <Compile Include="Ribbit\AutoGen.fs">
-      <MyriadFile>Domain\Model.fs</MyriadFile>
+      <MyriadFile>Ribbit\Model.fs</MyriadFile>
       <MyriadNameSpace>Domain</MyriadNameSpace>
     </Compile>
     <Compile Include="Ribbit\Augment.fs" />

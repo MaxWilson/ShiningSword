@@ -6,6 +6,31 @@ open FsCheck
 open Domain.Model
 open Domain.Model.Ribbit
 open Domain.Engine.Ribbit
+#if INTERACTIVE
+#r "nuget: Unquote"
+#endif
+open Swensen.Unquote
+
+let trimFront (input: string) =
+    let newLine = "\n" // can't use System.Environment.Newline for F# compile-time strings, which are just \n apparently
+    let lines = input.Split(newLine) |> Array.skipWhile System.String.IsNullOrWhiteSpace
+    if lines.Length = 0 then System.String.Empty
+    else
+        let countWhitespace (line:string) =
+            let rec loop i =
+                if i >= line.Length || line.[i] |> System.Char.IsWhiteSpace |> not then i
+                else loop (i+1)
+            loop 0
+        let skipWhitespace N (line:string) =
+            let rec loop i =
+                if i >= line.Length then System.String.Empty
+                elif line.[i] |> System.Char.IsWhiteSpace |> not || i >= N then line.Substring(i).TrimEnd()
+                else loop (i+1)
+            loop 0
+        let prefixN = lines.[0] |> countWhitespace
+        lines |> Array.map (skipWhitespace prefixN) |> fun x -> System.String.Join(newLine, x).TrimEnd()
+
+let executeScript script _ : RuntimeValue list = notImpl()
 
 [<Tests>]
 let tests = testList "ribbit.scenario" [
@@ -39,4 +64,34 @@ let tests = testList "ribbit.scenario" [
             })
         Expect.equal ac (EventResult (Number 23)) "Bob's AC should compute as 23 since Bob has 5 SP remaining"
         Expect.equal sp (Number 3) "Bob should have expended 2 of his remaining 5 SP"
+    testCase "Lemma 1" <| fun _ ->
+        let x = """
+            abc
+            def
+               hij
+               k
+            ab
+             a
+            """
+        test <@ "abc\ndef\n   hij\n   k\nab\n a" = trimFront x @>
+        ("abc\ndef\n   hij\n   k\nab\n a", "Should trim first line and prefixes evenly")
+        ||> Expect.equal (trimFront x)
+
+    testCase "Scenario 2" <| fun _ ->
+        let g = Game.fresh |> executeScript """
+            define getShieldBonus:
+                if self.sp at least 2
+                  self.sp loses 2
+                  return 5
+                else return 0
+
+            add bob
+            let ac = bob.AC + getShieldBonus with self=bob
+            bob.AC = 18
+            bob.sp = 5
+            ac
+            """
+        test <@ g |> List.last = Number 23 @>
+        ()
     ]
+
