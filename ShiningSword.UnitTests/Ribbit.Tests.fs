@@ -30,7 +30,8 @@ let trimFront (input: string) =
         let prefixN = lines.[0] |> countWhitespace
         lines |> Array.map (skipWhitespace prefixN) |> fun x -> System.String.Join(newLine, x).TrimEnd()
 
-let executeScript script _ : RuntimeValue list = notImpl()
+let executeScript script state : RuntimeValue list =
+    notImpl()
 
 [<Tests>]
 let tests = testList "ribbit.scenario" [
@@ -86,7 +87,7 @@ let tests = testList "ribbit.scenario" [
                 else return 0
 
             add bob
-            let ac = bob.AC + getShieldBonus with self=bob
+            let ac = bob.AC + getShieldBonus with self = bob
             bob.AC = 18
             bob.sp = 5
             ac

@@ -210,3 +210,7 @@ module Model =
             dataDependencies: (AgentId*PropertyName) list // for display in UI. Local variables and event results can't be input by the user so don't need to go in this list.
             }
 
+        type Command =
+        | Define of eventName: Name * instructions: Statement list
+        | Execute of Statement list
+        | Supply of ref:VariableReference * value:RuntimeValue
