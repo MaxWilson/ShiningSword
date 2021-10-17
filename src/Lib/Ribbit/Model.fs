@@ -1,15 +1,20 @@
 namespace Domain
 module Model =
     #if INTERACTIVE
+    open System
+    [<RequireQualifiedAccess>]
     module Generator =
-        type LensAttribute() =
+        /// Instructs to generate lenses for each property of the record
+        type LensAttribute(wrapperName : string) =
             inherit System.Attribute()
-        type DuCasesAttribute() =
-            inherit System.Attribute()
+            let mutable _wrapperName = wrapperName
+            member this.WrapperName = _wrapperName
+            new () = LensAttribute(null : string)
+            new (``type``: Type) = LensAttribute(``type``.Name)
     #else
     open Myriadic
-    open Myriad.Plugins
     #endif
+    open Myriad.Plugins
     open AutoWizard
 
     module Character =
