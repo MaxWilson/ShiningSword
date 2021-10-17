@@ -55,7 +55,7 @@ open App
 Program.mkProgram init update view
 |> Program.withSubscription(fun m -> Cmd.ofSub(fun d ->
     Browser.Dom.window.onerror <-
-    fun msg _src _lineNo _colNo err ->
+    fun msg ->
         if msg.ToString().Contains "SocketProtocolError" = false then
             d (App.Msg.Battle <| UI.Ribbit.Error (sprintf "Error: %A" msg))
         ))
