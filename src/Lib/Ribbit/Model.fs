@@ -11,10 +11,16 @@ module Model =
             member this.WrapperName = _wrapperName
             new () = LensAttribute(null : string)
             new (``type``: Type) = LensAttribute(``type``.Name)
+        type DuCasesAttribute(wrapperName : string) =
+            inherit System.Attribute()
+            let mutable _wrapperName = wrapperName
+            member this.WrapperName = _wrapperName
+            new () = DuCasesAttribute(null : string)
+            new (``type``: Type) = DuCasesAttribute(``type``.Name)
     #else
     open Myriadic
-    #endif
     open Myriad.Plugins
+    #endif
     open AutoWizard
 
     module Character =
@@ -219,3 +225,8 @@ module Model =
         | Define of eventName: Name * instructions: Statement list
         | Execute of Statement list
         | Supply of ref:VariableReference * value:RuntimeValue
+        | AddToRoster of Name
+
+    type Metacommand =
+        | Ribbit of Ribbit.Command
+        
