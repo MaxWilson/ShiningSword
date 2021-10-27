@@ -199,6 +199,7 @@ let (|OWS|) ((ctx, ix): ParseInput) =
         if i < ctx.input.Length && Set.contains ctx.input.[i] whitespace then seek (i+1)
         else i
     ctx, (seek ix)
+
 // Required whitespace
 let (|WS|_|) ((ctx, ix): ParseInput) =
     let rec seek i =
@@ -206,6 +207,11 @@ let (|WS|_|) ((ctx, ix): ParseInput) =
         else i
     match seek ix with
     | endx when endx > ix -> Some(ctx, endx)
+    | _ -> None
+
+// optional whitespace in front and then a string
+let (|OWSStr|_|) (str: string) = function
+    | OWS (Str str ctx) -> Some(ctx)
     | _ -> None
 
 // Int with no WS padding on either side
@@ -241,7 +247,6 @@ let (|Words|_|) =
     | Word(w, rest) -> Some(w, rest)
     | _ -> None
 
-// helper function for dynamically creating parsers from root rules. May be useful for scripting.
 let parser (recognizerRoot: ParseRule<_>) txt =
     let (|Root|_|) = recognizerRoot
     match ParseArgs.Init txt with

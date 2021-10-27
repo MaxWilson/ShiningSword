@@ -6,31 +6,8 @@
 #load @"Ribbit\Model.fs"
 #load "Parsing.fs"
 
+open System
 open Packrat
-
-type RosterAdaptor = {
-    isValidNamePrefix: (string -> bool)
-    tryNamePrefix: string -> Id list
-    tryId: Id -> string option
-    tryName: string -> Id option
-}
-
-let (|Roster|_|) =
-    Packrat.ExternalContextOf<RosterAdaptor>
-
-let (|ValidName|_|) =
-    // in this case we need to do something a little tricky: detect names by prefix
-    pack <| function
-    | Roster(roster) as ctx ->
-        match ctx with
-        | LongestSubstringWhere (roster.isValidNamePrefix) 30 (name, ctx) ->
-            match roster.tryNamePrefix name with
-            | [id] -> Some (id, ctx) // allow shortened names like El for Eladriel, as long as they are unambiguous (only one match)
-            | matches ->
-                // if there are multiple matches, try for an exact match. Don't want to disregard "skeleton 1" just because "skeleton 10" exists.
-                matches |> List.tryPick(fun id -> match roster.tryId id with Some v when String.equalsIgnoreCase v name -> Some(id, ctx) | _ -> None)
-        | _ -> None
-    | _ -> None
 
 (* delete this before checkin
 
@@ -80,18 +57,45 @@ let (|EndLine|_|) =
     | Chars chars (_, Char('\n', ctx)) -> Some ctx
     | _ -> None
 
+let (|Roster|_|) = Packrat.ExternalContextOf<Map<string, AgentId list>>
+let (|ValidName|_|) =
+    // in this case we need to do something a little tricky: detect names by prefix
+    pack <| function
+    | Roster(roster) as ctx ->
+        let recognized: string -> bool =
+            let names = roster.Keys
+            fun name -> names |> Seq.exists (fun n -> n.StartsWith(name, StringComparison.InvariantCultureIgnoreCase))
+        match ctx with
+        | LongestSubstringWhere recognized 30 (name, ctx) ->
+            match roster |> Map.tryFind name with
+            | Some [id] -> Some(id, ctx) // try for an exact match. Don't want to disregard "skeleton 1" just because "skeleton 10" exists.
+            | Some ids -> None // ambiguous, try by Id instead
+            | None ->
+                match roster.Keys |> Seq.filter (fun rosterName -> rosterName.StartsWith(name, StringComparison.InvariantCultureIgnoreCase)) |> List.ofSeq with
+                | [name] when roster.[name].Length = 1 -> Some(roster.[name].Head, ctx) // allow shortened names like El for Eladriel, as long as they are unambiguous and unique (only one match)
+                | _ -> None
+        | _ -> None
+    | _ -> None
+
+let (|Literal|_|) : ParseRule<Domain.Model.Ribbit.RuntimeValue> = function
+    | Int(n, ctx) -> Some(RuntimeValue.Number n, ctx)
+    | _ -> None
+
 let (|EventDefinition|_|) : ParseRule<Domain.Model.Ribbit.Command> = function
-| Word(word, ctx) -> None
+    | Word(word, ctx) -> None
 
 let (|SupplyValue|_|) : ParseRule<Domain.Model.Ribbit.Command> = function
-| Word(word, ctx) -> None
+    | ValidName(id, Str "." (Word(propName, OWSStr "=" (Literal(v, Roster(roster) & ctx))))) ->
+        Some(Supply(VariableReference.DataRef(id, propName), v), ctx)
+    | _ -> None
 
 let (|StatementsExecute|_|) : ParseRule<Domain.Model.Ribbit.Command> = function
-| Word(word, ctx) -> None
+    | Word(word, ctx) -> None
 
 let (|AddEntity|_|) : ParseRule<Domain.Model.Ribbit.Command> = function
-| Word("add", Word(name, ctx)) -> Some(AddToRoster(name), ctx)
-| _ -> None
+    | Word("add", Word(name, ctx)) ->
+        Some(AddToRoster(name), ctx)
+    | _ -> None
 
 let (|Command|_|) : ParseRule<Domain.Model.Ribbit.Command> = function
     | EventDefinition(cmd, ctx)
@@ -100,7 +104,8 @@ let (|Command|_|) : ParseRule<Domain.Model.Ribbit.Command> = function
     | AddEntity(cmd, ctx) -> Some(cmd, ctx)
     | _ -> None
 
-parser (|Command|_|) "bob.AC = 18"
+let roster = Map.ofSeq ["BOB", [1]]
+parserWithExternalContext (|Command|_|) roster "bob.AC = 18"
 
 let rec (|Program|_|) : ParseRule<Domain.Model.Ribbit.Command list> =
     pack <| function
