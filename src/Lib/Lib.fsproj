@@ -6,6 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <MyriadSdkGenerator Include="$(MSBuildThisFileDirectory)\..\Myriadic\bin\Debug\net5.0\Myriadic.dll" />
+    <None Include="Scratch\Encounters.fsx" />
     <None Include="Scratch\ScenarioScratch.fsx" />
     <None Include="Scratch\Script1.fsx" />
     <None Include="Scratch\Script2.fsx" />
