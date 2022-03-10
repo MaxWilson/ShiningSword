@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <TargetFramework>net5.0</TargetFramework>
+        <GenerateProgramFile>false</GenerateProgramFile>
     </PropertyGroup>
     <ItemGroup>
         <Compile Include="Tests.fs" />
@@ -9,6 +10,9 @@
         <ProjectReference Include="..\src\App.fsproj" />
     </ItemGroup>
     <ItemGroup>
+        <PackageReference Include="YoloDev.Expecto.TestSdk" Version="1.0.0" />        
+        <PackageReference Include="Expecto" Version="9.0.4" />
         <PackageReference Include="Fable.Mocha" Version="2.9.1" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.3.0" />
     </ItemGroup>
 </Project>

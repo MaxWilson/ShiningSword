@@ -77,7 +77,7 @@ type Konva =
     static member inline Content (props: #IAppProperty list) =
         Interop.reactApi.createElement(import "Content" "react-konva", createObj !!props)
 
-    static member inline DemoShapes() =
+    static member inline DemoShapes(x) =
         let window = Browser.Dom.window;
         stage [
             "width" ==> window.innerHeight
@@ -91,7 +91,7 @@ type Konva =
                             "fontSize" ==> "15"
                             ]
                         circle [
-                            "x" ==> "200"
+                            "x" ==> x
                             "y" ==> "100"
                             "radius" ==> "50"
                             "fill" ==> "green"
@@ -100,4 +100,4 @@ type Konva =
                     ]
                 ]
             ]
-        
+            

@@ -18,8 +18,8 @@ const isDevelopment = !isProduction && process.env.NODE_ENV !== 'production';
 var CONFIG = {
     // The tags to include the generated JS and CSS will be automatically injected in the HTML template
     // See https://github.com/jantimon/html-webpack-plugin
-    indexHtmlTemplate: "./src/index.html",
-    fsharpEntry: "./src/Main.fs.js",
+    indexHtmlTemplate: "./src/UI/index.html",
+    fsharpEntry: "./src/UI/Main.fs.js",
     outputDir: "./dist",
     assetsDir: "./public",
     devServerPort: 8080,
