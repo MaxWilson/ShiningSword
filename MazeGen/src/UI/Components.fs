@@ -101,3 +101,28 @@ type Konva =
                 ]
             ]
             
+module Maze =
+    open Domain
+    let render (maze: Maze) =
+        let window = Browser.Dom.window;
+
+        stage [
+            "width" ==> window.innerWidth - 100.
+            "height" ==> window.innerHeight - 100.
+            "children" ==> [
+                layer [
+                    "children" ==> [
+                        let zip a b = a,b
+                        for x, row in maze.grid |> Array.mapi zip do
+                            for y, cell in row |> Array.mapi zip do
+                                if cell = Closed then
+                                    circle [
+                                        "x" ==> x * 20 + 10
+                                        "y" ==> y * 20 + 10
+                                        "radius" ==> 10
+                                        "fill" ==> "grey"
+                                        ]
+                        ]
+                    ]
+                ]
+            ]

@@ -10,44 +10,25 @@ open Konva
 
 importSideEffects "./styles/global.scss"
 
-type State = { x: int }
-type Msg = Left | Right
-let init _ = { x = 200 }
+type State = { count: int }
+type Msg = Smaller | Bigger
+let init _ = { count = 2 }
 let update msg state =
     match msg with
-    | Left -> { state with x = state.x - 100 }
-    | Right -> { state with x = state.x + 100 }
+    | Smaller -> { state with count = state.count - 1 |> max 2 }
+    | Bigger -> { state with count = state.count + 1 }
 
 let render state dispatch =
-    let maze = Domain.newMaze(2,2,false)
+    let maze = Domain.newMaze(state.count, state.count, false)
     Html.div [
-        stage [
-            "width" ==> window.innerWidth - 100.
-            "height" ==> window.innerHeight - 200.
-            "children" ==> [
-                layer [
-                    "children" ==> [
-                        text [
-                            "text" ==> sprintf "%A" (maze.grid[1][1])
-                            "fontSize" ==> "15"
-                            ]
-                        circle [
-                            "x" ==> state.x
-                            "y" ==> "100"
-                            "radius" ==> "50"
-                            "fill" ==> "green"
-                            ]
-                        ]
-                    ]
-                ]
+        Maze.render maze
+        Html.button [
+            prop.text "Smaller"
+            prop.onClick (fun _ -> dispatch Smaller)
             ]
         Html.button [
-            prop.text "Left"
-            prop.onClick (fun _ -> dispatch Left)
-            ]
-        Html.button [
-            prop.text "Right"
-            prop.onClick (fun _ -> dispatch Right)
+            prop.text "Bigger"
+            prop.onClick (fun _ -> dispatch Bigger)
             ]
         ]
 
