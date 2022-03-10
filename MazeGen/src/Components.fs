@@ -4,6 +4,8 @@ open Feliz
 open Feliz.Router
 
 type Components =
+
+    static member rand = System.Random()
     /// <summary>
     /// The simplest possible React component.
     /// Shows a header with the text Hello World
@@ -39,6 +41,8 @@ type Components =
                 | [ ] -> Html.h1 $"Index: {currentUrl}"
                 | [ "hello" ] -> Components.HelloWorld()
                 | [ "counter" ] -> Components.Counter()
-                | otherwise -> Html.h1 "Not found, y'all"
+                | otherwise ->
+                    let messages = ["Not found, y'all"; "sorry, couldn't find it"; "Nope, try again"]
+                    Html.h1 (messages[Components.rand.Next(3)])
             ]
         ]
