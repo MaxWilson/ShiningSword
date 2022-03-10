@@ -25,7 +25,8 @@ let allTests = testList "All" [
             where (w > 0 && h > 0)
             let! connected = Gen.bool
             let maze = Domain.newMaze(w,h,connected)
-            test <@ maze.connections.Length = w - 1 && (maze.connections |> Array.every (fun (row: bool[]) -> row.Length = h - 1)) @>            
+            // E.g. a 5 x 5 maze has 6 x 6 possible corridors if you count exits to outside. Otherwise it would be 4 x 4.
+            test <@ maze.connections.Length = w + 1 && (maze.connections |> Array.every (fun (row: bool[]) -> row.Length = h + 1)) @>            
         } |> Property.check
 ]
    

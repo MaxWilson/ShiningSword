@@ -6,4 +6,4 @@ type Maze = {
     connections: bool[][]
     }
 
-let newMaze (width, height, initialConnection) = { size = (width, height); connections = Array.init width (fun _ -> Array.create height initialConnection) }
+let newMaze (width, height, initialConnection) = { size = (width, height); connections = Array.init (width+1) (fun _ -> Array.create (height+1) initialConnection) }
