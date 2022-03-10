@@ -28,18 +28,24 @@ let allTests = testList "All" [
             let! h = Range.linear 1 100 |> Gen.int32
             let! connected = Gen.bool
             let maze = Domain.newMaze(w,h,connected)
-            // E.g. a 5 x 5 maze has 6 x 6 possible corridors if you count exits to outside. Otherwise it would be 4 x 4.
-            test <@ maze.connections.Length = w + 1 && (maze.connections |> Array.every (fun (row: bool[]) -> row.Length = h + 1)) @>            
+            // E.g. a 5 x 5 maze is represented as an 11 x 11 grid where zero-based odd numbers are points you can stand on,
+            // and odd/even pairs are intersections between those points. The min and max rows (0 and 10) are connections to
+            // the outside.
+            test <@ maze.grid.Length = w*2 + 1 && (maze.grid |> Array.every (fun (row: _ array) -> row.Length = h*2 + 1)) @>            
         } |> Property.check
     testCase "checkNavigationDirections" <| fun _ ->
         property {
-            let! x = Range.linear 1 100 |> Gen.int32
-            let! y = Range.linear 1 100 |> Gen.int32
+            let! x = Range.linear 0 49 |> Gen.int32
+            let! y = Range.linear 0 49 |> Gen.int32
+            // ensure an odd number for both x and y
+            let x = x * 2 + 1
+            let y = y * 2 + 1
             let reverse = function Up -> Down | Down -> Up | Left -> Right | Right -> Left
             let! direction = chooseFrom [Up;Down;Left;Right]
-            let startPoint = PointCoord(x,y)
+            let startPoint = Point(x,y)
             let endPoint = moveTo direction startPoint
             test <@ (connectionTo direction startPoint) = (connectionTo (reverse direction) endPoint) @>
+            test <@ startPoint.isValid() && endPoint.isValid() && (connectionTo direction startPoint).isValid() @>
         } |> Property.check
 ]
    

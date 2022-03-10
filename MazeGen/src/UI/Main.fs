@@ -28,7 +28,7 @@ let render state dispatch =
                 layer [
                     "children" ==> [
                         text [
-                            "text" ==> sprintf "%A" (maze.connections[1][1])
+                            "text" ==> sprintf "%A" (maze.grid[1][1])
                             "fontSize" ==> "15"
                             ]
                         circle [
