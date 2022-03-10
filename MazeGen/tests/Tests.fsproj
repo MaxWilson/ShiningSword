@@ -10,6 +10,8 @@
         <ProjectReference Include="..\src\App.fsproj" />
     </ItemGroup>
     <ItemGroup>
+        <PackageReference Include="Hedgehog" Version="0.12.1" />
+        <PackageReference Include="Unquote" Version="6.1.0" />
         <PackageReference Include="YoloDev.Expecto.TestSdk" Version="1.0.0" />        
         <PackageReference Include="Expecto" Version="9.0.4" />
         <PackageReference Include="Fable.Mocha" Version="2.9.1" />

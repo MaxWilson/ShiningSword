@@ -19,6 +19,7 @@ let update msg state =
     | Right -> { state with x = state.x + 100 }
 
 let render state dispatch =
+    let maze = Domain.newMaze(2,2,false)
     Html.div [
         stage [
             "width" ==> window.innerWidth - 100.
@@ -27,7 +28,7 @@ let render state dispatch =
                 layer [
                     "children" ==> [
                         text [
-                            "text" ==> "Some text here"
+                            "text" ==> sprintf "%A" (maze.connections[1][1])
                             "fontSize" ==> "15"
                             ]
                         circle [
