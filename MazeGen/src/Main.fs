@@ -8,6 +8,6 @@ open Fable.Core.JsInterop
 importSideEffects "./styles/global.scss"
 
 ReactDOM.render(
-    Components.Router(),
+    Konva.DemoShapes(),
     document.getElementById "feliz-app"
 )

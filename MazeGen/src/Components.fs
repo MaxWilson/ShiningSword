@@ -46,3 +46,58 @@ type Components =
                     Html.h1 (messages[Components.rand.Next(3)])
             ]
         ]
+
+open Fable.Core
+open Fable.Core.JsInterop
+module Konva =
+
+    [<Erase>]
+    type IAppProperty =
+        interface end
+
+    [<Erase>]
+    type IContentProperty =
+        interface end
+
+    module Interop =    
+        let inline mkAppAttr (key: string) (value: obj) : IAppProperty = unbox (key, value)
+        let inline mkContentAttr (key: string) (value: obj) : IContentProperty = unbox (key, value)
+    let stage props = Interop.reactApi.createElement(import "Stage" "react-konva", createObj !!props)
+    let layer props = Interop.reactApi.createElement(import "Layer" "react-konva", createObj !!props)
+    let circle props = Interop.reactApi.createElement(import "Circle" "react-konva", createObj !!props)
+    let text props = Interop.reactApi.createElement(import "Text" "react-konva", createObj !!props)
+    
+open Konva
+
+[<Erase>]
+type Konva =
+    static member inline App (props: #IAppProperty list) =
+        Interop.reactApi.createElement(import "App" "react-konva", createObj !!props)
+    
+    static member inline Content (props: #IAppProperty list) =
+        Interop.reactApi.createElement(import "Content" "react-konva", createObj !!props)
+
+    static member inline DemoShapes() =
+        let window = Browser.Dom.window;
+        stage [
+            "width" ==> window.innerHeight
+            "width" ==> window.innerWidth
+            "height" ==> window.innerHeight
+            "children" ==> [
+                layer [
+                    "children" ==> [
+                        text [
+                            "text" ==> "Some text here"
+                            "fontSize" ==> "15"
+                            ]
+                        circle [
+                            "x" ==> "200"
+                            "y" ==> "100"
+                            "radius" ==> "50"
+                            "fill" ==> "green"
+                            ]
+                        ]
+                    ]
+                ]
+            ]
+        
