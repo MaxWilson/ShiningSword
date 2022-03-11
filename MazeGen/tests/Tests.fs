@@ -14,15 +14,15 @@ let appTests = testList "App tests" [
         Expect.equal result 5 "Result must be 5"
 ]
 
-let chooseFrom inputs = 
+let chooseFrom inputs =
     inputs |> List.map Gen.constant |> Gen.choice
-    
+
 [<Tests>]
 let allTests = testList "All" [
     appTests
     testCase "checkMazeDimensions" <| fun _ ->
-        let flip f x y = f y x 
-        
+        let flip f x y = f y x
+
         property {
             let! w = Range.linear 1 100 |> Gen.int32
             let! h = Range.linear 1 100 |> Gen.int32
@@ -31,7 +31,7 @@ let allTests = testList "All" [
             // E.g. a 5 x 5 maze is represented as an 11 x 11 grid where zero-based odd numbers are points you can stand on,
             // and odd/even pairs are intersections between those points. The min and max rows (0 and 10) are connections to
             // the outside.
-            test <@ maze.grid.Length = w*2 + 1 && (maze.grid |> Array.every (fun (row: _ array) -> row.Length = h*2 + 1)) @>            
+            test <@ maze.grid.Length = w*2 + 1 && (maze.grid |> Array.every (fun (row: _ array) -> row.Length = h*2 + 1)) @>
         } |> Property.check
     testCase "checkNavigationDirections" <| fun _ ->
         property {
@@ -48,7 +48,7 @@ let allTests = testList "All" [
             test <@ startPoint.isValid() && endPoint.isValid() && (connectionTo direction startPoint).isValid() @>
         } |> Property.check
 ]
-   
+
 [<EntryPoint>]
 let main args =
     runTestsWithArgs defaultConfig args allTests

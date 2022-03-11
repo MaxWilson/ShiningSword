@@ -59,21 +59,21 @@ module Konva =
     type IContentProperty =
         interface end
 
-    module Interop =    
+    module Interop =
         let inline mkAppAttr (key: string) (value: obj) : IAppProperty = unbox (key, value)
         let inline mkContentAttr (key: string) (value: obj) : IContentProperty = unbox (key, value)
     let stage props = Interop.reactApi.createElement(import "Stage" "react-konva", createObj !!props)
     let layer props = Interop.reactApi.createElement(import "Layer" "react-konva", createObj !!props)
     let circle props = Interop.reactApi.createElement(import "Circle" "react-konva", createObj !!props)
     let text props = Interop.reactApi.createElement(import "Text" "react-konva", createObj !!props)
-    
+
 open Konva
 
 [<Erase>]
 type Konva =
     static member inline App (props: #IAppProperty list) =
         Interop.reactApi.createElement(import "App" "react-konva", createObj !!props)
-    
+
     static member inline Content (props: #IAppProperty list) =
         Interop.reactApi.createElement(import "Content" "react-konva", createObj !!props)
 
@@ -100,9 +100,11 @@ type Konva =
                     ]
                 ]
             ]
-            
+
 module Maze =
     open Domain
+    open Fable.Core.JsInterop
+
     let render (maze: Maze) =
         let window = Browser.Dom.window;
 
@@ -121,6 +123,9 @@ module Maze =
                                         "y" ==> y * 20 + 10
                                         "radius" ==> 10
                                         "fill" ==> "grey"
+                                        "draggable" ==> true
+                                        "onDragStart" ==> fun e -> e?target?fill("Green")
+                                        "onDragEnd" ==> fun e -> e?target?fill("Grey")
                                         ]
                         ]
                     ]
