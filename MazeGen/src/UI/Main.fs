@@ -15,7 +15,7 @@ type Msg = Smaller | Bigger
 let init _ = { count = 2 }
 let update msg state =
     match msg with
-    | Smaller -> { state with count = state.count - 1 |> max 2 }
+    | Smaller -> { state with count = state.count - 1 |> max 1 }
     | Bigger -> { state with count = state.count + 1 }
 
 let render state dispatch =

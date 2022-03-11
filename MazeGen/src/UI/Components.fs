@@ -52,54 +52,59 @@ open Fable.Core.JsInterop
 module Konva =
 
     [<Erase>]
-    type IAppProperty =
+    type ICircleProperty =
         interface end
-
     [<Erase>]
-    type IContentProperty =
+    type IRectProperty =
         interface end
+    [<Erase>]
+    type IShapeProperty =
+        interface
+            inherit ICircleProperty
+            inherit IRectProperty
+            end
+
 
     module Interop =
-        let inline mkAppAttr (key: string) (value: obj) : IAppProperty = unbox (key, value)
-        let inline mkContentAttr (key: string) (value: obj) : IContentProperty = unbox (key, value)
+        let inline mkShapeAttr (key: string) (value: obj) : IShapeProperty = unbox (key, value)
+        let inline mkCircleAttr (key: string) (value: obj) : ICircleProperty = unbox (key, value)
+        let inline mkRectAttr (key: string) (value: obj) : IRectProperty = unbox (key, value)
     let stage props = Interop.reactApi.createElement(import "Stage" "react-konva", createObj !!props)
     let layer props = Interop.reactApi.createElement(import "Layer" "react-konva", createObj !!props)
-    let circle props = Interop.reactApi.createElement(import "Circle" "react-konva", createObj !!props)
+    let circle (props: ICircleProperty list) = Interop.reactApi.createElement(import "Circle" "react-konva", createObj !!props)
+    let rect (props: IRectProperty list) = Interop.reactApi.createElement(import "Rect" "react-konva", createObj !!props)
     let text props = Interop.reactApi.createElement(import "Text" "react-konva", createObj !!props)
+[<Erase>]
+type Color = Red | Green | Blue | Yellow | Grey | Orange
+open Konva.Interop
+
+type Shape =
+    static member inline key (key:_) = mkShapeAttr "key" key
+    static member inline width (w:int) = mkShapeAttr "width" w
+    static member inline height (h:int) = mkShapeAttr "height" h
+    static member inline width (w:float) = mkShapeAttr "width" w
+    static member inline height (h:float) = mkShapeAttr "height" h
+    static member inline x (x:int) = mkShapeAttr "x" x
+    static member inline y (y:int) = mkShapeAttr "y" y
+    static member inline x (x:float) = mkShapeAttr "x" x
+    static member inline y (y:float) = mkShapeAttr "y" y
+    static member inline fill (color:Color) = mkShapeAttr "fill" color
+    static member inline fill (color:string) = mkShapeAttr "fill" color
+    static member draggable = mkShapeAttr "draggable" true
+    static member inline onDragStart (f: ({| target: 'a |} -> 'b)) = mkShapeAttr "onDragStart" f
+    static member inline onDragEnd (f: ({| target: 'a |} -> 'b)) = mkShapeAttr "onDragEnd" f
+
+type Circle =
+    inherit Shape
+    static member inline radius (r:float) = mkCircleAttr "radius" r
+[<Erase>]
+type LineJoin = Miter | Round | Bevel
+
+type Rect =
+    inherit Shape
+    static member inline lineJoin (lineJoin:LineJoin) = mkRectAttr "lineJoin" lineJoin
 
 open Konva
-
-[<Erase>]
-type Konva =
-    static member inline App (props: #IAppProperty list) =
-        Interop.reactApi.createElement(import "App" "react-konva", createObj !!props)
-
-    static member inline Content (props: #IAppProperty list) =
-        Interop.reactApi.createElement(import "Content" "react-konva", createObj !!props)
-
-    static member inline DemoShapes(x) =
-        let window = Browser.Dom.window;
-        stage [
-            "width" ==> window.innerHeight
-            "width" ==> window.innerWidth
-            "height" ==> window.innerHeight
-            "children" ==> [
-                layer [
-                    "children" ==> [
-                        text [
-                            "text" ==> "Some text here"
-                            "fontSize" ==> "15"
-                            ]
-                        circle [
-                            "x" ==> x
-                            "y" ==> "100"
-                            "radius" ==> "50"
-                            "fill" ==> "green"
-                            ]
-                        ]
-                    ]
-                ]
-            ]
 
 module Maze =
     open Domain
@@ -118,14 +123,16 @@ module Maze =
                         for x, row in maze.grid |> Array.mapi zip do
                             for y, cell in row |> Array.mapi zip do
                                 if cell = Closed then
-                                    circle [
-                                        "x" ==> x * 20 + 10
-                                        "y" ==> y * 20 + 10
-                                        "radius" ==> 10
-                                        "fill" ==> "grey"
-                                        "draggable" ==> true
-                                        "onDragStart" ==> fun e -> e?target?fill("Green")
-                                        "onDragEnd" ==> fun e -> e?target?fill("Grey")
+                                    rect [
+                                        Rect.x (x * 20)
+                                        Rect.y (y * 20)
+                                        Rect.height 20
+                                        Rect.width 20
+                                        Rect.fill Grey
+                                        Shape.draggable
+                                        Shape.onDragStart <| fun e -> e.target?fill("Green")
+                                        Shape.onDragEnd <| fun e -> e.target?fill(Yellow)
+                                        Shape.key (x,y)
                                         ]
                         ]
                     ]
