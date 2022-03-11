@@ -1,5 +1,5 @@
 module Domain
-
+let rand = System.Random()
 type Point = Point of x: int * y:int
     with member this.isValid() =
         let (Point(x,y)) = this
@@ -48,4 +48,40 @@ let newMaze (width, height, initialConnection) =
             for y in [2..2..height*2-2] do
                 grid[x][y] <- Open
     { size = (width, height); grid = grid }
+
+let permute percent maze =
+    let grid = maze.grid
+    let interior x y =
+        // Exclude the first and last element in each array because those are the outer walls
+        let (xBound, yBound) = grid[0].Length - 2, grid.Length - 2
+        0 < x && x < xBound && 0 < y && y < yBound
+    let grid' =
+        grid |> Array.mapi (fun y row ->
+            row |> Array.mapi (fun x state ->
+                if (Connection(x,y).isValid()) && interior x y && rand.Next(100) < percent then
+                    match state with
+                    | Open -> Closed
+                    | Closed -> Open
+                else state
+                )
+            )
+    { maze with grid = grid' }
+
+let carve percent maze =
+    let grid = maze.grid
+    let interior x y =
+        // Exclude the first and last element in each array because those are the outer walls
+        let (xBound, yBound) = grid[0].Length - 2, grid.Length - 2
+        0 < x && x < xBound && 0 < y && y < yBound
+    let grid' =
+        grid |> Array.mapi (fun y row ->
+            row |> Array.mapi (fun x state ->
+                if (Connection(x,y).isValid()) && interior x y && rand.Next(100) < percent then
+                    match state with
+                    | Open -> Open
+                    | Closed -> Open
+                else state
+                )
+            )
+    { maze with grid = grid' }
 

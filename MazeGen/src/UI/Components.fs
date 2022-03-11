@@ -120,8 +120,8 @@ module Maze =
                 layer [
                     "children" ==> [
                         let zip a b = a,b
-                        for x, row in maze.grid |> Array.mapi zip do
-                            for y, cell in row |> Array.mapi zip do
+                        for y, row in maze.grid |> Array.mapi zip do
+                            for x, cell in row |> Array.mapi zip do
                                 if cell = Closed then
                                     rect [
                                         Rect.x (x * 20)

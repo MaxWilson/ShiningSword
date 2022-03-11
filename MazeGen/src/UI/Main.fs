@@ -7,21 +7,46 @@ open Elmish
 open Elmish.React
 open Feliz
 open Konva
+open Domain
 
 importSideEffects "./styles/global.scss"
 
-type State = { count: int }
-type Msg = Smaller | Bigger
-let init _ = { count = 2 }
+type State = { size: int * int; maze: Maze }
+type Msg = Smaller | Bigger | Fresh | RandomCarve | RandomPermute | SkipToEnd
+let fresh ((x,y) as size) = { size = size; maze = Domain.newMaze(x, y, false) }
+let init _ = fresh (12, 20)
 let update msg state =
     match msg with
-    | Smaller -> { state with count = state.count - 1 |> max 1 }
-    | Bigger -> { state with count = state.count + 1 }
+    | Smaller ->
+        let (x,y) = state.size
+        fresh (x - 1 |> max 1, y - 1 |> max 1)
+    | Bigger ->
+        let (x,y) = state.size
+        fresh (x + 1, y + 1)
+    | Fresh -> fresh state.size
+    | RandomCarve ->
+        // remove 30% of interior walls
+        { state with maze = state.maze |> Domain.carve 30 }
+    | RandomPermute ->
+        // permute 20% of interior connections
+        { state with maze = state.maze |> Domain.permute 20 }
+    | _ -> state
 
 let render state dispatch =
-    let maze = Domain.newMaze(state.count, state.count, false)
     Html.div [
-        Maze.render maze
+        Maze.render state.maze
+        Html.button [
+            prop.text "Reset"
+            prop.onClick (fun _ -> dispatch Fresh)
+            ]
+        Html.button [
+            prop.text "Carve"
+            prop.onClick (fun _ -> dispatch RandomCarve)
+            ]
+        Html.button [
+            prop.text "Permute"
+            prop.onClick (fun _ -> dispatch RandomPermute)
+            ]
         Html.button [
             prop.text "Smaller"
             prop.onClick (fun _ -> dispatch Smaller)
