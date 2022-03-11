@@ -49,23 +49,25 @@ let newMaze (width, height, initialConnection) =
                 grid[x][y] <- Open
     { size = (width, height); grid = grid }
 
+let map f maze =
+    let grid' =
+        maze.grid |> Array.mapi (fun y row ->
+            row |> Array.mapi (fun x state -> f x y state))
+    { maze with grid = grid' }
+
 let permute percent maze =
     let grid = maze.grid
     let interior x y =
         // Exclude the first and last element in each array because those are the outer walls
         let (xBound, yBound) = grid[0].Length - 2, grid.Length - 2
         0 < x && x < xBound && 0 < y && y < yBound
-    let grid' =
-        grid |> Array.mapi (fun y row ->
-            row |> Array.mapi (fun x state ->
+    maze |> map (fun x y state ->
                 if (Connection(x,y).isValid()) && interior x y && rand.Next(100) < percent then
                     match state with
                     | Open -> Closed
                     | Closed -> Open
                 else state
                 )
-            )
-    { maze with grid = grid' }
 
 let carve percent maze =
     let grid = maze.grid
@@ -73,15 +75,11 @@ let carve percent maze =
         // Exclude the first and last element in each array because those are the outer walls
         let (xBound, yBound) = grid[0].Length - 2, grid.Length - 2
         0 < x && x < xBound && 0 < y && y < yBound
-    let grid' =
-        grid |> Array.mapi (fun y row ->
-            row |> Array.mapi (fun x state ->
-                if (Connection(x,y).isValid()) && interior x y && rand.Next(100) < percent then
-                    match state with
-                    | Open -> Open
-                    | Closed -> Open
-                else state
-                )
-            )
-    { maze with grid = grid' }
+    maze |> map (fun x y state ->
+        if (Connection(x,y).isValid()) && interior x y && rand.Next(100) < percent then
+            match state with
+            | Open -> Open
+            | Closed -> Open
+        else state
+        )
 

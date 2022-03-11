@@ -93,6 +93,10 @@ type Shape =
     static member draggable = mkShapeAttr "draggable" true
     static member inline onDragStart (f: ({| target: 'a |} -> 'b)) = mkShapeAttr "onDragStart" f
     static member inline onDragEnd (f: ({| target: 'a |} -> 'b)) = mkShapeAttr "onDragEnd" f
+    static member inline onClick (f: ({| target: 'a |} -> 'b)) = mkShapeAttr "onClick" f
+    static member inline onMouseDown (f: ({| target: 'a |} -> 'b)) = mkShapeAttr "onMouseDown" f
+    static member inline onMouseUp (f: ({| target: 'a |} -> 'b)) = mkShapeAttr "onMouseUp" f
+    static member inline onMouseOver (f: ({| target: 'a |} -> 'b)) = mkShapeAttr "onMouseOver" f
 
 type Circle =
     inherit Shape
@@ -109,8 +113,9 @@ open Konva
 module Maze =
     open Domain
     open Fable.Core.JsInterop
+    type MouseMode = Erasing | Inactive
 
-    let render (maze: Maze) =
+    let render (maze: Maze, mode: MouseMode, modeChange) =
         let window = Browser.Dom.window;
 
         stage [
@@ -129,12 +134,17 @@ module Maze =
                                         Rect.height 20
                                         Rect.width 20
                                         Rect.fill Grey
-                                        Shape.draggable
-                                        Shape.onDragStart <| fun e -> e.target?fill("Green")
-                                        Shape.onDragEnd <| fun e -> e.target?fill(Yellow)
                                         Shape.key (x,y)
+                                        match mode with
+                                        | Inactive ->
+                                            Rect.onMouseDown (fun e -> modeChange(Erasing, Some(x, y)))
+                                        | Erasing ->
+                                            Rect.onMouseOver (fun e -> modeChange(Erasing, Some(x, y)))
                                         ]
                         ]
                     ]
                 ]
+            "onMouseUp" ==> fun _ -> modeChange(Inactive, None)
+            "onMouseEnter" ==> fun _ -> modeChange(Inactive, None)
+            "onMouseDown" ==> fun _ -> modeChange(Erasing, None)
             ]

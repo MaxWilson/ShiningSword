@@ -11,9 +11,10 @@ open Domain
 
 importSideEffects "./styles/global.scss"
 
-type State = { size: int * int; maze: Maze }
-type Msg = Smaller | Bigger | Fresh | RandomCarve | RandomPermute | SkipToEnd
-let fresh ((x,y) as size) = { size = size; maze = Domain.newMaze(x, y, false) }
+type State = { size: int * int; maze: Maze; mode: Maze.MouseMode }
+type Msg =
+    | Smaller | Bigger | Fresh | RandomCarve | RandomPermute | SkipToEnd | Transform of (State -> State)
+let fresh ((x,y) as size) = { size = size; maze = Domain.newMaze(x, y, false); mode = Maze.Inactive }
 let init _ = fresh (12, 20)
 let update msg state =
     match msg with
@@ -30,11 +31,25 @@ let update msg state =
     | RandomPermute ->
         // permute 20% of interior connections
         { state with maze = state.maze |> Domain.permute 20 }
+    | Transform f ->
+        f state
     | _ -> state
 
 let render state dispatch =
+    let modeEvent(mode', coord) =
+        match mode', coord with
+        | Maze.Erasing, Some(x', y') when Connection(x',y').isValid() ->
+            Transform (fun state -> { state with mode = Maze.Erasing; maze = state.maze |> map (fun x y state -> if (x,y) = (x',y') then Open else state) })
+            |> dispatch
+        | Maze.Inactive, _ ->
+            Transform (fun state -> { state with mode = Maze.Inactive })
+            |> dispatch
+        | Maze.Erasing, _ ->
+            // we're not on a connection currently (it's a corner or space), but start erasing anyway
+            Transform (fun state -> { state with mode = Maze.Erasing })
+            |> dispatch
     Html.div [
-        Maze.render state.maze
+        Maze.render (state.maze, state.mode, modeEvent)
         Html.button [
             prop.text "Reset"
             prop.onClick (fun _ -> dispatch Fresh)
