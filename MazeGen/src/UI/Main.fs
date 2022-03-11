@@ -35,20 +35,31 @@ let update msg state =
         f state
     | _ -> state
 
-let render state dispatch =
+let view state dispatch =
     let modeEvent(mode', coord) =
         match mode', coord with
-        | Maze.Erasing, Some(x', y') when Connection(x',y').isValid() ->
-            Transform (fun state -> { state with mode = Maze.Erasing; maze = state.maze |> map (fun x y state -> if (x,y) = (x',y') then Open else state) |> normalize })
+        | Maze.CarvingSpace, Some(x', y') when Connection(x',y').isValid() ->
+            Transform (fun state -> { state with mode = mode'; maze = state.maze |> map (fun x y state -> if (x,y) = (x',y') then Open else state) |> normalize })
+            |> dispatch
+        | Maze.BuildingWalls, Some(x', y') when Connection(x',y').isValid() ->
+            let m' = state.maze |> map (fun x y state -> if (x,y) = (x',y') then Closed else state) |> normalize
+            printfn "%A" (mode', coord, m'.grid[y'][x'])
+            Transform (fun state -> { state with mode = mode'; maze = state.maze |> map (fun x y state -> if (x,y) = (x',y') then Closed else state) |> normalize })
             |> dispatch
         | Maze.Inactive, _ ->
             Transform (fun state -> { state with mode = Maze.Inactive })
             |> dispatch
-        | Maze.Erasing, _ ->
-            // we're not on a connection currently (it's a corner or space), but start erasing anyway
-            Transform (fun state -> { state with mode = Maze.Erasing })
+        | _ ->
+            // we're not on a connection currently (it's a corner or space), but activate the proper mode
+            Transform (fun state -> { state with mode = mode' })
             |> dispatch
     Html.div [
+        Html.div [
+            prop.children [
+                Html.text "Click to carve out spaces between cells. Right-click to add walls."
+                ]
+            prop.style [style.marginBottom 10]
+            ]
         Maze.render (state.maze, state.mode, modeEvent)
         Html.button [
             prop.text "Reset"
@@ -72,6 +83,6 @@ let render state dispatch =
             ]
         ]
 
-Program.mkSimple init update render
+Program.mkSimple init update view
 |> Program.withReactSynchronous "feliz-app"
 |> Program.run

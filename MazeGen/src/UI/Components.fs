@@ -113,11 +113,11 @@ open Konva
 module Maze =
     open Domain
     open Fable.Core.JsInterop
-    type MouseMode = Erasing | Inactive
+    type MouseMode = CarvingSpace | BuildingWalls | Inactive
 
     let render (maze: Maze, mode: MouseMode, modeChange) =
         let window = Browser.Dom.window;
-
+        let isRightClick e = e?evt?button = 2
         stage [
             "width" ==> window.innerWidth - 100.
             "height" ==> window.innerHeight - 100.
@@ -137,14 +137,32 @@ module Maze =
                                         Shape.key (x,y)
                                         match mode with
                                         | Inactive ->
-                                            Rect.onMouseDown (fun e -> modeChange(Erasing, Some(x, y)))
-                                        | Erasing ->
-                                            Rect.onMouseOver (fun e -> modeChange(Erasing, Some(x, y)))
+                                            Rect.onMouseDown (fun e -> modeChange((if isRightClick e then BuildingWalls else CarvingSpace), Some(x, y)))
+                                        | CarvingSpace ->
+                                            Rect.onMouseOver (fun e -> modeChange(CarvingSpace, Some(x, y)))
+                                        | BuildingWalls ->
+                                            ()
                                         ]
                         ]
                     ]
                 ]
-            "onMouseUp" ==> fun _ -> modeChange(Inactive, None)
-            "onMouseEnter" ==> fun _ -> modeChange(Inactive, None)
-            "onMouseDown" ==> fun _ -> modeChange(Erasing, None)
+            if mode <> Inactive then
+                "onMouseUp" ==> fun _ -> modeChange(Inactive, None)
+                "onMouseEnter" ==> fun _ -> modeChange(Inactive, None)
+            else
+                "onMouseDown" ==> fun e ->
+                    if isRightClick e then
+                        let pos = e?target?getRelativePointerPosition()
+                        let x = pos?x / 20
+                        let y = pos?y / 20
+                        modeChange(BuildingWalls, Some(x,y))
+                    else
+                        modeChange(CarvingSpace, None)
+                "onContextMenu" ==> fun e -> e?evt?preventDefault()
+            if mode = BuildingWalls then
+                "onMouseOver" ==> fun e ->
+                    let pos = e?target?getRelativePointerPosition()
+                    let x = pos?x / 20
+                    let y = pos?y / 20
+                    modeChange(BuildingWalls, Some(x, y))
             ]
