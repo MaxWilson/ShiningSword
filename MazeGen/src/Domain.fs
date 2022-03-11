@@ -39,13 +39,13 @@ let newMaze (width, height, initialConnection) =
         for y in [1..2..height*2] do
             grid[x][y] <- Open
     if initialConnection then
-        // tunnel out all of the left/right corridors
-        for x in [0..2..width*2] do
+        // tunnel out all of the left/right corridors (but not the outside walls)
+        for x in [2..2..width*2-2] do
             for y in [1..2..height*2] do
                 grid[x][y] <- Open
-        // tunnel out all of the up/down corridors
+        // tunnel out all of the up/down corridors (but not the outside walls)
         for x in [1..2..width*2] do
-            for y in [0..2..height*2] do
+            for y in [2..2..height*2-2] do
                 grid[x][y] <- Open
     { size = (width, height); grid = grid }
 
