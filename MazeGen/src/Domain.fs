@@ -1,11 +1,13 @@
 module Domain
 let rand = System.Random()
 type Point = Point of x: int * y:int
-    with member this.isValid() =
+    with
+    member this.isValid() =
         let (Point(x,y)) = this
-        x % 2 <> 1 || y % 2 <> 0
+        x % 2 = 1 && y % 2 = 1
 type Connection = Connection of x: int * y: int
-    with member this.isValid() =
+    with
+    member this.isValid() =
         let (Connection(x,y)) = this
         x % 2 <> y % 2
 type MazeElement = Open | Closed
@@ -83,3 +85,22 @@ let carve percent maze =
         else state
         )
 
+let normalize maze =
+    let every f seq = seq |> Seq.exists (not << f) |> not
+    maze |> map (fun x y state ->
+        // for all of the corners, they become open if all the connections around them are open
+        if not (Connection(x,y).isValid() || Point(x,y).isValid()) then
+            let within start finish n = start <= n && n < finish
+            let get(x,y) =
+                if within 0 maze.grid.Length y && within 0 maze.grid[y].Length x then
+                    maze.grid[y][x] |> Some
+                else None
+            if [x+1,y;x-1,y;x,y+1;x,y-1]
+                |> List.map get
+                |> List.exists (function Some(Closed) -> true | _ -> false)
+                then
+                    Closed
+                else
+                    Open
+        else state
+        )

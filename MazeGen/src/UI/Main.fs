@@ -27,10 +27,10 @@ let update msg state =
     | Fresh -> fresh state.size
     | RandomCarve ->
         // remove 30% of interior walls
-        { state with maze = state.maze |> Domain.carve 30 }
+        { state with maze = state.maze |> Domain.carve 30 |> normalize }
     | RandomPermute ->
         // permute 20% of interior connections
-        { state with maze = state.maze |> Domain.permute 20 }
+        { state with maze = state.maze |> Domain.permute 20 |> normalize }
     | Transform f ->
         f state
     | _ -> state
@@ -39,7 +39,7 @@ let render state dispatch =
     let modeEvent(mode', coord) =
         match mode', coord with
         | Maze.Erasing, Some(x', y') when Connection(x',y').isValid() ->
-            Transform (fun state -> { state with mode = Maze.Erasing; maze = state.maze |> map (fun x y state -> if (x,y) = (x',y') then Open else state) })
+            Transform (fun state -> { state with mode = Maze.Erasing; maze = state.maze |> map (fun x y state -> if (x,y) = (x',y') then Open else state) |> normalize })
             |> dispatch
         | Maze.Inactive, _ ->
             Transform (fun state -> { state with mode = Maze.Inactive })
