@@ -35,20 +35,20 @@ let connectionTo direction (Point(x, y)) =
     |> Connection
 
 let newMaze (width, height, initialConnection) =
-    let grid = Array.init (width*2+1) (fun _ -> Array.create (height*2+1) Closed)
+    let grid = Array.init (height*2+1) (fun _ -> Array.create (width*2+1) Closed)
     // tunnel out all of the "rooms"
     for x in [1..2..width*2] do
         for y in [1..2..height*2] do
-            grid[x][y] <- Open
+            grid[y][x] <- Open
     if initialConnection then
         // tunnel out all of the left/right corridors (but not the outside walls)
         for x in [2..2..width*2-2] do
             for y in [1..2..height*2] do
-                grid[x][y] <- Open
+                grid[y][x] <- Open
         // tunnel out all of the up/down corridors (but not the outside walls)
         for x in [1..2..width*2] do
             for y in [2..2..height*2-2] do
-                grid[x][y] <- Open
+                grid[y][x] <- Open
     { size = (width, height); grid = grid }
 
 let map f maze =
@@ -84,6 +84,106 @@ let carve percent maze =
             | Closed -> Open
         else state
         )
+
+let randomConnected maze =
+    let x, y = maze.size
+    let toPoint (x,y) =
+        let p = Point(x*2-1, y*2-1)
+        if not <| p.isValid() then failwith $"Invalid point: {p}"
+        p
+    let nodes = [|
+        for y in 1..y do
+            for x in 1..x do
+                (x,y) |> toPoint
+        |]
+    let mutable connectedNodes = Set.ofSeq [(1,1) |> toPoint]
+    let mutable tunnels = Set.empty<int*int>
+    let directions = [Up;Down;Left;Right]
+    let toPoint (x,y) =
+        let p = Point(x*2-1, y*2-1)
+        if not <| p.isValid() then failwith $"Invalid point: {p}"
+        p
+    while connectedNodes.Count < nodes.Length do
+        let nextIx = rand.Next(nodes.Length)
+        let candidate = nodes[nextIx]
+        if connectedNodes.Contains(candidate) |> not then
+            let start = candidate
+            // make sure the new node is connected to an existing node via some direction
+            match connectedNodes
+                |> Seq.tryPick (
+                    fun dest -> directions |> List.tryPick (fun dir -> if ((start |> moveTo dir) = dest) then Some (dir, dest) else None)) with
+            | Some (direction, dest) ->
+                let (Connection(x,y)) = start |> connectionTo direction
+                tunnels <- tunnels |> Set.add (x,y)
+                connectedNodes <- connectedNodes |> Set.add candidate
+            | None ->
+                ()
+    maze |> map (fun x y state -> if tunnels |> Set.contains (x,y) then Open else state)
+
+let aldousBroder maze =
+    let x, y = maze.size
+    let toPoint (x,y) =
+        let p = Point(x*2-1, y*2-1)
+        if not <| p.isValid() then failwith $"Invalid point: {p}"
+        p
+    let nodes = [|
+        for y in 1..y do
+            for x in 1..x do
+                (x,y) |> toPoint
+        |]
+    let mutable currentNode = (1,1) |> toPoint
+    let mutable connectedNodes = Set.ofSeq [currentNode]
+    let mutable tunnels = Set.empty<int*int>
+    let directions = [Up;Down;Left;Right]
+    let toPoint (x,y) =
+        let p = Point(x*2-1, y*2-1)
+        if not <| p.isValid() then failwith $"Invalid point: {p}"
+        p
+    let inBounds (Point(x,y)) =
+        0 < y && y < maze.grid.Length && 0 < x && x < maze.grid[y].Length
+    while connectedNodes.Count < nodes.Length do
+        let rec next() =
+            let direction = directions[rand.Next(directions.Length)]
+            let candidate = currentNode |> moveTo direction
+            if candidate |> inBounds then
+                candidate, direction
+            else next()
+        let candidate, direction = next()
+
+        if connectedNodes.Contains(candidate) |> not then
+            let (Connection(x,y)) = currentNode |> connectionTo direction
+            tunnels <- tunnels |> Set.add (x,y)
+            currentNode <- candidate
+            connectedNodes <- connectedNodes |> Set.add candidate
+        else
+            // don't add a tunnel, just move
+            currentNode <- candidate
+    let perimeter =
+        [|
+            for y in 0..maze.grid.Length - 1 do
+                if (y = 0 || y = maze.grid.Length - 1) then
+                    for x in 0..maze.grid[y].Length - 1 do
+                        x, y
+                else
+                    for x in [0; maze.grid[y].Length - 1] do
+                        x, y
+            |]
+        |> Array.filter (fun c -> (Connection c).isValid())
+    let entry = perimeter[rand.Next(perimeter.Length)]
+    let exit =
+        // Don't let the entrance and exit be too close to each other
+        let dist (x1, y1) (x2, y2) =
+            abs (x1 - x2) + abs (y1 - y2)
+        let rec retry() =
+            let candidate = perimeter[rand.Next(perimeter.Length)]
+            let x, y = maze.size
+            if dist candidate entry < (min x y) / 2 then
+                retry()
+            else
+                candidate
+        retry()
+    tunnels <- tunnels |> Set.add entry |> Set.add exit
+    maze |> map (fun x y state -> if tunnels |> Set.contains (x,y) then Open else state)
 
 let normalize maze =
     let every f seq = seq |> Seq.exists (not << f) |> not

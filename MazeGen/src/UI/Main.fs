@@ -13,9 +13,9 @@ importSideEffects "./styles/global.scss"
 
 type State = { size: int * int; maze: Maze; mode: Maze.MouseMode }
 type Msg =
-    | Smaller | Bigger | Fresh | RandomCarve | RandomPermute | SkipToEnd | Transform of (State -> State)
+    | Smaller | Bigger | Fresh | RandomMaze | RandomCarve | RandomPermute | SkipToEnd | Transform of (State -> State)
 let fresh ((x,y) as size) = { size = size; maze = Domain.newMaze(x, y, false); mode = Maze.Inactive }
-let init _ = fresh (12, 20)
+let init _ = fresh (20, 12)
 let update msg state =
     match msg with
     | Smaller ->
@@ -25,6 +25,9 @@ let update msg state =
         let (x,y) = state.size
         fresh (x + 1, y + 1)
     | Fresh -> fresh state.size
+    | RandomMaze ->
+        let state = fresh state.size
+        { state with maze = state.maze |> aldousBroder }
     | RandomCarve ->
         // remove 30% of interior walls
         { state with maze = state.maze |> Domain.carve 30 |> normalize }
@@ -63,6 +66,10 @@ let view state dispatch =
         Html.button [
             prop.text "Reset"
             prop.onClick (fun _ -> dispatch Fresh)
+            ]
+        Html.button [
+            prop.text "Random Maze"
+            prop.onClick (fun _ -> dispatch RandomMaze)
             ]
         Html.button [
             prop.text "Carve"
