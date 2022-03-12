@@ -1,6 +1,6 @@
-module Main
+module UI.Main
 
-open App
+open UI.Components
 open Browser.Dom
 open Fable.Core.JsInterop
 open Elmish
@@ -36,14 +36,13 @@ let update msg state =
     | _ -> state
 
 let view state dispatch =
-    let modeEvent(mode', coord) =
-        match mode', coord with
-        | Maze.CarvingSpace, Some(x', y') when Connection(x',y').isValid() ->
+    let modeEvent(mode', connection: Connection option) =
+        match mode', connection with
+        | Maze.CarvingSpace, Some(Connection(x', y')) when Connection(x',y').isValid() ->
             Transform (fun state -> { state with mode = mode'; maze = state.maze |> map (fun x y state -> if (x,y) = (x',y') then Open else state) |> normalize })
             |> dispatch
-        | Maze.BuildingWalls, Some(x', y') when Connection(x',y').isValid() ->
+        | Maze.BuildingWalls, Some(Connection(x', y')) when Connection(x',y').isValid() ->
             let m' = state.maze |> map (fun x y state -> if (x,y) = (x',y') then Closed else state) |> normalize
-            printfn "%A" (mode', coord, m'.grid[y'][x'])
             Transform (fun state -> { state with mode = mode'; maze = state.maze |> map (fun x y state -> if (x,y) = (x',y') then Closed else state) |> normalize })
             |> dispatch
         | Maze.Inactive, _ ->

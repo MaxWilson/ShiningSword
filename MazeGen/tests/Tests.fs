@@ -45,8 +45,20 @@ let allTests = testList "All" [
             let startPoint = Point(x,y)
             let endPoint = moveTo direction startPoint
             test <@ (connectionTo direction startPoint) = (connectionTo (reverse direction) endPoint) @>
-            test <@ startPoint.isValid() && endPoint.isValid() && (connectionTo direction startPoint).isValid() @>
+            test <@ startPoint.isValid() @>
+            where (not(x = 1 && direction = Left || y = 1 && direction = Up))
+            test <@ endPoint.isValid() && (connectionTo direction startPoint).isValid() @>
+
         } |> Property.check
+    testCase "checkNearestIntersection" <| fun _ ->
+        property {
+            let! xPixel = Range.linear 0 100 |> Gen.int32
+            let! yPixel = Range.linear 0 100 |> Gen.int32
+            let (Domain.Connection(x2, y2)) = UI.Components.Maze.nearestIntersection(xPixel,yPixel)
+            let closeTo n m = abs(n-m) <= 20 || (x2 = 0 || y2 = 0) && abs(n-m) <= 30 // in corner cases the nearest connection could be up to 30 pixels away
+            test <@ closeTo (x2*20+10) xPixel && closeTo (y2*20+10) yPixel @>
+            }
+        |> Property.check
 ]
 
 [<EntryPoint>]

@@ -4,12 +4,12 @@ type Point = Point of x: int * y:int
     with
     member this.isValid() =
         let (Point(x,y)) = this
-        x % 2 = 1 && y % 2 = 1
+        x >= 0 && y >= 0 && x % 2 = 1 && y % 2 = 1
 type Connection = Connection of x: int * y: int
     with
     member this.isValid() =
         let (Connection(x,y)) = this
-        x % 2 <> y % 2
+        x >= 0 && y >= 0 && x % 2 <> y % 2
 type MazeElement = Open | Closed
 type Maze = {
     size: int * int
@@ -20,16 +20,16 @@ type Direction = Up | Down | Left | Right
 
 let moveTo direction (Point(x, y)) =
     match direction with
-        | Up -> x, y+2
-        | Down -> x, y-2
+        | Down -> x, y+2
+        | Up -> x, y-2
         | Left -> x-2, y
         | Right -> x+2, y
     |> Point
 
 let connectionTo direction (Point(x, y)) =
     match direction with
-        | Up -> x, y+1
-        | Down -> x, y-1
+        | Down -> x, y+1
+        | Up -> x, y-1
         | Left -> x-1, y
         | Right -> x+1, y
     |> Connection

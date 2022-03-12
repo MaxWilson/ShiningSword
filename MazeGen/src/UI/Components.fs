@@ -1,4 +1,4 @@
-namespace App
+namespace UI.Components
 
 open Feliz
 open Feliz.Router
@@ -114,6 +114,34 @@ module Maze =
     open Domain
     open Fable.Core.JsInterop
     type MouseMode = CarvingSpace | BuildingWalls | Inactive
+    let nearestIntersection (xPixel, yPixel) =
+        let gridSize = 20
+        let maybe (xPixel, yPixel) =
+            let x,y = xPixel / gridSize, yPixel / gridSize
+            let candidate = Connection(x,y)
+            if candidate.isValid() then Some(candidate)
+            else None
+        match maybe (xPixel, yPixel) with
+        | Some x -> x
+        | None ->
+            // we're going to try everything within 1 manhattan distance square of the
+            // current grid square, see which is closest to our actual point
+            // first, we normalize the coordinates to the approximate CENTER of the grid square x and y are in
+
+            // now, get all the neighboring squares and sort them by actual distance from x and y
+            let candidates =
+                [
+                    let square x = x * x |> float
+                    let centerX, centerY = xPixel / gridSize * gridSize + gridSize/2, yPixel / gridSize * gridSize + gridSize/2
+                    for xMod in [-gridSize;0;gridSize] do
+                        for yMod in [-gridSize;0;gridSize] do
+                            let gridCenter = (centerX+xMod, centerY+yMod)
+                            match maybe gridCenter with
+                            | Some candidate -> sqrt((square((gridCenter |> fst) - xPixel)) + (square((gridCenter |> snd) - yPixel))), candidate
+                            | None -> ()
+                    ]
+                |> List.sortBy fst
+            candidates.Head |> snd
 
     let render (maze: Maze, mode: MouseMode, modeChange) =
         let window = Browser.Dom.window;
@@ -137,32 +165,28 @@ module Maze =
                                         Shape.key (x,y)
                                         match mode with
                                         | Inactive ->
-                                            Rect.onMouseDown (fun e -> modeChange((if isRightClick e then BuildingWalls else CarvingSpace), Some(x, y)))
+                                            Rect.onMouseDown (fun e -> modeChange((if isRightClick e then BuildingWalls else CarvingSpace), Some(Connection(x, y))))
                                         | CarvingSpace ->
-                                            Rect.onMouseOver (fun e -> modeChange(CarvingSpace, Some(x, y)))
+                                            Rect.onMouseOver (fun e -> modeChange(CarvingSpace, Some(Connection(x, y))))
                                         | BuildingWalls ->
                                             ()
                                         ]
                         ]
                     ]
                 ]
-            if mode <> Inactive then
-                "onMouseUp" ==> fun _ -> modeChange(Inactive, None)
-                "onMouseEnter" ==> fun _ -> modeChange(Inactive, None)
-            else
-                "onMouseDown" ==> fun e ->
-                    if isRightClick e then
-                        let pos = e?target?getRelativePointerPosition()
-                        let x = pos?x / 20
-                        let y = pos?y / 20
-                        modeChange(BuildingWalls, Some(x,y))
-                    else
-                        modeChange(CarvingSpace, None)
-                "onContextMenu" ==> fun e -> e?evt?preventDefault()
+            "onMouseUp" ==> fun _ -> modeChange(Inactive, None)
+            "onMouseEnter" ==> fun _ -> modeChange(Inactive, None)
+            "onMouseDown" ==> fun e ->
+                let pos = e?target?getStage()?getPointerPosition()
+                let pos = nearestIntersection(pos?x, pos?y)
+                if isRightClick e then
+                    modeChange(BuildingWalls, Some(pos))
+                else
+                    modeChange(CarvingSpace, Some(pos))
+            "onContextMenu" ==> fun e -> e?evt?preventDefault()
             if mode = BuildingWalls then
                 "onMouseOver" ==> fun e ->
-                    let pos = e?target?getRelativePointerPosition()
-                    let x = pos?x / 20
-                    let y = pos?y / 20
-                    modeChange(BuildingWalls, Some(x, y))
+                    let pos = e?target?getStage()?getPointerPosition()
+                    let pos = nearestIntersection(pos?x, pos?y)
+                    modeChange(BuildingWalls, Some(pos))
             ]
