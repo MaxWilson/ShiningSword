@@ -23,11 +23,13 @@ type VariableReference =
     | IndirectDataRef of agentIdLocalRef: Name * property: PropertyName
     | IndirectEventRef of eventIdLocalRef: Name
 
+type Roll =
+    | Roll of n:int * d:int * rest: Roll option
 type Expression =
     | Const of RuntimeValue
+    | Spec of Roll
     | BinaryOp of Expression * Expression * BinaryOperator
     | Dereference of VariableReference
-    | Roll of n:int * dSize: int * plus: int
     | StartEvent of eventName: Name * args: (Name * Expression) list
 
 and BinaryOperator =
@@ -102,7 +104,7 @@ let evaluate
                 | Error lhs, Error rhs -> Error (lhs @ rhs)
             | Dereference ref ->
                 api.dereference ctx ref state
-            | Roll _ | StartEvent _ ->
+            | Spec _ | StartEvent _ ->
                 // By evaluation time, Roll and StartEvent should have already been rewritten to Dereference expressions
                 Ok Undefined 
         eval expr
@@ -429,6 +431,12 @@ withState Game.fresh (state {
     return (g.events.[eventId])
 })
 
+type deref =
+    static member prop (paramName: string) property = IndirectDataRef(Name(paramName), property) |> Dereference
+    static member local localName = LocalRef localName |> Dereference
+    static member event localName = IndirectEventRef localName |> Dereference
+open type deref
+
 withState Game.fresh (state {
     let! bob = transform1 (Game.add "Bob")
     let! shrek = transform1 (Game.add "Ogre")
@@ -444,16 +452,28 @@ withState Game.fresh (state {
 
     for (character, property, value) in stats do
         do! transform (supply api (character, property) value)
-
+    let start eventName args =
+        Assign(LocalRef ("_" + eventName), StartEvent(eventName, args))
+    let assign localName v = Assign(LocalRef localName, v)
     do! transform (Game.define "attack" [
-        If(BinaryOp(Dereference(IndirectDataRef("self", "sp")), Const(Number(2)), AtLeast),
-            Sequence [
-                Assign(IndirectDataRef("self", "sp"),
-                            BinaryOp(Dereference(IndirectDataRef("self", "sp")), Const(Number(2)), Minus))
-                Return (Const (Number 5))
-            ],
-            Some(Return (Const (Number 0))))
+        assign "targetAC" (deref.prop "target" "AC")
+        assign "THAC0" (deref.prop "actor" "THAC0")
+        assign "targetRollNumber" (BinaryOp(deref.local "THAC0", deref.local "targetAC", Minus))
+        start "roll" ["spec", Roll(1,20,None) |> Spec]
+        If(BinaryOp(deref.event "_roll", deref.local"targetRollNumber", AtLeast),            
+            start "hit" [],
+            Some(start "miss" [])
+            )
     ])
+    do! transform (Game.define "miss" [
+    ])
+    do! transform (Game.define "roll" [
+        
+    ])
+    do! transform (Game.define "hit" [
+        
+    ])
+    
 
     let! eventId =
         transform1 (
