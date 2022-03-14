@@ -1,6 +1,6 @@
 module Rewrite
 
-#I "."
+#I __SOURCE_DIRECTORY__
 #I ".."
 #load "Optics.fs"
 #load "Common.fs"
@@ -394,7 +394,14 @@ type Game = {
             | Some (EventResult v) -> Ok v
             | None -> shouldntHappen()
 
-let compile = id
+let compile = id // no optimizations for now
+
+withState 0 (state {
+    do! transform ((+)1)
+    do! transform ((+)1)
+    let! v = get()
+    return v
+})
 
 withState Game.fresh (state {
     let! bob = transform1 (Game.add "Bob")
@@ -417,6 +424,45 @@ withState Game.fresh (state {
             ] [] |> compile)
     let api = {| supply = Game.supply; dereference = Game.dereference; defer = Game.defer;
                  resume = Game.resume; supply = Game.supply; start = Game.startByName |}
+    do! transform (supply api (bob, "AC") (Number 18) >> supply api (bob, "sp") (Number 5))
+    let! (g: Game) = get()
+    return (g.events.[eventId])
+})
+
+withState Game.fresh (state {
+    let! bob = transform1 (Game.add "Bob")
+    let! shrek = transform1 (Game.add "Ogre")
+    let stats = [
+        bob, "AC", Number 5
+        shrek, "AC", Number 6
+        bob, "THAC0", Number 16
+        shrek, "AC", Number 15
+        ]
+
+    let api = {| supply = Game.supply; dereference = Game.dereference; defer = Game.defer;
+                 resume = Game.resume; supply = Game.supply; start = Game.startByName |}
+
+    for (character, property, value) in stats do
+        do! transform (supply api (character, property) value)
+
+    do! transform (Game.define "attack" [
+        If(BinaryOp(Dereference(IndirectDataRef("self", "sp")), Const(Number(2)), AtLeast),
+            Sequence [
+                Assign(IndirectDataRef("self", "sp"),
+                            BinaryOp(Dereference(IndirectDataRef("self", "sp")), Const(Number(2)), Minus))
+                Return (Const (Number 5))
+            ],
+            Some(Return (Const (Number 0))))
+    ])
+
+    let! eventId =
+        transform1 (
+          Game.start
+            [
+                Assign(LocalRef "__event_1", StartEvent("getShieldBonus", ["self", Const (Id bob)]))
+                Assign(LocalRef "ac", BinaryOp(Dereference(DataRef(bob, "AC")), Dereference(IndirectEventRef("__event_1")), Plus))
+                Return (Dereference (LocalRef "ac"))
+            ] [] |> compile)
     do! transform (supply api (bob, "AC") (Number 18) >> supply api (bob, "sp") (Number 5))
     let! (g: Game) = get()
     return (g.events.[eventId])

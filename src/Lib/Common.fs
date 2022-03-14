@@ -117,17 +117,36 @@ type Ops with
 // Hit tip to https://gist.github.com/jwosty/5338fce8a6691bbd9f6f
 [<AutoOpen>]
 module StateMonad =
+    type StateChange<'state, 'retval> = ('state -> 'retval * 'state)
+    module private State =
+        let inline run internalState f =
+            f internalState
+        let get = (fun s -> s, s)
+        let set v = (fun _ -> (), v)
+        let map f s =
+            (fun s0 ->
+                let retval, state = run s0 s
+                f retval, state
+                )
     type StateBuilder() =
-        member this.Zero () = fun state -> (), state
-        member this.Return x state = x, state
+        member this.Zero () = (fun state -> (), state)
+        member this.Return x = (fun state -> x, state)
         member this.Bind (m, f) =
-            fun state ->
+            (fun state ->
                 let x, state = m state
-                f x state
-        member this.Combine m1 m2 =
-            fun state ->
-                let _, state = m1 state
-                m2 state
+                f x state)
+        member this.Combine(m1: StateChange<'s, 'a>, m2: StateChange<'s, 'b>) =
+            (fun state ->
+                let _, state = State.run state m1
+                State.run state m2)
+        member this.For (seq, f: 'a -> StateChange<'s, 'b>) =
+            seq
+            |> Seq.map f
+            |> Seq.reduce (fun x1 x2 -> this.Combine(x1, x2))
+        member this.Delay f : StateChange<'a, 's> = f()
+        member this.While (condition, body) =
+            if condition() then this.Combine(body, this.While(condition, body))
+            else this.Zero()
     let get() state = state, state
     let transform f state =
         let state = f state
