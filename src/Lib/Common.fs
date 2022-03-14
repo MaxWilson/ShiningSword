@@ -115,9 +115,20 @@ type Ops with
     static member addTo (data:_ Queue.d) = fun item -> Ops.add(item, data)
     
 // Hit tip to https://gist.github.com/jwosty/5338fce8a6691bbd9f6f
+// and to https://github.com/fsprojects/FSharpx.Extras/blob/da43a30aa1b2a08c86444777a5edb03027cf5c1c/src/FSharpx.Extras/ComputationExpressions/State.fs
+// although I had to fix some bugs with the while loop support.
 [<AutoOpen>]
 module StateMonad =
     type StateChange<'state, 'retval> = ('state -> 'retval * 'state)
+    open System
+    type State<'T, 'State> = 'State -> 'T * 'State
+    
+    let getState = fun s -> (s,s)
+    let putState s = fun _ -> ((),s)
+    let eval m s = m s |> fst
+    let exec m s = m s |> snd
+    let empty = fun s -> ((), s)
+    let bind k m = fun s -> let (a, s') = m s in (k a) s'
     module private State =
         let inline run internalState f =
             f internalState
@@ -129,24 +140,26 @@ module StateMonad =
                 f retval, state
                 )
     type StateBuilder() =
-        member this.Zero () = (fun state -> (), state)
-        member this.Return x = (fun state -> x, state)
-        member this.Bind (m, f) =
-            (fun state ->
-                let x, state = m state
-                f x state)
-        member this.Combine(m1: StateChange<'s, 'a>, m2: StateChange<'s, 'b>) =
-            (fun state ->
-                let _, state = State.run state m1
-                State.run state m2)
-        member this.For (seq, f: 'a -> StateChange<'s, 'b>) =
+        let bind k m = fun s -> let (a, s') = m s in (k a) s'
+        member this.Return x : StateChange<'s, 'a> = (fun state -> x, state)
+        member this.Zero () = this.Return ()
+        member this.ReturnFrom stateful = stateful
+        member this.Bind (m, f) = bind f m
+        member this.Combine(m1, m2) =
+            bind (fun () -> m2) m1
+        member this.For (seq, f: 'a -> StateChange<'s, unit>) =
             seq
             |> Seq.map f
             |> Seq.reduce (fun x1 x2 -> this.Combine(x1, x2))
-        member this.Delay f : StateChange<'a, 's> = f()
-        member this.While (condition, body) =
-            if condition() then this.Combine(body, this.While(condition, body))
-            else this.Zero()
+        // this form of Delay means "evaluate at runtime, not monad-construction time"
+        member this.Delay f = bind f (this.Return ())
+        member this.While (condition, body: StateChange<'s, unit>) : StateChange<_, _> =
+            fun state ->
+                let rec loop state =
+                    if condition() then
+                        State.run state body |> fun ((), state) -> loop state
+                    else (), state
+                loop state
     let get() state = state, state
     let transform f state =
         let state = f state
@@ -169,3 +182,4 @@ let withState initialState monad =
 let toState initialState monad =
     let _, finalState = monad initialState
     finalState
+

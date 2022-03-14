@@ -24,13 +24,25 @@ type VariableReference =
     | IndirectEventRef of eventIdLocalRef: Name
 
 type Roll =
+    | StaticBonus of n:int
     | Roll of n:int * d:int * rest: Roll option
+    with
+    static member create(n,d) = Roll(n,d,None)
+    static member create(n,d,plus) = Roll(n,d,Some(StaticBonus plus))
+    member this.eval() =
+        match this with
+        | StaticBonus n -> n
+        | Roll(n,d,rest) ->
+            let v = [for _ in 1..n -> rand d] |> List.sum
+            match rest with
+            | None -> v
+            | Some r -> v + r.eval()
 type Expression =
     | Const of RuntimeValue
-    | Spec of Roll
+    | Random of Roll
     | BinaryOp of Expression * Expression * BinaryOperator
     | Dereference of VariableReference
-    | StartEvent of eventName: Name * args: (Name * Expression) list
+    | Native of f: (Expression -> Expression) * arg: Expression
 
 and BinaryOperator =
     | Plus
@@ -46,6 +58,7 @@ type Statement =
     | Assign of VariableReference * Expression
     | Sequence of Statement list
     | If of test: Expression * andThen: Statement * orElse: Statement option
+    | Launch of VariableReference * eventName: Name * args: (Name * Expression) list
 type CurrentExpressionValue = Result<RuntimeValue, VariableReference list>
 
 type ExecutionContext =
@@ -97,16 +110,16 @@ let evaluate
                         | Boolean lhs, Boolean rhs, Equals -> lhs = rhs |> Boolean
                         | Number lhs, Number rhs, AtLeast -> lhs >= rhs |> Boolean
                         | Number lhs, Number rhs, AtMost -> lhs <= rhs |> Boolean
-                        | _ -> Undefined
+                        | result -> shouldntHappen()
                     binary(lhs, rhs, op) |> Ok
                 | Error _ as lhs, Ok _ -> lhs
                 | Ok _, (Error _ as rhs) -> rhs
                 | Error lhs, Error rhs -> Error (lhs @ rhs)
             | Dereference ref ->
                 api.dereference ctx ref state
-            | Spec _ | StartEvent _ ->
-                // By evaluation time, Roll and StartEvent should have already been rewritten to Dereference expressions
-                Ok Undefined 
+            | Random r -> Ok(Number (r.eval()))
+            | Native(f, arg) ->
+                eval (f arg)
         eval expr
 
 let execute
@@ -129,7 +142,7 @@ let execute
                     match eval ctx state expr with
                     | Ok v -> state, [], Ok v, ctx
                     | awaiting -> state, [current], awaiting, ctx
-                | Assign(ref, StartEvent(eventName, args)) ->
+                | Launch(ref, eventName, args) ->
                     let args = args |> List.map (fun (name, expr) -> name, (eval ctx state expr))
                     let awaiting = args |> List.collect (function (_, Error awaiting) -> awaiting | _ -> [])
                     match awaiting with
@@ -156,7 +169,7 @@ let execute
                         match orElse with
                         | Some expr -> loop state ctx (expr :: rest)
                         | _ -> loop state ctx rest
-                    | Ok _ -> shouldntHappen() // may need some "compile-time" checking to prevent this
+                    | Ok result -> shouldntHappen() // may need some "compile-time" checking to prevent this
                     | awaiting -> state, stack, awaiting, ctx
             | [] ->
                 state, [], Ok Undefined, ctx // returning a value from an event is optional, could just be assignments
@@ -398,13 +411,6 @@ type Game = {
 
 let compile = id // no optimizations for now
 
-withState 0 (state {
-    do! transform ((+)1)
-    do! transform ((+)1)
-    let! v = get()
-    return v
-})
-
 withState Game.fresh (state {
     let! bob = transform1 (Game.add "Bob")
     do! transform (Game.define "getShieldBonus" [
@@ -420,7 +426,7 @@ withState Game.fresh (state {
         transform1 (
           Game.start
             [
-                Assign(LocalRef "__event_1", StartEvent("getShieldBonus", ["self", Const (Id bob)]))
+                Launch(LocalRef "__event_1", "getShieldBonus", ["self", Const (Id bob)])
                 Assign(LocalRef "ac", BinaryOp(Dereference(DataRef(bob, "AC")), Dereference(IndirectEventRef("__event_1")), Plus))
                 Return (Dereference (LocalRef "ac"))
             ] [] |> compile)
@@ -432,7 +438,7 @@ withState Game.fresh (state {
 })
 
 type deref =
-    static member prop (paramName: string) property = IndirectDataRef(Name(paramName), property) |> Dereference
+    static member prop (paramName: string) property = IndirectDataRef(paramName, property) |> Dereference
     static member local localName = LocalRef localName |> Dereference
     static member event localName = IndirectEventRef localName |> Dereference
 open type deref
@@ -445,6 +451,8 @@ withState Game.fresh (state {
         shrek, "AC", Number 6
         bob, "THAC0", Number 16
         shrek, "AC", Number 15
+        bob, "HP", Number (Roll.create(6,10,12).eval())
+        shrek, "HP", Number (Roll.create(4,8).eval())
         ]
 
     let api = {| supply = Game.supply; dereference = Game.dereference; defer = Game.defer;
@@ -453,37 +461,44 @@ withState Game.fresh (state {
     for (character, property, value) in stats do
         do! transform (supply api (character, property) value)
     let start eventName args =
-        Assign(LocalRef ("_" + eventName), StartEvent(eventName, args))
+        Launch(LocalRef ("_" + eventName), eventName, args)
     let assign localName v = Assign(LocalRef localName, v)
     do! transform (Game.define "attack" [
         assign "targetAC" (deref.prop "target" "AC")
         assign "THAC0" (deref.prop "actor" "THAC0")
         assign "targetRollNumber" (BinaryOp(deref.local "THAC0", deref.local "targetAC", Minus))
-        start "roll" ["spec", Roll(1,20,None) |> Spec]
+        start "roll" ["value", Roll.create(1,20) |> Random]
         If(BinaryOp(deref.event "_roll", deref.local"targetRollNumber", AtLeast),            
             start "hit" [],
             Some(start "miss" [])
             )
     ])
-    do! transform (Game.define "miss" [
-    ])
     do! transform (Game.define "roll" [
-        
+        Return (deref.local "value") // This is probably the wrong way to do it: the value was already evaluated at call-time, but we want it to be able to be generated by the user
+    ])
+    do! transform (Game.define "miss" [
+        // nothing happens on a miss unless there are special circumstances
     ])
     do! transform (Game.define "hit" [
-        
+        start "roll" ["value", Roll.create(2,6) |> Random]
+        start "takeDamage" ["self", deref.local "target"; "amount", deref.event "_roll"]
     ])
-    
+    do! transform (Game.define "takeDamage" [
+        let hp = IndirectDataRef("self", "HP")
+        Assign(hp, BinaryOp(Dereference hp, deref.local "amount", Minus))
+    ])
 
-    let! eventId =
-        transform1 (
-          Game.start
-            [
-                Assign(LocalRef "__event_1", StartEvent("getShieldBonus", ["self", Const (Id bob)]))
-                Assign(LocalRef "ac", BinaryOp(Dereference(DataRef(bob, "AC")), Dereference(IndirectEventRef("__event_1")), Plus))
-                Return (Dereference (LocalRef "ac"))
-            ] [] |> compile)
-    do! transform (supply api (bob, "AC") (Number 18) >> supply api (bob, "sp") (Number 5))
-    let! (g: Game) = get()
-    return (g.events.[eventId])
+    let mutable ongoing = true
+    let unsafeEval id prop =
+        transform1 (fun (state:Game) -> state.data[id].properties[prop], state)
+    while ongoing do
+        let id = Const << Id
+        do! transform (Game.start [start "attack" ["actor", id bob; "target", id shrek]] [] >> snd)
+        do! transform (Game.start [start "attack" ["actor", id shrek; "target", id bob]] [] >> snd)
+        let! bobHP = unsafeEval bob "HP"
+        let! shrekHP = unsafeEval shrek "HP"
+        (printfn "BobHP: %A\nShrekHP: %A" bobHP shrekHP) |> ignore
+        let isPositive = function (Number n) when n > 0 -> true | _ -> false
+        ongoing <- (isPositive bobHP) && (isPositive shrekHP)
+    return! (fun state -> state.events |> Seq.map (function KeyValue(id, EventResult r) -> id, r) |> Array.ofSeq, ())
 })
