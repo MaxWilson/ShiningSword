@@ -450,7 +450,7 @@ withState Game.fresh (state {
         bob, "AC", Number 5
         shrek, "AC", Number 6
         bob, "THAC0", Number 16
-        shrek, "AC", Number 15
+        shrek, "THAC0", Number 15
         bob, "HP", Number (Roll.create(6,10,12).eval())
         shrek, "HP", Number (Roll.create(4,8).eval())
         ]
@@ -500,5 +500,5 @@ withState Game.fresh (state {
         (printfn "BobHP: %A\nShrekHP: %A" bobHP shrekHP) |> ignore
         let isPositive = function (Number n) when n > 0 -> true | _ -> false
         ongoing <- (isPositive bobHP) && (isPositive shrekHP)
-    return! (fun state -> state.events |> Seq.map (function KeyValue(id, EventResult r) -> id, r) |> Array.ofSeq, ())
+    return! (fun state -> state.events |> Seq.map (function KeyValue(id, EventResult r) -> (id, r) | KeyValue(id, EventState s) -> state.waitingEvents.Keys |> List.ofSeq |> List.filter (fun key -> state.waitingEvents.[key].Contains id) |> sprintf "Awaiting %A" |> fun v -> (id, String v)) |> Array.ofSeq, ())
 })
