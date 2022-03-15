@@ -469,8 +469,8 @@ withState Game.fresh (state {
         assign "targetRollNumber" (BinaryOp(deref.local "THAC0", deref.local "targetAC", Minus))
         start "roll" ["value", Roll.create(1,20) |> Random]
         If(BinaryOp(deref.event "_roll", deref.local"targetRollNumber", AtLeast),            
-            start "hit" [],
-            Some(start "miss" [])
+            start "hit" ["target", deref.local "target"; "actor", deref.local "actor"],
+            Some(start "miss" ["target", deref.local "target"; "actor", deref.local "actor"])
             )
     ])
     do! transform (Game.define "roll" [
