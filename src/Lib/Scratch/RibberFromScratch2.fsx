@@ -7,7 +7,17 @@ module Rewrite
 open Optics
 open type Optics.Operations
 (*
-Concepts: Expression eval
+Lessons learned from this POC:
+Rolling needs a better interface. Maybe should be directly integrated a la data awaiting/supply. Is a roll a runtime value or not?
+Log output can be clarified.
+Argument propagation between events: need to store some kind of event chain, what are the parents of a given event, etc.
+Passing around an API in lieu of Game class seems to be overkill, since they're intimately tied anyway.
+   Instead, maybe just start with defining game, and then defining dereference, and going from there while using let rec
+   as necessary.
+The basic framework of using withState, explicitly triggering attacks, etc., seems to work well enough as a POC. Are we
+   ready to transform this into an actual code module for running adventures? I'm not so sure about that but maybe we're
+   close enough to try writing a defineCombat() function that uses it internally, and then a game loop that runs it.
+   And of course there'd be no withState call--instead there'd be a game loop.
 
 *)
 
@@ -450,7 +460,7 @@ withState Game.fresh (state {
         bob, "AC", Number 5
         shrek, "AC", Number 6
         bob, "THAC0", Number 16
-        shrek, "AC", Number 15
+        shrek, "THAC0", Number 15
         bob, "HP", Number (Roll.create(6,10,12).eval())
         shrek, "HP", Number (Roll.create(4,8).eval())
         ]
@@ -500,5 +510,5 @@ withState Game.fresh (state {
         (printfn "BobHP: %A\nShrekHP: %A" bobHP shrekHP) |> ignore
         let isPositive = function (Number n) when n > 0 -> true | _ -> false
         ongoing <- (isPositive bobHP) && (isPositive shrekHP)
-    return! (fun state -> state.events |> Seq.map (function KeyValue(id, EventResult r) -> id, r) |> Array.ofSeq, ())
+    return! (fun state -> state.events |> Seq.map (function KeyValue(id, EventResult r) -> (id, r) | KeyValue(id, EventState s) -> state.waitingEvents.Keys |> List.ofSeq |> List.filter (fun key -> state.waitingEvents.[key].Contains id) |> sprintf "Awaiting %A" |> fun v -> (id, String v)) |> Array.ofSeq, ())
 })
