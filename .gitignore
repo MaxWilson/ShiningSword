@@ -1,5 +1,5 @@
 public/bundle.js*
-publish.cmd
+
 # Node
 node_modules/
 
@@ -15,7 +15,8 @@ node_modules/
 *.userprefs
 *.dll.mdb
 *.exe.mdb
-
+tests-js
+deploy
 # Build results
 
 [Dd]ebug/
@@ -51,7 +52,6 @@ x64/
 *.pidb
 *.log
 *.scc
-*.dll
 
 # Visual C++ cache files
 ipch/
@@ -195,4 +195,12 @@ docs/tools/FSharp.Formatting.svclog
 .ionide.debug
 *.bak
 project.lock.json
-deploy
+deploy/
+obj
+bin
+out
+.fable
+.vs
+.ionide
+*.fs.js
+*.fs.js.map

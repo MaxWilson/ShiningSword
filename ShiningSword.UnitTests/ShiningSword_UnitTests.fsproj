@@ -13,7 +13,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\src\Lib\Lib.fsproj" />
-    <ProjectReference Include="..\src\App\ShiningSwordOriginal.fsproj" />
+    <ProjectReference Include="..\src\ShiningSwordOriginal\ShiningSwordOriginal.fsproj" />
   </ItemGroup>
   <Import Project="..\.paket\Paket.Restore.targets" />
 </Project>

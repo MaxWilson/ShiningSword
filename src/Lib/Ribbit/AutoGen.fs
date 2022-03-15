@@ -691,3 +691,4 @@ module DraftSheet =
         Optics.lens
             (fun (data: DraftSheet) -> data.classAbilities)
             (fun (value: Setting<ClassAbility> list) (data: DraftSheet) -> { data with classAbilities = value })
+
