@@ -9,7 +9,7 @@
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\src\App\ShiningSword.fsproj" />
+    <ProjectReference Include="..\src\App\ShiningSwordOriginal.fsproj" />
   </ItemGroup>
   <Import Project="..\.paket\Paket.Restore.targets" />
 </Project>
