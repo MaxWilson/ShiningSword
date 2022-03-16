@@ -34,8 +34,8 @@ module App =
                 ]
 
             stage [
-                "width" ==> window.innerWidth - 100.
-                "height" ==> window.innerHeight - 50.
+                "width" ==> window.innerWidth - 120.
+                "height" ==> window.innerHeight - 100.
                 "children" ==>
                     layer [
                         "children" ==> [
@@ -45,6 +45,17 @@ module App =
                                 Circle.fill Green
                                 Circle.x 100
                                 Circle.y 100
+                                ]
+                            rect [
+                                Shape.key 3
+                                Rect.x 0
+                                Rect.y 0
+                                Rect.height (window.innerHeight - 100.)
+                                Rect.width (window.innerWidth - 120.)
+
+                                !!("strokeWidth" ==> 1)
+                                !!("stroke" ==> "black")
+
                                 ]
                         ]
                     ]
