@@ -78,6 +78,9 @@ type LineJoin = Miter | Round | Bevel
 type Rect =
     inherit Shape
     static member inline lineJoin (lineJoin:LineJoin) = mkRectAttr "lineJoin" lineJoin
+    static member inline strokeWidth (pixels:int) = mkRectAttr "strokeWidth" pixels
+    static member inline stroke (color:Color) = mkRectAttr "stroke" color
+
 
 type Stage =
     inherit Shape
@@ -91,4 +94,5 @@ type Layer =
 type Text =
     inherit Shape
     static member inline text (text: string) = mkTextAttr "text" text
+    static member inline fontSize (fontSize: int) = mkTextAttr "fontSize" fontSize
 

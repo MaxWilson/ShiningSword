@@ -149,20 +149,22 @@ module View =
             Html.text "Create a character!"
             stage [
                 Stage.height 300
-                Stage.width 400
+                Stage.width 500
                 Stage.children [
                     Layer.create [
                         rect [
                             Rect.height 300
-                            Rect.width 400
+                            Rect.width 500
+                            Rect.stroke Black
+                            Rect.strokeWidth 3
                             ]
                         match model.export with
                         | Some char ->
-                            text [Text.x 10; Text.y 150; Text.text $"Str {char.Str} / Dex { char.Dex } / Con { char.Con } / Int { char.Int} / Wis { char.Wis} / Cha { char.Cha } "]
+                            text [Text.x 10; Text.y 150; Text.fontSize 18; Text.text $"Str {char.Str} / Dex { char.Dex } / Con { char.Con } / Int { char.Int} / Wis { char.Wis} / Cha { char.Cha } "]
                         | None ->
                             match model.draft with
                             |Some draft ->
-                                text [Text.x 10; Text.y 150; Text.text $"[draft] rolls{draft.originalRolls}"]
+                                text [Text.x 10; Text.y 150; Text.fontSize 18; Text.text $"[draft] rolls{draft.originalRolls}"]
                             | None -> ()
                         ]
                     ]
@@ -171,10 +173,13 @@ module View =
                 prop.text "Reroll"
                 prop.onClick (fun _ -> dispatch Reroll)
                 ]
-            Html.form [
+            Html.div [
                 for ix, method in ChargenMethod.All |> List.mapi (fun i x -> i, x) do
-                    Html.input [prop.type'.radio; prop.ariaChecked (model.method = method); prop.isChecked (model.method = method); prop.id method.info.name'; prop.onClick (fun _ -> method |> SetMethod |> dispatch)]
-                    Html.label [prop.for' method.info.name'; prop.text method.info.name']
-                    ]
+                    Html.div [
+                        Html.input [prop.type'.radio; prop.ariaChecked (model.method = method); prop.isChecked (model.method = method); prop.id method.info.name'; prop.onClick (fun _ -> method |> SetMethod |> dispatch)]
+                        Html.label [prop.for' method.info.name'; prop.text method.info.name']
+                        ]
+                ]
             ]
+
 
