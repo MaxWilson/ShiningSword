@@ -1,38 +1,52 @@
-namespace UI.Components
+module Konva
 
 open Feliz
 open Feliz.Router
 open Fable.Core
 open Fable.Core.JsInterop
-module Konva =
 
-    [<Erase>]
-    type ICircleProperty =
-        interface end
-    [<Erase>]
-    type IRectProperty =
-        interface end
-    [<Erase>]
-    type IShapeProperty =
-        interface
-            inherit ICircleProperty
-            inherit IRectProperty
-            end
+[<Erase>]
+type IStageProperty =
+    interface end
+[<Erase>]
+type ILayerProperty =
+    interface end
+[<Erase>]
+type ICircleProperty =
+    interface end
+[<Erase>]
+type IRectProperty =
+    interface end
+[<Erase>]
+type ITextProperty =
+    interface end
+[<Erase>]
+type IShapeProperty =
+    interface
+        inherit IStageProperty
+        inherit ILayerProperty
+        inherit ICircleProperty
+        inherit IRectProperty
+        inherit ITextProperty
+        end
 
+[<AutoOpen>]
+module private Interop =
+    let inline mkShapeAttr (key: string) (value: obj) : IShapeProperty = unbox (key, value)
+    let inline mkStageAttr (key: string) (value: obj) : IStageProperty = unbox (key, value)
+    let inline mkLayerAttr (key: string) (value: obj) : ILayerProperty = unbox (key, value)
+    let inline mkCircleAttr (key: string) (value: obj) : ICircleProperty = unbox (key, value)
+    let inline mkRectAttr (key: string) (value: obj) : IRectProperty = unbox (key, value)
+    let inline mkTextAttr (key: string) (value: obj) : ITextProperty = unbox (key, value)
 
-    module Interop =
-        let inline mkShapeAttr (key: string) (value: obj) : IShapeProperty = unbox (key, value)
-        let inline mkCircleAttr (key: string) (value: obj) : ICircleProperty = unbox (key, value)
-        let inline mkRectAttr (key: string) (value: obj) : IRectProperty = unbox (key, value)
-    let stage props = Interop.reactApi.createElement(import "Stage" "react-konva", createObj !!props)
-    let layer props = Interop.reactApi.createElement(import "Layer" "react-konva", createObj !!props)
-    let circle (props: ICircleProperty list) = Interop.reactApi.createElement(import "Circle" "react-konva", createObj !!props)
-    let rect (props: IRectProperty list) = Interop.reactApi.createElement(import "Rect" "react-konva", createObj !!props)
-    let text props = Interop.reactApi.createElement(import "Text" "react-konva", createObj !!props)
+let stage (props: IStageProperty list) = Interop.reactApi.createElement(import "Stage" "react-konva", createObj !!props)
+let layer (props: ILayerProperty list) = Interop.reactApi.createElement(import "Layer" "react-konva", createObj !!props)
+let circle (props: ICircleProperty list) = Interop.reactApi.createElement(import "Circle" "react-konva", createObj !!props)
+let rect (props: IRectProperty list) = Interop.reactApi.createElement(import "Rect" "react-konva", createObj !!props)
+let text (props: ITextProperty list) = Interop.reactApi.createElement(import "Text" "react-konva", createObj !!props)
 
 [<Erase>]
 type Color = Red | Green | Blue | Yellow | Grey | Orange | LightGrey | DarkGrey | Black
-open Konva.Interop
 
 type Shape =
     static member inline key (key:_) = mkShapeAttr "key" key
@@ -65,4 +79,16 @@ type Rect =
     inherit Shape
     static member inline lineJoin (lineJoin:LineJoin) = mkRectAttr "lineJoin" lineJoin
 
-open Konva
+type Stage =
+    inherit Shape
+    static member inline children (children: #ReactElement list) = mkStageAttr "children" children
+
+type Layer =
+    inherit Shape
+    static member inline children (children: #ReactElement list) = mkLayerAttr "children" children
+    static member inline create children = layer [Layer.children children]
+
+type Text =
+    inherit Shape
+    static member inline text (text: string) = mkTextAttr "text" text
+

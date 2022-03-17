@@ -5,7 +5,6 @@ open Fable.Core.JsInterop
 open Elmish
 open Elmish.React
 open Feliz
-open UI.Components
 open Konva
 
 // make sure errors are not silent: show them as Alerts (ugly but better than nothing for now)
@@ -13,16 +12,33 @@ open Fable.Core.JsInterop
 importSideEffects "../sass/main.sass"
 
 module App =
-    type Model = { size: int; error: string option }
+    type Page =
+        | Chargen of Chargen.View.Model
+    type Model = { stack: Page list; error: string option; hero: Chargen.Domain.CharacterSheet option }
     type Msg =
         | Error of msg: string
         | Transform of (Model -> Model)
-    let update msg model =
-        match msg with
-        | Error msg -> { model with error = Some msg }
-        | Transform f -> { f model with error = None }
+        | Chargen of Chargen.View.Msg
+        | Pop
     let init _ =
-        { size = 1; error = None }
+        let model, msg = Chargen.View.init()
+        { stack = [Page.Chargen model]; error = None; hero = None }, msg |> Cmd.map Chargen
+    let update msg model =
+        match msg, model.stack with
+        | Error msg, _ -> { model with error = Some msg }, Cmd.Empty
+        | Transform f, _ -> { f model with error = None }, Cmd.Empty
+        | Chargen msg, (Page.Chargen chargenModel)::rest ->
+            let finishWith = function
+            | Some (character: Chargen.Domain.CharacterSheet) ->
+                Cmd.ofSub(fun dispatch ->
+                    Transform (fun s -> { s with hero = Some character }) |> dispatch
+                    Pop |> dispatch
+                    )
+            | None -> Cmd.ofMsg Pop
+            let chargenModel, cmd = Chargen.View.update finishWith msg chargenModel
+            { model with stack = (Page.Chargen chargenModel)::rest }, cmd
+        | Pop, _ -> { model with stack = match model.stack with _::rest -> rest | _ -> model.stack }, Cmd.Empty
+        | _ -> model, (Error $"Message '{msg}' not compatible with current page" |> Cmd.ofMsg)
     let view (model: Model) dispatch =
         let window = Browser.Dom.window;
         Html.div [
@@ -32,38 +48,14 @@ module App =
                     ]
                 prop.style [style.marginBottom 10]
                 ]
-
-            stage [
-                "width" ==> window.innerWidth - 120.
-                "height" ==> window.innerHeight - 100.
-                "children" ==>
-                    layer [
-                        "children" ==> [
-                            circle [
-                                Shape.key 2
-                                Circle.radius 100.
-                                Circle.fill Green
-                                Circle.x 100
-                                Circle.y 100
-                                ]
-                            rect [
-                                Shape.key 3
-                                Rect.x 0
-                                Rect.y 0
-                                Rect.height (window.innerHeight - 100.)
-                                Rect.width (window.innerWidth - 120.)
-
-                                !!("strokeWidth" ==> 1)
-                                !!("stroke" ==> "black")
-
-                                ]
-                        ]
-                    ]
-                ]
+            match model.stack with
+            | (Page.Chargen model)::_ ->
+                Chargen.View.view model (Chargen >> dispatch)
+            | _ -> ()
             ]
 
 open App
-Program.mkSimple init update view
+Program.mkProgram init update view
 |> Program.withSubscription(fun m -> Cmd.ofSub(fun dispatch ->
     Browser.Dom.window.onerror <-
     fun msg ->
