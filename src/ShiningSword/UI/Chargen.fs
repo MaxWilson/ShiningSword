@@ -98,18 +98,23 @@ module View =
     open Interaction
     open Elmish
 
-    type ChargenMethod = Method of name: string * ((Rolls -> Draft) -> Draft)
+    type ChargenMethod =
+        | Roll4d6k3
+        | DarkSunMethodI
+        | DarkSun6d4
         with
-        member this.Equals(Method(rhs, _)) =
-            let (Method(lhs, _)) = this
-            lhs = rhs
-    let methods =
-        [
-            "4d6 drop lowest", roll4d6k3
-            "Dark Sun Method I", darkSunMethodI
-            "Dark Sun 6d4 drop lowest", darkSun6d4
-            ]
-        |> List.map Method
+        static member All = [Roll4d6k3;DarkSunMethodI;DarkSun6d4]
+        member this.info =
+            match this with
+                | Roll4d6k3 -> "4d6 drop lowest", roll4d6k3
+                | DarkSunMethodI -> "Dark Sun Method I", darkSunMethodI
+                | DarkSun6d4 -> "Dark Sun 6d4 drop lowest", darkSun6d4
+            |> MethodInfo
+    and MethodInfo = MethodInfo of name: string * ((Rolls -> Draft) -> Draft)
+        with
+        member this.f = match this with (MethodInfo(name, f)) -> f
+        member this.name' = match this with (MethodInfo(name, f)) -> name
+
     type Model = {
         draft: Draft option
         export: Domain.CharacterSheet option
@@ -124,7 +129,7 @@ module View =
         {
             draft = None
             export = None
-            method = methods.Head
+            method = Roll4d6k3
             },
             Cmd.ofMsg Reroll
     let update finish msg model =
@@ -132,10 +137,8 @@ module View =
         | Cancel -> model, (finish None)
         | Done char -> model, (Some char |> finish)
         | Reroll ->
-            match model.method with
-            | Method(text, f) ->
-                let m = create f
-                { model with draft = Some m; export = ofDraft m }, Cmd.Empty
+            let char = create model.method.info.f
+            { model with draft = Some char; export = ofDraft char }, Cmd.Empty
         | SetMethod m ->
             { model with method = m }, Cmd.Empty
 
@@ -169,9 +172,9 @@ module View =
                 prop.onClick (fun _ -> dispatch Reroll)
                 ]
             Html.form [
-                for Method(txt, _) as method in methods do
-                    Html.input [prop.type'.radio; prop.ariaChecked (model.method.Equals method); prop.isChecked (model.method.Equals method); prop.id txt; prop.onClick (fun _ -> method |> SetMethod |> dispatch)]
-                    Html.label [prop.for' txt; prop.text txt]
+                for ix, method in ChargenMethod.All |> List.mapi (fun i x -> i, x) do
+                    Html.input [prop.type'.radio; prop.ariaChecked (model.method = method); prop.isChecked (model.method = method); prop.id method.info.name'; prop.onClick (fun _ -> method |> SetMethod |> dispatch)]
+                    Html.label [prop.for' method.info.name'; prop.text method.info.name']
                     ]
             ]
 
