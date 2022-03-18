@@ -67,6 +67,11 @@ module Interaction =
             Cha = r 5
             unallocated = []
             }
+    let roll3d6InOrder assign =
+        assign [for _ in 1..6 do
+                    List.init 3 (fun _ -> d 6) |> List.sum
+                    ]
+        |> inOrder
     let roll4d6k3 assign =
         assign [for _ in 1..6 do
                     List.init 4 (fun _ -> d 6) |> List.sortDescending |> List.take 3 |> List.sum
@@ -99,13 +104,15 @@ module View =
     open Elmish
 
     type ChargenMethod =
+        | Roll3d6InOrder
         | Roll4d6k3
         | DarkSunMethodI
         | DarkSun6d4
         with
-        static member All = [Roll4d6k3;DarkSunMethodI;DarkSun6d4]
+        static member All = [Roll3d6InOrder;Roll4d6k3;DarkSunMethodI;DarkSun6d4]
         member this.info =
             match this with
+                | Roll3d6InOrder -> "3d6 in order", roll3d6InOrder
                 | Roll4d6k3 -> "4d6 drop lowest", roll4d6k3
                 | DarkSunMethodI -> "Dark Sun Method I", darkSunMethodI
                 | DarkSun6d4 -> "Dark Sun 6d4 drop lowest", darkSun6d4
@@ -129,7 +136,7 @@ module View =
         {
             draft = None
             export = None
-            method = Roll4d6k3
+            method = ChargenMethod.All.Head
             },
             Cmd.ofMsg Reroll
     let update finish msg model =
@@ -176,24 +183,34 @@ module View =
                             Rect.strokeWidth 3
                             ]
                         let mutable y = 10
-                        let t txt =
-                            let t = text [Text.x 10; Text.y y; Text.fontSize 18; Text.text txt]
-                            y <- y + 20
-                            t
-                        let describe statValue =
-                            $"{statValue}      Greater than {(getPercentile statValue)*100. |> int}%% of normal humans"
+                        let t messages =
+                            [
+                                for x, txt in messages do
+                                    text [Text.x (x+10); Text.y y; Text.fontSize 18; Text.text txt]
+                                y <- y + 20
+                                ]
+                            |> React.fragment
+                        let describe stat statValue =
+                            let term = match stat with
+                                | "Str" -> "Stronger"
+                                | "Dex" -> "Faster"
+                                | "Con" -> "Tougher"
+                                | "Int" -> "Smarter"
+                                | "Wis" -> "Wiser"
+                                | _ -> "More charismatic"
+                            t [0, $"{stat} {statValue}"; 100, $"{term} than %0.1f{(getPercentile statValue)*100.}%% of humanity"]
                         match model.export with
                         | Some char ->
-                            t $"Str { describe char.Str }"
-                            t $"Dex { describe char.Dex }"
-                            t $"Con { describe char.Con }"
-                            t $"Int { describe char.Int }"
-                            t $"Wis { describe char.Wis }"
-                            t $"Cha { describe char.Cha }"
+                            describe "Str" char.Str
+                            describe "Dex" char.Dex
+                            describe "Con" char.Con
+                            describe "Int" char.Int
+                            describe "Wis" char.Wis
+                            describe "Cha" char.Cha
                         | None ->
                             match model.draft with
                             |Some draft ->
-                                t $"[draft] rolls{draft.originalRolls}"
+                                t [0,$"[draft] rolls{draft.originalRolls}"]
                             | None -> ()
                         ]
                     ]
