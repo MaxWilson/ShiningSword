@@ -144,6 +144,23 @@ module View =
 
     open Feliz
     open Konva
+    let getPercentile =
+        // for a given stat like 18, how many people have a lower stat?
+        let normalPersonDistribution =
+            [
+                for x in 1..6 do
+                    for y in 1..6 do
+                        for z in 1..6 do
+                            x+y+z
+                ]
+        let lessThanEqualGroups =
+            [
+                for x in 1..25 do
+                    let count = normalPersonDistribution |> Seq.filter (fun stat -> stat < x) |> Seq.length
+                    x, (float count/(float normalPersonDistribution.Length))
+                ] |> dict
+        fun statValue -> lessThanEqualGroups[statValue]
+
     let view (model: Model) dispatch =
         Html.div [
             Html.text "Create a character!"
@@ -158,13 +175,25 @@ module View =
                             Rect.stroke Black
                             Rect.strokeWidth 3
                             ]
+                        let mutable y = 10
+                        let t txt =
+                            let t = text [Text.x 10; Text.y y; Text.fontSize 18; Text.text txt]
+                            y <- y + 20
+                            t
+                        let describe statValue =
+                            $"{statValue}      Greater than {(getPercentile statValue)*100. |> int}%% of normal humans"
                         match model.export with
                         | Some char ->
-                            text [Text.x 10; Text.y 150; Text.fontSize 18; Text.text $"Str {char.Str} / Dex { char.Dex } / Con { char.Con } / Int { char.Int} / Wis { char.Wis} / Cha { char.Cha } "]
+                            t $"Str { describe char.Str }"
+                            t $"Dex { describe char.Dex }"
+                            t $"Con { describe char.Con }"
+                            t $"Int { describe char.Int }"
+                            t $"Wis { describe char.Wis }"
+                            t $"Cha { describe char.Cha }"
                         | None ->
                             match model.draft with
                             |Some draft ->
-                                text [Text.x 10; Text.y 150; Text.fontSize 18; Text.text $"[draft] rolls{draft.originalRolls}"]
+                                t $"[draft] rolls{draft.originalRolls}"
                             | None -> ()
                         ]
                     ]
