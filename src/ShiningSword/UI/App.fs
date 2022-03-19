@@ -14,7 +14,7 @@ importSideEffects "../sass/main.sass"
 module App =
     type Page =
         | Chargen of Chargen.View.Model
-    type Model = { stack: Page list; error: string option; hero: Chargen.Domain.CharacterSheet option }
+    type Model = { stack: Page list; error: string option; hero: Chargen.Domain.CharacterSheet option; roster: int list }
     type Msg =
         | Error of msg: string
         | Transform of (Model -> Model)
@@ -22,7 +22,7 @@ module App =
         | Pop
     let init _ =
         let model, msg = Chargen.View.init()
-        { stack = [Page.Chargen model]; error = None; hero = None }, msg |> Cmd.map Chargen
+        { stack = [Page.Chargen model]; error = None; hero = None; roster = List.empty }, msg |> Cmd.map Chargen
     let update msg model =
         match msg, model.stack with
         | Error msg, _ -> { model with error = Some msg }, Cmd.Empty
@@ -52,6 +52,19 @@ module App =
             | (Page.Chargen model)::_ ->
                 Chargen.View.view model (Chargen >> dispatch)
             | _ -> ()
+            Html.text (model.roster.Length.ToString() + " characters in roster")
+            Html.button [
+                prop.text "Generate more"
+                prop.onClick(fun _ ->
+
+                    let newItems = [
+                        let count = model.roster.Length
+                        for ix in 1..(max count 100) do
+                            (count + ix)
+                        ]
+                    dispatch (Transform (fun m -> { m with roster = m.roster@ (newItems)}))
+                    )
+                ]
             ]
 
 open App

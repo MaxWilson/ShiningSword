@@ -191,7 +191,8 @@ module View =
                                 ]
                             |> React.fragment
                         let describe stat statValue =
-                            let term = match stat with
+                            let term =
+                                match stat with
                                 | "Str" -> "Stronger"
                                 | "Dex" -> "Faster"
                                 | "Con" -> "Tougher"

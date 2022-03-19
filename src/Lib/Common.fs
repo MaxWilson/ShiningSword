@@ -114,6 +114,45 @@ type Ops with
     static member add(item, data: _ Queue.d) = Queue.append item data
     static member addTo (data:_ Queue.d) = fun item -> Ops.add(item, data)
     
+
+
+// intended to be as fast as a mutable data structure like an array for most purposes
+//   but to have the sharing benefits an immutable structure like a Map as long as it's
+//   used single threaded. Under the hood there's a fast, mutable data reference which
+//   is updated by a string of commands, and surfaced via State references which secretly
+//   contain the string of commands used to create them. As long as the current mutable
+//   data reference shares a "prefix" of commands with whichever State is asking for
+//   the current state, we can just make a quick mutation to the shared mutable state
+//   and return it.
+module Stateful =
+    type private Seed<'t, 'msg> = Seed of initial: (unit -> 't) * update: ('msg -> 't -> 't)
+    type State<'t, 'msg> =
+        private { seed: Seed<'t, 'msg> ; shared:(('t * 'msg list) ref) ; past: ('msg list) ; queue: ('msg list) }
+        with
+        static member create(initial: (unit -> 't), update: 'msg -> 't -> 't) =
+            let shared = ref (initial(), [])
+            { seed = Seed(initial, update); shared = shared; past = []; queue = [] }
+    let (|Deref|) cell = !cell
+    // returns current state and amortized-updated State reflecting the current state. Also sets shared state = this.
+    let deref = function
+    | { shared = Deref(current, sharedPast); past = past; queue = [] } as this when sharedPast = past ->
+        current, this
+    | { seed = Seed(init, update); shared = Deref(current, sharedPast) as shared; past = past; queue = queue } as this  ->
+        let apply q state =
+            List.foldBack update q state
+        let current', past' =
+            if sharedPast = past then
+                (current |> apply queue), queue@past
+            else
+                // apply it from the beginning
+                let combined = queue@past
+                (init() |> apply combined), combined
+        shared := (current', past')
+        current', { this with shared = shared; past = past'; queue = [] }
+    let execute msg = function
+    | { queue = queue } as this ->
+        { this with queue = msg::queue }
+
 // Hit tip to https://gist.github.com/jwosty/5338fce8a6691bbd9f6f
 // and to https://github.com/fsprojects/FSharpx.Extras/blob/da43a30aa1b2a08c86444777a5edb03027cf5c1c/src/FSharpx.Extras/ComputationExpressions/State.fs
 // although I had to fix some bugs with the while loop support.
@@ -183,3 +222,27 @@ let toState initialState monad =
     let _, finalState = monad initialState
     finalState
 
+
+#if INTERACTIVE
+// usage examples in lieu of tests. Todo: convert to tests.
+type Msg = Add of int | Replace of int * int
+let v =
+    Stateful.State.create((fun () -> ref [||]), fun msg state ->
+        match msg with
+        | Add n ->
+            state := Array.append !state [|n|]
+            state
+        | Replace(i,n)->
+            let arr = !state
+            arr[i] <- n
+            state
+    )
+
+v |> Stateful.execute (Add 1) |> Stateful.deref |> fst
+[Add 1; Add 2; Replace(1,7); Add 4] |> List.fold (flip Stateful.execute) v |> Stateful.deref |> fst
+let x = [Add 1; Add 2; Replace(1,7); Add 4] |> List.fold (flip Stateful.execute) v
+x |> Stateful.deref |> fst
+let y = [Add 1; Add 2; Replace(1,7); Add 4] |> List.fold (flip Stateful.execute) x
+y |> Stateful.deref |> fst
+Stateful.deref x |> fst
+#endif
