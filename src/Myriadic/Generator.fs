@@ -1,3 +1,22 @@
+#if FABLE_COMPILER
+namespace Myriadic
+
+    module Generator =
+        open System
+        /// Instructs to generate lenses for each property of the record
+        type LensAttribute(wrapperName : string) =
+            inherit System.Attribute()
+            let mutable _wrapperName = wrapperName
+            member this.WrapperName = _wrapperName
+            new () = LensAttribute(null : string)
+            new (``type``: Type) = LensAttribute(``type``.Name)
+        type DuCasesAttribute(wrapperName : string) =
+            inherit System.Attribute()
+            let mutable _wrapperName = wrapperName
+            member this.WrapperName = _wrapperName
+            new () = DuCasesAttribute(null : string)
+            new (``type``: Type) = DuCasesAttribute(``type``.Name)
+#else
 namespace Myriadic
 
 open System
@@ -248,3 +267,4 @@ type LensesGenerator() =
                         }
 
             [namespaceOrModule]
+#endif

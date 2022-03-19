@@ -9,12 +9,33 @@ open Konva
 
 // make sure errors are not silent: show them as Alerts (ugly but better than nothing for now)
 open Fable.Core.JsInterop
+open Fable.Core
+open Chargen.Domain
+
 importSideEffects "../sass/main.sass"
+
+type StateMsg = Add of CharacterSheet | Replace of int * CharacterSheet
+
+[<Emit("[]")>]
+let inline emptyArray() : 't[] = jsNative
+[<Emit("$0.push($1)")>]
+let push array v = jsNative
+
+let v =
+    Stateful.State.create((fun () -> emptyArray()), fun msg (state: CharacterSheet[]) ->
+        match msg with
+        | Add n ->
+            push state n
+            state
+        | Replace(i,n)->
+            state[i] <- n
+            state
+    )
 
 module App =
     type Page =
         | Chargen of Chargen.View.Model
-    type Model = { stack: Page list; error: string option; hero: Chargen.Domain.CharacterSheet option; roster: int list }
+    type Model = { stack: Page list; error: string option; hero: Chargen.Domain.CharacterSheet option; roster: Stateful.State<CharacterSheet[], StateMsg>}
     type Msg =
         | Error of msg: string
         | Transform of (Model -> Model)
@@ -22,7 +43,7 @@ module App =
         | Pop
     let init _ =
         let model, msg = Chargen.View.init()
-        { stack = [Page.Chargen model]; error = None; hero = None; roster = List.empty }, msg |> Cmd.map Chargen
+        { stack = [Page.Chargen model]; error = None; hero = None; roster = v }, msg |> Cmd.map Chargen
     let update msg model =
         match msg, model.stack with
         | Error msg, _ -> { model with error = Some msg }, Cmd.Empty
@@ -52,17 +73,20 @@ module App =
             | (Page.Chargen model)::_ ->
                 Chargen.View.view model (Chargen >> dispatch)
             | _ -> ()
-            Html.text (model.roster.Length.ToString() + " characters in roster")
+            let roster', roster = (Stateful.deref model.roster)
+            Html.text (roster'.Length.ToString() + " characters in roster")
             Html.button [
                 prop.text "Generate more"
                 prop.onClick(fun _ ->
-
+                    let mutable rosterState = roster
                     let newItems = [
-                        let count = model.roster.Length
+                        let count = roster'.Length
                         for ix in 1..(max count 100) do
+                            let char = Chargen.Interaction.create Chargen.Interaction.roll3d6InOrder |> Chargen.Interaction.ofDraft |> Option.get
+                            rosterState <- Stateful.execute (Add (char)) rosterState
                             (count + ix)
                         ]
-                    dispatch (Transform (fun m -> { m with roster = m.roster@ (newItems)}))
+                    dispatch (Transform (fun m -> { m with roster = rosterState}))
                     )
                 ]
             ]

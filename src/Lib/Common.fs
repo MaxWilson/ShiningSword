@@ -221,28 +221,3 @@ let withState initialState monad =
 let toState initialState monad =
     let _, finalState = monad initialState
     finalState
-
-
-#if INTERACTIVE
-// usage examples in lieu of tests. Todo: convert to tests.
-type Msg = Add of int | Replace of int * int
-let v =
-    Stateful.State.create((fun () -> ref [||]), fun msg state ->
-        match msg with
-        | Add n ->
-            state := Array.append !state [|n|]
-            state
-        | Replace(i,n)->
-            let arr = !state
-            arr[i] <- n
-            state
-    )
-
-v |> Stateful.execute (Add 1) |> Stateful.deref |> fst
-[Add 1; Add 2; Replace(1,7); Add 4] |> List.fold (flip Stateful.execute) v |> Stateful.deref |> fst
-let x = [Add 1; Add 2; Replace(1,7); Add 4] |> List.fold (flip Stateful.execute) v
-x |> Stateful.deref |> fst
-let y = [Add 1; Add 2; Replace(1,7); Add 4] |> List.fold (flip Stateful.execute) x
-y |> Stateful.deref |> fst
-Stateful.deref x |> fst
-#endif

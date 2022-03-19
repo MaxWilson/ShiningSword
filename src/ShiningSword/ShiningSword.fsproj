@@ -15,4 +15,7 @@
         <PackageReference Include="Feliz.Router" Version="3.8.0" />
         <PackageReference Include="Fable.DateFunctions" Version="3.8.1" />
     </ItemGroup>
+    <ItemGroup>
+      <ProjectReference Include="..\Lib\Lib.fsproj" />
+    </ItemGroup>
 </Project>

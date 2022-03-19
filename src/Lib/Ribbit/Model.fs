@@ -16,7 +16,7 @@ module Model =
             let mutable _wrapperName = wrapperName
             member this.WrapperName = _wrapperName
             new () = DuCasesAttribute(null : string)
-            new (``type``: Type) = DuCasesAttribute(``type``.Name)
+            new (``type``: Type) = DuCasesAttribute(``type``.Name)    
     #else
     open Myriadic
     open Myriad.Plugins
