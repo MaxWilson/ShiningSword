@@ -232,9 +232,9 @@ module Model =
         
     module Ribbit =
         open System.Collections.Generic
-        [<Measure>]type eventId
-        [<Measure>]type creatureId
-        [<Measure>]type propertyId
+        type EventId = EventId of int
+        type CreatureId = CreatureId of int
+        type PropertyName = PropertyName of string
         type Roll =
             | StaticBonus of n:int
             | Roll of n:int * d:int * rest: Roll option
@@ -260,41 +260,74 @@ module Model =
         type Scope<'t> = Dictionary<'t, RuntimeValue>
         type InnerState =
             {
-                mutable events: ResizeArray<Scope<int<propertyId>>>
-                mutable creatureData: ResizeArray<Scope<int<propertyId>>>
+                mutable events: ResizeArray<Scope<string> option>
+                mutable creatureData: ResizeArray<Scope<string> option>
                 }
-        type Property = {
-            id: int<propertyId>
-            name: string
-            runtimeTypeCheck: RuntimeValue -> bool
-            }
-        module Prop = 
+            with static member fresh = { events = ResizeArray<_>(); creatureData = ResizeArray<_>() }
+        module Prop =
+            type FallbackBehavior =
+                | AskUser
+                | DefaultValue of RuntimeValue
+                | Compute of (unit -> RuntimeValue) // this isn't right yet
+            type Property = {            
+                name: PropertyName
+                runtimeTypeCheck: RuntimeValue -> bool
+                fallbackBehavior: FallbackBehavior
+                }
+
             let isNumber = function Number _ -> true | _ -> false
             let isText = function Text _ -> true | _ -> false
             let isBool = function Boolean _ -> true | _ -> false
             let isId = function Id _ -> true | _ -> false
             let isRandom = function Random _ -> true | _ -> false
             let isResource = function Resource _ -> true | _ -> false
-            let mutable propertyCounter = 0<propertyId>
             let prop checker name =
-                propertyCounter <- propertyCounter + 1<propertyId>
                 {
-                    id = propertyCounter
-                    name = name
+                    name = PropertyName name
                     runtimeTypeCheck = checker
+                    fallbackBehavior = AskUser
+                    }
+            let propWithDefault checker name defaultValue =
+                {
+                    name = PropertyName name
+                    runtimeTypeCheck = checker
+                    fallbackBehavior = DefaultValue defaultValue
                     }
         open Prop
         let numberProp = prop isNumber
         let textProp = prop isText
         let resourceProp = prop isResource
         type Msg =
-            | SetEventProperty of int<eventId> * int<propertyId> * RuntimeValue
-            | SetCreatureProperty of int<creatureId> * int<propertyId> * RuntimeValue
+            | SetEventProperty of EventId * PropertyName * RuntimeValue
+            | SetCreatureProperty of CreatureId * PropertyName * RuntimeValue
         type State = Stateful.State<InnerState, Msg>
         let update msg (state: InnerState) =
+            let reserve (collection: ResizeArray<_>) (ix: int) =
+                if ix >= collection.Count then
+                    collection.AddRange(Seq.init (1 + ix - collection.Count) (thunk None))                
             match msg with
-            | SetEventProperty(evid, pid, v) ->
-                state.events[evid |> int].[pid] <- v
-            | SetCreatureProperty(cid, pid, v) ->
-                state.creatureData[cid |> int].[pid] <- v
+            | SetEventProperty(EventId evid, PropertyName pid, v) ->
+                reserve state.events evid
+                let scope = 
+                    match state.events[evid] with
+                    | None ->
+                        let scope = Scope<string>()
+                        state.events[evid] <- Some scope
+                        scope
+                    | Some scope -> scope
+                scope[pid] <- v
+            | SetCreatureProperty(CreatureId cid, PropertyName pid, v) ->
+                reserve state.events cid
+                let scope = 
+                    match state.creatureData[cid] with
+                    | None ->
+                        let scope = Scope<string>()
+                        state.creatureData[cid] <- Some scope
+                        scope
+                    | Some scope -> scope
+                scope[pid] <- v
             state
+
+        let hpP = numberProp "HP"
+        let x = InnerState.fresh |> update (SetEventProperty(EventId 1, hpP.name, Number 42))
+        x.events[1].Value.["HP"]
