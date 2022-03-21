@@ -1,6 +1,6 @@
 module Domain.Engine.Ribbit
 
-open Domain.Model.Ribbit
+open Domain.Model.Ribbit0
 
 let describeId = (function None -> "None" | Some v -> v.ToString())
 
@@ -133,7 +133,7 @@ let supply
             (state, { ExecutionContext.fresh with workQueue = unblocked })
 
 module Game =
-    let fresh: Domain.Model.Ribbit.Game = {
+    let fresh: Domain.Model.Ribbit0.Game = {
         roster = Map.empty
         rosterReverse = Map.empty
         data = Map.empty

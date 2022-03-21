@@ -1,6 +1,6 @@
 // POC for ribbit, from scratch and without generics
 
-//#I __SOURCE_DIRECTORY__
+#I __SOURCE_DIRECTORY__
 #I "."
 #I ".."
 #load "GameLoop.fsx"

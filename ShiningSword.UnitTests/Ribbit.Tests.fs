@@ -4,7 +4,7 @@ open Common
 open Expecto
 open FsCheck
 open Domain.Model
-open Domain.Model.Ribbit
+open Domain.Model.Ribbit0
 open Domain.Engine.Ribbit
 #if INTERACTIVE
 #r "nuget: Unquote"
@@ -57,7 +57,7 @@ let tests = testList "ribbit.scenario" [
                             Assign(LocalRef "ac", BinaryOp(Dereference(DataRef(bob, "AC")), Dereference(IndirectEventRef("__event_1")), Plus))
                             Return (Dereference (LocalRef "ac"))
                         ] [] |> compile)
-                let api: Ribbit.Api<_> = { dereference = Game.dereference; defer = Game.defer;
+                let api: Ribbit0.Api<_> = { dereference = Game.dereference; defer = Game.defer;
                              resume = Game.resume; supply = Game.supply; start = Game.startByName }
                 do! transform (supply api (bob, "AC") (Number 18) >> supply api (bob, "sp") (Number 5))
                 let! (g: Game) = get()

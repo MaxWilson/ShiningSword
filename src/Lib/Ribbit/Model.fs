@@ -137,7 +137,7 @@ module Model =
             | ASI of Stat * int
             | Skill of Skill
 
-    module Ribbit =
+    module Ribbit0 =
         
         type AgentId = int
         type EventId = int
@@ -228,5 +228,73 @@ module Model =
         | AddToRoster of Name
 
     type Metacommand =
-        | Ribbit of Ribbit.Command
+        | Ribbit of Ribbit0.Command
         
+    module Ribbit =
+        open System.Collections.Generic
+        [<Measure>]type eventId
+        [<Measure>]type creatureId
+        [<Measure>]type propertyId
+        type Roll =
+            | StaticBonus of n:int
+            | Roll of n:int * d:int * rest: Roll option
+            with
+            static member create(n,d) = Roll(n,d,None)
+            static member create(n,d,plus) = Roll(n,d,Some(StaticBonus plus))
+            member this.eval() =
+                match this with
+                | StaticBonus n -> n
+                | Roll(n,d,rest) ->
+                    let v = [for _ in 1..n -> rand d] |> List.sum
+                    match rest with
+                    | None -> v
+                    | Some r -> v + r.eval()
+        type RuntimeValue =
+            | Text of string
+            | Number of int
+            | Boolean of bool
+            | Id of int
+            | Random of Roll
+            | Resource of int // n times per XYZ. Related to number but more specialized, has additional operations like consume and convert.
+            | Undefined
+        type Scope<'t> = Dictionary<'t, RuntimeValue>
+        type InnerState =
+            {
+                mutable events: ResizeArray<Scope<int<propertyId>>>
+                mutable creatureData: ResizeArray<Scope<int<propertyId>>>
+                }
+        type Property = {
+            id: int<propertyId>
+            name: string
+            runtimeTypeCheck: RuntimeValue -> bool
+            }
+        module Prop = 
+            let isNumber = function Number _ -> true | _ -> false
+            let isText = function Text _ -> true | _ -> false
+            let isBool = function Boolean _ -> true | _ -> false
+            let isId = function Id _ -> true | _ -> false
+            let isRandom = function Random _ -> true | _ -> false
+            let isResource = function Resource _ -> true | _ -> false
+            let mutable propertyCounter = 0<propertyId>
+            let prop checker name =
+                propertyCounter <- propertyCounter + 1<propertyId>
+                {
+                    id = propertyCounter
+                    name = name
+                    runtimeTypeCheck = checker
+                    }
+        open Prop
+        let numberProp = prop isNumber
+        let textProp = prop isText
+        let resourceProp = prop isResource
+        type Msg =
+            | SetEventProperty of int<eventId> * int<propertyId> * RuntimeValue
+            | SetCreatureProperty of int<creatureId> * int<propertyId> * RuntimeValue
+        type State = Stateful.State<InnerState, Msg>
+        let update msg (state: InnerState) =
+            match msg with
+            | SetEventProperty(evid, pid, v) ->
+                state.events[evid |> int].[pid] <- v
+            | SetCreatureProperty(cid, pid, v) ->
+                state.creatureData[cid |> int].[pid] <- v
+            state
