@@ -267,19 +267,22 @@ module Model =
             {
                 mutable events: ResizeArray<Scope<string> option>
                 mutable creatureData: ResizeArray<Scope<string> option>
-                mutable properties: Dictionary<PropertyName, Property>
+                mutable properties: Dictionary<string, Property>
                 }
             with static member fresh = { events = ResizeArray<_>(); creatureData = ResizeArray<_>(); properties = Dictionary<_,_>() }
 
-        and ResolveAddressToValue = Address -> InnerState -> RuntimeValue LookupResult
+        and ResolveAddressToValue = Address -> InnerState -> Address list * RuntimeValue LookupResult
+
+        // you give it a way to read from state, and get back a list of addresses read and either a result or a list of addresses you're still awaiting
+        and DeriveOrCreateValue = (ResolveAddressToValue -> Address list * RuntimeValue LookupResult)
 
         and 't LookupResult =
             | Yield of 't
             | Await of Address list
         and FallbackBehavior =
             | AskUser
-            | Generate of ResolveAddressToValue
-            | Compute of ResolveAddressToValue
+            | Generate of DeriveOrCreateValue
+            | Derive of DeriveOrCreateValue
         and Property = {            
             name: PropertyName
             runtimeTypeCheck: RuntimeValue -> bool
@@ -303,7 +306,7 @@ module Model =
                 {
                     name = PropertyName name
                     runtimeTypeCheck = checker
-                    fallbackBehavior = Generate (fun _ _ -> defaultValue)
+                    fallbackBehavior = Generate (fun _ -> [], defaultValue)
                     }
         open Prop
         let numberProp = prop isNumber
@@ -345,9 +348,26 @@ module Model =
                     match innerState.events[evid] with
                     | Some scope ->
                         match scope.TryGetValue pid with
-                        | true, v -> v
+                        | true, v -> [], Yield v
                         | false, _ ->
-                            let prop = innerState.properties.TryGetValue
+                            let prop =
+                                match innerState.properties.TryGetValue pid with
+                                | true, p -> p
+                                | false, _ -> shouldntHappen()
+                            match prop.fallbackBehavior with
+                            | AskUser -> [], Await [address]
+                            | Generate generator ->
+                                let baseCase address state = [], Await [address]
+                                let recur: ResolveAddressToValue = read (baseCase: ResolveAddressToValue)
+                                generator recur
+                                // should we be doing something here with the dependency information, or is that later?
+                            | Derive generator ->
+                                let baseCase address state = [], Await [address]
+                                let recur: ResolveAddressToValue = read (baseCase: ResolveAddressToValue)
+                                generator recur
+                                // should we be doing something here with the dependency information, or is that later?
+                else
+                    notImpl()
 
         let hpP = { numberProp "HP" with fallbackBehavior = Generate(fun )
         let x = InnerState.fresh |> update (Set(EventProperty(EventId 1, hpP.name), Number 42))
