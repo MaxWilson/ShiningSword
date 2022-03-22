@@ -264,11 +264,20 @@ module Model =
                 mutable creatureData: ResizeArray<Scope<string> option>
                 }
             with static member fresh = { events = ResizeArray<_>(); creatureData = ResizeArray<_>() }
+
+        type Address =
+            | EventProperty of EventId * PropertyName
+            | CreatureProperty of CreatureId * PropertyName
+
         module Prop =
+            type 't LookupResult =
+                | Yield of 't
+                | Await of Address list
+            type ResolveAddressToValue = Address -> InnerState -> RuntimeValue LookupResult
             type FallbackBehavior =
                 | AskUser
-                | DefaultValue of RuntimeValue
-                | Compute of (unit -> RuntimeValue) // this isn't right yet
+                | Generate of ResolveAddressToValue
+                | Compute of ResolveAddressToValue
             type Property = {            
                 name: PropertyName
                 runtimeTypeCheck: RuntimeValue -> bool
@@ -291,22 +300,21 @@ module Model =
                 {
                     name = PropertyName name
                     runtimeTypeCheck = checker
-                    fallbackBehavior = DefaultValue defaultValue
+                    fallbackBehavior = Generate (fun _ _ -> defaultValue)
                     }
         open Prop
         let numberProp = prop isNumber
         let textProp = prop isText
         let resourceProp = prop isResource
         type Msg =
-            | SetEventProperty of EventId * PropertyName * RuntimeValue
-            | SetCreatureProperty of CreatureId * PropertyName * RuntimeValue
+            | Set of Address * RuntimeValue
         type State = Stateful.State<InnerState, Msg>
         let update msg (state: InnerState) =
             let reserve (collection: ResizeArray<_>) (ix: int) =
                 if ix >= collection.Count then
                     collection.AddRange(Seq.init (1 + ix - collection.Count) (thunk None))                
             match msg with
-            | SetEventProperty(EventId evid, PropertyName pid, v) ->
+            | Set(EventProperty(EventId evid, PropertyName pid), v) ->
                 reserve state.events evid
                 let scope = 
                     match state.events[evid] with
@@ -316,7 +324,7 @@ module Model =
                         scope
                     | Some scope -> scope
                 scope[pid] <- v
-            | SetCreatureProperty(CreatureId cid, PropertyName pid, v) ->
+            | Set(CreatureProperty(CreatureId cid, PropertyName pid), v) ->
                 reserve state.events cid
                 let scope = 
                     match state.creatureData[cid] with
@@ -329,5 +337,5 @@ module Model =
             state
 
         let hpP = numberProp "HP"
-        let x = InnerState.fresh |> update (SetEventProperty(EventId 1, hpP.name, Number 42))
+        let x = InnerState.fresh |> update (Set(EventProperty(EventId 1, hpP.name), Number 42))
         x.events[1].Value.["HP"]
