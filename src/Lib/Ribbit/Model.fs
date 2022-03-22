@@ -258,32 +258,35 @@ module Model =
             | Resource of int // n times per XYZ. Related to number but more specialized, has additional operations like consume and convert.
             | Undefined
         type Scope<'t> = Dictionary<'t, RuntimeValue>
-        type InnerState =
-            {
-                mutable events: ResizeArray<Scope<string> option>
-                mutable creatureData: ResizeArray<Scope<string> option>
-                }
-            with static member fresh = { events = ResizeArray<_>(); creatureData = ResizeArray<_>() }
 
         type Address =
             | EventProperty of EventId * PropertyName
             | CreatureProperty of CreatureId * PropertyName
 
-        module Prop =
-            type 't LookupResult =
-                | Yield of 't
-                | Await of Address list
-            type ResolveAddressToValue = Address -> InnerState -> RuntimeValue LookupResult
-            type FallbackBehavior =
-                | AskUser
-                | Generate of ResolveAddressToValue
-                | Compute of ResolveAddressToValue
-            type Property = {            
-                name: PropertyName
-                runtimeTypeCheck: RuntimeValue -> bool
-                fallbackBehavior: FallbackBehavior
+        type InnerState =
+            {
+                mutable events: ResizeArray<Scope<string> option>
+                mutable creatureData: ResizeArray<Scope<string> option>
+                mutable properties: Dictionary<PropertyName, Property>
                 }
+            with static member fresh = { events = ResizeArray<_>(); creatureData = ResizeArray<_>(); properties = Dictionary<_,_>() }
 
+        and ResolveAddressToValue = Address -> InnerState -> RuntimeValue LookupResult
+
+        and 't LookupResult =
+            | Yield of 't
+            | Await of Address list
+        and FallbackBehavior =
+            | AskUser
+            | Generate of ResolveAddressToValue
+            | Compute of ResolveAddressToValue
+        and Property = {            
+            name: PropertyName
+            runtimeTypeCheck: RuntimeValue -> bool
+            fallbackBehavior: FallbackBehavior
+            }
+
+        module Prop =            
             let isNumber = function Number _ -> true | _ -> false
             let isText = function Text _ -> true | _ -> false
             let isBool = function Boolean _ -> true | _ -> false
@@ -335,7 +338,17 @@ module Model =
                     | Some scope -> scope
                 scope[pid] <- v
             state
+        let rec read lookupFromParent address (innerState:InnerState) =
+            match address with
+            | EventProperty(EventId evid, PropertyName pid) ->
+                if evid < innerState.events.Count then
+                    match innerState.events[evid] with
+                    | Some scope ->
+                        match scope.TryGetValue pid with
+                        | true, v -> v
+                        | false, _ ->
+                            let prop = innerState.properties.TryGetValue
 
-        let hpP = numberProp "HP"
+        let hpP = { numberProp "HP" with fallbackBehavior = Generate(fun )
         let x = InnerState.fresh |> update (Set(EventProperty(EventId 1, hpP.name), Number 42))
         x.events[1].Value.["HP"]
