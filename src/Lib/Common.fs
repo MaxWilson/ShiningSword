@@ -14,7 +14,7 @@ let thunk3 f arg1 arg2 arg3 _ = f arg1 arg2 arg3
 let ignore1 f _ = f()
 let matchfail v = sprintf "No match found for %A. This is a bug." v |> invalidOp
 /// Placeholder while we're doing type-focused development, before implementation
-let notImpl() = failwith "Not implemented yet. Email Max if you want this feature."
+let notImpl _ = failwith "Not implemented yet. Email Max if you want this feature."
 let shouldntHappen _ =
     System.Diagnostics.Debugger.Break()
     failwith "This shouldn't ever happen. If it does there's a bug."

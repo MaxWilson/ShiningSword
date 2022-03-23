@@ -271,10 +271,10 @@ module Model =
                 }
             with static member fresh = { events = ResizeArray<_>(); creatureData = ResizeArray<_>(); properties = Dictionary<_,_>() }
 
-        and ResolveAddressToValue = Address -> InnerState -> Address list * RuntimeValue LookupResult
+        and ResolveAddressToValue = Address -> InnerState -> (RuntimeValue * Address list) LookupResult
 
         // you give it a way to read from state, and get back a list of addresses read and either a result or a list of addresses you're still awaiting
-        and DeriveOrCreateValue = (ResolveAddressToValue -> Address list * RuntimeValue LookupResult)
+        and DeriveOrCreateValue = (ResolveAddressToValue -> (RuntimeValue * Address list) LookupResult)
 
         and 't LookupResult =
             | Yield of 't
@@ -306,7 +306,7 @@ module Model =
                 {
                     name = PropertyName name
                     runtimeTypeCheck = checker
-                    fallbackBehavior = Generate (fun _ -> [], defaultValue)
+                    fallbackBehavior = Generate (fun _ -> Yield(defaultValue, []))
                     }
         open Prop
         let numberProp = prop isNumber
@@ -342,33 +342,54 @@ module Model =
                 scope[pid] <- v
             state
         let rec read lookupFromParent address (innerState:InnerState) =
+            let fallback pid =
+                match lookupFromParent address innerState with
+                | None ->
+                    let prop =
+                        match innerState.properties.TryGetValue pid with
+                        | true, p -> p
+                        | false, _ -> shouldntHappen()
+                    let baseCase address state = Await [address]
+                    match prop.fallbackBehavior with
+                    | AskUser -> baseCase address
+                    | Generate generator ->
+                        let recur: ResolveAddressToValue = read (baseCase: ResolveAddressToValue)
+                        match generator recur with
+                        | Await _ as awaiting -> Await [address]
+                        | Yield(v, dependencies) ->
+                            Yield v // for Generate, we don't care if dependencies eventually get altered--once the value
+                                    // is generated it's stable, e.g. rolled HP don't get rerolled if HD gets reduced
+                    | Derive generator ->                    
+                        let recur: ResolveAddressToValue = read (baseCase: ResolveAddressToValue)
+                        match generator recur with
+                        | Await _ as awaiting -> awaiting
+                        | Yield(v, dependencies) ->
+                            // For Derive, we recalculate every time a dependency changes, e.g. total HP get reduced if Con gets reduced
+                            Yield v
+                | Some answer -> answer
             match address with
             | EventProperty(EventId evid, PropertyName pid) ->
                 if evid < innerState.events.Count then
                     match innerState.events[evid] with
+                    | None -> fallback pid
                     | Some scope ->
                         match scope.TryGetValue pid with
-                        | true, v -> [], Yield v
-                        | false, _ ->
-                            let prop =
-                                match innerState.properties.TryGetValue pid with
-                                | true, p -> p
-                                | false, _ -> shouldntHappen()
-                            match prop.fallbackBehavior with
-                            | AskUser -> [], Await [address]
-                            | Generate generator ->
-                                let baseCase address state = [], Await [address]
-                                let recur: ResolveAddressToValue = read (baseCase: ResolveAddressToValue)
-                                generator recur
-                                // should we be doing something here with the dependency information, or is that later?
-                            | Derive generator ->
-                                let baseCase address state = [], Await [address]
-                                let recur: ResolveAddressToValue = read (baseCase: ResolveAddressToValue)
-                                generator recur
-                                // should we be doing something here with the dependency information, or is that later?
+                        | true, v -> Yield v
+                        | false, _ -> fallback pid                            
+                else
+                    notImpl()
+            | CreatureProperty(CreatureId cid, PropertyName pid) ->
+                if cid < innerState.creatureData.Count then
+                    match innerState.creatureData[cid] with
+                    | None -> fallback pid
+                    | Some scope ->
+                        match scope.TryGetValue pid with
+                        | true, v -> Yield v
+                        | false, _ -> fallback pid                            
                 else
                     notImpl()
 
-        let hpP = { numberProp "HP" with fallbackBehavior = Generate(fun )
+
+        let hpP = { numberProp "HP" with fallbackBehavior = Generate(notImpl) }
         let x = InnerState.fresh |> update (Set(EventProperty(EventId 1, hpP.name), Number 42))
         x.events[1].Value.["HP"]
