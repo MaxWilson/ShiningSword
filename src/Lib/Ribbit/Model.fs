@@ -312,6 +312,7 @@ module Model =
         let numberProp = prop isNumber
         let textProp = prop isText
         let resourceProp = prop isResource
+        let prototypeProp = prop isId "Prototype"
         type Msg =
             | Set of Address * RuntimeValue
         type State = Stateful.State<InnerState, Msg>
@@ -341,76 +342,52 @@ module Model =
                     | Some scope -> scope
                 scope[pid] <- v
             state
-        let read address (innerState:InnerState) =
-            match address with
-            | EventProperty(EventId evid, PropertyName pid) ->
-                if evid < innerState.events.Count then
-                    match innerState.events[evid] with
-                    | None -> fallback()
-                    | Some scope ->
-                        match scope.TryGetValue pid with
-                        | true, v -> Yield v
-                        | false, _ -> fallback()
-                else
-                    notImpl()
-            | CreatureProperty(CreatureId cid, PropertyName pid) ->
-                if cid < innerState.creatureData.Count then
-                    match innerState.creatureData[cid] with
-                    | None -> fallback pid
-                    | Some scope ->
-                        match scope.TryGetValue pid with
-                        | true, v -> Yield v
-                        | false, _ -> fallback pid
-                else
-                    notImpl()
-        let rec read lookupFromParent address (innerState:InnerState) =
-            let fallback pid =
-                match lookupFromParent address innerState with
-                | None ->
-                    let prop =
-                        match innerState.properties.TryGetValue pid with
-                        | true, p -> p
-                        | false, _ -> shouldntHappen()
-                    let baseCase address state = Await [address]
-                    match prop.fallbackBehavior with
-                    | AskUser -> baseCase address
-                    | Generate generator ->
-                        let recur: ResolveAddressToValue = read (baseCase: ResolveAddressToValue)
-                        match generator recur with
-                        | Await _ as awaiting -> Await [address]
-                        | Yield(v, dependencies) ->
-                            Yield v // for Generate, we don't care if dependencies eventually get altered--once the value
-                                    // is generated it's stable, e.g. rolled HP don't get rerolled if HD gets reduced
-                    | Derive generator ->
-                        let recur: ResolveAddressToValue = read (baseCase: ResolveAddressToValue)
-                        match generator recur with
-                        | Await _ as awaiting -> awaiting
-                        | Yield(v, dependencies) ->
-                            // For Derive, we recalculate every time a dependency changes, e.g. total HP get reduced if Con gets reduced
-                            Yield v
-                | Some answer -> answer
-            match address with
-            | EventProperty(EventId evid, PropertyName pid) ->
-                if evid < innerState.events.Count then
-                    match innerState.events[evid] with
-                    | None -> fallback pid
-                    | Some scope ->
-                        match scope.TryGetValue pid with
-                        | true, v -> Yield v
-                        | false, _ -> fallback pid
-                else
-                    notImpl()
-            | CreatureProperty(CreatureId cid, PropertyName pid) ->
-                if cid < innerState.creatureData.Count then
-                    match innerState.creatureData[cid] with
-                    | None -> fallback pid
-                    | Some scope ->
-                        match scope.TryGetValue pid with
-                        | true, v -> Yield v
-                        | false, _ -> fallback pid
-                else
-                    notImpl()
 
+        let read address (innerState:InnerState) =
+            let deref = function
+                | EventProperty(EventId evid, PropertyName pid) ->
+                    if evid < innerState.events.Count then
+                        match innerState.events[evid] with
+                        | None -> None
+                        | Some scope ->
+                            match scope.TryGetValue pid with
+                            | true, v -> Some v
+                            | false, _ -> None
+                    else
+                        None
+                | CreatureProperty(CreatureId cid, PropertyName pid) ->
+                    if cid < innerState.creatureData.Count then
+                        match innerState.creatureData[cid] with
+                        | None -> None
+                        | Some scope ->
+                            match scope.TryGetValue pid with
+                            | true, v -> Some v
+                            | false, _ -> None
+                    else
+                        None
+            match deref address with
+            | Some v -> Some v
+            | None ->
+                let rec searchInParent childAddress =
+                    let parent =
+                        match childAddress with
+                        | EventProperty(evid, _) -> deref (EventProperty(evid, prototypeProp.name))
+                        | CreatureProperty(cid, _) -> deref (CreatureProperty(cid, prototypeProp.name))
+                    match parent with
+                    | None -> None
+                    | Some (Id parentId) ->
+                        let parentProp =
+                            match childAddress with
+                            | EventProperty(_, prop) -> EventProperty(EventId parentId, prop)
+                            | CreatureProperty(_, prop) -> CreatureProperty(CreatureId parentId, prop)
+                        match deref parentProp with
+                        | Some v -> Some v
+                        | None -> searchInParent parentProp
+                    | Some _ -> shouldntHappen()
+                searchInParent address
+        let readOrCreateAndRead address (innerState:InnerState) =
+            // this version of read will do something if read fails: ask the user, generate new values, etc.
+            notImpl()
 
         let hpP = { numberProp "HP" with fallbackBehavior = Generate(notImpl) }
         let x = InnerState.fresh |> update (Set(EventProperty(EventId 1, hpP.name), Number 42))
