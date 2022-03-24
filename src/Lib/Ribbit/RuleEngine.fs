@@ -38,7 +38,7 @@ let evaluate
                 api.dereference ctx ref state
             | Roll _ | StartEvent _ ->
                 // By evaluation time, Roll and StartEvent should have already been rewritten to Dereference expressions
-                Ok Undefined 
+                Ok Undefined
         eval expr
 
 let execute
@@ -70,14 +70,14 @@ let execute
                 | Assign(ref, expr) ->
                     match eval ctx state expr with
                     | Ok v ->
-                        let state, unblocked = api.supply ctx ref v state                        
+                        let state, unblocked = api.supply ctx ref v state
                         let ctx = { ctx with workQueue = unblocked @ ctx.workQueue }
                         loop state ctx rest
                     | awaiting -> state, stack, awaiting, ctx
                 | Sequence statements ->
                     // unpack the statements onto the head of the instruction stack
                     loop state ctx (statements @ rest)
-                | If(test, andThen, orElse) ->                    
+                | If(test, andThen, orElse) ->
                     match eval ctx state test with
                     | Ok (Boolean true) -> loop state ctx (andThen :: rest)
                     | Ok (Boolean false) ->
@@ -126,7 +126,7 @@ let supply
     (agent: AgentId, property: PropertyName)
     (v: RuntimeValue)
     (state: 'state)
-    =        
+    =
         let state, unblocked = api.supply ExecutionContext.fresh (DataRef(agent, property)) v state
         progressToFixedPoint
             api
@@ -242,7 +242,7 @@ module Game =
                     | _ -> RibbitRuntimeException $"Can't set variable on an event that doesn't exist yet" |> raise
                     )
             { g with events = events }
-            
+
         | EventRef(eventId) ->
             let events =
                 g.events |> Map.change eventId (function

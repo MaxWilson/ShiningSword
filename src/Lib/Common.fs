@@ -45,7 +45,7 @@ let shuffleCopy =
 type Ops =
     static member add(key, value, data: Map<_,_>) = data |> Map.add key value
     static member addTo (data:Map<_,_>) = fun key value -> Ops.add(key, value, data)
-    
+
 module String =
     let oxfordJoin = function
         | _::_::_::_rest as lst -> // length 3 or greater
@@ -113,7 +113,7 @@ module Queue =
 type Ops with
     static member add(item, data: _ Queue.d) = Queue.append item data
     static member addTo (data:_ Queue.d) = fun item -> Ops.add(item, data)
-    
+
 
 
 // intended to be as fast as a mutable data structure like an array for most purposes
@@ -161,7 +161,7 @@ module StateMonad =
     type StateChange<'state, 'retval> = ('state -> 'retval * 'state)
     open System
     type State<'T, 'State> = 'State -> 'T * 'State
-    
+
     let getState = fun s -> (s,s)
     let putState s = fun _ -> ((),s)
     let eval m s = m s |> fst

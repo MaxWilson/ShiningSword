@@ -16,7 +16,7 @@ module Model =
             let mutable _wrapperName = wrapperName
             member this.WrapperName = _wrapperName
             new () = DuCasesAttribute(null : string)
-            new (``type``: Type) = DuCasesAttribute(``type``.Name)    
+            new (``type``: Type) = DuCasesAttribute(``type``.Name)
     #else
     open Myriadic
     open Myriad.Plugins
@@ -138,7 +138,7 @@ module Model =
             | Skill of Skill
 
     module Ribbit0 =
-        
+
         type AgentId = int
         type EventId = int
         type RuntimeValue = String of string | Number of int | Boolean of bool | Id of int | Undefined
@@ -150,14 +150,14 @@ module Model =
             | EventRef of event:EventId
             | IndirectDataRef of agentIdLocalRef: Name * property: PropertyName
             | IndirectEventRef of eventIdLocalRef: Name
-        
+
         type Expression =
             | Const of RuntimeValue
             | BinaryOp of Expression * Expression * BinaryOperator
             | Dereference of VariableReference
             | Roll of n:int * dSize: int * plus: int
             | StartEvent of eventName: Name * args: (Name * Expression) list
-        
+
         and BinaryOperator =
             | Plus
             | Minus
@@ -166,14 +166,14 @@ module Model =
             | Equals
             | AtLeast
             | AtMost
-        
+
         type Statement =
             | Return of Expression
             | Assign of VariableReference * Expression
             | Sequence of Statement list
             | If of test: Expression * andThen: Statement * orElse: Statement option
         type CurrentExpressionValue = Result<RuntimeValue, VariableReference list>
-        
+
         type ExecutionContext =
             {
             workQueue: EventId list // LIFO queue for ease of implementation but it probably doesn't matter what the order is
@@ -182,10 +182,10 @@ module Model =
             with
             static member fresh = { workQueue = []; currentEvent = None }
             static member forEvent eventId = { ExecutionContext.fresh with currentEvent = Some eventId }
-        
+
         type DereferenceF<'state> = ExecutionContext -> VariableReference -> 'state -> CurrentExpressionValue
         type DeferF<'state> = EventId -> Statement list -> VariableReference list -> 'state -> 'state
-        
+
         type CompleteF<'state> = EventId -> RuntimeValue -> 'state -> 'state
         type SupplyF<'state> = ExecutionContext -> VariableReference -> RuntimeValue -> 'state -> ('state * EventId list)
         type ResumeF<'state> = EventId -> 'state -> Statement list
@@ -208,7 +208,7 @@ module Model =
         type Event = EventResult of RuntimeValue | EventState of EventState
         and EventState = { scope: Scope; instructionStack: Statement list }
         and EventDefinition = { name: Name; mandatoryParams: PropertyName list; instructions: Statement list }
-        
+
         type Game = {
             roster: Map<string, AgentId list>
             rosterReverse: Map<AgentId, string>
@@ -229,7 +229,7 @@ module Model =
 
     type Metacommand =
         | Ribbit of Ribbit0.Command
-        
+
     module Ribbit =
         open System.Collections.Generic
         type EventId = EventId of int
@@ -283,13 +283,13 @@ module Model =
             | AskUser
             | Generate of DeriveOrCreateValue
             | Derive of DeriveOrCreateValue
-        and Property = {            
+        and Property = {
             name: PropertyName
             runtimeTypeCheck: RuntimeValue -> bool
             fallbackBehavior: FallbackBehavior
             }
 
-        module Prop =            
+        module Prop =
             let isNumber = function Number _ -> true | _ -> false
             let isText = function Text _ -> true | _ -> false
             let isBool = function Boolean _ -> true | _ -> false
@@ -318,11 +318,11 @@ module Model =
         let update msg (state: InnerState) =
             let reserve (collection: ResizeArray<_>) (ix: int) =
                 if ix >= collection.Count then
-                    collection.AddRange(Seq.init (1 + ix - collection.Count) (thunk None))                
+                    collection.AddRange(Seq.init (1 + ix - collection.Count) (thunk None))
             match msg with
             | Set(EventProperty(EventId evid, PropertyName pid), v) ->
                 reserve state.events evid
-                let scope = 
+                let scope =
                     match state.events[evid] with
                     | None ->
                         let scope = Scope<string>()
@@ -332,7 +332,7 @@ module Model =
                 scope[pid] <- v
             | Set(CreatureProperty(CreatureId cid, PropertyName pid), v) ->
                 reserve state.events cid
-                let scope = 
+                let scope =
                     match state.creatureData[cid] with
                     | None ->
                         let scope = Scope<string>()
@@ -341,6 +341,28 @@ module Model =
                     | Some scope -> scope
                 scope[pid] <- v
             state
+        let read address (innerState:InnerState) =
+            match address with
+            | EventProperty(EventId evid, PropertyName pid) ->
+                if evid < innerState.events.Count then
+                    match innerState.events[evid] with
+                    | None -> fallback()
+                    | Some scope ->
+                        match scope.TryGetValue pid with
+                        | true, v -> Yield v
+                        | false, _ -> fallback()
+                else
+                    notImpl()
+            | CreatureProperty(CreatureId cid, PropertyName pid) ->
+                if cid < innerState.creatureData.Count then
+                    match innerState.creatureData[cid] with
+                    | None -> fallback pid
+                    | Some scope ->
+                        match scope.TryGetValue pid with
+                        | true, v -> Yield v
+                        | false, _ -> fallback pid
+                else
+                    notImpl()
         let rec read lookupFromParent address (innerState:InnerState) =
             let fallback pid =
                 match lookupFromParent address innerState with
@@ -359,7 +381,7 @@ module Model =
                         | Yield(v, dependencies) ->
                             Yield v // for Generate, we don't care if dependencies eventually get altered--once the value
                                     // is generated it's stable, e.g. rolled HP don't get rerolled if HD gets reduced
-                    | Derive generator ->                    
+                    | Derive generator ->
                         let recur: ResolveAddressToValue = read (baseCase: ResolveAddressToValue)
                         match generator recur with
                         | Await _ as awaiting -> awaiting
@@ -375,7 +397,7 @@ module Model =
                     | Some scope ->
                         match scope.TryGetValue pid with
                         | true, v -> Yield v
-                        | false, _ -> fallback pid                            
+                        | false, _ -> fallback pid
                 else
                     notImpl()
             | CreatureProperty(CreatureId cid, PropertyName pid) ->
@@ -385,7 +407,7 @@ module Model =
                     | Some scope ->
                         match scope.TryGetValue pid with
                         | true, v -> Yield v
-                        | false, _ -> fallback pid                            
+                        | false, _ -> fallback pid
                 else
                     notImpl()
 

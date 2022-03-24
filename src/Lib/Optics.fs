@@ -12,11 +12,11 @@ type Lens<'state, 'value> = Lens of ('value OpticInput -> OpticOutput<'state>)
         //let model1 = (fun f -> inner.d f |> outer.d)
         //let model2 = (fun f -> outer.d (fun st -> inner.d f st))
         //let model3 = (fun f -> outer.d (fun st -> inner.d f st))
-        Prism(fun f -> 
+        Prism(fun f ->
                 (function
                     | Some data -> inner.d f data |> function Update v -> Update (Some v) | _ -> Ignore
                     | None -> Ignore)
-                |> outer.d)    
+                |> outer.d)
     static member (=>)(outer: Lens<_,_>, inner: Lens<_,_>) =
         Lens(outer.d << inner.d)
     static member (=>)(outer: unit -> Lens<_,_>, inner: Lens<_,_>) =
@@ -124,10 +124,10 @@ module Tuple2 =
 
 module Option =
     let some_() =
-        prism id (fun v d -> Some v) 
+        prism id (fun v d -> Some v)
     /// some__ is for if you know you're guaranteed to have some_ because you've already checked it
     let some__() =
-        lens Option.get (fun v d -> Some v) 
+        lens Option.get (fun v d -> Some v)
 
 module List =
     let nth_ n =

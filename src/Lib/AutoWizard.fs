@@ -1,5 +1,5 @@
 /// A module for dynamically building interactive wizards that minimize the number of unnecessary questions they ask.
-/// Key concepts: 
+/// Key concepts:
 ///   Setting<T>:will eventually yield a T when user finishes answering all the questions.
 ///   Render<output>: typically Render<ReactElement>, used to format output for user to look at/interact with to update wizardState.
 ///   WizardState: the current choices that have been made by the user, in the form of Choice hashcodes -> index mapping.
@@ -11,7 +11,7 @@ open type Common.Ops
 
 type 't LifecycleStage = Unset | Set | Complete of 't
     with member this.map f = match this with Complete v -> Complete (f v) | Unset -> Unset | Set -> Set
-    
+
 // In general, a Setting<T> is something that may or may not yet yield a T, and if it
 //    isn't currenting yielding a value then it's asking you questions that will eventually
 //    let it yield a value. These questions may be about itself, or about arguments to
@@ -23,7 +23,7 @@ type 't LifecycleStage = Unset | Set | Complete of 't
 //    App1 :    Setting<'S -> 't> -> Setting<'S> -> Setting<'t>
 //    App2 :    Setting<'S1*'S2 -> 't> -> Setting<'S1> -> Setting<'S2> -> Setting<'t>
 // 't is a "free" variable to make GDT eval work, will be constrained to be equal to 't but
-//    should not be referenced directly in 
+//    should not be referenced directly in
 type Setting<'t> =
     abstract member Match: IPatternMatch<'t> -> 't LifecycleStage * 'output list
 and IPatternMatch<'t> =
@@ -33,7 +33,7 @@ and IPatternMatch<'t> =
     abstract member App1 : Setting<'s -> 't> -> Setting<'s> -> 't LifecycleStage * 'output list
     abstract member App2 : Setting<'s1*'s2 -> 't> -> Setting<'s1> -> Setting<'s2> -> 't LifecycleStage * 'output list
     abstract member App3 : Setting<'s1*'s2*'s3 -> 't> -> Setting<'s1> -> Setting<'s2> -> Setting<'s3> -> 't LifecycleStage * 'output list
-type Render<'appState, 'output> = 
+type Render<'appState, 'output> =
     abstract member RenderChoice: state: (unit LifecycleStage) -> options:'t1 list -> lens: Optics.Lens<'appState, ChoiceState option> -> 'output list
     abstract member RenderChoiceDistinctN: state: (unit LifecycleStage) -> options:'t1 list -> n:int -> lens: Optics.Lens<'appState, ChoiceState option> -> 'output list
 and ChoiceKey = Choice of hash:int | Multichoice of hash:int * n: int
@@ -44,7 +44,7 @@ let compose render children (input: 't LifecycleStage) =
 type SettingConst<'t>(v: 't, ?label: string) =
     interface Setting<'t> with
         member this.Match m = m.Const v
-    override this.ToString() = 
+    override this.ToString() =
         match label with
         | None -> sprintf "%A" v
         | Some label -> label
@@ -86,44 +86,44 @@ let rec pattern<'t, 'appState, 'out> (getLens: ChoiceKey -> Optics.Lens<'appStat
     {
         new IPatternMatch<'t> with
             member __.Const x = Complete x, []
-            member __.Choice options = 
+            member __.Choice options =
                 let current = state |> read (getLens (options.GetHashCode() |> Choice)) |> Option.map (function (ChoiceIndex ix) -> options.[ix] | choiceState -> failwithf "Illegal choice: Choice should never have state '%A'" choiceState)
                 match current with
-                | Some (child: Setting<'t>) -> 
+                | Some (child: Setting<'t>) ->
                     let (r:'t LifecycleStage), childElements = eval(child, getLens, render, state)
-                    let elements = 
+                    let elements =
                         render.RenderChoice (r.map ignore)  options (getLens (options.GetHashCode() |> Choice))
                     r, (assertOutputType elements)@(assertOutputType childElements)
                 | None ->
-                    let elements = 
-                        render.RenderChoice Unset options (getLens (options.GetHashCode() |> Choice))                
+                    let elements =
+                        render.RenderChoice Unset options (getLens (options.GetHashCode() |> Choice))
                     Unset, assertOutputType elements
-            member __.ChoiceDistinctN options n = 
+            member __.ChoiceDistinctN options n =
                 let current = state |> read (getLens (Multichoice(options.GetHashCode(), n))) |> Option.map (function (MultichoiceIndex ixs) -> ixs |> List.map (fun ix -> options.[ix]) | choiceState -> failwithf "Illegal choice: Choice should never have state '%A'" choiceState)
                 match current with
-                | Some (children: Setting<'s> list) -> 
+                | Some (children: Setting<'s> list) ->
                     let results, childElements = children |> List.map (fun child -> eval(child, getLens, render, state)) |> List.unzip
                     let childElements = childElements |> List.collect id
-                    let result = 
+                    let result =
                         if results |> List.every (function Complete _ -> true | _ -> false) && results.Length = n then
                             results |> List.map (function Complete x -> x | _ -> shouldntHappen()) |> Complete
                         elif results |> List.every (function Unset -> true | _ -> false) then Unset
                         else Set
-                    let elements = 
+                    let elements =
                         render.RenderChoiceDistinctN (result.map ignore) options n (getLens (Multichoice(options.GetHashCode(), n)))
                     assertTType result, (assertOutputType elements)@(assertOutputType childElements)
-                | None -> 
-                    let elements = 
+                | None ->
+                    let elements =
                         render.RenderChoiceDistinctN Unset options n (getLens (Multichoice(options.GetHashCode(), n)))
                     Unset, assertOutputType elements
-            member __.App1 f arg1 = 
+            member __.App1 f arg1 =
                 match (eval(f, getLens, render, state)), (eval(arg1, getLens, render, state)) with
                 | (Complete f, e1s), (Complete x, e2s) ->
                     Complete (f x), assertOutputType (e1s@e2s)
                 | (Unset, e1s), _ ->
                     Unset, assertOutputType e1s
                 | (_, e1s), (_, e2s) -> Set, assertOutputType (e1s@e2s)
-            member __.App2 f arg1 arg2 = 
+            member __.App2 f arg1 arg2 =
                 match (eval(f, getLens, render, state)), (eval(arg1, getLens, render, state)), (eval(arg2, getLens, render, state)) with
                 | (Complete f, e1s), (Complete arg1, e2s), (Complete arg2, e3s) ->
                     Complete (f (arg1, arg2)), assertOutputType (e1s@e2s@e3s)
