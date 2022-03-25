@@ -271,6 +271,10 @@ module Model =
                 match this with
                 | EventProperty(evid, _) -> EventProperty(evid, newPropName)
                 | CreatureProperty(cid, _) -> CreatureProperty(cid, newPropName)
+            member this.propertyName =
+                match this with
+                | EventProperty(_, PropertyName prop) -> prop
+                | CreatureProperty(_, PropertyName prop) -> prop
 
         type InnerState =
             {
@@ -318,84 +322,8 @@ module Model =
                     fallbackBehavior = Generate (fun _ -> Yield(defaultValue, []))
                     }
         open Prop
-        let numberProp = prop isNumber
-        let textProp = prop isText
-        let resourceProp = prop isResource
-        let prototypeProp = prop isId "Prototype"
         type Msg =
             | Set of Address * RuntimeValue
+            | AskFor of Address
         type State = Stateful.State<InnerState, Msg>
-        let update msg (state: InnerState) =
-            let reserve (collection: ResizeArray<_>) (ix: int) =
-                if ix >= collection.Count then
-                    collection.AddRange(Seq.init (1 + ix - collection.Count) (thunk None))
-            match msg with
-            | Set(EventProperty(EventId evid, PropertyName pid), v) ->
-                reserve state.events evid
-                let scope =
-                    match state.events[evid] with
-                    | None ->
-                        let scope = Scope<string>()
-                        state.events[evid] <- Some scope
-                        scope
-                    | Some scope -> scope
-                scope[pid] <- v
-            | Set(CreatureProperty(CreatureId cid, PropertyName pid), v) ->
-                reserve state.events cid
-                let scope =
-                    match state.creatureData[cid] with
-                    | None ->
-                        let scope = Scope<string>()
-                        state.creatureData[cid] <- Some scope
-                        scope
-                    | Some scope -> scope
-                scope[pid] <- v
-            state
 
-        let read address (innerState:InnerState) =
-            let deref = function
-                | EventProperty(EventId evid, PropertyName pid) ->
-                    if evid < innerState.events.Count then
-                        match innerState.events[evid] with
-                        | None -> None
-                        | Some scope ->
-                            match scope.TryGetValue pid with
-                            | true, v -> Some v
-                            | false, _ -> None
-                    else
-                        None
-                | CreatureProperty(CreatureId cid, PropertyName pid) ->
-                    if cid < innerState.creatureData.Count then
-                        match innerState.creatureData[cid] with
-                        | None -> None
-                        | Some scope ->
-                            match scope.TryGetValue pid with
-                            | true, v -> Some v
-                            | false, _ -> None
-                    else
-                        None
-            match deref address with
-            | Some v -> Some v
-            | None ->
-                let rec searchInParent (childAddress: Address) =
-                    let parent = childAddress.mapProperty prototypeProp.name |> deref
-                    match parent with
-                    | None -> None
-                    | Some (Id parentId) ->
-                        let parentProp = childAddress.mapRow parentId
-                        match deref parentProp with
-                        | Some v -> Some v
-                        | None -> searchInParent parentProp
-                    | Some _ -> shouldntHappen()
-                searchInParent address
-        let readOrCreateAndRead address (state: State) =
-            // this version of read will do something if read fails: ask the user, generate new values, etc.
-            match read address state with
-            | Some v -> v, state
-            | None ->
-                // attempt to generate a value
-                match
-
-        let hpP = { numberProp "HP" with fallbackBehavior = Generate(notImpl) }
-        let x = InnerState.fresh |> update (Set(EventProperty(EventId 1, hpP.name), Number 42))
-        x.events[1].Value.["HP"]
