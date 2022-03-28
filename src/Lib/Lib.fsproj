@@ -19,7 +19,8 @@
     <Compile Include="Optics.fs" />
     <Compile Include="Common.fs" />
     <Compile Include="Parsing.fs" />
-    <Compile Include="AutoWizard.fs" />
+    <Compile Include="DerivedTraits.fs" />
+    <Compile Include="Character.fs" />
     <Compile Include="Ribbit\Model.fs" />
     <Compile Include="Ribbit\AutoGen.fs">
       <MyriadFile>Ribbit\Model.fs</MyriadFile>

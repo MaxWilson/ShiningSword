@@ -1,16 +1,4 @@
 namespace Chargen
-// This should probably go in its own file but for now it's here.
-// It's the thing this UI is intending to eventually produce.
-module Domain =
-    type CharacterSheet = {
-        Str: int
-        Dex: int
-        Con: int
-        Int: int
-        Wis: int
-        Cha: int
-        originalRolls: int list
-        }
 
 // module for doing stuff that isn't part of the target domain but isn't just ViewModel boilerplate either
 //    Effectively, this for for treating user interaction as a domain of its own.

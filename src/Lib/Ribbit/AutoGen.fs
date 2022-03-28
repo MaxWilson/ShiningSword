@@ -529,7 +529,7 @@ module Trait =
         | _ -> false
 namespace rec AutoGen
 
-open AutoWizard
+open DerivedTraits
 open Domain.Model
 open Domain.Model.Character
 

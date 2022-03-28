@@ -222,3 +222,8 @@ let withState initialState monad =
 let toState initialState monad =
     let _, finalState = monad initialState
     finalState
+
+let enumerateUnion<'t>() =
+    Microsoft.FSharp.Reflection.FSharpType.GetUnionCases(typeof<'t>)
+    // turn the reflection info back into the actual union case
+    |> Array.map (fun info -> Microsoft.FSharp.Reflection.FSharpValue.MakeUnion(info, [||]) :?> 't)

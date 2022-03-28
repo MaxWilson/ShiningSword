@@ -21,7 +21,7 @@ module Model =
     open Myriadic
     open Myriad.Plugins
     #endif
-    open AutoWizard
+    open DerivedTraits
 
     module Character =
         type Stat = Str | Dex | Con | Int | Wis | Cha
