@@ -37,8 +37,6 @@ let rulesOf rules =
             derivationRules <- derivationRules |> Map.add key (choice::choices)
     derivationRules
 
-let (|Lookup|_|) key map =
-    map |> Map.tryFind key
 let summarize f (rules: DerivationRules<'trait0>) (instance: DerivationInstance<'trait0>) roots =
     let rec recur roots =
         [

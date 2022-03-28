@@ -227,3 +227,6 @@ let enumerateUnion<'t>() =
     Microsoft.FSharp.Reflection.FSharpType.GetUnionCases(typeof<'t>)
     // turn the reflection info back into the actual union case
     |> Array.map (fun info -> Microsoft.FSharp.Reflection.FSharpValue.MakeUnion(info, [||]) :?> 't)
+
+let (|Lookup|_|) key map =
+    map |> Map.tryFind key

@@ -4,45 +4,38 @@ namespace Chargen
 //    Effectively, this for for treating user interaction as a domain of its own.
 module Interaction =
     open Domain
+    open Model.Character
     type Rolls = int list
 
     type Draft = {
-        Str: int option
-        Dex: int option
-        Con: int option
-        Int: int option
-        Wis: int option
-        Cha: int option
+        allocations: (int * Stat option) list
         originalRolls: Rolls
-        unallocated: Rolls
         }
 
+    let addUpStats (allocations: (int * Stat option) list) =
+        allocations
+            |> List.choose (function (roll, Some stat) -> Some(roll, stat) | _ -> None)
+            |> List.groupBy snd
+            |> List.map (fun (stat, lst) -> stat, lst |> List.map fst |> List.fold (+) 0)
+            |> Map.ofList
 
-    let ofDraft (draft:Draft) : CharacterSheet option =
-        match draft with
-        | {
-            Str = Some str
-            Dex = Some dex
-            Con = Some con
-            Int = Some int
-            Wis = Some wis
-            Cha = Some cha
-            originalRolls = rolls
-            }
+    let ofDraft (draft:Draft) : Domain.Character option =
+        match draft.allocations |> addUpStats with
+        | Lookup Str str & Lookup Dex dex & Lookup Con con
+            & Lookup Int int & Lookup Wis wis & Lookup Cha cha
             ->
             {
-                Str = str
-                Dex = dex
-                Con = con
-                Int = int
-                Wis = wis
-                Cha = cha
+                Character.name = "Bob"
+                Character.Str = str
+                Character.Dex = dex
+                Character.Con = con
+                Character.Int = int
+                Character.Wis = wis
+                Character.Cha = cha
                 originalRolls = rolls
                 } |> Some
         | _ ->
             None
-    let rand = System.Random()
-    let d n = 1 + rand.Next n
     let inOrder (draft:Draft) =
         let r n = draft.originalRolls[n] |> Some
         {
