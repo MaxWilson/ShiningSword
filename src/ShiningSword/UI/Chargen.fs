@@ -4,12 +4,15 @@ namespace Chargen
 //    Effectively, this for for treating user interaction as a domain of its own.
 module Interaction =
     open Domain
-    open Model.Character
+    open Domain.Character
     type Rolls = int list
 
+    type Mode = CumulativeFrom of min:int * max:int | Assign
     type Draft = {
+        name: string
         allocations: (int * Stat option) list
         originalRolls: Rolls
+        mode: Mode
         }
 
     let addUpStats (allocations: (int * Stat option) list) =
@@ -19,84 +22,128 @@ module Interaction =
             |> List.map (fun (stat, lst) -> stat, lst |> List.map fst |> List.fold (+) 0)
             |> Map.ofList
 
-    let ofDraft (draft:Draft) : Domain.Character option =
+    let ofDraft (draft:Draft) : CharacterSheet option =
         match draft.allocations |> addUpStats with
         | Lookup Str str & Lookup Dex dex & Lookup Con con
             & Lookup Int int & Lookup Wis wis & Lookup Cha cha
             ->
             {
-                Character.name = "Bob"
-                Character.Str = str
-                Character.Dex = dex
-                Character.Con = con
-                Character.Int = int
-                Character.Wis = wis
-                Character.Cha = cha
-                originalRolls = rolls
+                CharacterSheet.name = draft.name
+                Str = str
+                Dex = dex
+                Con = con
+                Int = int
+                Wis = wis
+                Cha = cha
+                sex = Male
+                traits = DerivedTraits.toSetting Set.ofList rules [PC] Map.empty
+                originalRolls = draft.originalRolls
                 } |> Some
         | _ ->
             None
+    let d = rand
     let inOrder (draft:Draft) =
-        let r n = draft.originalRolls[n] |> Some
-        {
-          draft with
-            Str = r 0
-            Dex = r 1
-            Con = r 2
-            Int = r 3
-            Wis = r 4
-            Cha = r 5
-            unallocated = []
-            }
+        match draft.allocations with
+        | [str,_;dex,_;con,_;int,_;wis,_;cha,_] ->
+            let mapSnd = List.map (fun (arg, stat) -> arg, Some stat)
+            { draft with allocations = [str,Str;dex,Dex;con,Con;int,Int;wis,Wis;cha,Cha] |> mapSnd }
+        | _ ->
+            draft
     let roll3d6InOrder assign =
         assign [for _ in 1..6 do
-                    List.init 3 (fun _ -> d 6) |> List.sum
+                    List.init 3 (thunk1 d 6) |> List.sum
                     ]
         |> inOrder
     let roll4d6k3 assign =
         assign [for _ in 1..6 do
-                    List.init 4 (fun _ -> d 6) |> List.sortDescending |> List.take 3 |> List.sum
+                    List.init 4 (thunk1 d 6) |> List.sortDescending |> List.take 3 |> List.sum
                     ]
+    let rollPHBMethodVI assign =
+        {
+            assign [
+                for _ in 1..7 do
+                    d 6
+                ]
+            with mode = CumulativeFrom (8, 18)
+        }
     let darkSunMethodI assign =
         assign [
             for _ in 1..6 do
-                4 + (List.init 4 (fun _ -> 1 + rand.Next(4)) |> List.sum)
+                4 + (List.init 4 (thunk1 d 4) |> List.sum)
             ]
         |> inOrder
     let darkSun6d4 assign =
         assign [
             for _ in 1..6 do
-                List.init 6 (fun _ -> 1 + rand.Next(4)) |> List.sortDescending |> List.take 5 |> List.sum
+                List.init 6 (thunk1 d 4) |> List.sortDescending |> List.take 5 |> List.sum
             ]
+    let darkSunMethodV assign =
+        {
+            assign [
+                for _ in 1..10 do
+                    d 4
+                ]
+            with mode = CumulativeFrom (10, 20)
+        }
+    let assign (rollIndex:int) (stat:Stat) (draft:Draft): Draft =
+        let replaceStat i ((value, currentStat) as unchanged) =
+            if i = rollIndex then
+                (value, Some stat)
+            else
+                match currentStat with
+                | Some s when draft.mode = Assign && stat = s ->
+                    value, None
+                | _ -> unchanged
+        let enforceMaximum allocations =
+            match draft.mode with
+            | Assign -> allocations
+            | CumulativeFrom(min', max') ->
+                let rec recur totalSoFar ix = function
+                | [] -> []
+                | ((value, _) as unchanged)::rest when ix = rollIndex ->
+                    unchanged::(recur (totalSoFar + value) (ix+1) rest)
+                | ((value, Some stat') as unchanged)::rest when stat' = stat ->
+                    if totalSoFar + value <= max' then
+                        unchanged::(recur (totalSoFar + value) (ix+1) rest)
+                    else
+                        // this is the key case: un-assign this stat
+                        (value, None)::(recur totalSoFar (ix+1) rest)
+                | unchanged::rest ->
+                    unchanged::(recur totalSoFar (ix+1) rest)
+                recur min' 0 allocations
+        { draft with allocations = draft.allocations |> List.mapi replaceStat |> enforceMaximum }
     let create method : Draft =
         method(fun rolls -> {
-                Str = None
-                Dex = None
-                Con = None
-                Int = None
-                Wis = None
-                Cha = None
+                name = chooseRandom ["Bob"; "Rygar"; "Sam McGee"; "Lilac"]
                 originalRolls = rolls
-                unallocated = rolls
+                allocations = rolls |> List.map (fun x -> x, None)
+                mode = Assign
                 })
+
+open Interaction
 
 module View =
     open Interaction
     open Elmish
+    open Domain.Character
 
     type ChargenMethod =
         | Roll3d6InOrder
         | Roll4d6k3
+        | RollPHBMethodVI
         | DarkSunMethodI
         | DarkSun6d4
+        | DarkSunMethodV
         with
-        static member All = [Roll3d6InOrder;Roll4d6k3;DarkSunMethodI;DarkSun6d4]
+        static member All = [Roll3d6InOrder;Roll4d6k3;RollPHBMethodVI;DarkSunMethodI;DarkSun6d4;DarkSunMethodV]
         member this.info =
             match this with
                 | Roll3d6InOrder -> "3d6 in order", roll3d6InOrder
                 | Roll4d6k3 -> "4d6 drop lowest", roll4d6k3
-                | DarkSunMethodI -> "Dark Sun Method I", darkSunMethodI
+                | RollPHBMethodVI -> "7d6, assign to taste", rollPHBMethodVI
+                | DarkSunMethodI -> "Dark Sun default", darkSunMethodI
                 | DarkSun6d4 -> "Dark Sun 6d4 drop lowest", darkSun6d4
+                | DarkSunMethodV -> "Dark Sun Method V", darkSunMethodV
             |> MethodInfo
     and MethodInfo = MethodInfo of name: string * ((Rolls -> Draft) -> Draft)
         with
@@ -105,14 +152,15 @@ module View =
 
     type Model = {
         draft: Draft option
-        export: Domain.CharacterSheet option
+        export: CharacterSheet option
         method: ChargenMethod
         }
     type Msg =
-        | Done of Domain.CharacterSheet
+        | Done of CharacterSheet
         | Cancel
         | Reroll
         | SetMethod of ChargenMethod
+        | AssignRoll of ix:int * stat:Stat
     let init _ =
         {
             draft = None
@@ -129,6 +177,8 @@ module View =
             { model with draft = Some char; export = ofDraft char }, Cmd.Empty
         | SetMethod m ->
             { model with method = m }, Cmd.Empty
+        | AssignRoll(ix, stat) ->
+            { model with draft = model.draft |> Option.map (assign ix stat) }, Cmd.Empty
 
     open Feliz
     open Konva
@@ -144,33 +194,36 @@ module View =
         let lessThanEqualGroups =
             [
                 for x in 1..25 do
-                    let count = normalPersonDistribution |> Seq.filter (fun stat -> stat < x) |> Seq.length
+                    let count = normalPersonDistribution |> Seq.filter (fun stat -> stat <= x) |> Seq.length
                     x, (float count/(float normalPersonDistribution.Length))
                 ] |> dict
         fun statValue -> lessThanEqualGroups[statValue]
 
     let view (model: Model) dispatch =
+        let window = Browser.Dom.window
+        let width = (int window.innerWidth - 80)
         Html.div [
             Html.text "Create a character!"
             stage [
                 Stage.height 300
-                Stage.width 500
+                Stage.width width
                 Stage.children [
                     Layer.create [
                         rect [
                             Rect.height 300
-                            Rect.width 500
+                            Rect.width width
                             Rect.stroke Black
                             Rect.strokeWidth 3
                             ]
                         let mutable y = 10
-                        let t messages =
+                        let outputTextBase extra messages =
                             [
                                 for x, txt in messages do
-                                    text [Text.x (x+10); Text.y y; Text.fontSize 18; Text.text txt]
+                                    text ([Text.x (x+10); Text.y y; Text.fontSize 18; Text.text txt]@extra)
                                 y <- y + 20
                                 ]
                             |> React.fragment
+                        let outputText = outputTextBase []
                         let describe stat statValue =
                             let term =
                                 match stat with
@@ -180,7 +233,7 @@ module View =
                                 | "Int" -> "Smarter"
                                 | "Wis" -> "Wiser"
                                 | _ -> "More charismatic"
-                            t [0, $"{stat} {statValue}"; 100, $"{term} than %0.1f{(getPercentile statValue)*100.}%% of humanity"]
+                            outputText [0, $"{stat} {statValue}"; 100, $"{term} than %0.1f{(getPercentile statValue)*100.}%% of humanity"]
                         match model.export with
                         | Some char ->
                             describe "Str" char.Str
@@ -192,7 +245,20 @@ module View =
                         | None ->
                             match model.draft with
                             |Some draft ->
-                                t [0,$"[draft] rolls{draft.originalRolls}"]
+                                let assignments = addUpStats draft.allocations
+                                let totalFor stat =
+                                    match assignments |> Map.tryFind stat, draft.mode with
+                                    | None, CumulativeFrom(min, _) -> Some min
+                                    | Some v, CumulativeFrom(min, _) -> Some (min + v)
+                                    | Some v, Assign -> Some v
+                                    | None, Assign -> None
+                                for stat in Stat.All do
+                                    match totalFor stat with
+                                    | Some v -> describe (stat.ToString()) v
+                                    | None -> outputText [0, stat.ToString()]
+                                outputText []
+                                outputText ((0, "Unassigned")::(draft.allocations |> List.filter(function(v, None) -> true | _ -> false) |> List.mapi (fun i (v,_) -> 150+i*50, v.ToString())))
+                                outputText [0, "(drag and drop)"]
                             | None -> ()
                         ]
                     ]

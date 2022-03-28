@@ -34,7 +34,7 @@ let rulesOf rules =
         | None ->
             derivationRules <- derivationRules |> Map.add key [choice]
         | Some choices ->
-            derivationRules <- derivationRules |> Map.add key (choice::choices)
+            derivationRules <- derivationRules |> Map.add key (choices@[choice])
     derivationRules
 
 let summarize f (rules: DerivationRules<'trait0>) (instance: DerivationInstance<'trait0>) roots =

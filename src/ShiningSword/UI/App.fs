@@ -10,14 +10,15 @@ open Konva
 // make sure errors are not silent: show them as Alerts (ugly but better than nothing for now)
 open Fable.Core.JsInterop
 open Fable.Core
-open Chargen.Domain
 
 importSideEffects "../sass/main.sass"
 
 module App =
+    open Domain.Character
+
     type Page =
         | Chargen of Chargen.View.Model
-    type Model = { stack: Page list; error: string option; hero: Chargen.Domain.CharacterSheet option }
+    type Model = { stack: Page list; error: string option; hero: CharacterSheet option }
     type Msg =
         | Error of msg: string
         | Transform of (Model -> Model)
@@ -32,7 +33,7 @@ module App =
         | Transform f, _ -> { f model with error = None }, Cmd.Empty
         | Chargen msg, (Page.Chargen chargenModel)::rest ->
             let finishWith = function
-            | Some (character: Chargen.Domain.CharacterSheet) ->
+            | Some (character: CharacterSheet) ->
                 Cmd.ofSub(fun dispatch ->
                     Transform (fun s -> { s with hero = Some character }) |> dispatch
                     Pop |> dispatch

@@ -1,4 +1,4 @@
-    module Packrat
+module Packrat
 
 (* DEEP MAGIC BEGINS HERE
 The following memo function allows construction of left-recursive grammars using a stateful

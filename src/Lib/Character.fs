@@ -3,6 +3,7 @@ module Domain.Character
 open DerivedTraits
 
 type Stat = Str | Dex | Con | Int | Wis | Cha
+    with static member All = [Str;Dex;Con;Int;Wis;Cha]
 type Trait =
     | PC
     | Race
@@ -49,24 +50,26 @@ type CharacterSheet = {
     }
 
 let feats = [GWM;Tough;Lucky;Mobile;HeavyArmorMaster]
-let rules = [
-    PC, { fresh [Race] with elideFromDisplayAndSummary = true; autopick = true }
-    Race ==> [Elf; Human; Dwarf]
-    let stats = [Str;Dex;Con;Int;Wis;Cha]
-    Human, { fresh (stats |> List.map (fun x -> StatMod (x,1))) with numberAllowed = 2; mustBeDistinct = true }
-    confer Human [Feat]
-    Feat ==> feats
-    confer Elf [SwordBowBonus 1; StatMod (Dex,2)]
-    Elf ==> [HighElf; WoodElf; DrowElf]
-    confer HighElf [BonusWizardCantrip]
-    confer WoodElf [MaskOfTheWild; Faster 5]
-    confer DrowElf [ImprovedDarkvision; SunlightSensitivity]
-    BonusWizardCantrip ==> [Cantrip "Fire Bolt"; Cantrip "Minor Illusion"; Cantrip "Blade Ward"; Cantrip "Toll the Dead"]
-    confer Dwarf [StatMod (Con, 2); Faster -5]
-    Dwarf ==> [HillDwarf; MountainDwarf]
-    confer HillDwarf [ExtraHPPerLevel 1; StatMod(Wis, 1)]
-    confer MountainDwarf [MediumArmorProficiency]
-    ]
+let rules =
+    [
+        PC, { fresh [Race] with elideFromDisplayAndSummary = true; autopick = true }
+        Race ==> [Elf; Human; Dwarf]
+        let stats = [Str;Dex;Con;Int;Wis;Cha]
+        Human, { fresh (stats |> List.map (fun x -> StatMod (x,1))) with numberAllowed = 2; mustBeDistinct = true }
+        confer Human [Feat]
+        Feat ==> feats
+        confer Elf [SwordBowBonus 1; StatMod (Dex,2)]
+        Elf ==> [HighElf; WoodElf; DrowElf]
+        confer HighElf [BonusWizardCantrip]
+        confer WoodElf [MaskOfTheWild; Faster 5]
+        confer DrowElf [ImprovedDarkvision; SunlightSensitivity]
+        BonusWizardCantrip ==> [Cantrip "Fire Bolt"; Cantrip "Minor Illusion"; Cantrip "Blade Ward"; Cantrip "Toll the Dead"]
+        confer Dwarf [StatMod (Con, 2); Faster -5]
+        Dwarf ==> [HillDwarf; MountainDwarf]
+        confer HillDwarf [ExtraHPPerLevel 1; StatMod(Wis, 1)]
+        confer MountainDwarf [MediumArmorProficiency]
+        ]
+    |> rulesOf
 
 // turn camel casing back into words with spaces, for display to user
 let uncamel (str: string) =
