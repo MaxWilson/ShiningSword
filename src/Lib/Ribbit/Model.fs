@@ -391,4 +391,4 @@ module Model =
 
         let hpP = { numberProp "HP" with fallbackBehavior = Generate(notImpl) }
         let x = InnerState.fresh |> update (Set(EventProperty(EventId 1, hpP.name), Number 42))
-        x.events[1].Value.["HP"]
+        x.events[1].Value.["HP"] |> ignore

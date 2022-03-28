@@ -54,7 +54,14 @@ module App =
                 ]
             match model.stack with
             | (Page.Chargen model)::_ ->
-                Chargen.View.view model (Chargen >> dispatch)
+                let finishWith = function
+                | Some (character: CharacterSheet) ->
+                    Cmd.ofSub(fun dispatch ->
+                        Transform (fun s -> { s with hero = Some character }) |> dispatch
+                        Pop |> dispatch
+                        )
+                | None -> Cmd.ofMsg Pop
+                Chargen.View.view {| model = model; dispatch = (Chargen >> dispatch) |}
             | _ -> ()
             ]
 

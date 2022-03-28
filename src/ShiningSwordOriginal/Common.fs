@@ -47,7 +47,7 @@ type RecursiveOptionLens<'t> = SimpleLens<'t, 't option>
 module Lens =
     let get (l: Lens<'InState,'ValGet,'ValSet,'OutState>) s =
         let r = ref Unchecked.defaultof<_>
-        s |> l (fun a -> r := a; None) |> ignore
+        s |> l (fun a -> r .Value <- a; None) |> ignore
         !r
     let over (l: Lens<'InState,'ValGet,'ValSet,'OutState>) f =
         l (f >> Some) >> Option.get

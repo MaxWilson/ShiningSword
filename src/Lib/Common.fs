@@ -148,7 +148,7 @@ module Stateful =
                 // apply it from the beginning
                 let combined = queue@past
                 (init() |> apply combined), combined
-        shared := (current', past')
+        shared.Value <- (current', past')
         current', { this with shared = shared; past = past'; queue = [] }
     let execute msg = function
     | { queue = queue } as this ->

@@ -68,6 +68,7 @@ type Shape =
     static member inline onMouseDown (f: ({| target: 'a |} -> 'b)) = mkShapeAttr "onMouseDown" f
     static member inline onMouseUp (f: ({| target: 'a |} -> 'b)) = mkShapeAttr "onMouseUp" f
     static member inline onMouseOver (f: ({| target: 'a |} -> 'b)) = mkShapeAttr "onMouseOver" f
+    static member inline ref handle = mkShapeAttr "ref" handle
 
 type Circle =
     inherit Shape

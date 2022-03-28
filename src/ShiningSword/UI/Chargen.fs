@@ -85,6 +85,8 @@ module Interaction =
                 ]
             with mode = CumulativeFrom (10, 20)
         }
+    let unassign (stat:Stat) (draft:Draft) =
+        { draft with allocations = draft.allocations |> List.map (function (ix, Some stat') when stat' = stat -> ix, None | same -> same) }
     let assign (rollIndex:int) (stat:Stat) (draft:Draft): Draft =
         let replaceStat i ((value, currentStat) as unchanged) =
             if i = rollIndex then
@@ -126,6 +128,8 @@ module View =
     open Interaction
     open Elmish
     open Domain.Character
+    open Feliz
+    open Feliz.UseElmish
 
     type ChargenMethod =
         | Roll3d6InOrder
@@ -161,6 +165,7 @@ module View =
         | Reroll
         | SetMethod of ChargenMethod
         | AssignRoll of ix:int * stat:Stat
+        | UnassignRolls of stat: Stat
     let init _ =
         {
             draft = None
@@ -179,9 +184,10 @@ module View =
             { model with method = m }, Cmd.Empty
         | AssignRoll(ix, stat) ->
             { model with draft = model.draft |> Option.map (assign ix stat) }, Cmd.Empty
+        | UnassignRolls stat ->
+            { model with draft = model.draft |> Option.map (unassign stat) }, Cmd.Empty
 
-    open Feliz
-    open Konva
+
     let getPercentile =
         // for a given stat like 18, how many people have a lower stat?
         let normalPersonDistribution =
@@ -199,67 +205,156 @@ module View =
                 ] |> dict
         fun statValue -> lessThanEqualGroups[statValue]
 
-    let view (model: Model) dispatch =
+    open Fable.Core.JsInterop
+    open Fable.React
+    open Feliz
+    open Konva
+
+    let inline printKeys arg =
+        let rec recur arg =
+            match arg?key with
+            | Some key ->
+                printfn $"Key: {key}"
+            | None ->
+                printfn $"No key! {arg}"
+                Browser.Dom.window?noKey <- arg
+            match arg?children with
+            | Some children ->
+                recur children
+            | None -> ()
+        recur arg
+        arg
+
+    [<ReactComponent>]
+    let view = Fable.React.FunctionComponent.Of(memoizeWith = equalsButFunctions, render = fun (arg: {| model: Model; dispatch: Msg -> unit |}) ->
+        let model = arg.model
+        let dispatch = arg.dispatch
         let window = Browser.Dom.window
         let width = (int window.innerWidth - 80)
+        let myStage = React.useRef None
+        let myLayer = React.useRef None
+        let dragLayer = React.useRef None
+        let mutable id = 0
+        let key() =
+            id <- id + 1
+            Shape.key id
         Html.div [
             Html.text "Create a character!"
             stage [
                 Stage.height 300
                 Stage.width width
+                Stage.ref myStage
                 Stage.children [
-                    Layer.create [
-                        rect [
-                            Rect.height 300
-                            Rect.width width
-                            Rect.stroke Black
-                            Rect.strokeWidth 3
-                            ]
-                        let mutable y = 10
-                        let outputTextBase extra messages =
-                            [
-                                for x, txt in messages do
-                                    text ([Text.x (x+10); Text.y y; Text.fontSize 18; Text.text txt]@extra)
-                                y <- y + 20
+                    layer [
+                        key()
+                        Shape.ref dragLayer
+                        ]
+                    layer [
+                        key()
+                        Layer.ref myLayer
+                        Layer.children [
+                            rect [
+                                Rect.height 300
+                                Rect.width width
+                                Rect.stroke Black
+                                Rect.strokeWidth 3
+                                Shape.key "border"
                                 ]
-                            |> React.fragment
-                        let outputText = outputTextBase []
-                        let describe stat statValue =
-                            let term =
-                                match stat with
-                                | "Str" -> "Stronger"
-                                | "Dex" -> "Faster"
-                                | "Con" -> "Tougher"
-                                | "Int" -> "Smarter"
-                                | "Wis" -> "Wiser"
-                                | _ -> "More charismatic"
-                            outputText [0, $"{stat} {statValue}"; 100, $"{term} than %0.1f{(getPercentile statValue)*100.}%% of humanity"]
-                        match model.export with
-                        | Some char ->
-                            describe "Str" char.Str
-                            describe "Dex" char.Dex
-                            describe "Con" char.Con
-                            describe "Int" char.Int
-                            describe "Wis" char.Wis
-                            describe "Cha" char.Cha
-                        | None ->
-                            match model.draft with
-                            |Some draft ->
-                                let assignments = addUpStats draft.allocations
-                                let totalFor stat =
-                                    match assignments |> Map.tryFind stat, draft.mode with
-                                    | None, CumulativeFrom(min, _) -> Some min
-                                    | Some v, CumulativeFrom(min, _) -> Some (min + v)
-                                    | Some v, Assign -> Some v
-                                    | None, Assign -> None
-                                for stat in Stat.All do
-                                    match totalFor stat with
-                                    | Some v -> describe (stat.ToString()) v
-                                    | None -> outputText [0, stat.ToString()]
-                                outputText []
-                                outputText ((0, "Unassigned")::(draft.allocations |> List.filter(function(v, None) -> true | _ -> false) |> List.mapi (fun i (v,_) -> 150+i*50, v.ToString())))
-                                outputText [0, "(drag and drop)"]
-                            | None -> ()
+                            let mutable y = 10
+                            let outputText messages =
+                                [
+                                    for x, txt in messages do
+                                        text [Text.x (x+10); Text.y y; Text.fontSize 18; Text.text txt; Shape.key (x,txt)]
+                                    y <- y + 20
+                                    ]
+                            let outputStatText (stat:Stat) messages =
+                                [
+                                    for x, txt in messages do
+                                        text [Text.x (x+10); Text.y y; Text.fontSize 18; Text.text txt; Shape.key (x,txt); unbox ("relatedStat", stat); Shape.onClick(fun _ -> UnassignRolls(stat) |> dispatch)]
+                                    y <- y + 20
+                                    ]
+                            let describe (stat:Stat) statValue =
+                                let term =
+                                    match stat with
+                                    | Str -> "Stronger"
+                                    | Dex -> "Faster"
+                                    | Con -> "Tougher"
+                                    | Int -> "Smarter"
+                                    | Wis -> "Wiser"
+                                    | Cha -> "More charismatic"
+                                outputStatText stat [0, $"{stat} {statValue}"; 100, $"{term} than %0.1f{(getPercentile statValue)*100.}%% of humanity"]
+                            match model.export with
+                            | Some char ->
+                                yield! outputText [0, char.name]
+                                yield! describe Str char.Str
+                                yield! describe Dex char.Dex
+                                yield! describe Con char.Con
+                                yield! describe Int char.Int
+                                yield! describe Wis char.Wis
+                                yield! describe Cha char.Cha
+                            | None ->
+                                match model.draft with
+                                |Some draft ->
+                                    yield! outputText [0, draft.name]
+                                    let assignments = addUpStats draft.allocations
+                                    let totalFor stat =
+                                        match assignments |> Map.tryFind stat, draft.mode with
+                                        | None, CumulativeFrom(min, _) -> Some min
+                                        | Some v, CumulativeFrom(min, _) -> Some (min + v)
+                                        | Some v, Assign -> Some v
+                                        | None, Assign -> None
+                                    for stat in Stat.All do
+                                        match totalFor stat with
+                                        | Some v -> yield! describe stat v
+                                        | None -> yield! outputStatText stat [0, stat.ToString()]
+                                    yield! outputText []
+                                    yield! outputText [0, "Unassigned"]
+                                    // apology to future self: sorry this is such spaghetti. Feel free to rewrite entirely but for now I'm
+                                    // just trying to get something working as a POC--I'm mostly focused on learning Konva right now.
+                                    // E.g. learning that getIntersection really doesn't work unless you move your dragged shape to a
+                                    // different layer first while dragging. Presumably that's because the dragged shape doesn't show up
+                                    // on the hit detection canvas of the layer it's normally on until dragging ends.
+                                    y <- y - 20
+                                    for xPixel, statIndex, txt in
+                                        (draft.allocations |> List.mapi (fun i (v,_) -> 150+i*50, i, v.ToString()))
+                                        do
+                                        if draft.allocations[statIndex] |> snd = None then
+                                            text [
+                                                Shape.draggable
+                                                Shape.onDragStart(fun ev ->
+                                                    match dragLayer.current with
+                                                    | Some dragLayer ->
+                                                        ev.target?moveTo(dragLayer)
+                                                    | None -> ()
+                                                    )
+                                                Shape.onDragEnd (fun ev ->
+                                                    match myStage.current, myLayer.current with
+                                                    | Some stage, Some layer ->
+                                                        let pos = stage?getPointerPosition()
+                                                        let shape = layer?getIntersection(pos)
+                                                        match shape with
+                                                        | Some shape ->
+                                                            match shape?attrs?relatedStat with
+                                                            | Some stat ->
+                                                                AssignRoll(statIndex, stat |> unbox) |> dispatch
+                                                            | None -> ()
+                                                        | None -> ()
+                                                    | _ -> ()
+                                                    if myLayer.current.IsSome then
+                                                        ev.target?moveTo(myLayer.current.Value)
+                                                    )
+                                                Text.x xPixel
+                                                Text.y y
+                                                Text.text txt
+                                                Text.fontSize 18;
+                                                Shape.key ($"StatIndex: {statIndex}")
+                                                ]
+                                    y <- y + 20
+
+                                    yield! outputText [0, "(drag and drop)"]
+                                    ()
+                                | None -> ()
+                            ]
                         ]
                     ]
                 ]
@@ -270,10 +365,8 @@ module View =
             Html.div [
                 for ix, method in ChargenMethod.All |> List.mapi (fun i x -> i, x) do
                     Html.div [
-                        Html.input [prop.type'.radio; prop.ariaChecked (model.method = method); prop.isChecked (model.method = method); prop.id method.info.name'; prop.onClick (fun _ -> method |> SetMethod |> dispatch)]
-                        Html.label [prop.for' method.info.name'; prop.text method.info.name']
+                        Html.input [prop.type'.radio; prop.ariaChecked (model.method = method); prop.isChecked (model.method = method); prop.id method.info.name'; prop.onClick (fun _ -> method |> SetMethod |> dispatch); prop.readOnly true]
+                        Html.label [prop.htmlFor method.info.name'; prop.text method.info.name']
                         ]
                 ]
-            ]
-
-
+            ])
