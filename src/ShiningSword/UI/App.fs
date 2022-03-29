@@ -23,10 +23,11 @@ module App =
         | Error of msg: string
         | Transform of (Model -> Model)
         | Chargen of Chargen.View.Msg
+        | Push of Page
         | Pop
-    let init _ =
-        let model, msg = Chargen.View.init()
-        { stack = [Page.Chargen model]; error = None; hero = None; }, msg |> Cmd.map Chargen
+
+    let init initialCmd =
+        { stack = []; error = None; hero = None; }, Cmd.batch initialCmd
     let update msg model =
         match msg, model.stack with
         | Error msg, _ -> { model with error = Some msg }, Cmd.Empty
@@ -41,8 +42,14 @@ module App =
             | None -> Cmd.ofMsg Pop
             let chargenModel, cmd = Chargen.View.update finishWith msg chargenModel
             { model with stack = (Page.Chargen chargenModel)::rest }, cmd
-        | Pop, _ -> { model with stack = match model.stack with _::rest -> rest | _ -> model.stack }, Cmd.Empty
-        | _ -> model, (Error $"Message '{msg}' not compatible with current page" |> Cmd.ofMsg)
+        | Pop, _::[] ->
+            // default to welcome screen if stack is empty
+            let model', msg = Chargen.View.init()
+            { model with stack = [] }, Cmd.Empty
+        | Pop, _::rest -> { model with stack = rest }, Cmd.Empty
+        | Push(page), stack -> { model with stack = page::stack }, Cmd.Empty // Elmish.Navigation.Navigation.newUrl "#rust"
+        | _ -> model, (Error $"Message '{msg}' not compatible with current page ({model.stack |> List.tryHead}))" |> Cmd.ofMsg)
+    open Feliz.Router
     let view (model: Model) dispatch =
         let window = Browser.Dom.window;
         Html.div [
@@ -62,10 +69,61 @@ module App =
                         )
                 | None -> Cmd.ofMsg Pop
                 Chargen.View.view {| model = model; dispatch = (Chargen >> dispatch) |}
-            | _ -> ()
+            | _ ->
+                Html.div [
+                    Html.button [
+                        prop.text "Create a character"
+                        prop.href "#chargen"
+                        prop.onClick(fun _ ->
+                            (Navigation.Navigation.newUrl "#chargen").Head dispatch
+                            )
+                        ]
+                   ]
             ]
 
+module Url =
+    open App
+    open Chargen.View
+    module Parse =
+        open Browser.Types
+        open Packrat
+        let locationParser (rootActivePattern: ParseRule<_>) (loc: Location) =
+            let (|Root|_|) = rootActivePattern
+            match ParseArgs.Init loc.hash with
+            | Str "#" (Root(v, End)) -> v
+            | _ -> []
+
+        let (|Page|_|) = function
+            | Str "chargen/DarkSun" ctx ->
+                let model', msg = Chargen.View.init()
+                let cmd =
+                    [
+                        Cmd.ofMsg (Push (Page.Chargen model'))
+                        Cmd.ofMsg (SetMethod DarkSunMethodI |> Chargen)
+                        msg |> Cmd.map Chargen
+                        ]
+                Some(cmd, ctx)
+            | Str "chargen" ctx ->
+                let model', msg = Chargen.View.init()
+                let cmd =
+                    [
+                        Cmd.ofMsg (Push (Page.Chargen model'))
+                        msg |> Cmd.map Chargen
+                        ]
+                Some(cmd, ctx)
+            | _ -> None
+
+        let page = locationParser (|Page|_|)
+    let parse loc =
+        let parsed = Parse.page loc
+        parsed
+    let unpack cmds model =
+        model, Cmd.batch cmds
+
 open App
+open Elmish
+open Elmish.Navigation
+
 Program.mkProgram init update view
 |> Program.withSubscription(fun m -> Cmd.ofSub(fun dispatch ->
     Browser.Dom.window.onerror <-
@@ -74,5 +132,6 @@ Program.mkProgram init update view
             dispatch (sprintf "Error: %A" msg |> Error)
             Browser.Dom.window.alert ("Unhandled Exception: " + msg.ToString())
         ))
+|> Program.toNavigable Url.parse Url.unpack
 |> Program.withReactBatched "feliz-app"
 |> Program.run

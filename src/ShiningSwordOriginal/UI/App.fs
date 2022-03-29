@@ -3,7 +3,7 @@ open UI.Ribbit
 open Elmish
 
 open Elmish.React
-//open Elmish.Debug
+open Elmish.Navigation
 #if DEBUG
 open Elmish.HMR
 #endif
@@ -59,8 +59,8 @@ Program.mkProgram init update view
         if msg.ToString().Contains "SocketProtocolError" = false then
             d (App.Msg.Battle <| UI.Ribbit.Error (sprintf "Error: %A" msg))
         ))
-#if DEBUG
 |> Program.toNavigable Url.parse App.urlUpdate
+#if DEBUG
 //|> Program.withDebugger
 #endif
 |> Program.withReactBatched "elmish-app"
