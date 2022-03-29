@@ -29,7 +29,7 @@ module ParseInput =
             let mid = input.Substring(startPos, afterPos - startPos)
             sprintf "%s<<<%s>>>%s" before mid after
         let results =
-            [for KeyValue((startPos, id), result) in !settled do
+            [for KeyValue((startPos, id), result) in settled.Value do
                 match result with
                 | Success(v, afterPos) ->
                     yield (sprintf "%s %A" (input |> distinguish startPos afterPos) v)

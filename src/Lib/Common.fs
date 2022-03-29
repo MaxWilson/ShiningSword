@@ -126,6 +126,8 @@ type Ops with
 //   the current state, we can just make a quick mutation to the shared mutable state
 //   and return it.
 module Stateful =
+    open Microsoft.FSharp.Core
+
     type private Seed<'t, 'msg> = Seed of initial: (unit -> 't) * update: ('msg -> 't -> 't)
     type State<'t, 'msg> =
         private { seed: Seed<'t, 'msg> ; shared:(('t * 'msg list) ref) ; past: ('msg list) ; queue: ('msg list) }
@@ -133,7 +135,7 @@ module Stateful =
         static member create(initial: (unit -> 't), update: 'msg -> 't -> 't) =
             let shared = ref (initial(), [])
             { seed = Seed(initial, update); shared = shared; past = []; queue = [] }
-    let (|Deref|) cell = !cell
+    let (|Deref|) (cell: _ ref) = cell.Value
     // returns current state and amortized-updated State reflecting the current state. Also sets shared state = this.
     let deref = function
     | { shared = Deref(current, sharedPast); past = past; queue = [] } as this when sharedPast = past ->

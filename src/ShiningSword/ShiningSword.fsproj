@@ -3,6 +3,7 @@
         <TargetFramework>net5.0</TargetFramework>
     </PropertyGroup>
     <ItemGroup>
+        <None Include="sass\main.sass" />
         <None Include="UI\index.html" />
         <Compile Include="UI\Konva.fs" />
         <Compile Include="UI\Chargen.fs" />

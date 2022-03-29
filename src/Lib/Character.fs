@@ -93,3 +93,16 @@ let uncamel (str: string) =
             recur $"{workingCopy[0..(index-1)]} {workingCopy[index..]}" rest
     recur str spaceNeededBefore
 
+let makeName() =
+    let firstName = chooseRandom ["Bob"; "Rygar"; "Sam"; "Lilac"; "Relkin"; "Basil"; "Anomander"]
+    let prefix name =
+        let prefixes = ["Insanity"; "Black"; "Merciless"; "Gentle"]
+        $"{chooseRandom prefixes} {name}"
+    let lastName name =
+        let suffixes = ["Aardvark"; "Ragnarok"; "Seagull"; "Johnson"; "the Savage"; "McGee"]
+        $"{name} {chooseRandom suffixes}"
+    let title name =
+        let suffixes = ["Defender of Humanity"; "Last of the Dwarflords"; "the Accursed"; "Esquire"; "the Undying"]
+        $"{name}, {chooseRandom suffixes}"
+    let allThree = (prefix >> lastName >> title)
+    chooseRandom [prefix; lastName; title; allThree] firstName

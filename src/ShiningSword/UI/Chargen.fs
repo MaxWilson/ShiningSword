@@ -102,8 +102,10 @@ module Interaction =
             | CumulativeFrom(min', max') ->
                 let rec recur totalSoFar ix = function
                 | [] -> []
-                | ((value, _) as unchanged)::rest when ix = rollIndex ->
-                    unchanged::(recur (totalSoFar + value) (ix+1) rest)
+                | unchanged::rest when ix = rollIndex ->
+                    // we already accounted for this stat when totalSoFar was initialized,
+                    // and for UX reasons we will not un-assign the roll you just dropped.
+                    unchanged::(recur (totalSoFar) (ix+1) rest)
                 | ((value, Some stat') as unchanged)::rest when stat' = stat ->
                     if totalSoFar + value <= max' then
                         unchanged::(recur (totalSoFar + value) (ix+1) rest)
@@ -112,11 +114,12 @@ module Interaction =
                         (value, None)::(recur totalSoFar (ix+1) rest)
                 | unchanged::rest ->
                     unchanged::(recur totalSoFar (ix+1) rest)
-                recur min' 0 allocations
+                recur (min' + (allocations[rollIndex] |> fst)) 0 allocations
         { draft with allocations = draft.allocations |> List.mapi replaceStat |> enforceMaximum }
+
     let create method : Draft =
         method(fun rolls -> {
-                name = chooseRandom ["Bob"; "Rygar"; "Sam McGee"; "Lilac"]
+                name = makeName()
                 originalRolls = rolls
                 allocations = rolls |> List.map (fun x -> x, None)
                 mode = Assign
@@ -238,131 +241,106 @@ module View =
         let key() =
             id <- id + 1
             Shape.key id
-        Html.div [
-            Html.text "Create a character!"
-            stage [
-                Stage.height 300
-                Stage.width width
-                Stage.ref myStage
-                Stage.children [
-                    layer [
-                        key()
-                        Shape.ref dragLayer
+        // helper method to make assigning css classes more concise
+        let class' f className children =
+            f [
+                prop.className (className: string)
+                prop.children (children: _ list)
+                ]
+        let mutable recentDrag = None // there's probably a better way to do this
+        class' Html.div "charGen" [
+            class' Html.div "Title" [
+                Html.text "Create a character!"
+                ]
+            let dragOverHandler stat (e:Browser.Types.DragEvent) =
+                recentDrag <- Some stat
+                e.preventDefault()
+            let dragEnterHandler (e:Browser.Types.DragEvent) =
+                e.preventDefault()
+            let currentStat stat statValue =
+                match statValue with
+                | Some statValue ->
+                    Html.span [prop.text $"{stat} {statValue}"; prop.onDragOver (dragOverHandler stat); prop.onDragEnter dragEnterHandler; prop.onClick(fun _ -> dispatch (UnassignRolls stat))]
+                | None ->
+                    Html.span [prop.text $"{stat}     "; prop.onDragOver (dragOverHandler stat); prop.onDragEnter dragEnterHandler]
+            let describe (stat:Stat) statValue =
+                let term =
+                    match stat with
+                    | Str -> "Stronger"
+                    | Dex -> "Faster"
+                    | Con -> "Tougher"
+                    | Int -> "Smarter"
+                    | Wis -> "Wiser"
+                    | Cha -> "More charismatic"
+                React.fragment [
+                    currentStat stat (Some statValue)
+                    Html.span [prop.text $"{term} than %0.1f{(getPercentile statValue)*100.}%% of humanity" ; prop.onDragOver (dragOverHandler stat); prop.onDragEnter dragEnterHandler]
+                    ]
+            match model.export with
+            | Some char ->
+                class' Html.div "middle" [
+                    class' Html.div "characterHeader" [
+                        Html.text char.name
                         ]
-                    layer [
-                        key()
-                        Layer.ref myLayer
-                        Layer.children [
-                            rect [
-                                Rect.height 300
-                                Rect.width width
-                                Rect.stroke Black
-                                Rect.strokeWidth 3
-                                Shape.key "border"
-                                ]
-                            let mutable y = 10
-                            let outputText messages =
-                                [
-                                    for x, txt in messages do
-                                        text [Text.x (x+10); Text.y y; Text.fontSize 18; Text.text txt; Shape.key (x,txt)]
-                                    y <- y + 20
-                                    ]
-                            let outputStatText (stat:Stat) messages =
-                                [
-                                    for x, txt in messages do
-                                        text [Text.x (x+10); Text.y y; Text.fontSize 18; Text.text txt; Shape.key (x,txt); unbox ("relatedStat", stat); Shape.onClick(fun _ -> UnassignRolls(stat) |> dispatch)]
-                                    y <- y + 20
-                                    ]
-                            let describe (stat:Stat) statValue =
-                                let term =
-                                    match stat with
-                                    | Str -> "Stronger"
-                                    | Dex -> "Faster"
-                                    | Con -> "Tougher"
-                                    | Int -> "Smarter"
-                                    | Wis -> "Wiser"
-                                    | Cha -> "More charismatic"
-                                outputStatText stat [0, $"{stat} {statValue}"; 100, $"{term} than %0.1f{(getPercentile statValue)*100.}%% of humanity"]
-                            match model.export with
-                            | Some char ->
-                                yield! outputText [0, char.name]
-                                yield! describe Str char.Str
-                                yield! describe Dex char.Dex
-                                yield! describe Con char.Con
-                                yield! describe Int char.Int
-                                yield! describe Wis char.Wis
-                                yield! describe Cha char.Cha
-                            | None ->
-                                match model.draft with
-                                |Some draft ->
-                                    yield! outputText [0, draft.name]
-                                    let assignments = addUpStats draft.allocations
-                                    let totalFor stat =
-                                        match assignments |> Map.tryFind stat, draft.mode with
-                                        | None, CumulativeFrom(min, _) -> Some min
-                                        | Some v, CumulativeFrom(min, _) -> Some (min + v)
-                                        | Some v, Assign -> Some v
-                                        | None, Assign -> None
-                                    for stat in Stat.All do
-                                        match totalFor stat with
-                                        | Some v -> yield! describe stat v
-                                        | None -> yield! outputStatText stat [0, stat.ToString()]
-                                    yield! outputText []
-                                    yield! outputText [0, "Unassigned"]
-                                    // apology to future self: sorry this is such spaghetti. Feel free to rewrite entirely but for now I'm
-                                    // just trying to get something working as a POC--I'm mostly focused on learning Konva right now.
-                                    // E.g. learning that getIntersection really doesn't work unless you move your dragged shape to a
-                                    // different layer first while dragging. Presumably that's because the dragged shape doesn't show up
-                                    // on the hit detection canvas of the layer it's normally on until dragging ends.
-                                    y <- y - 20
-                                    for xPixel, statIndex, txt in
-                                        (draft.allocations |> List.mapi (fun i (v,_) -> 150+i*50, i, v.ToString()))
-                                        do
-                                        if draft.allocations[statIndex] |> snd = None then
-                                            text [
-                                                Shape.draggable
-                                                Shape.onDragStart(fun ev ->
-                                                    match dragLayer.current with
-                                                    | Some dragLayer ->
-                                                        ev.target?moveTo(dragLayer)
-                                                    | None -> ()
-                                                    )
-                                                Shape.onDragEnd (fun ev ->
-                                                    match myStage.current, myLayer.current with
-                                                    | Some stage, Some layer ->
-                                                        let pos = stage?getPointerPosition()
-                                                        let shape = layer?getIntersection(pos)
-                                                        match shape with
-                                                        | Some shape ->
-                                                            match shape?attrs?relatedStat with
-                                                            | Some stat ->
-                                                                AssignRoll(statIndex, stat |> unbox) |> dispatch
-                                                            | None -> ()
-                                                        | None -> ()
-                                                    | _ -> ()
-                                                    if myLayer.current.IsSome then
-                                                        ev.target?moveTo(myLayer.current.Value)
-                                                    )
-                                                Text.x xPixel
-                                                Text.y y
-                                                Text.text txt
-                                                Text.fontSize 18;
-                                                Shape.key ($"StatIndex: {statIndex}")
-                                                ]
-                                    y <- y + 20
-
-                                    yield! outputText [0, "(drag and drop)"]
-                                    ()
-                                | None -> ()
-                            ]
+                    class' Html.div "assignedStats" [
+                        describe Str char.Str
+                        describe Dex char.Dex
+                        describe Con char.Con
+                        describe Int char.Int
+                        describe Wis char.Wis
+                        describe Cha char.Cha
                         ]
                     ]
-                ]
-            Html.button [
-                prop.text "Reroll"
-                prop.onClick (fun _ -> dispatch Reroll)
-                ]
-            Html.div [
+            | None ->
+                match model.draft with
+                |Some draft ->
+                    class' Html.div "middle" [
+                        class' Html.div "characterHeader" [
+                            Html.text draft.name
+                            ]
+                        class' Html.div "assignedStats" [
+                            let assignments = addUpStats draft.allocations
+                            let totalFor stat =
+                                match assignments |> Map.tryFind stat, draft.mode with
+                                | None, CumulativeFrom(min, _) -> Some min
+                                | Some v, CumulativeFrom(min, _) -> Some (min + v)
+                                | Some v, Assign -> Some v
+                                | None, Assign -> None
+                            for stat in Stat.All do
+                                match totalFor stat with
+                                | Some v -> describe stat v
+                                | None ->
+                                    currentStat stat None
+                                    Html.span []
+                            ]
+                        class' Html.div "statRolls" [
+                            Html.span [prop.text "Unassigned (drag and drop)"]
+                            for ix, (roll, stat) in draft.allocations |> List.mapi tuple2 do
+                                match stat with
+                                | None ->
+                                    let dropHandler ev =
+                                        // this is a little bit wrong. It will still drop the stat even if you've moved off before releasing the mouse.
+                                        match recentDrag with
+                                        | Some stat ->
+                                            dispatch (AssignRoll(ix, stat))
+                                        | None -> ()
+                                    Html.span [
+                                        prop.className "roll"
+                                        prop.children [
+                                            Html.span [prop.text (roll); prop.draggable true; prop.onDragEnd dropHandler; prop.onDragStart (fun e -> e.dataTransfer.setData("text/html", "dummy") |> ignore)]
+                                            ]
+                                        ]
+                                | Some _ ->
+                                    Html.span [prop.draggable true; prop.className "roll"]
+                            ]
+                        ]
+                | None -> ()
+            class' Html.div "footer" [
+                Html.button [
+                    prop.text "Reroll"
+                    prop.onClick (fun _ -> dispatch Reroll)
+                    ]
+
                 for ix, method in ChargenMethod.All |> List.mapi (fun i x -> i, x) do
                     Html.div [
                         Html.input [prop.type'.radio; prop.ariaChecked (model.method = method); prop.isChecked (model.method = method); prop.id method.info.name'; prop.onClick (fun _ -> method |> SetMethod |> dispatch); prop.readOnly true]
