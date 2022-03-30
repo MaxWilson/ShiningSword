@@ -4,7 +4,7 @@
         "prestart": "dotnet tool restore",
         "start": "dotnet fable watch ./src/ShiningSword -s --run webpack-dev-server",
         "prebuild": "dotnet tool restore",
-        "build": "dotnet fable ./src && webpack",
+        "build": "dotnet fable ./src/ShiningSword && webpack",
         "test:live": "dotnet fable watch tests --run webpack-dev-server --config ./webpack.tests.js",
         "build:test": "dotnet fable tests && webpack --config webpack.tests.js",
         "pretest": "dotnet tool restore",
