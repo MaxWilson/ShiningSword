@@ -6,6 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <MyriadSdkGenerator Include="$(MSBuildThisFileDirectory)\..\Myriadic\bin\Debug\net5.0\Myriadic.dll" />
+    <None Include="Scratch\NameMaker.fsx" />
     <None Include="Scratch\Encounters.fsx" />
     <None Include="Scratch\ScenarioScratch.fsx" />
     <None Include="Scratch\Script1.fsx" />
@@ -20,6 +21,7 @@
     <Compile Include="Common.fs" />
     <Compile Include="Parsing.fs" />
     <Compile Include="DerivedTraits.fs" />
+    <Compile Include="Onomastikon.fs" />
     <Compile Include="Character.fs" />
     <Compile Include="Ribbit\Model.fs" />
     <Compile Include="Ribbit\AutoGen.fs">

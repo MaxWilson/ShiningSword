@@ -10,6 +10,8 @@ module Interaction =
     type Mode = CumulativeFrom of min:int * max:int | Assign
     type Draft = {
         name: string
+        nationalOrigin: string
+        sex: Sex
         allocations: (int * Stat option) list
         originalRolls: Rolls
         mode: Mode
@@ -29,13 +31,14 @@ module Interaction =
             ->
             {
                 CharacterSheet.name = draft.name
+                nationalOrigin = draft.nationalOrigin
                 Str = str
                 Dex = dex
                 Con = con
                 Int = int
                 Wis = wis
                 Cha = cha
-                sex = Male
+                sex = draft.sex
                 traits = DerivedTraits.toSetting Set.ofList rules [PC] Map.empty
                 originalRolls = draft.originalRolls
                 } |> Some
@@ -118,8 +121,11 @@ module Interaction =
         { draft with allocations = draft.allocations |> List.mapi replaceStat |> enforceMaximum }
 
     let create method : Draft =
+        let sex, nationalOrigin, name = makeName()
         method(fun rolls -> {
-                name = makeName()
+                name = name
+                sex = sex
+                nationalOrigin = nationalOrigin
                 originalRolls = rolls
                 allocations = rolls |> List.map (fun x -> x, None)
                 mode = Assign
@@ -296,7 +302,7 @@ module View =
                 |Some draft ->
                     class' Html.div "middle" [
                         class' Html.div "characterHeader" [
-                            Html.text draft.name
+                            Html.text $"{draft.name} from {draft.nationalOrigin} ({draft.sex})"
                             ]
                         class' Html.div "assignedStats" [
                             let assignments = addUpStats draft.allocations

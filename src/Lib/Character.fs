@@ -37,6 +37,7 @@ type Trait =
 type Sex = Male | Female | Neither
 type CharacterSheet = {
     name: string
+    nationalOrigin: string
     sex: Sex
     Str: int
     Dex: int
@@ -93,16 +94,27 @@ let uncamel (str: string) =
             recur $"{workingCopy[0..(index-1)]} {workingCopy[index..]}" rest
     recur str spaceNeededBefore
 
-let makeName() =
-    let firstName = chooseRandom ["Bob"; "Rygar"; "Sam"; "Lilac"; "Relkin"; "Basil"; "Anomander"]
-    let prefix name =
-        let prefixes = ["Insanity"; "Black"; "Merciless"; "Gentle"]
-        $"{chooseRandom prefixes} {name}"
-    let lastName name =
-        let suffixes = ["Aardvark"; "Ragnarok"; "Seagull"; "Johnson"; "the Savage"; "McGee"]
-        $"{name} {chooseRandom suffixes}"
-    let title name =
-        let suffixes = ["Defender of Humanity"; "Last of the Dwarflords"; "the Accursed"; "Esquire"; "the Undying"]
-        $"{name}, {chooseRandom suffixes}"
-    let allThree = (prefix >> lastName >> title)
-    chooseRandom [prefix; lastName; title; allThree] firstName
+let rec makeName() =
+    let sex = chooseRandom [Male; Female]
+    let nationOfOrigin = chooseRandom ["Tir na n'Og"; "Abysia"; "Kailasa"; "Ermor"; "Undauntra"; "Arboria"; "Mordor"]
+    let rec chooseFromLists = function
+        | potentialCategory::rest ->
+            match Onomastikon.nameLists |> Map.tryFind (nationOfOrigin, potentialCategory) with
+            | Some nameList -> chooseRandom nameList
+            | None -> chooseFromLists rest
+        | [] -> "" // sometimes e.g. there is no last name for a given national origin
+    let firstName = chooseFromLists [sex.ToString()]
+    match firstName with
+    | "" -> makeName() // invalid nation/sex combination (e.g. no females in Mordor), try again
+    | _ ->
+        let lastName name =
+            let surname = chooseFromLists [$"Last";$"Cognomen{sex}";$"Last{sex}";]
+            $"{name} {surname}".Trim()
+        let prefix name =
+            let prefixes = ["Insanity"; "Black"; "Merciless"; "Gentle"; "Calamity"]
+            $"{chooseRandom prefixes} {name}".Trim()
+        let title name =
+            let suffixes = ["Defender of Humanity"; "Last of the Dwarflords"; "the Accursed"; "Esquire"; "the Undying"]
+            $"{name}, {chooseRandom suffixes}".Trim()
+        let allThree = (prefix >> lastName >> title)
+        sex, nationOfOrigin, chooseRandom [prefix; lastName; (lastName >> title); allThree] firstName
