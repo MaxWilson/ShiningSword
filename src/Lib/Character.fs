@@ -4,73 +4,8 @@ open DerivedTraits
 
 type Stat = Str | Dex | Con | Int | Wis | Cha
     with static member All = [Str;Dex;Con;Int;Wis;Cha]
-type Trait =
-    | PC
-    | Race
-    | Human
-    | Elf
-    | Dwarf
-    | WoodElf
-    | HighElf
-    | DrowElf
-    | HillDwarf
-    | MountainDwarf
-    | StatMod of Stat * int
-    | Feat
-    | GWM
-    | Tough
-    | Lucky
-    | Mobile
-    | HeavyArmorMaster
-    | BonusWizardCantrip
-    | Cantrip of string
-    | MaskOfTheWild
-    | Faster of int
-    | SunlightSensitivity
-    | ImprovedDarkvision
-    | SwordBowBonus of int
-    | ShieldProficiency
-    | LightArmorProficiency
-    | MediumArmorProficiency
-    | HeavyArmorProficiency
-    | ExtraHPPerLevel of int
 type Sex = Male | Female | Neither
-type CharacterSheet = {
-    name: string
-    nationalOrigin: string
-    sex: Sex
-    Str: int
-    Dex: int
-    Con: int
-    Int: int
-    Wis: int
-    Cha: int
-    originalRolls: int list
-    // Storing the derivation instead of just the end result makes it easier to do things like add new traits on levelling up
-    traits: Setting<Trait>
-    }
 
-let feats = [GWM;Tough;Lucky;Mobile;HeavyArmorMaster]
-let rules =
-    [
-        PC, { fresh [Race] with elideFromDisplayAndSummary = true; autopick = true }
-        Race ==> [Elf; Human; Dwarf]
-        let stats = [Str;Dex;Con;Int;Wis;Cha]
-        Human, { fresh (stats |> List.map (fun x -> StatMod (x,1))) with numberAllowed = 2; mustBeDistinct = true }
-        confer Human [Feat]
-        Feat ==> feats
-        confer Elf [SwordBowBonus 1; StatMod (Dex,2)]
-        Elf ==> [HighElf; WoodElf; DrowElf]
-        confer HighElf [BonusWizardCantrip]
-        confer WoodElf [MaskOfTheWild; Faster 5]
-        confer DrowElf [ImprovedDarkvision; SunlightSensitivity]
-        BonusWizardCantrip ==> [Cantrip "Fire Bolt"; Cantrip "Minor Illusion"; Cantrip "Blade Ward"; Cantrip "Toll the Dead"]
-        confer Dwarf [StatMod (Con, 2); Faster -5]
-        Dwarf ==> [HillDwarf; MountainDwarf]
-        confer HillDwarf [ExtraHPPerLevel 1; StatMod(Wis, 1)]
-        confer MountainDwarf [MediumArmorProficiency]
-        ]
-    |> rulesOf
 
 // turn camel casing back into words with spaces, for display to user
 let uncamel (str: string) =
@@ -94,8 +29,118 @@ let uncamel (str: string) =
             recur $"{workingCopy[0..(index-1)]} {workingCopy[index..]}" rest
     recur str spaceNeededBefore
 
-let rec makeName() =
-    let sex = chooseRandom [Male; Female]
+module ADND2nd =
+    type Trait =
+        | PC
+        | Race
+        | Human
+        | HalfGiant
+        | ThriKreen
+        | HalfElf
+        | StatMod of Stat * int
+    type CharacterSheet = {
+        name: string
+        nationalOrigin: string
+        sex: Sex
+        Str: int
+        Dex: int
+        Con: int
+        Int: int
+        Wis: int
+        Cha: int
+        originalRolls: int list
+        // Storing the derivation instead of just the end result makes it easier to do things like add new traits on levelling up
+        traits: Setting<Trait, Trait Set>
+        }
+    let rules =
+        [
+        PC, { fresh [Race] with elideFromDisplayAndSummary = true; autopick = true }
+        Race ==> [HalfGiant;Human;ThriKreen;HalfElf]
+        ]
+        |> rulesOf
+
+module DND5e =
+    type Trait =
+        | PC
+        | Race
+        | Human
+        | Elf
+        | Dwarf
+        | WoodElf
+        | HighElf
+        | DrowElf
+        | HillDwarf
+        | MountainDwarf
+        | StatMod of Stat * int
+        | Feat
+        | GWM
+        | Tough
+        | Lucky
+        | Mobile
+        | HeavyArmorMaster
+        | BonusWizardCantrip
+        | Cantrip of string
+        | MaskOfTheWild
+        | Faster of int
+        | SunlightSensitivity
+        | ImprovedDarkvision
+        | SwordBowBonus of int
+        | ShieldProficiency
+        | LightArmorProficiency
+        | MediumArmorProficiency
+        | HeavyArmorProficiency
+        | ExtraHPPerLevel of int
+    let describe = function
+        | StatMod(stat, n) ->
+            $"%+d{n} {stat}"
+        | ExtraHPPerLevel(n) ->
+            $"{n} extra HP per level"
+        | Cantrip cantrip ->
+            $"{cantrip}"
+        | Faster n ->
+            $"%+d{n}' speed"
+        | SwordBowBonus n ->
+            $"%+d{n} to hit with swords and bows"
+        | stat -> uncamel (stat.ToString())
+    type CharacterSheet = {
+        name: string
+        nationalOrigin: string
+        sex: Sex
+        Str: int
+        Dex: int
+        Con: int
+        Int: int
+        Wis: int
+        Cha: int
+        originalRolls: int list
+        // Storing the derivation instead of just the end result makes it easier to do things like add new traits on levelling up
+        traits: Setting<Trait, Trait Set>
+        }
+
+    let feats = [GWM;Tough;Lucky;Mobile;HeavyArmorMaster]
+    let rules =
+        [
+            PC, { fresh [Race] with elideFromDisplayAndSummary = true; autopick = true }
+            Race ==> [Human; Elf; Dwarf]
+            let stats = [Str;Dex;Con;Int;Wis;Cha]
+            Human, { fresh (stats |> List.map (fun x -> StatMod (x,1))) with numberAllowed = 2; mustBeDistinct = true }
+            confer Human [Feat]
+            Feat ==> feats
+            confer Elf [SwordBowBonus 1; StatMod (Dex,2)]
+            Elf ==> [HighElf; WoodElf; DrowElf]
+            confer HighElf [BonusWizardCantrip]
+            confer WoodElf [MaskOfTheWild; Faster 5]
+            confer DrowElf [ImprovedDarkvision; SunlightSensitivity]
+            BonusWizardCantrip ==> [Cantrip "Fire Bolt"; Cantrip "Minor Illusion"; Cantrip "Blade Ward"; Cantrip "Toll the Dead"]
+            confer Dwarf [StatMod (Con, 2); Faster -5]
+            Dwarf ==> [HillDwarf; MountainDwarf]
+            confer HillDwarf [ExtraHPPerLevel 1; StatMod(Wis, 1)]
+            confer MountainDwarf [MediumArmorProficiency; StatMod(Str, 2)]
+            ]
+        |> rulesOf
+
+
+let rec makeName(sex: Sex) =
     let nationOfOrigin = chooseRandom ["Tir na n'Og"; "Abysia"; "Kailasa"; "Ermor"; "Undauntra"; "Arboria"; "Mordor"]
     let rec chooseFromLists = function
         | potentialCategory::rest ->
@@ -105,7 +150,7 @@ let rec makeName() =
         | [] -> "" // sometimes e.g. there is no last name for a given national origin
     let firstName = chooseFromLists [sex.ToString()]
     match firstName with
-    | "" -> makeName() // invalid nation/sex combination (e.g. no females in Mordor), try again
+    | "" -> makeName(sex) // invalid nation/sex combination (e.g. no females in Mordor), try again
     | _ ->
         let lastName name =
             let surname = chooseFromLists [$"Last";$"Cognomen{sex}";$"Last{sex}";]
@@ -117,4 +162,4 @@ let rec makeName() =
             let suffixes = ["Defender of Humanity"; "Last of the Dwarflords"; "the Accursed"; "Esquire"; "the Undying"]
             $"{name}, {chooseRandom suffixes}".Trim()
         let allThree = (prefix >> lastName >> title)
-        sex, nationOfOrigin, chooseRandom [prefix; lastName; (lastName >> title); allThree] firstName
+        nationOfOrigin, chooseRandom [prefix; lastName; (lastName >> title); allThree] firstName

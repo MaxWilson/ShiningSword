@@ -15,6 +15,7 @@ importSideEffects "../sass/main.sass"
 
 module App =
     open Domain.Character
+    open Domain.Character.DND5e
 
     type Page =
         | Chargen of Chargen.View.Model
@@ -40,7 +41,7 @@ module App =
                     Pop |> dispatch
                     )
             | None -> Cmd.ofMsg Pop
-            let chargenModel, cmd = Chargen.View.update finishWith msg chargenModel
+            let chargenModel, cmd = Chargen.View.update (Chargen >> Cmd.ofMsg) finishWith msg chargenModel
             { model with stack = (Page.Chargen chargenModel)::rest }, cmd
         | Pop, _::[] ->
             // default to welcome screen if stack is empty
@@ -52,34 +53,32 @@ module App =
     open Feliz.Router
     let view (model: Model) dispatch =
         let window = Browser.Dom.window;
-        Html.div [
+        match model.stack with
+        | (Page.Chargen model)::_ ->
+            let finishWith = function
+            | Some (character: CharacterSheet) ->
+                Cmd.ofSub(fun dispatch ->
+                    Transform (fun s -> { s with hero = Some character }) |> dispatch
+                    Pop |> dispatch
+                    )
+            | None -> Cmd.ofMsg Pop
+            Chargen.View.view {| model = model; dispatch = (Chargen >> dispatch) |}
+        | _ ->
             Html.div [
-                prop.children [
-                    Html.text (match model.error with Some msg -> msg | None -> "Welcome to Shining Sword")
-                    ]
-                prop.style [style.marginBottom 10]
-                ]
-            match model.stack with
-            | (Page.Chargen model)::_ ->
-                let finishWith = function
-                | Some (character: CharacterSheet) ->
-                    Cmd.ofSub(fun dispatch ->
-                        Transform (fun s -> { s with hero = Some character }) |> dispatch
-                        Pop |> dispatch
-                        )
-                | None -> Cmd.ofMsg Pop
-                Chargen.View.view {| model = model; dispatch = (Chargen >> dispatch) |}
-            | _ ->
                 Html.div [
-                    Html.button [
-                        prop.text "Create a character"
-                        prop.href "#chargen"
-                        prop.onClick(fun _ ->
-                            (Navigation.Navigation.newUrl "#chargen").Head dispatch
-                            )
+                    prop.children [
+                        Html.text (match model.error with Some msg -> msg | None -> "Welcome to Shining Sword")
                         ]
-                   ]
-            ]
+                    prop.style [style.marginBottom 10]
+                    ]
+                Html.button [
+                    prop.text "Create a character"
+                    prop.href "#chargen"
+                    prop.onClick(fun _ ->
+                        (Navigation.Navigation.newUrl "#chargen").Head dispatch
+                        )
+                    ]
+               ]
 
 module Url =
     open App

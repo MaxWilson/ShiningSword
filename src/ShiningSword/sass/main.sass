@@ -24,11 +24,14 @@ html, body, #elmish-app
     grid-template-areas: ". Title ." "middle middle middle" "footer footer footer"
 
 .charGen
+    user-select: none
     font-size: x-large
     .Title
         grid-area: Title
     .footer
         grid-area: footer
+        .choice label
+            margin-right: 1em
     .middle
       border-style: solid
       padding: 0.5em
@@ -47,8 +50,13 @@ html, body, #elmish-app
       grid-template-areas:        ". ."        ". ."        ". ."        ". ."        ". ."        ". ."
       grid-area: assignedStats
     .characterHeader
-        font-size: xx-large
         grid-area: characterHeader
+        .title
+            font-size: xx-large
+        .details
+            margin: 10px 0px 10px 40px
+            label
+                margin-right: 2em
     .statRolls
       margin-top: 1em
       display: flex

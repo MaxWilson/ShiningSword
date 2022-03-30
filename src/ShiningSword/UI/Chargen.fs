@@ -4,17 +4,23 @@ namespace Chargen
 //    Effectively, this for for treating user interaction as a domain of its own.
 module Interaction =
     open Domain
+    open DerivedTraits
     open Domain.Character
+    open Domain.Character.DND5e
+
     type Rolls = int list
 
-    type Mode = CumulativeFrom of min:int * max:int | Assign
+    type RuleSet = ADND | DND5e
+    type Mode = CumulativeFrom of min:int * max:int | Assign | InOrder
     type Draft = {
         name: string
         nationalOrigin: string
         sex: Sex
         allocations: (int * Stat option) list
         originalRolls: Rolls
+        ruleset: RuleSet
         mode: Mode
+        traits: DerivationInstance<Trait>
         }
 
     let addUpStats (allocations: (int * Stat option) list) =
@@ -39,7 +45,7 @@ module Interaction =
                 Wis = wis
                 Cha = cha
                 sex = draft.sex
-                traits = DerivedTraits.toSetting Set.ofList rules [PC] Map.empty
+                traits = Map.empty |> toSetting Set.ofList rules [PC]
                 originalRolls = draft.originalRolls
                 } |> Some
         | _ ->
@@ -49,7 +55,7 @@ module Interaction =
         match draft.allocations with
         | [str,_;dex,_;con,_;int,_;wis,_;cha,_] ->
             let mapSnd = List.map (fun (arg, stat) -> arg, Some stat)
-            { draft with allocations = [str,Str;dex,Dex;con,Con;int,Int;wis,Wis;cha,Cha] |> mapSnd }
+            { draft with allocations = [str,Str;dex,Dex;con,Con;int,Int;wis,Wis;cha,Cha] |> mapSnd; mode = InOrder }
         | _ ->
             draft
     let roll3d6InOrder assign =
@@ -101,7 +107,7 @@ module Interaction =
                 | _ -> unchanged
         let enforceMaximum allocations =
             match draft.mode with
-            | Assign -> allocations
+            | Assign | InOrder -> allocations
             | CumulativeFrom(min', max') ->
                 let rec recur totalSoFar ix = function
                 | [] -> []
@@ -121,7 +127,8 @@ module Interaction =
         { draft with allocations = draft.allocations |> List.mapi replaceStat |> enforceMaximum }
 
     let create method : Draft =
-        let sex, nationalOrigin, name = makeName()
+        let sex = chooseRandom [Male; Female]
+        let nationalOrigin, name = makeName sex
         method(fun rolls -> {
                 name = name
                 sex = sex
@@ -129,6 +136,8 @@ module Interaction =
                 originalRolls = rolls
                 allocations = rolls |> List.map (fun x -> x, None)
                 mode = Assign
+                ruleset = DND5e
+                traits = Map.empty
                 })
 
 open Interaction
@@ -137,8 +146,10 @@ module View =
     open Interaction
     open Elmish
     open Domain.Character
+    open DND5e
     open Feliz
     open Feliz.UseElmish
+    open DerivedTraits
 
     type ChargenMethod =
         | Roll3d6InOrder
@@ -177,6 +188,7 @@ module View =
         | UnassignRolls of stat: Stat
         | SetName of string
         | SetSex of Sex
+        | ChooseTrait of head:Trait * choiceIx: int * decisionIx: int
     let init _ =
         {
             draft = None
@@ -184,19 +196,49 @@ module View =
             method = ChargenMethod.All.Head
             },
             Cmd.ofMsg Reroll
-    let update finish msg model =
+    let update cmd finish msg model =
         match msg with
         | Cancel -> model, (finish None)
         | Done char -> model, (Some char |> finish)
         | Reroll ->
             let char = create model.method.info.f
-            { model with draft = Some char; export = ofDraft char }, Cmd.Empty
+            { model with draft = Some char; export = None }, Cmd.Empty
         | SetMethod m ->
-            { model with method = m }, Cmd.Empty
+            { model with method = m }, cmd Reroll
         | AssignRoll(ix, stat) ->
             { model with draft = model.draft |> Option.map (assign ix stat) }, Cmd.Empty
         | UnassignRolls stat ->
             { model with draft = model.draft |> Option.map (unassign stat) }, Cmd.Empty
+        | SetName(name) ->
+            { model with draft = model.draft |> Option.map (fun draft -> { draft with name = name }) }, Cmd.Empty
+        | SetSex sex ->
+            let setSex (draft: Draft) =
+                let nationalOrigin, name = makeName sex
+                { draft with sex = sex; name = name; nationalOrigin = nationalOrigin }
+            { model with draft = model.draft |> Option.map setSex }, Cmd.Empty
+        | ChooseTrait(head, choiceIx, decisionIx) ->
+            let choose (draft:Draft) =
+                let rules = Domain.Character.DND5e.rules // todo: make this dynamic somehow, which entails making it able to use either kind of traits as head
+                let chooseTrait (instance: DerivationInstance<Trait>) =
+                    let rule =
+                        match rules with
+                        | Lookup head rule ->
+                            rule[choiceIx]
+                        | _ -> shouldntHappen()
+                    instance |> Map.change head (function
+                        | None -> Map.ofList [choiceIx, [decisionIx]] |> Some
+                        | Some decisions ->
+                            let change = function
+                            | Some ixs ->
+                                let d = decisionIx::ixs
+                                let d = if rule.numberAllowed >= d.Length then d else d |> List.take rule.numberAllowed
+                                d |> Some
+                            | None -> [decisionIx] |> Some
+                            decisions |> Map.change choiceIx change |> Some
+                        )
+
+                { draft with traits = draft.traits |> chooseTrait }
+            { model with draft = model.draft |> Option.map choose }, Cmd.Empty
 
 
     let getPercentile =
@@ -304,11 +346,13 @@ module View =
                 |Some draft ->
                     class' Html.div "middle" [
                         class' Html.div "characterHeader" [
-                            Html.text $"{draft.name} from {draft.nationalOrigin} ({draft.sex})"
-                            Html.div [
+                            class' Html.div "title" [
+                                Html.text $"{draft.name} from {draft.nationalOrigin}"
+                                ]
+                            class' Html.div "details" [
                                 for sex in [Male; Female] do
                                     let id = sex.ToString()
-                                    Html.input [prop.type'.radio; prop.ariaChecked (draft.sex = sex); prop.isChecked (draft.sex = sex); prop.id id; prop.onCheckedChange (fun _ -> SetSex sex |> dispatch); prop.readOnly true]
+                                    Html.input [prop.type'.radio; prop.ariaChecked (draft.sex = sex); prop.isChecked (draft.sex = sex); prop.id id; prop.onClick (fun _ -> SetSex sex |> dispatch); prop.readOnly true]
                                     Html.label [prop.htmlFor id; prop.text id]
                                 ]
                             ]
@@ -318,8 +362,8 @@ module View =
                                 match assignments |> Map.tryFind stat, draft.mode with
                                 | None, CumulativeFrom(min, _) -> Some min
                                 | Some v, CumulativeFrom(min, _) -> Some (min + v)
-                                | Some v, Assign -> Some v
-                                | None, Assign -> None
+                                | Some v, _ -> Some v
+                                | None, _ -> None
                             for stat in Stat.All do
                                 match totalFor stat with
                                 | Some v -> describe stat v
@@ -328,24 +372,25 @@ module View =
                                     Html.span []
                             ]
                         class' Html.div "statRolls" [
-                            Html.span [prop.text "Unassigned (drag and drop)"]
-                            for ix, (roll, stat) in draft.allocations |> List.mapi tuple2 do
-                                match stat with
-                                | None ->
-                                    let dropHandler ev =
-                                        // this is a little bit wrong. It will still drop the stat even if you've moved off before releasing the mouse.
-                                        match recentDrag with
-                                        | Some stat ->
-                                            dispatch (AssignRoll(ix, stat))
-                                        | None -> ()
-                                    Html.span [
-                                        prop.className "roll"
-                                        prop.children [
-                                            Html.span [prop.text (roll); prop.draggable true; prop.onDragEnd dropHandler; prop.onDragStart (fun e -> e.dataTransfer.setData("text/html", "dummy") |> ignore)]
+                            if draft.mode <> InOrder then
+                                Html.span [prop.text "Unassigned (drag and drop)"]
+                                for ix, (roll, stat) in draft.allocations |> List.mapi tuple2 do
+                                    match stat with
+                                    | None ->
+                                        let dropHandler ev =
+                                            // this is a little bit wrong. It will still drop the stat even if you've moved off before releasing the mouse.
+                                            match recentDrag with
+                                            | Some stat ->
+                                                dispatch (AssignRoll(ix, stat))
+                                            | None -> ()
+                                        Html.span [
+                                            prop.className "roll"
+                                            prop.children [
+                                                Html.span [prop.text (roll); prop.draggable true; prop.onDragEnd dropHandler; prop.onDragStart (fun e -> e.dataTransfer.setData("text/html", "dummy") |> ignore)]
+                                                ]
                                             ]
-                                        ]
-                                | Some _ ->
-                                    Html.span [prop.draggable true; prop.className "roll"]
+                                    | Some _ ->
+                                        Html.span [prop.draggable true; prop.className "roll"]
                             ]
                         ]
                 | None -> ()
@@ -355,10 +400,39 @@ module View =
                     prop.onClick (fun _ -> dispatch Reroll)
                     ]
 
-                for ix, method in ChargenMethod.All |> List.mapi (fun i x -> i, x) do
+                for ix, method in ChargenMethod.All |> List.mapi tuple2 do
                     Html.div [
                         Html.input [prop.type'.radio; prop.ariaChecked (model.method = method); prop.isChecked (model.method = method); prop.id method.info.name'; prop.onClick (fun _ -> method |> SetMethod |> dispatch); prop.readOnly true]
                         Html.label [prop.htmlFor method.info.name'; prop.text method.info.name']
                         ]
+
+                match model.draft with
+                | None -> ()
+                | Some draft ->
+                    let describeChoiceInReact (head, choiceIx, choice: DerivedTraits.Choice<_>, decision: Trait list) =
+                        let toString x = x.ToString()
+                        if choice.options.Length = decision.Length then
+                            Html.div [
+                                class' Html.div "choice" [
+                                    for ix, option in choice.options |> List.mapi tuple2 do
+                                        let name = option |> DND5e.describe
+                                        Html.div [
+                                            Html.text name
+                                            ]
+                                    ]
+                                ]
+                            |> Some
+                        else
+                            Html.div [
+                                class' Html.div "choice" [
+                                    for ix, option in choice.options |> List.mapi tuple2 do
+                                        let name = option |> DND5e.describe
+                                        Html.input [prop.type'.checkbox; prop.ariaChecked (decision |> List.contains option); prop.isChecked (decision |> List.contains option); prop.id name; prop.onClick (fun _ -> ChooseTrait(head, choiceIx, ix) |> dispatch); prop.readOnly true]
+                                        Html.label [prop.htmlFor name; prop.text name]
+                                    ]
+                                ]
+                            |> Some
+
+                    yield! summarize describeChoiceInReact DND5e.rules draft.traits [PC]
                 ]
             ])

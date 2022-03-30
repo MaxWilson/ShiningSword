@@ -17,10 +17,9 @@ type Choice<'trait0> =
     { options: 'trait0 list; numberAllowed: int; mustBeDistinct: bool; elideFromDisplayAndSummary: bool; autopick: bool }
 
 let fresh options = { options = options; numberAllowed = 1; mustBeDistinct = false; elideFromDisplayAndSummary = false; autopick = false }
-type DerivationRule<'trait0> = Rule of key:'trait0 * choice:Choice<'trait0>
 type DerivationRules<'trait0 when 'trait0: comparison> = Map<'trait0, Choice<'trait0> list>
 type DerivationInstance<'trait0 when 'trait0: comparison> = Map<'trait0, Map<int, int list>>
-type Setting<'trait0 when 'trait0: comparison> = { instance: DerivationInstance<'trait0>; summary: Set<'trait0>; validated: bool }
+type Setting<'trait0, 'summary when 'trait0: comparison> = { instance: DerivationInstance<'trait0>; summary: 'summary; validated: bool }
 
 let (==>) (trait0: 'trait0) (options: 'trait0 list) =
     trait0, fresh options
@@ -69,7 +68,7 @@ let describeChoiceAsText (head, ix, choice, decision: _ list) =
         Some ($"{decision}")
     else
         $"""{head} can be {System.String.Join(", ", choice.options |> List.map toString)}. Current: {decision}""" |> Some
-let toSetting toSet rules roots instance =
+let toSetting summarize' rules roots instance =
     let mutable isValid = true
     let validate(head', ix, choice:Choice<_>, chosenOptions: _ list) =
         if choice.numberAllowed = chosenOptions.Length then
@@ -78,7 +77,7 @@ let toSetting toSet rules roots instance =
             isValid <- false
             None
     match summarize validate rules instance roots with
-    | traits -> { instance = instance; summary = traits |> List.collect id |> toSet; validated = isValid }
+    | traits -> { instance = instance; summary = traits |> List.collect id |> summarize'; validated = isValid }
 // very rough helper function for FSI choosing. UI choosing will be totally different, based on summarize
 let choose rules roots head value instance =
     let render(head', ix, choice, _) =
