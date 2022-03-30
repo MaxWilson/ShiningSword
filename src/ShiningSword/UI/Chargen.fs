@@ -175,6 +175,8 @@ module View =
         | SetMethod of ChargenMethod
         | AssignRoll of ix:int * stat:Stat
         | UnassignRolls of stat: Stat
+        | SetName of string
+        | SetSex of Sex
     let init _ =
         {
             draft = None
@@ -286,7 +288,7 @@ module View =
             | Some char ->
                 class' Html.div "middle" [
                     class' Html.div "characterHeader" [
-                        Html.text char.name
+                        Html.text $"{char.name} from {char.nationalOrigin} ({char.sex})"
                         ]
                     class' Html.div "assignedStats" [
                         describe Str char.Str
@@ -303,6 +305,12 @@ module View =
                     class' Html.div "middle" [
                         class' Html.div "characterHeader" [
                             Html.text $"{draft.name} from {draft.nationalOrigin} ({draft.sex})"
+                            Html.div [
+                                for sex in [Male; Female] do
+                                    let id = sex.ToString()
+                                    Html.input [prop.type'.radio; prop.ariaChecked (draft.sex = sex); prop.isChecked (draft.sex = sex); prop.id id; prop.onCheckedChange (fun _ -> SetSex sex |> dispatch); prop.readOnly true]
+                                    Html.label [prop.htmlFor id; prop.text id]
+                                ]
                             ]
                         class' Html.div "assignedStats" [
                             let assignments = addUpStats draft.allocations
