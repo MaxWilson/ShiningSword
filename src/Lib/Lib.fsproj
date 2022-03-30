@@ -1,11 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net5.0</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
     <OtherFlags></OtherFlags>
   </PropertyGroup>
   <ItemGroup>
-    <MyriadSdkGenerator Include="$(MSBuildThisFileDirectory)\..\Myriadic\bin\Debug\net5.0\Myriadic.dll" />
     <None Include="Scratch\NameMaker.fsx" />
     <None Include="Scratch\Encounters.fsx" />
     <None Include="Scratch\ScenarioScratch.fsx" />
@@ -23,15 +22,6 @@
     <Compile Include="DerivedTraits.fs" />
     <Compile Include="Onomastikon.fs" />
     <Compile Include="Character.fs" />
-    <Compile Include="Ribbit\Model.fs" />
-    <Compile Include="Ribbit\AutoGen.fs">
-      <MyriadFile>Ribbit\Model.fs</MyriadFile>
-      <MyriadNameSpace>Domain</MyriadNameSpace>
-    </Compile>
-    <Compile Include="Ribbit\Augment.fs" />
-    <Compile Include="Ribbit\Parse.fs" />
-    <Compile Include="Ribbit\RuleEngine.fs" />
-    <ProjectReference Include="..\Myriadic\Myriadic.fsproj" />
+    <PackageReference Update="FSharp.Core" Version="6.0.3" />
   </ItemGroup>
-  <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>
