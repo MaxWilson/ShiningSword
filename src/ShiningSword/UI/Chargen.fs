@@ -23,12 +23,7 @@ module Interaction =
         traits: DerivationInstance<Trait>
         }
 
-    let addUpStats (traits: DerivationInstance<Trait>) (allocations: (int * Stat option) list) =
-        let statModsOnly(_, _, _, decisions) =
-            match decisions |> List.choose (function StatMod(stat, n) -> Some(stat, n) | _ -> None) with
-            | [] -> None
-            | mods -> Some mods
-        let statMods = summarize statModsOnly DND5e.rules traits [PC] |> List.collect id
+    let addUpStats (statMods: (Stat * int) list) (allocations: (int * Stat option) list) =
         let rawTotals =
             allocations
             |> List.choose (function (roll, Some stat) -> Some(roll, stat) | _ -> None)
@@ -37,11 +32,16 @@ module Interaction =
             |> Map.ofList
         let addStat n = function
             | Some current -> current + n |> Some
-            | None -> None // don't modify what's not there yet
+            | None -> Some n
         statMods |> List.fold (fun map (stat, n) -> map |> Map.change stat (addStat n)) rawTotals
 
     let ofDraft (draft:Draft) : CharacterSheet option =
-        match draft.allocations |> addUpStats draft.traits with
+        let statModsOnly(_, _, _, decisions) =
+            match decisions |> List.choose (function StatMod(stat, n) -> Some(stat, n) | _ -> None) with
+            | [] -> None
+            | mods -> Some mods
+        let statMods = summarize statModsOnly DND5e.rules draft.traits [PC] |> List.collect id
+        match draft.allocations |> addUpStats statMods with
         | Lookup Str str & Lookup Dex dex & Lookup Con con
             & Lookup Int int & Lookup Wis wis & Lookup Cha cha
             ->
@@ -272,7 +272,9 @@ module View =
                     let count = normalPersonDistribution |> Seq.filter (fun stat -> stat <= x) |> Seq.length
                     x, (float count/(float normalPersonDistribution.Length))
                 ] |> dict
-        fun statValue -> lessThanEqualGroups[statValue]
+        fun statValue ->
+            if statValue > lessThanEqualGroups.Count then 1.
+            else lessThanEqualGroups[statValue]
 
     open Fable.Core.JsInterop
     open Fable.React
@@ -293,13 +295,13 @@ module View =
                 prop.className (className: string)
                 prop.children (children: _ list)
                 ]
-        let mutable recentDrag = None // there's probably a better way to do this
+        let recentDrag = React.useRef None // there's probably a better way to detect where the user is trying to drop the roll
         class' Html.div "charGen" [
             class' Html.div "Title" [
                 Html.text "Create a character!"
                 ]
             let dragOverHandler stat (e:Browser.Types.DragEvent) =
-                recentDrag <- Some stat
+                recentDrag.current <- Some stat
                 e.preventDefault()
             let dragEnterHandler (e:Browser.Types.DragEvent) =
                 e.preventDefault()
@@ -367,29 +369,36 @@ module View =
                                 ]
                             ]
                         class' Html.div "assignedStats" [
-                            let assignments = addUpStats draft.traits draft.allocations
-                            let totalFor stat =
-                                match assignments |> Map.tryFind stat, draft.mode with
-                                | None, CumulativeFrom(min, _) -> Some min
-                                | Some v, CumulativeFrom(min, _) -> Some (min + v)
-                                | Some v, _ -> Some v
-                                | None, _ -> None
+                            let statModsOnly(_, _, _, decisions) =
+                                match decisions |> List.choose (function StatMod(stat, n) -> Some(stat, n) | _ -> None) with
+                                | [] -> None
+                                | mods -> Some mods
+                            let statMods =
+                                match draft.mode with
+                                | CumulativeFrom(min, _) -> Stat.All |> List.map (fun stat -> stat, min)
+                                | _ -> []
+                                @
+                                (summarize statModsOnly DND5e.rules draft.traits [PC]
+                                |> List.collect (fun x -> x))
+                            let assignments = addUpStats statMods draft.allocations
                             for stat in Stat.All do
-                                match totalFor stat with
+                                match assignments |> Map.tryFind stat with
                                 | Some v -> describe stat v
                                 | None ->
                                     currentStat stat None
                                     Html.span []
                             ]
-                        class' Html.div "statRolls" [
-                            if draft.mode <> InOrder then
+                        Html.div [
+                            // try to keep layout height consistent--I'm sure there's a better way
+                            if draft.mode = InOrder then prop.classes ["statRolls";"hide"] else prop.className "statRolls"
+                            prop.children [
                                 Html.span [prop.text "Unassigned (drag and drop)"]
                                 for ix, (roll, stat) in draft.allocations |> List.mapi tuple2 do
                                     match stat with
                                     | None ->
                                         let dropHandler ev =
                                             // this is a little bit wrong. It will still drop the stat even if you've moved off before releasing the mouse.
-                                            match recentDrag with
+                                            match recentDrag.current with
                                             | Some stat ->
                                                 dispatch (AssignRoll(ix, stat))
                                             | None -> ()
@@ -401,6 +410,7 @@ module View =
                                             ]
                                     | Some _ ->
                                         Html.span [prop.draggable true; prop.className "roll"]
+                                ]
                             ]
                         ]
                 | None -> ()

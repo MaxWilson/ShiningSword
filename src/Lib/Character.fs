@@ -79,17 +79,20 @@ module DND5e =
 
     type Trait =
         | PC
+        | Level of class':CharacterClass * level:int
+        | Subclass of CharacterSubclass
         | Race
         | Human
         | StandardHuman
         | VariantHuman
         | Elf
-        | Dwarf
         | WoodElf
         | HighElf
         | DrowElf
+        | Dwarf
         | HillDwarf
         | MountainDwarf
+        | Goblin
         | StatMod of Stat * int
         | Feat
         | GWM
@@ -109,9 +112,8 @@ module DND5e =
         | ModeratelyArmored
         | MediumArmorProficiency
         | HeavyArmorProficiency
+        | NimbleEscape
         | ExtraHPPerLevel of int
-        | Level of class':CharacterClass * level:int
-        | Subclass of CharacterSubclass
     let describe = function
         | StatMod(stat, n) ->
             $"%+d{n} {stat}"
@@ -148,7 +150,7 @@ module DND5e =
     let rules =
         [
             PC, { fresh [Race] with elideFromDisplayAndSummary = true; autopick = true }
-            Race ==> [Human; Elf; Dwarf]
+            Race ==> [Human; Elf; Dwarf; Goblin]
             PC ==> [for cl in CharacterClass.All -> Level(cl, 0)]
             let stats = [Str;Dex;Con;Int;Wis;Cha]
             Human ==> [StandardHuman; VariantHuman]
@@ -166,6 +168,7 @@ module DND5e =
             Dwarf ==> [HillDwarf; MountainDwarf]
             confer HillDwarf [ExtraHPPerLevel 1; StatMod(Wis, 1)]
             confer MountainDwarf [MediumArmorProficiency; StatMod(Str, 2)]
+            confer Goblin [NimbleEscape; StatMod(Dex, 2); StatMod(Con, 1)]
             confer Tough [ExtraHPPerLevel 2]
             confer HeavyArmorMaster [StatMod (Str, 1)]
             confer ModeratelyArmored [StatMod (Dex, 1); MediumArmorProficiency; ShieldProficiency]
