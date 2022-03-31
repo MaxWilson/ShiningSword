@@ -23,15 +23,25 @@ module Interaction =
         traits: DerivationInstance<Trait>
         }
 
-    let addUpStats (allocations: (int * Stat option) list) =
-        allocations
+    let addUpStats (traits: DerivationInstance<Trait>) (allocations: (int * Stat option) list) =
+        let statModsOnly(_, _, _, decisions) =
+            match decisions |> List.choose (function StatMod(stat, n) -> Some(stat, n) | _ -> None) with
+            | [] -> None
+            | mods -> Some mods
+        let statMods = summarize statModsOnly DND5e.rules traits [PC] |> List.collect id
+        let rawTotals =
+            allocations
             |> List.choose (function (roll, Some stat) -> Some(roll, stat) | _ -> None)
             |> List.groupBy snd
             |> List.map (fun (stat, lst) -> stat, lst |> List.map fst |> List.fold (+) 0)
             |> Map.ofList
+        let addStat n = function
+            | Some current -> current + n |> Some
+            | None -> None // don't modify what's not there yet
+        statMods |> List.fold (fun map (stat, n) -> map |> Map.change stat (addStat n)) rawTotals
 
     let ofDraft (draft:Draft) : CharacterSheet option =
-        match draft.allocations |> addUpStats with
+        match draft.allocations |> addUpStats draft.traits with
         | Lookup Str str & Lookup Dex dex & Lookup Con con
             & Lookup Int int & Lookup Wis wis & Lookup Cha cha
             ->
@@ -178,7 +188,9 @@ module View =
         draft: Draft option
         export: CharacterSheet option
         method: ChargenMethod
+        editMode: TextEditMode
         }
+    and TextEditMode = | NotEditingText | EditingName // "not editing" is a bit of a misnomer--you can still edit stats and choices, but they aren't text
     type Msg =
         | Done of CharacterSheet
         | Cancel
@@ -189,11 +201,13 @@ module View =
         | SetName of string
         | SetSex of Sex
         | ChooseTrait of head:Trait * choiceIx: int * decisionIx: int
+        | SetEditMode of TextEditMode
     let init _ =
         {
             draft = None
             export = None
             method = ChargenMethod.All.Head
+            editMode = NotEditingText
             },
             Cmd.ofMsg Reroll
     let update cmd finish msg model =
@@ -210,7 +224,9 @@ module View =
         | UnassignRolls stat ->
             { model with draft = model.draft |> Option.map (unassign stat) }, Cmd.Empty
         | SetName(name) ->
-            { model with draft = model.draft |> Option.map (fun draft -> { draft with name = name }) }, Cmd.Empty
+            { model with draft = model.draft |> Option.map (fun draft -> { draft with name = name; nationalOrigin = "" }) }, Cmd.Empty
+        | SetEditMode mode ->
+            { model with editMode = mode }, Cmd.Empty
         | SetSex sex ->
             let setSex (draft: Draft) =
                 let nationalOrigin, name = makeName sex
@@ -230,7 +246,7 @@ module View =
                         | Some decisions ->
                             let change = function
                             | Some ixs ->
-                                let d = decisionIx::ixs
+                                let d = match decisionIx::ixs with | ixs when rule.mustBeDistinct -> List.distinct ixs | ixs -> ixs
                                 let d = if rule.numberAllowed >= d.Length then d else d |> List.take rule.numberAllowed
                                 d |> Some
                             | None -> [decisionIx] |> Some
@@ -263,30 +279,10 @@ module View =
     open Feliz
     open Konva
 
-    let inline printKeys arg =
-        let rec recur arg =
-            match arg?key with
-            | Some key ->
-                printfn $"Key: {key}"
-            | None ->
-                printfn $"No key! {arg}"
-                Browser.Dom.window?noKey <- arg
-            match arg?children with
-            | Some children ->
-                recur children
-            | None -> ()
-        recur arg
-        arg
-
     [<ReactComponent>]
-    let view = Fable.React.FunctionComponent.Of(memoizeWith = equalsButFunctions, render = fun (arg: {| model: Model; dispatch: Msg -> unit |}) ->
-        let model = arg.model
-        let dispatch = arg.dispatch
+    let view model dispatch =
         let window = Browser.Dom.window
         let width = (int window.innerWidth - 80)
-        let myStage = React.useRef None
-        let myLayer = React.useRef None
-        let dragLayer = React.useRef None
         let mutable id = 0
         let key() =
             id <- id + 1
@@ -347,7 +343,21 @@ module View =
                     class' Html.div "middle" [
                         class' Html.div "characterHeader" [
                             class' Html.div "title" [
-                                Html.text $"{draft.name} from {draft.nationalOrigin}"
+                                match model.editMode with
+                                | NotEditingText ->
+                                    Html.span [
+                                        prop.text draft.name;
+                                        prop.onClick (thunk1 dispatch (SetEditMode EditingName))
+                                        ]
+                                | EditingName ->
+                                    Html.input [
+                                        prop.value draft.name;
+                                        prop.onChange (fun (txt:string) -> SetName txt |> dispatch)
+                                        prop.onKeyDown (fun ev -> if ev.code = "Enter" then SetEditMode NotEditingText |> dispatch); prop.onBlur (fun ev -> SetEditMode NotEditingText |> dispatch)
+                                        ]
+
+                                if draft.nationalOrigin <> "" then
+                                    Html.text $" from {draft.nationalOrigin}"
                                 ]
                             class' Html.div "details" [
                                 for sex in [Male; Female] do
@@ -357,7 +367,7 @@ module View =
                                 ]
                             ]
                         class' Html.div "assignedStats" [
-                            let assignments = addUpStats draft.allocations
+                            let assignments = addUpStats draft.traits draft.allocations
                             let totalFor stat =
                                 match assignments |> Map.tryFind stat, draft.mode with
                                 | None, CumulativeFrom(min, _) -> Some min
@@ -435,4 +445,4 @@ module View =
 
                     yield! summarize describeChoiceInReact DND5e.rules draft.traits [PC]
                 ]
-            ])
+            ]

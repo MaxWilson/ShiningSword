@@ -62,7 +62,7 @@ module App =
                     Pop |> dispatch
                     )
             | None -> Cmd.ofMsg Pop
-            Chargen.View.view {| model = model; dispatch = (Chargen >> dispatch) |}
+            Chargen.View.view model (Chargen >> dispatch)
         | _ ->
             Html.div [
                 Html.div [
