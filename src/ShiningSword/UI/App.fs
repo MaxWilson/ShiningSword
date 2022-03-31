@@ -65,18 +65,26 @@ module App =
             Chargen.View.view model (Chargen >> dispatch)
         | _ ->
             Html.div [
-                Html.div [
-                    prop.children [
-                        Html.text (match model.error with Some msg -> msg | None -> "Welcome to Shining Sword")
+                prop.className "intro"
+                prop.children [
+                    Html.div [
+                        prop.children [
+                            Html.text (match model.error with Some msg -> msg | None -> "Welcome to Shining Sword")
+                            ]
+                        prop.style [style.marginBottom 10]
                         ]
-                    prop.style [style.marginBottom 10]
-                    ]
-                Html.button [
-                    prop.text "Create a character"
-                    prop.href "#chargen"
-                    prop.onClick(fun _ ->
-                        (Navigation.Navigation.newUrl "#chargen").Head dispatch
-                        )
+                    Html.button [
+                        prop.text "Create a character"
+                        prop.onClick(fun _ ->
+                            (Navigation.Navigation.newUrl "#chargen").Head dispatch
+                            )
+                        ]
+                    Html.div [
+                        prop.className "footer"
+                        prop.children [
+                            Html.a [prop.href "https://www.flaticon.com/free-icons/sword"; prop.text "Sword icon created by pongsakornRed - Flaticon"]
+                            ]
+                        ]
                     ]
                ]
 
