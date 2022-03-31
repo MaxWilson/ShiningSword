@@ -25,6 +25,8 @@ let (==>) (trait0: 'trait0) (options: 'trait0 list) =
     trait0, fresh options
 let confer (trait0: 'trait0) (options: 'trait0 list) =
     trait0, { fresh options with numberAllowed = options.Length; autopick = true }
+let invisiblyConfer (trait0: 'trait0) (options: 'trait0 list) =
+    trait0, { fresh options with numberAllowed = options.Length; autopick = true; elideFromDisplayAndSummary = true }
 
 let rulesOf rules =
     let mutable derivationRules = Map.empty

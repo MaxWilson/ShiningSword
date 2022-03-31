@@ -416,7 +416,7 @@ module View =
                                 class' Html.div "choice" [
                                     for ix, option in choice.options |> List.mapi tuple2 do
                                         let name = option |> DND5e.describe
-                                        Html.div [
+                                        Html.span [
                                             Html.text name
                                             ]
                                     ]

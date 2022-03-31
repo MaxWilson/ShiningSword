@@ -60,10 +60,29 @@ module ADND2nd =
         |> rulesOf
 
 module DND5e =
+    type CharacterClass = Artificer | Bard | Barbarian | Cleric | Druid | Fighter | Monk | Paladin | Ranger | Rogue | Sorcerer | Warlock | Wizard
+        with static member All = [Artificer; Bard; Barbarian; Cleric; Druid; Fighter; Monk; Paladin; Ranger; Rogue; Sorcerer; Warlock; Wizard]
+    type CharacterSubclass =
+        | AlchemistArtificer | ArtilleristArtificer | BattlesmithArtificer
+        | LoreBard | ValorBard
+        | BerserkerBarbarian | TotemBarbarian | ZealotBarbarian | StormsBarbarian
+        | KnowledgeCleric | LifeCleric | LightCleric | NatureCleric | TempestCleric | TrickeryCleric | WarCleric | ForgeCleric
+        | MoonDruid | LandDruid
+        | ChampionFighter | BattlemasterFighter | EldritchKnightFighter
+        | OpenHandMonk | ShadowMonk | ElementalMonk | LongDeathMonk | KenseiMonk | DrunkenMasterMonk
+        | DevotionPaladin | AncientsPaladin | VengeancePaladin | ConquestPaladin
+        | BeastmasterRanger | HunterRanger | GloomstalkerRanger
+        | ThiefRogue | AssassinRogue | ArcaneTricksterRogue | SwashbucklerRogue | MastermindRogue | ScoutRogue
+        | DraconicSorcerer | WildSorcerer | ShadowSorcerer | ClockworkSorcerer | AberrantMindSorcerer
+        | FiendWarlock | ArchfeyWarlock | GreatOldOneWarlock | HexbladeWarlock | FathomlessWarlock | GenieWarlock
+        | AbjurorWizard | ConjurorWizard | DivinerWizard | EnchanterWizard | EvokerWizard | IllusionistWizard | NecromancerWizard | TransmuterWizard
+
     type Trait =
         | PC
         | Race
         | Human
+        | StandardHuman
+        | VariantHuman
         | Elf
         | Dwarf
         | WoodElf
@@ -87,9 +106,12 @@ module DND5e =
         | SwordBowBonus of int
         | ShieldProficiency
         | LightArmorProficiency
+        | ModeratelyArmored
         | MediumArmorProficiency
         | HeavyArmorProficiency
         | ExtraHPPerLevel of int
+        | Level of class':CharacterClass * level:int
+        | Subclass of CharacterSubclass
     let describe = function
         | StatMod(stat, n) ->
             $"%+d{n} {stat}"
@@ -101,6 +123,11 @@ module DND5e =
             $"%+d{n}' speed"
         | SwordBowBonus n ->
             $"%+d{n} to hit with swords and bows"
+        | Level(cl, 0) ->
+            $"{cl}"
+        | Subclass(subclass) ->
+            let full = uncamel (subclass.ToString())
+            full[..(full.LastIndexOf " " - 1)]
         | stat -> uncamel (stat.ToString())
     type CharacterSheet = {
         name: string
@@ -117,14 +144,17 @@ module DND5e =
         traits: Setting<Trait, Trait Set>
         }
 
-    let feats = [GWM;Tough;Lucky;Mobile;HeavyArmorMaster]
+    let feats = [GWM;Tough;Lucky;Mobile;HeavyArmorMaster;ModeratelyArmored]
     let rules =
         [
             PC, { fresh [Race] with elideFromDisplayAndSummary = true; autopick = true }
             Race ==> [Human; Elf; Dwarf]
+            PC ==> [for cl in CharacterClass.All -> Level(cl, 0)]
             let stats = [Str;Dex;Con;Int;Wis;Cha]
-            Human, { fresh (stats |> List.map (fun x -> StatMod (x,1))) with numberAllowed = 2; mustBeDistinct = true }
-            confer Human [Feat]
+            Human ==> [StandardHuman; VariantHuman]
+            confer StandardHuman [for stat in Stat.All -> StatMod(stat, 1)]
+            VariantHuman, { fresh (stats |> List.map (fun x -> StatMod (x,1))) with numberAllowed = 2; mustBeDistinct = true }
+            confer VariantHuman [Feat]
             Feat ==> feats
             confer Elf [SwordBowBonus 1; StatMod (Dex,2)]
             Elf ==> [HighElf; WoodElf; DrowElf]
@@ -136,13 +166,34 @@ module DND5e =
             Dwarf ==> [HillDwarf; MountainDwarf]
             confer HillDwarf [ExtraHPPerLevel 1; StatMod(Wis, 1)]
             confer MountainDwarf [MediumArmorProficiency; StatMod(Str, 2)]
+            confer Tough [ExtraHPPerLevel 2]
+            confer HeavyArmorMaster [StatMod (Str, 1)]
+            confer ModeratelyArmored [StatMod (Dex, 1); MediumArmorProficiency; ShieldProficiency]
+            let subclass lst = lst |> List.map Subclass
+            Level(Artificer, 3) ==> subclass [AlchemistArtificer; ArtilleristArtificer; BattlesmithArtificer]
+            Level(Bard, 3) ==> subclass [LoreBard; ValorBard]
+            Level(Barbarian, 3) ==> subclass [BerserkerBarbarian; TotemBarbarian; ZealotBarbarian; StormsBarbarian]
+            Level(Cleric, 1) ==> subclass [KnowledgeCleric; LifeCleric; LightCleric; NatureCleric; TempestCleric; TrickeryCleric; WarCleric; ForgeCleric]
+            Level(Druid, 2) ==> subclass [MoonDruid; LandDruid]
+            Level(Fighter, 3) ==> subclass [ChampionFighter; BattlemasterFighter; EldritchKnightFighter]
+            Level(Monk, 3) ==> subclass [OpenHandMonk; ShadowMonk; ElementalMonk; LongDeathMonk; KenseiMonk; DrunkenMasterMonk]
+            Level(Paladin, 3) ==> subclass [DevotionPaladin; AncientsPaladin; VengeancePaladin; ConquestPaladin]
+            Level(Ranger, 3) ==> subclass [BeastmasterRanger; HunterRanger; GloomstalkerRanger]
+            Level(Rogue, 3) ==> subclass [ThiefRogue; AssassinRogue; ArcaneTricksterRogue; SwashbucklerRogue; MastermindRogue; ScoutRogue]
+            Level(Sorcerer, 3) ==> subclass [DraconicSorcerer; WildSorcerer; ShadowSorcerer; ClockworkSorcerer; AberrantMindSorcerer]
+            Level(Warlock, 3) ==> subclass [FiendWarlock; ArchfeyWarlock; GreatOldOneWarlock; HexbladeWarlock; FathomlessWarlock; GenieWarlock]
+            Level(Wizard, 3) ==> subclass [AbjurorWizard; ConjurorWizard; DivinerWizard; EnchanterWizard; EvokerWizard; IllusionistWizard; NecromancerWizard; TransmuterWizard]
+            for class' in CharacterClass.All do
+                for i in 0..19 do
+                    invisiblyConfer (Level(class', i)) [Level(class', i+1)]
             ]
         |> rulesOf
 
 
 let rec makeName(sex: Sex) =
     let nationOfOrigin = chooseRandom ["Tir na n'Og"; "Abysia"; "Kailasa"; "Ermor"; "Undauntra"; "Arboria"; "Mordor"]
-    let rec chooseFromLists = function
+    let rec chooseFromLists =
+        function
         | potentialCategory::rest ->
             match Onomastikon.nameLists |> Map.tryFind (nationOfOrigin, potentialCategory) with
             | Some nameList -> chooseRandom nameList
