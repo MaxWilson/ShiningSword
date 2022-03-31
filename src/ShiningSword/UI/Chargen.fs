@@ -1,4 +1,4 @@
-namespace Chargen
+namespace UI.Chargen
 
 // module for doing stuff that isn't part of the target domain but isn't just ViewModel boilerplate either
 //    Effectively, this for for treating user interaction as a domain of its own.
@@ -279,7 +279,9 @@ module View =
     open Fable.Core.JsInterop
     open Fable.React
     open Feliz
-    open Konva
+    open UI
+    open UI.Konva
+    let ddprop = DragDrop.prop
 
     [<ReactComponent>]
     let view model dispatch =
@@ -295,22 +297,29 @@ module View =
                 prop.className (className: string)
                 prop.children (children: _ list)
                 ]
-        let recentDrag = React.useRef None // there's probably a better way to detect where the user is trying to drop the roll
         class' Html.div "charGen" [
             class' Html.div "Title" [
                 Html.text "Create a character!"
                 ]
-            let dragOverHandler stat (e:Browser.Types.DragEvent) =
-                recentDrag.current <- Some stat
-                e.preventDefault()
-            let dragEnterHandler (e:Browser.Types.DragEvent) =
-                e.preventDefault()
             let currentStat stat statValue =
                 match statValue with
                 | Some statValue ->
-                    Html.span [prop.text $"{stat} {statValue}"; prop.onDragOver (dragOverHandler stat); prop.onDragEnter dragEnterHandler; prop.onClick(fun _ -> dispatch (UnassignRolls stat))]
+                    DragDrop.target [
+                        ddprop.targetKey "stats"
+                        ddprop.dropData stat
+                        ddprop.children [
+                            Html.span [prop.text $"{stat} {statValue}"; prop.onClick(fun _ -> dispatch (UnassignRolls stat))]
+                            ]
+                        ]
                 | None ->
-                    Html.span [prop.text $"{stat}     "; prop.onDragOver (dragOverHandler stat); prop.onDragEnter dragEnterHandler]
+                    DragDrop.target [
+                        ddprop.targetKey "stats"
+                        ddprop.dropData stat
+                        ddprop.children [
+                            Html.span [prop.text $"{stat}     "]
+                            ]
+                        ]
+
             let describe (stat:Stat) statValue =
                 let term =
                     match stat with
@@ -322,7 +331,13 @@ module View =
                     | Cha -> "More charismatic"
                 React.fragment [
                     currentStat stat (Some statValue)
-                    Html.span [prop.text $"{term} than %0.1f{(getPercentile statValue)*100.}%% of humanity" ; prop.onDragOver (dragOverHandler stat); prop.onDragEnter dragEnterHandler]
+                    DragDrop.target [
+                        ddprop.targetKey "stats"
+                        ddprop.dropData stat
+                        ddprop.children [
+                            Html.span [prop.text $"{term} than %0.1f{(getPercentile statValue)*100.}%% of humanity"]
+                            ]
+                        ]
                     ]
             match model.export with
             | Some char ->
@@ -392,24 +407,28 @@ module View =
                             // try to keep layout height consistent--I'm sure there's a better way
                             if draft.mode = InOrder then prop.classes ["statRolls";"hide"] else prop.className "statRolls"
                             prop.children [
-                                Html.span [prop.text "Unassigned (drag and drop)"]
+                                Html.span [prop.text "Unassigned (drag and drop)"; prop.className "label"]
                                 for ix, (roll, stat) in draft.allocations |> List.mapi tuple2 do
                                     match stat with
                                     | None ->
-                                        let dropHandler ev =
-                                            // this is a little bit wrong. It will still drop the stat even if you've moved off before releasing the mouse.
-                                            match recentDrag.current with
-                                            | Some stat ->
-                                                dispatch (AssignRoll(ix, stat))
-                                            | None -> ()
                                         Html.span [
                                             prop.className "roll"
                                             prop.children [
-                                                Html.span [prop.text (roll); prop.draggable true; prop.onDragEnd dropHandler; prop.onDragStart (fun e -> e.dataTransfer.setData("text/html", "dummy") |> ignore)]
+                                                DragDrop.container [
+                                                    ddprop.targetKey "stats"
+                                                    ddprop.onDrop(fun e ->
+                                                        match e.dropData with
+                                                        | Some(:? Stat as stat) ->
+                                                            AssignRoll(ix, stat) |> dispatch
+                                                        | _ -> ())
+                                                    ddprop.children [
+                                                        Html.text roll
+                                                        ]
+                                                    ]
                                                 ]
                                             ]
                                     | Some _ ->
-                                        Html.span [prop.draggable true; prop.className "roll"]
+                                        class' Html.span "roll" [Html.div [prop.text "0"; prop.className "hide"]]
                                 ]
                             ]
                         ]

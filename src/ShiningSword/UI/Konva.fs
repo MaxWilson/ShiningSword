@@ -1,4 +1,4 @@
-module Konva
+module UI.Konva
 
 open Feliz
 open Feliz.Router

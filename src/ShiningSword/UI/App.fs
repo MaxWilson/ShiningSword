@@ -1,4 +1,4 @@
-module App
+module UI.App
 
 open Browser.Dom
 open Fable.Core.JsInterop
