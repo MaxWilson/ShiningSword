@@ -38,6 +38,7 @@ module ADND2nd =
         | ThriKreen
         | HalfElf
         | StatMod of Stat * int
+
     type CharacterSheet = {
         name: string
         nationalOrigin: string
@@ -58,6 +59,10 @@ module ADND2nd =
         Race ==> [HalfGiant;Human;ThriKreen;HalfElf]
         ]
         |> rulesOf
+    let describe = function
+        | StatMod(stat, n) ->
+            $"%+d{n} {stat}"
+        | stat -> uncamel (stat.ToString())
 
 module DND5e =
     type CharacterClass = Artificer | Bard | Barbarian | Cleric | Druid | Fighter | Monk | Paladin | Ranger | Rogue | Sorcerer | Warlock | Wizard
@@ -141,7 +146,7 @@ module DND5e =
         Int: int
         Wis: int
         Cha: int
-        originalRolls: int list
+        originalRolls: int array
         // Storing the derivation instead of just the end result makes it easier to do things like add new traits on levelling up
         traits: Setting<Trait, Trait Set>
         }

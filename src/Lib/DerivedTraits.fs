@@ -7,12 +7,6 @@
 ///   Setting<Trait>: a list of Traits and how they were derived. DerivationRules must be stored separately, as must the summarization logic.
 module DerivedTraits
 
-#if INTERACTIVE
-#I __SOURCE_DIRECTORY__
-#load "Optics.fs"
-#load "Common.fs"
-#endif
-
 type Choice<'trait0> =
     { options: 'trait0 list; numberAllowed: int; mustBeDistinct: bool; elideFromDisplayAndSummary: bool; autopick: bool }
 

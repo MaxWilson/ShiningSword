@@ -26,6 +26,7 @@ module App =
         | Chargen of Chargen.View.Msg
         | Push of Page
         | Pop
+        | Navigate of url: string
 
     let init initialCmd =
         { stack = []; error = None; hero = None; }, Cmd.batch initialCmd
@@ -33,15 +34,22 @@ module App =
         match msg, model.stack with
         | Error msg, _ -> { model with error = Some msg }, Cmd.Empty
         | Transform f, _ -> { f model with error = None }, Cmd.Empty
+        | Navigate url, _ -> model, Navigation.Navigation.newUrl ("#" + url)
         | Chargen msg, (Page.Chargen chargenModel)::rest ->
-            let finishWith = function
-            | Some (character: CharacterSheet) ->
+            let control = function
+            | Chargen.View.Complete characterSheet ->
                 Cmd.ofSub(fun dispatch ->
-                    Transform (fun s -> { s with hero = Some character }) |> dispatch
+                    Transform (fun s -> { s with hero = Some characterSheet }) |> dispatch
                     Pop |> dispatch
                     )
-            | None -> Cmd.ofMsg Pop
-            let chargenModel, cmd = Chargen.View.update (Chargen >> Cmd.ofMsg) finishWith msg chargenModel
+            | Chargen.View.Cancel -> Cmd.ofMsg Pop
+            | Chargen.View.NavigateTo ruleset ->
+                match ruleset with
+                | Chargen.Interaction.Ruleset.ADND -> Navigate "chargen/adnd"
+                | Chargen.Interaction.Ruleset.DND5e -> Navigate "chargen/5e"
+                |> Cmd.ofMsg
+            let cmd = (Chargen >> Cmd.ofMsg)
+            let chargenModel, cmd = Chargen.View.update (Chargen >> Cmd.ofMsg) control msg chargenModel
             { model with stack = (Page.Chargen chargenModel)::rest }, cmd
         | Pop, _::[] ->
             // default to welcome screen if stack is empty
@@ -55,13 +63,6 @@ module App =
         let window = Browser.Dom.window;
         match model.stack with
         | (Page.Chargen model)::_ ->
-            let finishWith = function
-            | Some (character: CharacterSheet) ->
-                Cmd.ofSub(fun dispatch ->
-                    Transform (fun s -> { s with hero = Some character }) |> dispatch
-                    Pop |> dispatch
-                    )
-            | None -> Cmd.ofMsg Pop
             Chargen.View.view model (Chargen >> dispatch)
         | _ ->
             Html.div [
@@ -75,9 +76,7 @@ module App =
                         ]
                     Html.button [
                         prop.text "Create a character"
-                        prop.onClick(fun _ ->
-                            (Navigation.Navigation.newUrl "#chargen").Head dispatch
-                            )
+                        prop.onClick(thunk1 dispatch (Navigate "chargen"))
                         ]
                     Html.div [
                         prop.className "footer"
@@ -101,13 +100,30 @@ module Url =
             | _ -> []
 
         let (|Page|_|) = function
-            | Str "chargen/DarkSun" ctx ->
+            | Str "chargen/adnd/DarkSun" ctx ->
                 let model', msg = Chargen.View.init()
                 let cmd =
                     [
                         Cmd.ofMsg (Push (Page.Chargen model'))
                         Cmd.ofMsg (SetMethod DarkSunMethodI |> Chargen)
                         msg |> Cmd.map Chargen
+                        ]
+                Some(cmd, ctx)
+            | Str "chargen/adnd" ctx ->
+                let model', msg = Chargen.View.init()
+                let cmd =
+                    [
+                        Cmd.ofMsg (Push (Page.Chargen model'))
+                        msg |> Cmd.map Chargen
+                        ]
+                Some(cmd, ctx)
+            | Str "chargen/5e" ctx ->
+                let model', msg = Chargen.View.init()
+                let cmd =
+                    [
+                        Cmd.ofMsg (Push (Page.Chargen model'))
+                        msg |> Cmd.map Chargen
+                        Cmd.ofMsg (Chargen (SetRuleset UI.Chargen.Interaction.Ruleset.DND5e))
                         ]
                 Some(cmd, ctx)
             | Str "chargen" ctx ->
