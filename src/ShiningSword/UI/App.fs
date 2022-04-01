@@ -76,7 +76,7 @@ module App =
                         ]
                     Html.button [
                         prop.text "Create a character"
-                        prop.onClick(thunk1 dispatch (Navigate "chargen"))
+                        prop.onClick(thunk1 dispatch (Navigate "chargen/adnd"))
                         ]
                     Html.div [
                         prop.className "footer"

@@ -626,58 +626,56 @@ module View =
                         Html.label [prop.htmlFor method.info.name'; prop.text method.info.name']
                         ]
 
+                let describeChoiceInReact msg describe (head, choiceIx, choice: DerivedTraits.Choice<_>, decision: _ list) =
+                    let toString x = x.ToString()
+                    if choice.options.Length = decision.Length then
+                        React.fragment [
+                            for ix, option in choice.options |> List.mapi tuple2 do
+                                let name = option |> describe
+                                class' Html.span "plainTrait" [
+                                    Html.text (name: string)
+                                    ]
+                            ]
+                        |> fun x -> Some(2, x)
+                    elif choice.numberAllowed = decision.Length then
+                        React.fragment [
+                            // filter out the non-chosen options after the choice is made, to save on screen space
+                            for ix, option in choice.options |> List.mapi tuple2 do
+                                if decision |> List.contains option then
+                                    let name = option |> describe
+                                    Html.input [prop.type'.checkbox; prop.ariaChecked (decision |> List.contains option); prop.isChecked (decision |> List.contains option); prop.id name; prop.onClick (fun _ -> msg(head, choiceIx, ix) |> dispatch); prop.readOnly true]
+                                    Html.label [prop.htmlFor name; prop.text name]
+                            ]
+                        |> fun x -> Some(1, x)
+                    else
+                        Html.div [
+                            class' Html.section "choice" [
+                                for ix, option in choice.options |> List.mapi tuple2 do
+                                    let name = option |> describe
+                                    Html.input [prop.type'.checkbox; prop.ariaChecked (decision |> List.contains option); prop.isChecked (decision |> List.contains option); prop.id name; prop.onClick (fun _ -> msg(head, choiceIx, ix) |> dispatch); prop.readOnly true]
+                                    Html.label [prop.htmlFor name; prop.text name]
+                                ]
+                            ]
+                        |> fun x -> Some(3, x)
+                let display (lst: (int * ReactElement) list) =
+                    // maybe I should use enums here instead of ints
+                    let chosen = lst |> List.choose (fun (pri, e) -> if pri = 1 then Some e else None)
+                    let traits = lst |> List.choose (fun (pri, e) -> if pri = 2 then Some e else None)
+                    let choice = lst |> List.choose (fun (pri, e) -> if pri = 3 then Some e else None)
+                    [
+                        class' Html.div "chosen" chosen
+                        class' Html.div "traits" traits
+                        for element in choice do
+                            element
+                        ]
+
                 match model.draft with
                 | None -> ()
                 | Some { traits = DND5e traits } as draft ->
-                    let describeChoiceInReact (head, choiceIx, choice: DerivedTraits.Choice<_>, decision: Trait list) =
-                        let toString x = x.ToString()
-                        if choice.options.Length = decision.Length then
-                            Html.div [
-                                class' Html.div "choice" [
-                                    for ix, option in choice.options |> List.mapi tuple2 do
-                                        let name = option |> DND5e.describe
-                                        Html.span [
-                                            Html.text name
-                                            ]
-                                    ]
-                                ]
-                            |> Some
-                        else
-                            Html.div [
-                                class' Html.div "choice" [
-                                    for ix, option in choice.options |> List.mapi tuple2 do
-                                        let name = option |> DND5e.describe
-                                        Html.input [prop.type'.checkbox; prop.ariaChecked (decision |> List.contains option); prop.isChecked (decision |> List.contains option); prop.id name; prop.onClick (fun _ -> Toggle5ETrait(head, choiceIx, ix) |> dispatch); prop.readOnly true]
-                                        Html.label [prop.htmlFor name; prop.text name]
-                                    ]
-                                ]
-                            |> Some
-
-                    yield! summarize describeChoiceInReact DND5e.rules traits [PC]
+                    let toReact = describeChoiceInReact Toggle5ETrait DND5e.describe
+                    yield! (summarize toReact DND5e.rules traits [PC] |> display)
                 | Some { traits = ADND traits } as draft ->
-                    let describeChoiceInReact (head: ADND2nd.Trait, choiceIx, choice: DerivedTraits.Choice<ADND2nd.Trait>, decision: ADND2nd.Trait list) =
-                        let toString x = x.ToString()
-                        if choice.options.Length = decision.Length then
-                            Html.div [
-                                class' Html.div "choice" [
-                                    for ix, option in choice.options |> List.mapi tuple2 do
-                                        let name = option |> ADND2nd.describe
-                                        Html.span [
-                                            Html.text name
-                                            ]
-                                    ]
-                                ]
-                            |> Some
-                        else
-                            Html.div [
-                                class' Html.div "choice" [
-                                    for ix, option in choice.options |> List.mapi tuple2 do
-                                        let name = option |> ADND2nd.describe
-                                        Html.input [prop.type'.checkbox; prop.ariaChecked (decision |> List.contains option); prop.isChecked (decision |> List.contains option); prop.id name; prop.onClick (fun _ -> ToggleADNDTrait(head, choiceIx, ix) |> dispatch); prop.readOnly true]
-                                        Html.label [prop.htmlFor name; prop.text name]
-                                    ]
-                                ]
-                            |> Some
-                    yield! summarize describeChoiceInReact ADND2nd.rules traits [ADND2nd.Trait.PC]
+                    let toReact = describeChoiceInReact ToggleADNDTrait ADND2nd.describe
+                    yield! (summarize toReact ADND2nd.rules traits [ADND2nd.Trait.PC] |> display)
                 ]
             ]

@@ -30,18 +30,38 @@ let uncamel (str: string) =
     recur str spaceNeededBefore
 
 module ADND2nd =
+    type WorshipFocus =
+        | Oghma
+        | Lugh
+        | Osiris
+        | Isis
+        | Odin
+        | Thor
+        | Idun
+        with static member All = [Oghma; Lugh; Osiris; Isis; Odin; Thor; Idun]
     type Trait =
         | PC
+        | StatMod of Stat * int
         | Race
+        | CharacterClass
         | Human
         | Elf
+        | SwordBowBonus of int
         | Dwarf
         | HalfElf
         | Halfling
         | HalfGiant
         | ThriKreen
-        | StatMod of Stat * int
-        | SwordBowBonus of int
+        | Fighter
+        | Ranger
+        | Paladin
+        | Wizard
+        | Cleric
+        | Druid
+        | Priest of WorshipFocus
+        | Thief
+        | Bard
+        | Psionicist
 
     type CharacterSheet = {
         name: string
@@ -59,13 +79,19 @@ module ADND2nd =
         }
     let rules =
         [
-        PC, { fresh [Race] with elideFromDisplayAndSummary = true; autopick = true }
+        PC, { fresh [Race;CharacterClass] with elideFromDisplayAndSummary = true; autopick = true }
         Race ==> [Human;Elf;Dwarf;HalfElf;Halfling;HalfGiant;ThriKreen]
         confer Elf [SwordBowBonus 1; StatMod(Dex, +1); StatMod(Con, -1)]
         confer HalfGiant [StatMod(Str, +4); StatMod(Con, +2); StatMod(Int, -2); StatMod(Wis, -2); StatMod(Cha, -2)]
         confer Dwarf [StatMod(Con, +1); StatMod(Cha, -1)]
         confer Halfling [StatMod(Dex, +1); StatMod(Str, -1)]
         confer ThriKreen [StatMod(Dex, +2); StatMod(Wis, +1); StatMod(Int, -1); StatMod(Cha, -2)]
+        CharacterClass ==> [
+            Fighter; Ranger; Paladin; Wizard; Cleric; Druid;
+            for w in WorshipFocus.All do
+                Priest w
+            Thief;Bard;Psionicist
+            ]
         ]
         |> rulesOf
     let describe = function
@@ -73,6 +99,8 @@ module ADND2nd =
             $"%+d{n} {stat}"
         | SwordBowBonus n ->
             $"%+d{n} to hit with swords and bows"
+        | Priest focus ->
+            $"Priest of {focus}"
         | stat -> uncamel (stat.ToString())
 
 module DND5e =
@@ -169,7 +197,7 @@ module DND5e =
             Human ==> [StandardHuman; VariantHuman]
             confer StandardHuman [for stat in Stat.All -> StatMod(stat, 1)]
             VariantHuman, { fresh (stats |> List.map (fun x -> StatMod (x,1))) with numberAllowed = 2; mustBeDistinct = true }
-            confer VariantHuman [Feat]
+            invisiblyConfer VariantHuman [Feat]
             Feat ==> feats
             Elf ==> [HighElf; WoodElf; DrowElf]
             confer HighElf [BonusWizardCantrip]
