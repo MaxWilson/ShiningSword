@@ -34,10 +34,14 @@ module ADND2nd =
         | PC
         | Race
         | Human
+        | Elf
+        | Dwarf
+        | HalfElf
+        | Halfling
         | HalfGiant
         | ThriKreen
-        | HalfElf
         | StatMod of Stat * int
+        | SwordBowBonus of int
 
     type CharacterSheet = {
         name: string
@@ -56,12 +60,19 @@ module ADND2nd =
     let rules =
         [
         PC, { fresh [Race] with elideFromDisplayAndSummary = true; autopick = true }
-        Race ==> [HalfGiant;Human;ThriKreen;HalfElf]
+        Race ==> [Human;Elf;Dwarf;HalfElf;Halfling;HalfGiant;ThriKreen]
+        confer Elf [SwordBowBonus 1; StatMod(Dex, +1); StatMod(Con, -1)]
+        confer HalfGiant [StatMod(Str, +4); StatMod(Con, +2); StatMod(Int, -2); StatMod(Wis, -2); StatMod(Cha, -2)]
+        confer Dwarf [StatMod(Con, +1); StatMod(Cha, -1)]
+        confer Halfling [StatMod(Dex, +1); StatMod(Str, -1)]
+        confer ThriKreen [StatMod(Dex, +2); StatMod(Wis, +1); StatMod(Int, -1); StatMod(Cha, -2)]
         ]
         |> rulesOf
     let describe = function
         | StatMod(stat, n) ->
             $"%+d{n} {stat}"
+        | SwordBowBonus n ->
+            $"%+d{n} to hit with swords and bows"
         | stat -> uncamel (stat.ToString())
 
 module DND5e =
@@ -100,7 +111,7 @@ module DND5e =
         | Goblin
         | StatMod of Stat * int
         | Feat
-        | GWM
+        | GreatWeaponMaster
         | Tough
         | Lucky
         | Mobile
@@ -111,7 +122,6 @@ module DND5e =
         | Faster of int
         | SunlightSensitivity
         | ImprovedDarkvision
-        | SwordBowBonus of int
         | ShieldProficiency
         | LightArmorProficiency
         | ModeratelyArmored
@@ -128,8 +138,6 @@ module DND5e =
             $"{cantrip}"
         | Faster n ->
             $"%+d{n}' speed"
-        | SwordBowBonus n ->
-            $"%+d{n} to hit with swords and bows"
         | Level(cl, 0) ->
             $"{cl}"
         | Subclass(subclass) ->
@@ -151,7 +159,7 @@ module DND5e =
         traits: Setting<Trait, Trait Set>
         }
 
-    let feats = [GWM;Tough;Lucky;Mobile;HeavyArmorMaster;ModeratelyArmored]
+    let feats = [GreatWeaponMaster;Tough;Lucky;Mobile;HeavyArmorMaster;ModeratelyArmored]
     let rules =
         [
             PC, { fresh [Race] with elideFromDisplayAndSummary = true; autopick = true }
@@ -163,7 +171,6 @@ module DND5e =
             VariantHuman, { fresh (stats |> List.map (fun x -> StatMod (x,1))) with numberAllowed = 2; mustBeDistinct = true }
             confer VariantHuman [Feat]
             Feat ==> feats
-            confer Elf [SwordBowBonus 1; StatMod (Dex,2)]
             Elf ==> [HighElf; WoodElf; DrowElf]
             confer HighElf [BonusWizardCantrip]
             confer WoodElf [MaskOfTheWild; Faster 5]

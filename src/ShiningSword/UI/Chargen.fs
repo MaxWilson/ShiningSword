@@ -295,8 +295,8 @@ module View =
         | ChangePointAllocation of stat: Stat * amount: int
         | SetName of string
         | SetSex of Sex
-        | ChooseADNDTrait of head:ADND2nd.Trait * choiceIx: int * decisionIx: int
-        | Choose5ETrait of head:DND5e.Trait * choiceIx: int * decisionIx: int
+        | ToggleADNDTrait of head:ADND2nd.Trait * choiceIx: int * decisionIx: int
+        | Toggle5ETrait of head:DND5e.Trait * choiceIx: int * decisionIx: int
         | SetEditMode of TextEditMode
         | SetRuleset of Ruleset
     let init _ =
@@ -337,10 +337,10 @@ module View =
                 let nationalOrigin, name = makeName sex
                 { draft with sex = sex; name = name; nationalOrigin = nationalOrigin }
             { model with draft = model.draft |> Option.map setSex }, Cmd.Empty
-        | Choose5ETrait(head, choiceIx, decisionIx) ->
-            let choose (draft:Draft) =
+        | Toggle5ETrait(head, choiceIx, decisionIx) ->
+            let toggle (draft:Draft) =
                 let rules = Domain.Character.DND5e.rules
-                let chooseTrait (instance: DerivationInstance<Trait>) =
+                let toggleTrait (instance: DerivationInstance<Trait>) =
                     let rule =
                         match rules with
                         | Lookup head rule ->
@@ -351,18 +351,21 @@ module View =
                         | Some decisions ->
                             let change = function
                             | Some ixs ->
-                                let d = match decisionIx::ixs with | ixs when rule.mustBeDistinct -> List.distinct ixs | ixs -> ixs
-                                let d = if rule.numberAllowed >= d.Length then d else d |> List.take rule.numberAllowed
-                                d |> Some
+                                let d =
+                                    if ixs |> List.contains decisionIx then ixs |> List.filter ((<>) decisionIx)
+                                    else
+                                        match decisionIx::ixs with | ixs when rule.mustBeDistinct -> List.distinct ixs | ixs -> ixs
+                                if rule.numberAllowed >= d.Length then d else d |> List.take rule.numberAllowed
+                                |> Some
                             | None -> [decisionIx] |> Some
                             decisions |> Map.change choiceIx change |> Some
                         )
-                { draft with traits = draft.traits.map chooseTrait }
-            { model with draft = model.draft |> Option.map choose }, Cmd.Empty
-        | ChooseADNDTrait(head, choiceIx, decisionIx) ->
-            let choose (draft:Draft) =
+                { draft with traits = draft.traits.map toggleTrait }
+            { model with draft = model.draft |> Option.map toggle }, Cmd.Empty
+        | ToggleADNDTrait(head, choiceIx, decisionIx) ->
+            let toggle (draft:Draft) =
                 let rules = Domain.Character.ADND2nd.rules
-                let chooseTrait (instance: DerivationInstance<_>) =
+                let toggleTrait (instance: DerivationInstance<_>) =
                     let rule =
                         match rules with
                         | Lookup head rule ->
@@ -373,14 +376,17 @@ module View =
                         | Some decisions ->
                             let change = function
                             | Some ixs ->
-                                let d = match decisionIx::ixs with | ixs when rule.mustBeDistinct -> List.distinct ixs | ixs -> ixs
-                                let d = if rule.numberAllowed >= d.Length then d else d |> List.take rule.numberAllowed
-                                d |> Some
+                                let d =
+                                    if ixs |> List.contains decisionIx then ixs |> List.filter ((<>) decisionIx)
+                                    else
+                                        match decisionIx::ixs with | ixs when rule.mustBeDistinct -> List.distinct ixs | ixs -> ixs
+                                if rule.numberAllowed >= d.Length then d else d |> List.take rule.numberAllowed
+                                |> Some
                             | None -> [decisionIx] |> Some
                             decisions |> Map.change choiceIx change |> Some
                         )
-                { draft with traits = draft.traits.map chooseTrait }
-            { model with draft = model.draft |> Option.map choose }, Cmd.Empty
+                { draft with traits = draft.traits.map toggleTrait }
+            { model with draft = model.draft |> Option.map toggle }, Cmd.Empty
 
     let getPercentile =
         // for a given stat like 18, how many people have a lower stat?
@@ -641,7 +647,7 @@ module View =
                                 class' Html.div "choice" [
                                     for ix, option in choice.options |> List.mapi tuple2 do
                                         let name = option |> DND5e.describe
-                                        Html.input [prop.type'.checkbox; prop.ariaChecked (decision |> List.contains option); prop.isChecked (decision |> List.contains option); prop.id name; prop.onClick (fun _ -> Choose5ETrait(head, choiceIx, ix) |> dispatch); prop.readOnly true]
+                                        Html.input [prop.type'.checkbox; prop.ariaChecked (decision |> List.contains option); prop.isChecked (decision |> List.contains option); prop.id name; prop.onClick (fun _ -> Toggle5ETrait(head, choiceIx, ix) |> dispatch); prop.readOnly true]
                                         Html.label [prop.htmlFor name; prop.text name]
                                     ]
                                 ]
@@ -667,7 +673,7 @@ module View =
                                 class' Html.div "choice" [
                                     for ix, option in choice.options |> List.mapi tuple2 do
                                         let name = option |> ADND2nd.describe
-                                        Html.input [prop.type'.checkbox; prop.ariaChecked (decision |> List.contains option); prop.isChecked (decision |> List.contains option); prop.id name; prop.onClick (fun _ -> ChooseADNDTrait(head, choiceIx, ix) |> dispatch); prop.readOnly true]
+                                        Html.input [prop.type'.checkbox; prop.ariaChecked (decision |> List.contains option); prop.isChecked (decision |> List.contains option); prop.id name; prop.onClick (fun _ -> ToggleADNDTrait(head, choiceIx, ix) |> dispatch); prop.readOnly true]
                                         Html.label [prop.htmlFor name; prop.text name]
                                     ]
                                 ]
