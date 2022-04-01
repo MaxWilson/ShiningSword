@@ -1,5 +1,7 @@
 # Shining Sword
 
+[https://maxwilson.github.io/ShiningSword](https://maxwilson.github.io/ShiningSword)
+
 Dungeons and Dragons combat game inspired by XCOM: UFO Defense and The Bard's Tale.
 
 Very much in-progress.
