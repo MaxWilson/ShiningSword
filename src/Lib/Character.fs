@@ -39,6 +39,14 @@ module ADND2nd =
         | Thor
         | Idun
         with static member All = [Oghma; Lugh; Osiris; Isis; Odin; Thor; Idun]
+    type PsionicDiscipline =
+        | Clairsentience
+        | Psychokinesis
+        | Psychometabolism
+        | Psychoportation
+        | Telepathy
+        | Metapsionics
+        with static member All = [Clairsentience; Psychokinesis; Psychometabolism; Psychoportation; Telepathy; Metapsionics]
     type Trait =
         | PC
         | StatMod of Stat * int
@@ -58,10 +66,12 @@ module ADND2nd =
         | Wizard
         | Cleric
         | Druid
-        | Priest of WorshipFocus
+        | Priest
         | Thief
         | Bard
         | Psionicist
+        | Worship of WorshipFocus
+        | PrimaryDiscipline of PsionicDiscipline
 
     type CharacterSheet = {
         name: string
@@ -79,28 +89,33 @@ module ADND2nd =
         }
     let rules =
         [
-        PC, { fresh [Race;CharacterClass] with elideFromDisplayAndSummary = true; autopick = true }
-        Race ==> [Human;Elf;Dwarf;HalfElf;Halfling;HalfGiant;ThriKreen]
-        confer Elf [SwordBowBonus 1; StatMod(Dex, +1); StatMod(Con, -1)]
-        confer HalfGiant [StatMod(Str, +4); StatMod(Con, +2); StatMod(Int, -2); StatMod(Wis, -2); StatMod(Cha, -2)]
-        confer Dwarf [StatMod(Con, +1); StatMod(Cha, -1)]
-        confer Halfling [StatMod(Dex, +1); StatMod(Str, -1)]
-        confer ThriKreen [StatMod(Dex, +2); StatMod(Wis, +1); StatMod(Int, -1); StatMod(Cha, -2)]
-        CharacterClass ==> [
-            Fighter; Ranger; Paladin; Wizard; Cleric; Druid;
-            for w in WorshipFocus.All do
-                Priest w
-            Thief;Bard;Psionicist
+            PC, { fresh [Race;CharacterClass] with elideFromDisplayAndSummary = true; autopick = true }
+            Race ==> [Human;Elf;Dwarf;HalfElf;Halfling;HalfGiant;ThriKreen]
+            confer Elf [SwordBowBonus 1; StatMod(Dex, +1); StatMod(Con, -1)]
+            confer HalfGiant [StatMod(Str, +4); StatMod(Con, +2); StatMod(Int, -2); StatMod(Wis, -2); StatMod(Cha, -2)]
+            confer Dwarf [StatMod(Con, +1); StatMod(Cha, -1)]
+            confer Halfling [StatMod(Dex, +1); StatMod(Str, -1)]
+            confer ThriKreen [StatMod(Dex, +2); StatMod(Wis, +1); StatMod(Int, -1); StatMod(Cha, -2)]
+            CharacterClass ==> [Fighter; Ranger; Paladin; Wizard; Cleric; Druid; Priest; Thief; Bard; Psionicist]
+            Priest ==> (WorshipFocus.All |> List.map Worship)
+            Psionicist ==> (PsionicDiscipline.All |> List.map PrimaryDiscipline)
             ]
-        ]
         |> rulesOf
     let describe = function
         | StatMod(stat, n) ->
             $"%+d{n} {stat}"
         | SwordBowBonus n ->
             $"%+d{n} to hit with swords and bows"
-        | Priest focus ->
-            $"Priest of {focus}"
+        | Worship focus ->
+            $"of {focus}"
+        | PrimaryDiscipline discipline ->
+            match discipline with
+            | Clairsentience -> "Clairsentient"
+            | Psychokinesis -> "Psychokineticist"
+            | Psychometabolism -> "Psychometabolist"
+            | Psychoportation -> "Psychoporter"
+            | Telepathy -> "Telepath"
+            | Metapsionics -> "Metapsionicist"
         | stat -> uncamel (stat.ToString())
 
 module DND5e =
