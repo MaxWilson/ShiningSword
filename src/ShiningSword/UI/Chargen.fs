@@ -463,7 +463,11 @@ module View =
                             ddprop.children [
                                 Html.span [
                                     prop.key $"{stat}"
-                                    prop.text $"{stat} {statValue}"
+                                    match stat, model.draft with
+                                    | Str, (Some { exceptionalStrength = Some exStr; traits = Traits.ADND(HasTrait ADND2nd.rules ADND2nd.Trait.CharacterClass ADND2nd.Trait.Fighter true) }) when model.ruleset = Ruleset.ADND && statValue = 18 ->
+                                        prop.text $"{stat} {statValue} ({exStr}) "
+                                    | _ ->
+                                        prop.text $"{stat} {statValue} "
                                     prop.onClick(fun _ -> dispatch (UnassignRolls stat))
                                     ]
                                 ]

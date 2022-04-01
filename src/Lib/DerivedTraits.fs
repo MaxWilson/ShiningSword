@@ -88,3 +88,15 @@ let choose rules roots head value instance =
         | Some existing -> existing |> Map.add ix choiceIx |> Some
         instance |> Map.change head assign
     | _ -> instance
+
+
+let (|HasTrait|) (rules: DerivationRules<_>) head trait' (instance: DerivationInstance<_>) =
+    match rules with
+    | Lookup head choices ->
+        let hasTraitSelected (ix, choice: Choice<'trait0>)=
+            match instance with
+            | Lookup head (Lookup ix decisionIxs) ->
+                decisionIxs |> List.exists (fun ix -> ix < choice.options.Length && choice.options[ix] = trait')
+            | _ -> false
+        choices |> List.mapi tuple2 |> List.exists hasTraitSelected
+    | _ -> false
