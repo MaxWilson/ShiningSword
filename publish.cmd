@@ -1,1 +1,1 @@
-npm run build && git push . head:publish -f && git checkout publish && move /Y dist\* . && git add . && git commit -m publish && git push -f && git checkout dev/ribbit
+npm run build && git push . head:publish -f && git checkout publish && move /Y dist\* . && git add . && git commit -m publish && git push -f && git checkout main
