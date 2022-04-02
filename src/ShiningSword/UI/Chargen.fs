@@ -320,7 +320,10 @@ module View =
         | AssignRoll(ix, stat) ->
             { model with draft = model.draft |> Option.map (assign ix stat) }, Cmd.Empty
         | UnassignRolls stat ->
-            { model with draft = model.draft |> Option.map (unassign stat) }, Cmd.Empty
+            match model.draft with
+            | Some { mode = (Assign | CumulativeFrom _) } ->
+                { model with draft = model.draft |> Option.map (unassign stat) }, Cmd.Empty
+            | _ -> model, Cmd.Empty
         | ChangePointAllocation(stat, plusOrMinus) ->
             let draft' = model.draft |> Option.map (changePointAllocation stat plusOrMinus)
             printfn "%A" draft'.Value.allocations
