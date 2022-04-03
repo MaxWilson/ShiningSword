@@ -32,6 +32,7 @@ let inline mkDragDropAttr (key: string) (value: obj) : IDragDropProperty = unbox
 let inline mkContainerAttr (key: string) (value: obj) : IContainerProperty = unbox (key, value)
 let inline mkTargetAttr (key: string) (value: obj) : ITargetProperty = unbox (key, value)
 type Prop() =
+    member inline _.key (key:_) = mkDragDropAttr "key" key
     member inline _.targetKey (key:_) = mkDragDropAttr "targetKey" key
     member inline _.children children = mkDragDropAttr "children" children
     member inline _.dragData data = mkContainerAttr "dragData" data

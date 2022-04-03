@@ -273,10 +273,6 @@ module View =
         member this.f = match this with (MethodInfo(name, f)) -> f
         member this.name' = match this with (MethodInfo(name, f)) -> name
 
-    type ParentMsg =
-        | Complete of CharacterSheet
-        | Cancel
-        | NavigateTo of Ruleset
     type Model = {
         draft: Draft option
         export: CharacterSheet option
@@ -285,9 +281,11 @@ module View =
         ruleset: Ruleset
         }
     and TextEditMode = | NotEditingText | EditingName // "not editing" is a bit of a misnomer--you can still edit stats and choices, but they aren't text
-    type Msg =
-        | Done of CharacterSheet
+    type ParentMsg =
+        | Complete of Model
         | Cancel
+        | NavigateTo of Ruleset
+    type Msg =
         | Reroll
         | SetMethod of ChargenMethod
         | AssignRoll of ix:int * stat:Stat
@@ -310,8 +308,6 @@ module View =
             Cmd.ofMsg Reroll
     let update cmd informParent msg model =
         match msg with
-        | Cancel -> model, (informParent ParentMsg.Cancel)
-        | Done char -> model, (Complete char |> informParent)
         | Reroll ->
             let char = create model.ruleset model.method.info.f
             { model with draft = Some char; export = None }, Cmd.Empty
@@ -418,7 +414,7 @@ module View =
     let ddprop = DragDrop.prop
 
     [<ReactComponent>]
-    let view model dispatch =
+    let view model (control: ParentMsg -> unit) dispatch =
         let window = Browser.Dom.window
         let width = (int window.innerWidth - 80)
         let mutable id = 0
@@ -432,7 +428,7 @@ module View =
                 prop.children (children: _ list)
                 ]
         class' Html.div "charGen" [
-            class' Html.div "Title" [
+            class' Html.div "header" [
                 match model.ruleset with
                 | Ruleset.ADND ->
                     Html.text "Create a character for Advanced Dungeons and Dragons!"
@@ -443,12 +439,20 @@ module View =
                     // there's probably a better way to navigate/set the URL...
                     Html.input [prop.type'.checkbox; prop.ariaChecked (model.ruleset = ruleset); prop.isChecked (model.ruleset = ruleset); prop.id name; prop.onClick (fun _ -> SetRuleset ruleset |> dispatch); prop.readOnly true]
                     Html.label [prop.htmlFor name; prop.text name]
+                class' Html.div "controls" [
+                    Html.button [prop.text "Save and quit"; prop.onClick(fun _ -> Complete model |> control)]
+                    Html.button [prop.text "Quit without saving"; prop.onClick(fun _ -> Cancel |> control)]
+                    ]
+                ]
+            class' Html.div "summary" [
+                Html.text "Lorem ipsum..."
                 ]
             let currentStat stat statValue =
                 match model.draft with
                 | Some { mode = PointBuy } ->
                     let statValue = (defaultArg statValue 8)
                     Html.span [
+                        prop.classes ["statValue"; "stat" + stat.ToString()]
                         prop.text $"{stat} {statValue}  " // dot NOT unassign rolls on click, for point buy
                         prop.key $"{stat}"
                         prop.children [
@@ -460,30 +464,43 @@ module View =
                 | _ ->
                     match statValue with
                     | Some statValue ->
-                        DragDrop.target [
-                            ddprop.targetKey "stats"
-                            ddprop.dropData stat
-                            ddprop.children [
-                                Html.span [
-                                    prop.key $"{stat}"
-                                    match stat, model.draft with
-                                    | Str, (Some { exceptionalStrength = Some exStr; traits = Traits.ADND(HasTrait ADND2nd.rules ADND2nd.Trait.CharacterClass ADND2nd.Trait.Fighter true) }) when model.ruleset = Ruleset.ADND && statValue = 18 ->
-                                        prop.text $"{stat} {statValue} ({exStr}) "
-                                    | _ ->
-                                        prop.text $"{stat} {statValue} "
-                                    prop.onClick(fun _ -> dispatch (UnassignRolls stat))
+                        Html.div [
+                            prop.classes ["statValue"; "stat" + stat.ToString()]
+                            prop.children [
+                                DragDrop.target [
+                                    ddprop.targetKey "stats"
+                                    ddprop.dropData stat
+                                    ddprop.children [
+                                        Html.span [
+                                            prop.key $"{stat}"
+                                            match stat, model.draft with
+                                            | Str, (Some { exceptionalStrength = Some exStr; traits = Traits.ADND(HasTrait ADND2nd.rules ADND2nd.Trait.CharacterClass ADND2nd.Trait.Fighter true) }) when model.ruleset = Ruleset.ADND && statValue = 18 ->
+                                                prop.text $"{stat} {statValue} ({exStr}) "
+                                            | _ ->
+                                                prop.text $"{stat} {statValue} "
+                                            prop.onClick(fun _ -> dispatch (UnassignRolls stat))
+                                            ]
+                                        ]
                                     ]
                                 ]
                             ]
                     | None ->
-                        DragDrop.target [
-                            ddprop.targetKey "stats"
-                            ddprop.dropData stat
-                            ddprop.children [
-                                Html.span [prop.text $"{stat}     "]
+                        Html.div [
+                            prop.classes ["statValue"; "stat" + stat.ToString()]
+                            prop.children [
+                                DragDrop.target [
+                                    ddprop.targetKey "stats"
+                                    ddprop.key ("currentStat" + stat.ToString())
+                                    ddprop.dropData stat
+                                    ddprop.children [
+                                        Html.span [
+                                            prop.text $"{stat}     "
+                                            prop.key $"{stat}"
+                                            ]
+                                        ]
+                                    ]
                                 ]
                             ]
-
             let describe (stat:Stat) statValue =
                 let term =
                     match stat with
@@ -497,15 +514,20 @@ module View =
                     currentStat stat statValue
                     match statValue with
                     | Some statValue ->
-                        DragDrop.target [
-                            ddprop.targetKey "stats"
-                            ddprop.dropData stat
-                            ddprop.children [
-                                Html.span [prop.key $"{stat}descr"; prop.text $"{term} than %0.1f{(getPercentile statValue)*100.}%% of humanity"]
+                        Html.div [
+                            prop.classes ["statDescription"; "stat" + stat.ToString()]
+                            prop.children [
+                                DragDrop.target [
+                                    ddprop.targetKey "stats"
+                                    ddprop.key ("statDescr" + stat.ToString())
+                                    ddprop.dropData stat
+                                    ddprop.children [
+                                        Html.span [prop.key $"{stat}descr"; prop.text $"{term} than %0.1f{(getPercentile statValue)*100.}%% of humanity"]
+                                        ]
+                                    ]
                                 ]
                             ]
-                    | None ->
-                        Html.span [prop.key $"{stat}descr"; prop.text ""]
+                    | None -> ()
                     ]
             match model.export with
             | Some char ->
@@ -525,98 +547,95 @@ module View =
                     ]
             | None ->
                 match model.draft with
-                |Some draft ->
-                    class' Html.div "middle" [
-                        class' Html.div "characterHeader" [
-                            class' Html.div "title" [
-                                match model.editMode with
-                                | NotEditingText ->
-                                    Html.span [
-                                        prop.text draft.name;
-                                        prop.onClick (thunk1 dispatch (SetEditMode EditingName))
-                                        ]
-                                | EditingName ->
-                                    Html.input [
-                                        prop.value draft.name;
-                                        prop.onChange (fun (txt:string) -> SetName txt |> dispatch)
-                                        prop.onKeyDown (fun ev -> if ev.code = "Enter" then SetEditMode NotEditingText |> dispatch); prop.onBlur (fun ev -> SetEditMode NotEditingText |> dispatch)
-                                        ]
+                | Some draft ->
+                    Html.section [prop.className "prettyMiddle"]
+                    class' Html.div "characterHeader" [
+                        class' Html.div "title" [
+                            match model.editMode with
+                            | NotEditingText ->
+                                Html.span [
+                                    prop.text draft.name;
+                                    prop.onClick (thunk1 dispatch (SetEditMode EditingName))
+                                    ]
+                            | EditingName ->
+                                Html.input [
+                                    prop.value draft.name;
+                                    prop.onChange (fun (txt:string) -> SetName txt |> dispatch)
+                                    prop.onKeyDown (fun ev -> if ev.code = "Enter" then SetEditMode NotEditingText |> dispatch); prop.onBlur (fun ev -> SetEditMode NotEditingText |> dispatch)
+                                    ]
 
-                                if draft.nationalOrigin <> "" then
-                                    Html.text $" from {draft.nationalOrigin}"
-                                ]
-                            class' Html.div "details" [
-                                for sex in [Male; Female] do
-                                    let id = sex.ToString()
-                                    Html.input [prop.type'.radio; prop.ariaChecked (draft.sex = sex); prop.isChecked (draft.sex = sex); prop.id id; prop.onClick (fun _ -> SetSex sex |> dispatch); prop.readOnly true]
-                                    Html.label [prop.htmlFor id; prop.text id]
-                                ]
+                            if draft.nationalOrigin <> "" then
+                                Html.text $" from {draft.nationalOrigin}"
                             ]
-                        class' Html.div "assignedStats" [
-                            let statMods =
-                                match draft.traits with
-                                | DND5e traits ->
-                                    let statModsOnly(_, _, _, decisions) =
-                                        match decisions |> List.choose (function StatMod(stat, n) -> Some(stat, n) | _ -> None) with
-                                        | [] -> None
-                                        | mods -> Some mods
-                                    match draft.mode with
-                                    | CumulativeFrom(min, _) -> Stat.All |> List.map (fun stat -> stat, min)
-                                    | _ -> []
-                                    @
-                                    (summarize statModsOnly DND5e.rules traits [PC]
-                                    |> List.collect (fun x -> x))
-                                | ADND traits ->
-                                    let statModsOnly(_, _, _, decisions) =
-                                        match decisions |> List.choose (function ADND2nd.StatMod(stat, n) -> Some(stat, n) | _ -> None) with
-                                        | [] -> None
-                                        | mods -> Some mods
-                                    match draft.mode with
-                                    | CumulativeFrom(min, _) -> Stat.All |> List.map (fun stat -> stat, min)
-                                    | _ -> []
-                                    @
-                                    (summarize statModsOnly ADND2nd.rules traits [ADND2nd.Trait.PC]
-                                    |> List.collect (fun x -> x))
-                            let assignments = addUpStats statMods draft.allocations
-                            for stat in Stat.All do
-                                match assignments |> Map.tryFind stat with
-                                | Some v -> describe stat (Some v)
-                                | None ->
-                                    describe stat None
-                            ]
-                        Html.div [
-                            // try to keep layout height consistent--I'm sure there's a better way
-                            if draft.mode = InOrder then prop.classes ["statRolls";"hide"] else prop.className "statRolls"
-                            prop.children [
-                                match draft.mode with
-                                | PointBuy ->
-                                    Html.span [prop.text "Points remaining"; prop.className "label"]
-                                    let total = draft.allocations |> Array.sumBy (function (n, None) -> n | _ -> 0)
-                                    class' Html.span "roll" [Html.div [prop.text (total.ToString())]]
-                                | _ ->
-                                    Html.span [prop.text "Unassigned (drag and drop)"; prop.className "label"]
-                                    for ix, (roll, stat) in draft.allocations |> Array.mapi tuple2 do
-                                        match stat with
-                                        | None ->
-                                            Html.span [
-                                                prop.className "roll"
-                                                prop.children [
-                                                    DragDrop.container [
-                                                        ddprop.targetKey "stats"
-                                                        ddprop.onDrop(fun e ->
-                                                            match e.dropData with
-                                                            | Some(:? Stat as stat) ->
-                                                                AssignRoll(ix, stat) |> dispatch
-                                                            | _ -> ())
-                                                        ddprop.children [
-                                                            Html.text roll
-                                                            ]
+                        ]
+                    class' Html.div "chooseSex" [
+                        for sex in [Male; Female] do
+                            let id = sex.ToString()
+                            Html.input [prop.type'.radio; prop.ariaChecked (draft.sex = sex); prop.isChecked (draft.sex = sex); prop.id id; prop.onClick (fun _ -> SetSex sex |> dispatch); prop.readOnly true]
+                            Html.label [prop.htmlFor id; prop.text id]
+                        ]
+                    let statMods =
+                        match draft.traits with
+                        | DND5e traits ->
+                            let statModsOnly(_, _, _, decisions) =
+                                match decisions |> List.choose (function StatMod(stat, n) -> Some(stat, n) | _ -> None) with
+                                | [] -> None
+                                | mods -> Some mods
+                            match draft.mode with
+                            | CumulativeFrom(min, _) -> Stat.All |> List.map (fun stat -> stat, min)
+                            | _ -> []
+                            @
+                            (summarize statModsOnly DND5e.rules traits [PC]
+                            |> List.collect (fun x -> x))
+                        | ADND traits ->
+                            let statModsOnly(_, _, _, decisions) =
+                                match decisions |> List.choose (function ADND2nd.StatMod(stat, n) -> Some(stat, n) | _ -> None) with
+                                | [] -> None
+                                | mods -> Some mods
+                            match draft.mode with
+                            | CumulativeFrom(min, _) -> Stat.All |> List.map (fun stat -> stat, min)
+                            | _ -> []
+                            @
+                            (summarize statModsOnly ADND2nd.rules traits [ADND2nd.Trait.PC]
+                            |> List.collect (fun x -> x))
+                    let assignments = addUpStats statMods draft.allocations
+                    for stat in Stat.All do
+                        match assignments |> Map.tryFind stat with
+                        | Some v -> describe stat (Some v)
+                        | None ->
+                            describe stat None
+                    Html.div [
+                        // try to keep layout height consistent--I'm sure there's a better way
+                        if draft.mode = InOrder then prop.classes ["statRolls";"hide"] else prop.className "statRolls"
+                        prop.children [
+                            match draft.mode with
+                            | PointBuy ->
+                                Html.span [prop.text "Points remaining"; prop.className "label"]
+                                let total = draft.allocations |> Array.sumBy (function (n, None) -> n | _ -> 0)
+                                class' Html.span "roll" [Html.div [prop.text (total.ToString()); prop.className "value"]]
+                            | _ ->
+                                Html.span [prop.text "Unassigned (drag and drop)"; prop.className "label"]
+                                for ix, (roll, stat) in draft.allocations |> Array.mapi tuple2 do
+                                    match stat with
+                                    | None ->
+                                        Html.span [
+                                            prop.className "roll"
+                                            prop.children [
+                                                DragDrop.container [
+                                                    ddprop.targetKey "stats"
+                                                    ddprop.onDrop(fun e ->
+                                                        match e.dropData with
+                                                        | Some(:? Stat as stat) ->
+                                                            AssignRoll(ix, stat) |> dispatch
+                                                        | _ -> ())
+                                                    ddprop.children [
+                                                        Html.text roll
                                                         ]
                                                     ]
                                                 ]
-                                        | Some _ ->
-                                            class' Html.span "roll" [Html.div [prop.text "0"; prop.className "hide"]]
-                                ]
+                                            ]
+                                    | Some _ ->
+                                        class' Html.span "roll" [Html.span [prop.text "0"; prop.classes ["hide";"value"]]]
                             ]
                         ]
                 | None -> ()

@@ -16,10 +16,11 @@ importSideEffects "../sass/main.sass"
 module App =
     open Domain.Character
     open Domain.Character.DND5e
+    open Thoth.Json
 
     type Page =
         | Chargen of Chargen.View.Model
-    type Model = { stack: Page list; error: string option; hero: CharacterSheet option }
+    type Model = { stack: Page list; error: string option; hero: CharacterSheet option; roster: Chargen.View.Model array }
     type Msg =
         | Error of msg: string
         | Transform of (Model -> Model)
@@ -27,19 +28,52 @@ module App =
         | Push of Page
         | Pop
         | Navigate of url: string
+        | AddOrUpdateRoster of Chargen.View.Model
+        | ClearRoster
+
+    module LocalStorage =
+        let key = "PCs"
+        let inline jsonParse<'t> fallback str : 't =
+            match Decode.Auto.fromString str with
+            | Ok result -> result
+            | Result.Error err ->
+                printfn "Parse Error: %A " err
+                fallback
+        let inline read<'t> fallback =
+            try
+                Browser.Dom.window.localStorage[key] |> jsonParse<'t> fallback
+            with _ ->
+                fallback
+        let inline write value =
+            Browser.Dom.window.localStorage[key] <- Encode.Auto.toString<'t>(0, value)
 
     let init initialCmd =
-        { stack = []; error = None; hero = None; }, Cmd.batch initialCmd
+        let json = Browser.Dom.window.localStorage["PCs"]
+        let models = LocalStorage.read<Chargen.View.Model array> Array.empty
+        { stack = []; error = None; hero = None; roster = models }, Cmd.batch initialCmd
     let update msg model =
         match msg, model.stack with
         | Error msg, _ -> { model with error = Some msg }, Cmd.Empty
         | Transform f, _ -> { f model with error = None }, Cmd.Empty
         | Navigate url, _ -> model, Navigation.Navigation.newUrl ("#" + url)
+        | AddOrUpdateRoster chargenModel, _ ->
+            let roster' =
+                match model.roster |> Array.tryFindIndex (function { draft = Some { name = name } } when chargenModel.draft.IsSome && name = chargenModel.draft.Value.name -> true | _ -> false) with
+                | Some ix ->
+                    model.roster |> Array.mapi (fun ix' unchanged -> if ix = ix' then chargenModel else unchanged)
+                | _ ->
+                    Array.append model.roster [|chargenModel|]
+            LocalStorage.write roster'
+            { model with roster = roster' }, Cmd.Empty
+        | ClearRoster, _ ->
+            let roster' = Array.empty
+            LocalStorage.write roster'
+            { model with roster = roster' }, Cmd.Empty
         | Chargen msg, (Page.Chargen chargenModel)::rest ->
             let control = function
-            | Chargen.View.Complete characterSheet ->
+            | Chargen.View.Complete chargenModel ->
                 Cmd.ofSub(fun dispatch ->
-                    Transform (fun s -> { s with hero = Some characterSheet }) |> dispatch
+                    AddOrUpdateRoster chargenModel |> dispatch
                     Pop |> dispatch
                     )
             | Chargen.View.Cancel -> Cmd.ofMsg Pop
@@ -54,7 +88,7 @@ module App =
         | Pop, _::[] ->
             // default to welcome screen if stack is empty
             let model', msg = Chargen.View.init()
-            { model with stack = [] }, Cmd.Empty
+            { model with stack = [] }, Navigate "/" |> Cmd.ofMsg
         | Pop, _::rest -> { model with stack = rest }, Cmd.Empty
         | Push(page), stack -> { model with stack = page::stack }, Cmd.Empty // Elmish.Navigation.Navigation.newUrl "#rust"
         | _ -> model, (Error $"Message '{msg}' not compatible with current page ({model.stack |> List.tryHead}))" |> Cmd.ofMsg)
@@ -63,7 +97,17 @@ module App =
         let window = Browser.Dom.window;
         match model.stack with
         | (Page.Chargen model)::_ ->
-            Chargen.View.view model (Chargen >> dispatch)
+            let control = function
+            | Chargen.View.Complete chargenModel ->
+                AddOrUpdateRoster chargenModel |> dispatch
+                Pop |> dispatch
+            | Chargen.View.Cancel -> dispatch Pop
+            | Chargen.View.NavigateTo ruleset ->
+                match ruleset with
+                | Chargen.Interaction.Ruleset.ADND -> Navigate "chargen/adnd"
+                | Chargen.Interaction.Ruleset.DND5e -> Navigate "chargen/5e"
+                |> dispatch
+            Chargen.View.view model control (Chargen >> dispatch)
         | _ ->
             Html.div [
                 prop.className "intro"
@@ -78,6 +122,19 @@ module App =
                         prop.text "Create a character"
                         prop.onClick(thunk1 dispatch (Navigate "chargen/adnd"))
                         ]
+                    for ch in model.roster do
+                        Html.div [
+                            Html.button [
+                                prop.text ("Resume playing " + (match ch.draft with Some draft -> draft.name | _ -> "Unnamed"))
+                                prop.onClick (fun _ ->
+                                    Page.Chargen ch |> Push |> dispatch
+                                    )
+                                ]
+                            ]
+                    if model.roster.Length > 0 then
+                        Html.div [
+                            Html.button [prop.text "Delete all characters"; prop.onClick (thunk1 dispatch ClearRoster)]
+                            ]
                     Html.div [
                         prop.className "footer"
                         prop.children [

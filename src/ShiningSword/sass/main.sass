@@ -17,21 +17,27 @@ html, body, #feliz-app
     width: 100%
     height: 100%
     box-sizing: border-box
+    margin: 2px
     // layout: grid.layoutit.com?id=mnmti5C
     display: grid
-    grid-template-columns: 1fr 1fr 1fr
-    grid-template-rows: 0.4fr 0.9fr 1.7fr
+    grid-template-columns: [left-edge] 10em 1fr 1fr 1fr 1fr [right-edge]
+    grid-template-rows: [header-start]1.2em 1.2em [header-end middle-start] 1.2em 1.2em [stat-start stat1]1.2em [stat2]1.2em [stat3]1.2em [stat4]1.2em [stat5]1.2em [stat6]1.2em [stat7]5em [stat-end middle-end footer-start] auto 1fr [footer-end]
     gap: 0px 0px
     grid-auto-flow: row
-    grid-template-areas: ". Title ." "middle middle middle" "footer footer footer"
-
-.charGen
     user-select: none
     font-size: large
-    .Title
-        grid-area: Title
+    .header
+        grid-column: left-edge/right-edge
+        grid-row: header-start/header-end
+        .controls
+            position: absolute
+            top: 0
+            right: 0
+            button
+                margin-left: 0.2em
     .footer
-        grid-area: footer
+        grid-column: left-edge/right-edge
+        grid-row: footer-start/footer-end
         .choice
             margin-top: 0.2em
             label, span
@@ -39,59 +45,82 @@ html, body, #feliz-app
         .plainTrait
             margin-right: 0.5em
             margin-left: 0.5em
-    .middle
+    .prettyMiddle
+      grid-column: left-edge/right-edge
+      grid-row: middle-start/middle-end
       border-style: solid
       padding: 0.5em
-      display: grid
-      grid-template-columns: 1fr
-      grid-template-rows: 0.5fr 1.6fr 0.4fr
-      gap: 0px 0px
-      grid-template-areas: "characterHeader" "assignedStats" "statRolls"
-      grid-area: middle
 
-    .assignedStats
-      display: grid
-      grid-template-columns: 0.5fr 1.4fr
-      grid-template-rows: 1fr 1fr 1fr 1fr 1fr 1fr
-      gap: 0px 0px
-      grid-template-areas:        ". ."        ". ."        ". ."        ". ."        ". ."        ". ."
-      grid-area: assignedStats
-      .button1
-        position: absolute
-        left: 70px
-        width: 2em
-      .button2
-        position: absolute
-        left: 120px
-        width: 2em
     .characterHeader
-        grid-area: characterHeader
-        .title
-            font-size: xx-large
-            input
-                font-size: xx-large
-                margin-right: 1em
-        .details
-            margin: 10px 0px 10px 40px
-            label
-                margin-right: 2em
+      margin-left: 5px
+      grid-column: left-edge/right-edge
+      grid-row: middle-start/stat-start
+      .title
+          font-size: xx-large
+          input
+              font-size: xx-large
+              margin-right: 1em
+      .details
+          margin: 10px 0px 10px 40px
+          label
+              margin-right: 2em
+    .chooseSex
+      grid-row: middle-start/middle-end
+      grid-column: 4/6
+      margin: 5px
+    .assignedStats
+      grid-column: 1/4
+      grid-row: stat-start/stat-end
+
+    .statValue
+      grid-column: 1
+      margin-left: 5px
+      .droptarget span
+        min-width: 8em
+        display: block
+    .statDescription
+      grid-column: 2/4
+      margin: 1px
+    .statStr
+      grid-row: stat1
+    .statDex
+      grid-row: stat2
+    .statCon
+      grid-row: stat3
+    .statInt
+      grid-row: stat4
+    .statWis
+      grid-row: stat5
+    .statCha
+      grid-row: stat6
+
+    .button1
+      position: absolute
+      left: 70px
+      width: 2em
+    .button2
+      position: absolute
+      left: 120px
+      width: 2em
     .statRolls
-      margin-top: 1em
+      margin-left: 5px
       display: flex
       align-items: center
-      grid-area: statRolls
+      grid-column: 1/4
+      grid-row: stat7
 
       .label
         margin-right: 1em
       .roll
         padding: 0.1em
         margin: 0.3em
-        width: 2em
         text-align: center
         border-style: solid
-        span
-            border-box: content-box
-            min-height: 1em
+        width: 2em
+        .value
+          width: 2em
+          box-sizing: content-box
+          min-height: 1em
 
 .hide
     visibility: hidden
