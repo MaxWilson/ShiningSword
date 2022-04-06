@@ -404,7 +404,8 @@ module View =
                 ] |> dict
         fun statValue ->
             if statValue > lessThanEqualGroups.Count then 1.
-            else lessThanEqualGroups[statValue]
+            elif statValue > 0 then lessThanEqualGroups[statValue]
+            else 0.
 
     open Fable.Core.JsInterop
     open Fable.React
