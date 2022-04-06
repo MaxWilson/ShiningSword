@@ -125,7 +125,15 @@ module App =
                     for ch in model.roster do
                         Html.div [
                             Html.button [
-                                prop.text ("Resume playing " + (match ch.draft with Some draft -> draft.name | _ -> "Unnamed"))
+                                let txt =
+                                    match ch with
+                                    | { ruleset = Chargen.Interaction.Ruleset.ADND; draft = Some { name = name } } ->
+                                        $"{name} (AD&D)"
+                                    | { ruleset = Chargen.Interaction.Ruleset.DND5e; draft = Some { name = name } } ->
+                                        $"{name} (5E)"
+                                    | _ -> shouldntHappen()
+
+                                prop.text $"Resume playing {txt}"
                                 prop.onClick (fun _ ->
                                     Page.Chargen ch |> Push |> dispatch
                                     )
