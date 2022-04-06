@@ -124,19 +124,22 @@ module App =
                         ]
                     for ch in model.roster do
                         Html.div [
+                            let txt, flair, cssClass =
+                                match ch with
+                                | { ruleset = Chargen.Interaction.Ruleset.ADND; draft = Some { name = name } } ->
+                                    name, "AD&D", "flairADND"
+                                | { ruleset = Chargen.Interaction.Ruleset.DND5e; draft = Some { name = name } } ->
+                                    name, "D&D 5E", "flairDND5e"
+                                | _ -> shouldntHappen()
                             Html.button [
-                                let txt =
-                                    match ch with
-                                    | { ruleset = Chargen.Interaction.Ruleset.ADND; draft = Some { name = name } } ->
-                                        $"{name} (AD&D)"
-                                    | { ruleset = Chargen.Interaction.Ruleset.DND5e; draft = Some { name = name } } ->
-                                        $"{name} (5E)"
-                                    | _ -> shouldntHappen()
-
                                 prop.text $"Resume playing {txt}"
                                 prop.onClick (fun _ ->
                                     Page.Chargen ch |> Push |> dispatch
                                     )
+                                ]
+                            Html.span [
+                                prop.text flair
+                                prop.className cssClass
                                 ]
                             ]
                     if model.roster.Length > 0 then
