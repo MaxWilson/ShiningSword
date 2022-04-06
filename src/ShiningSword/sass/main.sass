@@ -21,7 +21,7 @@ html, body, #feliz-app
     // layout: grid.layoutit.com?id=mnmti5C
     display: grid
     grid-template-columns: [left-edge] 10em 1fr 1fr 1fr 1fr [right-edge]
-    grid-template-rows: [header-start]1.2em 1.2em [header-end middle-start] 1.2em 1.2em [stat-start stat1]1.2em [stat2]1.2em [stat3]1.2em [stat4]1.2em [stat5]1.2em [stat6]1.2em [stat7]5em [stat-end middle-end footer-start] auto 1fr [footer-end]
+    grid-template-rows: [header-start]1.2em 1.2em [header-end middle-start] 1.2em 1.2em [stat-start stat1]1.2em [stat2]1.2em [stat3]1.2em [stat4]1.2em [stat5]1.2em [stat6]1.2em [stat7]auto [statControl] auto [stat-end middle-end footer-start] auto 1fr [footer-end]
     gap: 0px 0px
     grid-auto-flow: row
     user-select: none
@@ -35,7 +35,12 @@ html, body, #feliz-app
             right: 0
             button
                 margin-left: 0.2em
-    .footer
+    .rollingMethods
+      grid-column: left-edge/right-edge
+      grid-row: statControl
+      margin-left: 5px
+      margin-bottom: 5px
+    .chooseTraits
         grid-column: left-edge/right-edge
         grid-row: footer-start/footer-end
         .choice
@@ -65,13 +70,13 @@ html, body, #feliz-app
           label
               margin-right: 2em
     .chooseSex
-      grid-row: middle-start/middle-end
+      grid-row: middle-start
       grid-column: 4/6
-      margin: 5px
-    .assignedStats
-      grid-column: 1/4
+      margin-top: 5px
+    .summary
+      grid-column: 4/6
       grid-row: stat-start/stat-end
-
+      margin-left: 5px
     .statValue
       grid-column: 1
       margin-left: 5px

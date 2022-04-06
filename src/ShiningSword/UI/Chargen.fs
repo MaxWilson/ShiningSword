@@ -414,6 +414,45 @@ module View =
     open UI.Konva
     let ddprop = DragDrop.prop
 
+    // helper method to make assigning css classes more concise
+    let class' f className children =
+        f [
+            prop.className (className: string)
+            prop.children (children: _ list)
+            ]
+
+    let describeChoiceInReact dispatch msg describe (head, choiceIx, choice: DerivedTraits.Choice<_>, decision: _ list) =
+        let toString x = x.ToString()
+        if choice.options.Length = decision.Length then
+            React.fragment [
+                for ix, option in choice.options |> List.mapi tuple2 do
+                    let name = option |> describe
+                    class' Html.span "plainTrait" [
+                        Html.text (name: string)
+                        ]
+                ]
+            |> fun x -> Some(2, x)
+        elif choice.numberAllowed = decision.Length then
+            React.fragment [
+                // filter out the non-chosen options after the choice is made, to save on screen space
+                for ix, option in choice.options |> List.mapi tuple2 do
+                    if decision |> List.contains option then
+                        let name = option |> describe
+                        Html.input [prop.type'.checkbox; prop.ariaChecked (decision |> List.contains option); prop.isChecked (decision |> List.contains option); prop.id name; prop.onClick (fun _ -> msg(head, choiceIx, ix) |> dispatch); prop.readOnly true]
+                        Html.label [prop.htmlFor name; prop.text name]
+                ]
+            |> fun x -> Some(1, x)
+        else
+            Html.div [
+                class' Html.section "choice" [
+                    for ix, option in choice.options |> List.mapi tuple2 do
+                        let name = option |> describe
+                        Html.input [prop.type'.checkbox; prop.ariaChecked (decision |> List.contains option); prop.isChecked (decision |> List.contains option); prop.id name; prop.onClick (fun _ -> msg(head, choiceIx, ix) |> dispatch); prop.readOnly true]
+                        Html.label [prop.htmlFor name; prop.text name]
+                    ]
+                ]
+            |> fun x -> Some(3, x)
+
     [<ReactComponent>]
     let view model (control: ParentMsg -> unit) dispatch =
         let window = Browser.Dom.window
@@ -422,12 +461,7 @@ module View =
         let key() =
             id <- id + 1
             Shape.key id
-        // helper method to make assigning css classes more concise
-        let class' f className children =
-            f [
-                prop.className (className: string)
-                prop.children (children: _ list)
-                ]
+
         class' Html.div "charGen" [
             class' Html.div "header" [
                 match model.ruleset with
@@ -444,9 +478,6 @@ module View =
                     Html.button [prop.text "Save and quit"; prop.onClick(fun _ -> Complete model |> control)]
                     Html.button [prop.text "Quit without saving"; prop.onClick(fun _ -> Cancel |> control)]
                     ]
-                ]
-            class' Html.div "summary" [
-                Html.text "Lorem ipsum..."
                 ]
             let currentStat stat statValue =
                 match model.draft with
@@ -562,8 +593,7 @@ module View =
                                 Html.input [
                                     prop.value draft.name;
                                     prop.onChange (fun (txt:string) -> SetName txt |> dispatch)
-                                    prop.onKeyDown (fun ev -> if ev.code = "Enter" then SetEditMode NotEditingText |> dispatch); prop.onBlur (fun ev -> SetEditMode NotEditingText |> dispatch)
-                                    ]
+                                    prop.onKeyDown (fun ev -> if ev.code = "Enter" then SetEditMode NotEditingText |> dispatch); prop.onBlur (fun ev -> SetEditMode NotEditingText |> dispatch)                                    ]
 
                             if draft.nationalOrigin <> "" then
                                 Html.text $" from {draft.nationalOrigin}"
@@ -639,70 +669,44 @@ module View =
                                         class' Html.span "roll" [Html.span [prop.text "0"; prop.classes ["hide";"value"]]]
                             ]
                         ]
-                | None -> ()
-            class' Html.div "footer" [
-                Html.button [
-                    prop.text "Reroll"
-                    prop.onClick (fun _ -> dispatch Reroll)
-                    ]
-
-                let allowedRollingMethods = if model.ruleset = Ruleset.ADND then ChargenMethod.ADND else ChargenMethod.DND5e
-                for ix, method in allowedRollingMethods |> List.mapi tuple2 do
-                    Html.div [
-                        Html.input [prop.type'.radio; prop.ariaChecked (model.method = method); prop.isChecked (model.method = method); prop.id method.info.name'; prop.onClick (fun _ -> method |> SetMethod |> dispatch); prop.readOnly true]
-                        Html.label [prop.htmlFor method.info.name'; prop.text method.info.name']
-                        ]
-
-                let describeChoiceInReact msg describe (head, choiceIx, choice: DerivedTraits.Choice<_>, decision: _ list) =
-                    let toString x = x.ToString()
-                    if choice.options.Length = decision.Length then
-                        React.fragment [
-                            for ix, option in choice.options |> List.mapi tuple2 do
-                                let name = option |> describe
-                                class' Html.span "plainTrait" [
-                                    Html.text (name: string)
-                                    ]
+                    class' Html.div "rollingMethods" [
+                        Html.button [
+                            prop.text "Reroll"
+                            prop.onClick (thunk1 dispatch Reroll)
                             ]
-                        |> fun x -> Some(2, x)
-                    elif choice.numberAllowed = decision.Length then
-                        React.fragment [
-                            // filter out the non-chosen options after the choice is made, to save on screen space
-                            for ix, option in choice.options |> List.mapi tuple2 do
-                                if decision |> List.contains option then
-                                    let name = option |> describe
-                                    Html.input [prop.type'.checkbox; prop.ariaChecked (decision |> List.contains option); prop.isChecked (decision |> List.contains option); prop.id name; prop.onClick (fun _ -> msg(head, choiceIx, ix) |> dispatch); prop.readOnly true]
-                                    Html.label [prop.htmlFor name; prop.text name]
-                            ]
-                        |> fun x -> Some(1, x)
-                    else
-                        Html.div [
-                            class' Html.section "choice" [
-                                for ix, option in choice.options |> List.mapi tuple2 do
-                                    let name = option |> describe
-                                    Html.input [prop.type'.checkbox; prop.ariaChecked (decision |> List.contains option); prop.isChecked (decision |> List.contains option); prop.id name; prop.onClick (fun _ -> msg(head, choiceIx, ix) |> dispatch); prop.readOnly true]
-                                    Html.label [prop.htmlFor name; prop.text name]
+
+                        let allowedRollingMethods = if model.ruleset = Ruleset.ADND then ChargenMethod.ADND else ChargenMethod.DND5e
+                        for ix, method in allowedRollingMethods |> List.mapi tuple2 do
+                            Html.div [
+                                Html.input [prop.type'.radio; prop.ariaChecked (model.method = method); prop.isChecked (model.method = method); prop.id method.info.name'; prop.onClick (fun _ -> method |> SetMethod |> dispatch); prop.readOnly true]
+                                Html.label [prop.htmlFor method.info.name'; prop.text method.info.name']
                                 ]
-                            ]
-                        |> fun x -> Some(3, x)
-                let display (lst: (int * ReactElement) list) =
-                    // maybe I should use enums here instead of ints
-                    let chosen = lst |> List.choose (fun (pri, e) -> if pri = 1 then Some e else None)
-                    let traits = lst |> List.choose (fun (pri, e) -> if pri = 2 then Some e else None)
-                    let choice = lst |> List.choose (fun (pri, e) -> if pri = 3 then Some e else None)
-                    [
-                        class' Html.div "chosen" chosen
-                        class' Html.div "traits" traits
-                        for element in choice do
-                            element
                         ]
-
-                match model.draft with
+                    class' Html.div "chooseTraits" [
+                        let display (lst: (int * ReactElement) list) =
+                            // maybe I should use enums here instead of ints
+                            let chosen = lst |> List.choose (fun (pri, e) -> if pri = 1 then Some e else None)
+                            let traits = lst |> List.choose (fun (pri, e) -> if pri = 2 then Some e else None)
+                            let choice = lst |> List.choose (fun (pri, e) -> if pri = 3 then Some e else None)
+                            [
+                                class' Html.div "chosen" chosen
+                                class' Html.div "traits" traits
+                                for element in choice do
+                                    element
+                                ]
+                        match draft.traits with
+                        | DND5e traits ->
+                            let toReact = describeChoiceInReact dispatch Toggle5ETrait DND5e.describe
+                            yield! (summarize toReact DND5e.rules traits [PC] |> display)
+                            class' Html.div "summary" [
+                                Html.text "Level 1"
+                                ]
+                        | ADND traits ->
+                            let toReact = describeChoiceInReact dispatch ToggleADNDTrait ADND2nd.describe
+                            yield! (summarize toReact ADND2nd.rules traits [ADND2nd.Trait.PC] |> display)
+                            class' Html.div "summary" [
+                                Html.text "Level 1"
+                                ]
+                        ]
                 | None -> ()
-                | Some { traits = DND5e traits } as draft ->
-                    let toReact = describeChoiceInReact Toggle5ETrait DND5e.describe
-                    yield! (summarize toReact DND5e.rules traits [PC] |> display)
-                | Some { traits = ADND traits } as draft ->
-                    let toReact = describeChoiceInReact ToggleADNDTrait ADND2nd.describe
-                    yield! (summarize toReact ADND2nd.rules traits [ADND2nd.Trait.PC] |> display)
-                ]
             ]
