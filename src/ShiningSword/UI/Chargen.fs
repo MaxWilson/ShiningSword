@@ -682,31 +682,34 @@ module View =
                                 Html.label [prop.htmlFor method.info.name'; prop.text method.info.name']
                                 ]
                         ]
-                    class' Html.div "chooseTraits" [
-                        let display (lst: (int * ReactElement) list) =
-                            // maybe I should use enums here instead of ints
-                            let chosen = lst |> List.choose (fun (pri, e) -> if pri = 1 then Some e else None)
-                            let traits = lst |> List.choose (fun (pri, e) -> if pri = 2 then Some e else None)
-                            let choice = lst |> List.choose (fun (pri, e) -> if pri = 3 then Some e else None)
-                            [
-                                class' Html.div "chosen" chosen
-                                class' Html.div "traits" traits
-                                for element in choice do
-                                    element
-                                ]
-                        match draft.traits with
-                        | DND5e traits ->
-                            let toReact = describeChoiceInReact dispatch Toggle5ETrait DND5e.describe
+
+                    let display (lst: (int * ReactElement) list) =
+                        // maybe I should use enums here instead of ints
+                        let chosen = lst |> List.choose (fun (pri, e) -> if pri = 1 then Some e else None)
+                        let traits = lst |> List.choose (fun (pri, e) -> if pri = 2 then Some e else None)
+                        let choice = lst |> List.choose (fun (pri, e) -> if pri = 3 then Some e else None)
+                        [
+                            class' Html.div "chosen" chosen
+                            class' Html.div "traits" traits
+                            for element in choice do
+                                element
+                            ]
+                    match draft.traits with
+                    | DND5e traits ->
+                        let toReact = describeChoiceInReact dispatch Toggle5ETrait DND5e.describe
+                        class' Html.div "chooseTraits" [
                             yield! (summarize toReact DND5e.rules traits [PC] |> display)
-                            class' Html.div "summary" [
-                                Html.text "Level 1"
-                                ]
-                        | ADND traits ->
-                            let toReact = describeChoiceInReact dispatch ToggleADNDTrait ADND2nd.describe
+                            ]
+                        class' Html.div "summary" [
+                            Html.text "Level 1"
+                            ]
+                    | ADND traits ->
+                        let toReact = describeChoiceInReact dispatch ToggleADNDTrait ADND2nd.describe
+                        class' Html.div "chooseTraits" [
                             yield! (summarize toReact ADND2nd.rules traits [ADND2nd.Trait.PC] |> display)
-                            class' Html.div "summary" [
-                                Html.text "Level 1"
-                                ]
-                        ]
+                            ]
+                        class' Html.div "summary" [
+                            Html.text "Level 1"
+                            ]
                 | None -> ()
             ]
