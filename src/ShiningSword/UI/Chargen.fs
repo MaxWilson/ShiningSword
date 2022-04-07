@@ -10,7 +10,6 @@ module Interaction =
 
     type Rolls = int array
 
-    type Ruleset = ADND | DND5e
     type Traits = ADND of ADND2nd.Trait DerivationInstance | DND5e of DND5e.Trait DerivationInstance
         with
         member this.map (f: (ADND2nd.Trait DerivationInstance -> ADND2nd.Trait DerivationInstance)) =
@@ -232,8 +231,8 @@ module Interaction =
                 originalRolls = rolls
                 allocations = rolls |> Array.map (fun x -> x, None)
                 mode = Assign
-                exceptionalStrength = match ruleset with Ruleset.ADND -> Some (rand 100) | _ -> None
-                traits = match ruleset with Ruleset.ADND -> ADND Map.empty | _ -> DND5e Map.empty
+                exceptionalStrength = match ruleset with Ruleset.TSR -> Some (rand 100) | _ -> None
+                traits = match ruleset with Ruleset.TSR -> ADND Map.empty | _ -> DND5e Map.empty
                 })
 
 open Interaction
@@ -303,7 +302,7 @@ module View =
             export = None
             method = ChargenMethod.ADND.Head
             editMode = NotEditingText
-            ruleset = Ruleset.ADND
+            ruleset = Ruleset.TSR
             },
             Cmd.ofMsg Reroll
     let update cmd informParent msg model =
@@ -325,7 +324,7 @@ module View =
             printfn "%A" draft'.Value.allocations
             { model with draft = draft' }, Cmd.Empty
         | SetRuleset ruleset ->
-            let msg = SetMethod (if ruleset = Ruleset.ADND then ChargenMethod.ADND.Head else ChargenMethod.DND5e.Head)
+            let msg = SetMethod (if ruleset = Ruleset.TSR then ChargenMethod.ADND.Head else ChargenMethod.DND5e.Head)
             { model with ruleset = ruleset }, Cmd.batch [msg |> cmd;informParent (NavigateTo ruleset)]
         | SetName(name) ->
             { model with draft = model.draft |> Option.map (fun draft -> { draft with name = name; nationalOrigin = "" }) }, Cmd.Empty
@@ -465,12 +464,12 @@ module View =
         class' Html.div "charGen" [
             class' Html.div "header" [
                 match model.ruleset with
-                | Ruleset.ADND ->
+                | Ruleset.TSR ->
                     Html.text "Create a character for Advanced Dungeons and Dragons!"
-                | Ruleset.DND5e ->
+                | Ruleset.WOTC ->
                     Html.text "Create a character for Fifth Edition Dungeons and Dragons!"
-                for ix, ruleset in [Ruleset.ADND; Ruleset.DND5e] |> List.mapi tuple2 do
-                    let name = match ruleset with Ruleset.ADND -> "AD&D" | _ -> "5th Edition"
+                for ix, ruleset in [Ruleset.TSR; Ruleset.WOTC] |> List.mapi tuple2 do
+                    let name = match ruleset with Ruleset.TSR -> "AD&D" | _ -> "5th Edition"
                     // there's probably a better way to navigate/set the URL...
                     Html.input [prop.type'.checkbox; prop.ariaChecked (model.ruleset = ruleset); prop.isChecked (model.ruleset = ruleset); prop.id name; prop.onClick (fun _ -> SetRuleset ruleset |> dispatch); prop.readOnly true]
                     Html.label [prop.htmlFor name; prop.text name]
@@ -506,7 +505,7 @@ module View =
                                         Html.span [
                                             prop.key $"{stat}"
                                             match stat, model.draft with
-                                            | Str, (Some { exceptionalStrength = Some exStr; traits = Traits.ADND(HasTrait ADND2nd.rules ADND2nd.Trait.CharacterClass ADND2nd.Trait.Fighter true) }) when model.ruleset = Ruleset.ADND && statValue = 18 ->
+                                            | Str, (Some { exceptionalStrength = Some exStr; traits = Traits.ADND(HasTrait ADND2nd.rules ADND2nd.Trait.CharacterClass ADND2nd.Trait.Fighter true) }) when model.ruleset = Ruleset.TSR && statValue = 18 ->
                                                 prop.text $"{stat} {statValue} ({exStr}) "
                                             | _ ->
                                                 prop.text $"{stat} {statValue} "
@@ -675,7 +674,7 @@ module View =
                             prop.onClick (thunk1 dispatch Reroll)
                             ]
 
-                        let allowedRollingMethods = if model.ruleset = Ruleset.ADND then ChargenMethod.ADND else ChargenMethod.DND5e
+                        let allowedRollingMethods = if model.ruleset = Ruleset.TSR then ChargenMethod.ADND else ChargenMethod.DND5e
                         for ix, method in allowedRollingMethods |> List.mapi tuple2 do
                             Html.div [
                                 Html.input [prop.type'.radio; prop.ariaChecked (model.method = method); prop.isChecked (model.method = method); prop.id method.info.name'; prop.onClick (fun _ -> method |> SetMethod |> dispatch); prop.readOnly true]

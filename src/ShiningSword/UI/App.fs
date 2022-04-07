@@ -17,16 +17,24 @@ module App =
     open Domain.Character
     open Domain.Character.DND5e
     open Thoth.Json
+    open UI.Chargen.Interaction
 
+    type CharSheet = ADND of Domain.Character.ADND2nd.CharacterSheet | DND5e of Domain.Character.DND5e.CharacterSheet
+    type Adventure = {
+        damage: Map<Name, int>
+        character: CharSheet
+        }
     type Page =
-        | Chargen of Chargen.View.Model
-    type Model = { stack: Page list; error: string option; hero: CharacterSheet option; roster: Chargen.View.Model array }
+        | Home
+        | Generate of Chargen.View.Model
+        | Adventure of Adventure
+    type Model = { current: Page; error: string option; roster: Chargen.View.Model array }
     type Msg =
         | Error of msg: string
         | Transform of (Model -> Model)
         | Chargen of Chargen.View.Msg
-        | Push of Page
-        | Pop
+        | Open of Page
+        | GoHome
         | Navigate of url: string
         | AddOrUpdateRoster of Chargen.View.Model
         | ClearRoster
@@ -50,9 +58,9 @@ module App =
     let init initialCmd =
         let json = Browser.Dom.window.localStorage["PCs"]
         let models = LocalStorage.read<Chargen.View.Model array> Array.empty
-        { stack = []; error = None; hero = None; roster = models }, Cmd.batch initialCmd
+        { current = Page.Home; error = None; roster = models }, Cmd.batch initialCmd
     let update msg model =
-        match msg, model.stack with
+        match msg, model.current with
         | Error msg, _ -> { model with error = Some msg }, Cmd.Empty
         | Transform f, _ -> { f model with error = None }, Cmd.Empty
         | Navigate url, _ -> model, Navigation.Navigation.newUrl ("#" + url)
@@ -69,43 +77,42 @@ module App =
             let roster' = Array.empty
             LocalStorage.write roster'
             { model with roster = roster' }, Cmd.Empty
-        | Chargen msg, (Page.Chargen chargenModel)::rest ->
+        | Chargen msg, (Page.Generate chargenModel)->
             let control = function
             | Chargen.View.Complete chargenModel ->
                 Cmd.ofSub(fun dispatch ->
                     AddOrUpdateRoster chargenModel |> dispatch
-                    Pop |> dispatch
+                    GoHome |> dispatch
                     )
-            | Chargen.View.Cancel -> Cmd.ofMsg Pop
+            | Chargen.View.Cancel -> Cmd.ofMsg GoHome
             | Chargen.View.NavigateTo ruleset ->
                 match ruleset with
-                | Chargen.Interaction.Ruleset.ADND -> Navigate "chargen/adnd"
-                | Chargen.Interaction.Ruleset.DND5e -> Navigate "chargen/5e"
+                | Ruleset.TSR -> Navigate "chargen/adnd"
+                | Ruleset.WOTC -> Navigate "chargen/5e"
                 |> Cmd.ofMsg
             let cmd = (Chargen >> Cmd.ofMsg)
             let chargenModel, cmd = Chargen.View.update (Chargen >> Cmd.ofMsg) control msg chargenModel
-            { model with stack = (Page.Chargen chargenModel)::rest }, cmd
-        | Pop, _::[] ->
+            { model with current = (Page.Generate chargenModel)}, cmd
+        | GoHome, _ ->
             // default to welcome screen if stack is empty
             let model', msg = Chargen.View.init()
-            { model with stack = [] }, Navigate "/" |> Cmd.ofMsg
-        | Pop, _::rest -> { model with stack = rest }, Cmd.Empty
-        | Push(page), stack -> { model with stack = page::stack }, Cmd.Empty // Elmish.Navigation.Navigation.newUrl "#rust"
-        | _ -> model, (Error $"Message '{msg}' not compatible with current page ({model.stack |> List.tryHead}))" |> Cmd.ofMsg)
+            { model with current = Home}, Navigate "/" |> Cmd.ofMsg
+        | Open(page), stack -> { model with current = page}, Cmd.Empty
+        | _ -> model, (Error $"Message '{msg}' not compatible with current page ({model.current}))" |> Cmd.ofMsg)
     open Feliz.Router
     let view (model: Model) dispatch =
         let window = Browser.Dom.window;
-        match model.stack with
-        | (Page.Chargen model)::_ ->
+        match model.current with
+        | (Page.Generate model) ->
             let control = function
             | Chargen.View.Complete chargenModel ->
                 AddOrUpdateRoster chargenModel |> dispatch
-                Pop |> dispatch
-            | Chargen.View.Cancel -> dispatch Pop
+                GoHome |> dispatch
+            | Chargen.View.Cancel -> dispatch GoHome
             | Chargen.View.NavigateTo ruleset ->
                 match ruleset with
-                | Chargen.Interaction.Ruleset.ADND -> Navigate "chargen/adnd"
-                | Chargen.Interaction.Ruleset.DND5e -> Navigate "chargen/5e"
+                | Ruleset.TSR -> Navigate "chargen/adnd"
+                | Ruleset.WOTC -> Navigate "chargen/5e"
                 |> dispatch
             Chargen.View.view model control (Chargen >> dispatch)
         | _ ->
@@ -126,15 +133,15 @@ module App =
                         Html.div [
                             let txt, flair, cssClass =
                                 match ch with
-                                | { ruleset = Chargen.Interaction.Ruleset.ADND; draft = Some { name = name } } ->
+                                | { ruleset = Ruleset.TSR; draft = Some { name = name } } ->
                                     name, "AD&D", "flairADND"
-                                | { ruleset = Chargen.Interaction.Ruleset.DND5e; draft = Some { name = name } } ->
+                                | { ruleset = Ruleset.WOTC; draft = Some { name = name } } ->
                                     name, "D&D 5E", "flairDND5e"
                                 | _ -> shouldntHappen()
                             Html.button [
                                 prop.text $"Resume playing {txt}"
                                 prop.onClick (fun _ ->
-                                    Page.Chargen ch |> Push |> dispatch
+                                    Page.Generate ch |> Open |> dispatch
                                     )
                                 ]
                             Html.span [
@@ -172,7 +179,7 @@ module Url =
                 let model', msg = Chargen.View.init()
                 let cmd =
                     [
-                        Cmd.ofMsg (Push (Page.Chargen model'))
+                        Cmd.ofMsg (Open (Page.Generate model'))
                         Cmd.ofMsg (SetMethod DarkSunMethodI |> Chargen)
                         msg |> Cmd.map Chargen
                         ]
@@ -181,7 +188,7 @@ module Url =
                 let model', msg = Chargen.View.init()
                 let cmd =
                     [
-                        Cmd.ofMsg (Push (Page.Chargen model'))
+                        Cmd.ofMsg (Open (Page.Generate model'))
                         msg |> Cmd.map Chargen
                         ]
                 Some(cmd, ctx)
@@ -189,16 +196,16 @@ module Url =
                 let model', msg = Chargen.View.init()
                 let cmd =
                     [
-                        Cmd.ofMsg (Push (Page.Chargen model'))
+                        Cmd.ofMsg (Open (Page.Generate model'))
                         msg |> Cmd.map Chargen
-                        Cmd.ofMsg (Chargen (SetRuleset UI.Chargen.Interaction.Ruleset.DND5e))
+                        Cmd.ofMsg (Chargen (SetRuleset Domain.Character.Ruleset.WOTC))
                         ]
                 Some(cmd, ctx)
             | Str "chargen" ctx ->
                 let model', msg = Chargen.View.init()
                 let cmd =
                     [
-                        Cmd.ofMsg (Push (Page.Chargen model'))
+                        Cmd.ofMsg (Open (Page.Generate model'))
                         msg |> Cmd.map Chargen
                         ]
                 Some(cmd, ctx)

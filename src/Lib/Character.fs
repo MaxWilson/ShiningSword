@@ -5,7 +5,8 @@ open DerivedTraits
 type Stat = Str | Dex | Con | Int | Wis | Cha
     with static member All = [Str;Dex;Con;Int;Wis;Cha]
 type Sex = Male | Female | Neither
-
+type Name = string
+type Ruleset = TSR | WOTC
 
 // turn camel casing back into words with spaces, for display to user
 let uncamel (str: string) =
@@ -74,7 +75,7 @@ module ADND2nd =
         | PrimaryDiscipline of PsionicDiscipline
 
     type CharacterSheet = {
-        name: string
+        name: Name
         nationalOrigin: string
         sex: Sex
         Str: int
@@ -188,7 +189,7 @@ module DND5e =
             full[..(full.LastIndexOf " " - 1)]
         | stat -> uncamel (stat.ToString())
     type CharacterSheet = {
-        name: string
+        name: Name
         nationalOrigin: string
         sex: Sex
         Str: int
@@ -246,7 +247,6 @@ module DND5e =
                 invisiblyConfer (Level(class', 0)) [Level(class', 1)]
             ]
         |> rulesOf
-
 
 let rec makeName(sex: Sex) =
     let nationOfOrigin = chooseRandom ["Tir na n'Og"; "Abysia"; "Kailasa"; "Ermor"; "Undauntra"; "Arboria"; "Mordor"]
