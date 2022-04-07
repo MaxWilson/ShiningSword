@@ -14,5 +14,6 @@ indent_size = 4
 [*.styl]
 indent_size = 4
 
+# 2 spaces for SASS indentation is too visually subtle, 4 is better
 [*.sass]
-indent_size = 2
+indent_size = 4 

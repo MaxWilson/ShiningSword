@@ -38,6 +38,7 @@ module App =
         | Navigate of url: string
         | AddOrUpdateRoster of Chargen.View.Model
         | ClearRoster
+        | DeleteCharacter of Name
 
     module LocalStorage =
         let key = "PCs"
@@ -75,6 +76,10 @@ module App =
             { model with roster = roster' }, Cmd.Empty
         | ClearRoster, _ ->
             let roster' = Array.empty
+            LocalStorage.write roster'
+            { model with roster = roster' }, Cmd.Empty
+        | DeleteCharacter characterName, _ ->
+            let roster' = model.roster |> Array.filter (function { draft = Some { name = name' } } when name' = characterName -> false | _ -> true)
             LocalStorage.write roster'
             { model with roster = roster' }, Cmd.Empty
         | Chargen msg, (Page.Generate chargenModel)->
@@ -116,8 +121,10 @@ module App =
                 |> dispatch
             Chargen.View.view model control (Chargen >> dispatch)
         | _ ->
+            let class' element (className: string) (children: ReactElement list) =
+                element [prop.className className; prop.children children]
             Html.div [
-                prop.className "intro"
+                prop.className "homePage"
                 prop.children [
                     Html.div [
                         prop.children [
@@ -129,30 +136,39 @@ module App =
                         prop.text "Create a character"
                         prop.onClick(thunk1 dispatch (Navigate "chargen/adnd"))
                         ]
-                    for ch in model.roster do
-                        Html.div [
-                            let txt, flair, cssClass =
-                                match ch with
-                                | { ruleset = Ruleset.TSR; draft = Some { name = name } } ->
-                                    name, "AD&D", "flairADND"
-                                | { ruleset = Ruleset.WOTC; draft = Some { name = name } } ->
-                                    name, "D&D 5E", "flairDND5e"
-                                | _ -> shouldntHappen()
-                            Html.button [
-                                prop.text $"Resume playing {txt}"
-                                prop.onClick (fun _ ->
-                                    Page.Generate ch |> Open |> dispatch
-                                    )
-                                ]
-                            Html.span [
-                                prop.text flair
-                                prop.className cssClass
-                                ]
+                    class' Html.div "growToFill" [
+                        class' Html.div "existingCharacters" [
+                            for ch in model.roster do
+                                let txt, flair, cssClass =
+                                    match ch with
+                                    | { ruleset = Ruleset.TSR; draft = Some { name = name } } ->
+                                        name, "AD&D", "flairADND"
+                                    | { ruleset = Ruleset.WOTC; draft = Some { name = name } } ->
+                                        name, "D&D 5E", "flairDND5e"
+                                    | _ -> shouldntHappen()
+                                Html.span [
+                                    prop.text flair
+                                    prop.className cssClass
+                                    ]
+                                Html.span [prop.text txt; prop.className "characterName"]
+                                Html.button [
+                                    prop.text $"Resume"
+                                    prop.className "resumeCommand"
+                                    prop.onClick (fun _ ->
+                                        Page.Generate ch |> Open |> dispatch
+                                        )
+                                    ]
+                                Html.button [
+                                    prop.text $"Delete"
+                                    prop.className "deleteCommand"
+                                    prop.onClick (thunk1 dispatch (DeleteCharacter txt))
+                                    ]
+
+                            if model.roster.Length > 0 then
+                                Html.button [prop.text "Delete all characters"; prop.className "deleteAllCommand"; prop.onClick (thunk1 dispatch ClearRoster)]
                             ]
-                    if model.roster.Length > 0 then
-                        Html.div [
-                            Html.button [prop.text "Delete all characters"; prop.onClick (thunk1 dispatch ClearRoster)]
-                            ]
+                        ]
+
                     Html.div [
                         prop.className "footer"
                         prop.children [

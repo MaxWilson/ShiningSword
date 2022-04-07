@@ -4,14 +4,67 @@ $primary: $purple
 $black: #202020
 
 html, body, #feliz-app
-  display: inline-block // prevent margin collapse which will make vertical scrollbar appear for no reason, see https://stackoverflow.com/questions/12989931/body-height-100-displaying-vertical-scrollbar
-  width: 100%
-  height: 100%
-  box-sizing: border-box
-  margin: 0px
+    display: inline-block // prevent margin collapse which will make vertical scrollbar appear for no reason, see https://stackoverflow.com/questions/12989931/body-height-100-displaying-vertical-scrollbar
+    width: 100%
+    height: 100%
+    box-sizing: border-box
+    margin: 0px
 #feliz-app
+    width: 100%
+    height: 100%
+    box-sizing: border-box
+
+.homePage
+    padding: 2px
+    height: 100%
+    box-sizing: border-box
     display: flex
     flex-direction: column
+    align-items: start // prevent buttons from filling out horizontally
+    .growToFill
+        flex-grow: 1
+        width: 100%
+        .existingCharacters
+            display: grid
+            grid-template-columns: auto auto 1fr auto auto
+            grid-template-rows: auto
+            :nth-child(8n+2)
+                background-color: lightgrey
+
+            .flairADND
+                grid-column: 1/2
+                font-size: smaller
+                background-color: red
+                color: blue
+                min-width: 4em
+                padding: 3px
+                text-align: center
+            .flairDND5e
+                grid-column: 1/2
+                font-size: smaller
+                background-color: grey
+                color: red
+                min-width: 4em
+                padding: 3px
+                text-align: center
+            .characterName
+                grid-column: 2/4
+                // center vertically using flexbox, see https://stackoverflow.com/questions/2939914/how-do-i-vertically-align-text-in-a-div/13515693#13515693 for justification
+                display: flex
+                justify-content: center
+                align-content: center
+                flex-direction: column
+            .resumeCommand
+                margin-top: 2px
+                grid-column: 4
+            .deleteCommand
+                margin-top: 2px
+                grid-column: 5
+            .deleteAllCommand
+                grid-column: 1/3
+
+    .footer
+
 
 .charGen
     width: 100%
@@ -36,10 +89,10 @@ html, body, #feliz-app
             button
                 margin-left: 0.2em
     .rollingMethods
-      grid-column: left-edge/right-edge
-      grid-row: statControl
-      margin-left: 5px
-      margin-bottom: 5px
+        grid-column: left-edge/right-edge
+        grid-row: statControl
+        margin-left: 5px
+        margin-bottom: 5px
     .chooseTraits
         grid-column: left-edge/right-edge
         grid-row: footer-start/footer-end
@@ -51,103 +104,82 @@ html, body, #feliz-app
             margin-right: 0.5em
             margin-left: 0.5em
     .prettyMiddle
-      grid-column: left-edge/right-edge
-      grid-row: middle-start/middle-end
-      border-style: solid
-      padding: 0.5em
+        grid-column: left-edge/right-edge
+        grid-row: middle-start/middle-end
+        border-style: solid
+        padding: 0.5em
 
     .characterHeader
-      margin-left: 5px
-      grid-column: left-edge/right-edge
-      grid-row: middle-start/stat-start
-      .title
-          font-size: xx-large
-          input
-              font-size: xx-large
-              margin-right: 1em
-      .details
-          margin: 10px 0px 10px 40px
-          label
-              margin-right: 2em
+        margin-left: 5px
+        grid-column: left-edge/right-edge
+        grid-row: middle-start/stat-start
+        .title
+            font-size: xx-large
+            input
+                font-size: xx-large
+                margin-right: 1em
+        .details
+            margin: 10px 0px 10px 40px
+            label
+                margin-right: 2em
     .chooseSex
-      grid-row: middle-start
-      grid-column: 4/6
-      margin-top: 5px
+        grid-row: middle-start
+        grid-column: 4/6
+        margin-top: 5px
     .summary
-      grid-column: 4/6
-      grid-row: stat-start/stat-end
-      margin-left: 5px
+        grid-column: 4/6
+        grid-row: stat-start/stat-end
+        margin-left: 5px
     .statValue
-      grid-column: 1
-      margin-left: 5px
-      .droptarget span
-        min-width: 8em
-        display: block
+        grid-column: 1
+        margin-left: 5px
+        .droptarget span
+            min-width: 8em
+            display: block
     .statDescription
-      grid-column: 2/4
-      margin: 1px
+        grid-column: 2/4
+        margin: 1px
     .statStr
-      grid-row: stat1
+        grid-row: stat1
     .statDex
-      grid-row: stat2
+        grid-row: stat2
     .statCon
-      grid-row: stat3
+        grid-row: stat3
     .statInt
-      grid-row: stat4
+        grid-row: stat4
     .statWis
-      grid-row: stat5
+        grid-row: stat5
     .statCha
-      grid-row: stat6
+        grid-row: stat6
 
     .button1
-      position: absolute
-      left: 70px
-      width: 2em
-    .button2
-      position: absolute
-      left: 120px
-      width: 2em
-    .statRolls
-      margin-left: 5px
-      display: flex
-      align-items: center
-      grid-column: 1/4
-      grid-row: stat7
-
-      .label
-        margin-right: 1em
-      .roll
-        padding: 0.1em
-        margin: 0.3em
-        text-align: center
-        border-style: solid
+        position: absolute
+        left: 70px
         width: 2em
-        .value
-          width: 2em
-          box-sizing: content-box
-          min-height: 1em
+    .button2
+        position: absolute
+        left: 120px
+        width: 2em
+    .statRolls
+        margin-left: 5px
+        display: flex
+        align-items: center
+        grid-column: 1/4
+        grid-row: stat7
+
+        .label
+            margin-right: 1em
+        .roll
+            padding: 0.1em
+            margin: 0.3em
+            text-align: center
+            border-style: solid
+            width: 2em
+            .value
+                width: 2em
+                box-sizing: content-box
+                min-height: 1em
 
 .hide
     visibility: hidden
 
-
-.intro
-    margin: 1vw
-    flex-grow: 1
-    .footer
-        position: absolute
-        bottom: 0
-
-.flairADND
-  font-size: smaller
-  background-color: red
-  color: blue
-  min-width: 4em
-  padding: 3px
-
-.flairDND5e
-  font-size: smaller
-  background-color: grey
-  color: red
-  min-width: 4em
-  padding: 3px
