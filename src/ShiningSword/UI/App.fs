@@ -76,12 +76,13 @@ module App =
         | Navigate url, _ -> model, Navigation.Navigation.newUrl ("#" + url)
         | UpdateUrl url, _ -> model, Navigation.Navigation.modifyUrl ("#" + url)
         | AddOrUpdateRoster chargenModel, _ ->
+            // recent updated entries should be at the head of the list, so filter and then re-add at front
             let roster' =
-                match model.roster |> Array.tryFindIndex (function { draft = Some { name = name } } when chargenModel.draft.IsSome && name = chargenModel.draft.Value.name -> true | _ -> false) with
-                | Some ix ->
-                    model.roster |> Array.mapi (fun ix' unchanged -> if ix = ix' then chargenModel else unchanged)
-                | _ ->
-                    Array.append model.roster [|chargenModel|]
+                model.roster
+                |> Array.filter (function
+                    | { draft = Some { name = name } } when chargenModel.draft.IsSome && name = chargenModel.draft.Value.name -> false
+                    | _ -> true)
+            let roster' = Array.append [|chargenModel|] roster'
             LocalStorage.write roster'
             { model with roster = roster' }, Cmd.Empty
         | ClearRoster, _ ->
