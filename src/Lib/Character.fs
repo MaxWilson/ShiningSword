@@ -48,6 +48,17 @@ module ADND2nd =
         | Telepathy
         | Metapsionics
         with static member All = [Clairsentience; Psychokinesis; Psychometabolism; Psychoportation; Telepathy; Metapsionics]
+    type CharacterClass =
+        | Fighter
+        | Ranger
+        | Paladin
+        | Wizard
+        | Cleric
+        | Druid
+        | Priest
+        | Thief
+        | Bard
+        | Psionicist
     type Trait =
         | PC
         | StatMod of Stat * int
@@ -61,16 +72,7 @@ module ADND2nd =
         | Halfling
         | HalfGiant
         | ThriKreen
-        | Fighter
-        | Ranger
-        | Paladin
-        | Wizard
-        | Cleric
-        | Druid
-        | Priest
-        | Thief
-        | Bard
-        | Psionicist
+        | Level of CharacterClass * level:int
         | Worship of WorshipFocus
         | PrimaryDiscipline of PsionicDiscipline
 
@@ -84,7 +86,9 @@ module ADND2nd =
         Int: int
         Wis: int
         Cha: int
-        originalRolls: int list
+        originalRolls: int array
+        xp: int
+        levels: (CharacterClass * int) array
         // Storing the derivation instead of just the end result makes it easier to do things like add new traits on levelling up
         traits: Setting<Trait, Trait Set>
         }
@@ -97,9 +101,9 @@ module ADND2nd =
             confer Dwarf [StatMod(Con, +1); StatMod(Cha, -1)]
             confer Halfling [StatMod(Dex, +1); StatMod(Str, -1)]
             confer ThriKreen [StatMod(Dex, +2); StatMod(Wis, +1); StatMod(Int, -1); StatMod(Cha, -2)]
-            CharacterClass ==> [Fighter; Ranger; Paladin; Wizard; Cleric; Druid; Priest; Thief; Bard; Psionicist]
-            Priest ==> (WorshipFocus.All |> List.map Worship)
-            Psionicist ==> (PsionicDiscipline.All |> List.map PrimaryDiscipline)
+            CharacterClass ==> ([Fighter; Ranger; Paladin; Wizard; Cleric; Druid; Priest; Thief; Bard; Psionicist] |> List.map (fun x -> Level(x, 1)))
+            Level(Priest,1) ==> (WorshipFocus.All |> List.map Worship)
+            Level(Psionicist,1) ==> (PsionicDiscipline.All |> List.map PrimaryDiscipline)
             ]
         |> rulesOf
     let describe = function
@@ -117,6 +121,7 @@ module ADND2nd =
             | Psychoportation -> "Psychoporter"
             | Telepathy -> "Telepath"
             | Metapsionics -> "Metapsionicist"
+        | Level(class', 1) -> class'.ToString()
         | stat -> uncamel (stat.ToString())
 
 module DND5e =
@@ -199,6 +204,8 @@ module DND5e =
         Wis: int
         Cha: int
         originalRolls: int array
+        xp: int
+        levels: (CharacterClass * int) array
         // Storing the derivation instead of just the end result makes it easier to do things like add new traits on levelling up
         traits: Setting<Trait, Trait Set>
         }
@@ -272,3 +279,10 @@ let rec makeName(sex: Sex) =
             $"{name}, {chooseRandom suffixes}".Trim()
         let allThree = (prefix >> lastName >> title)
         nationOfOrigin, chooseRandom [prefix; lastName; (lastName >> title); allThree] firstName
+
+module Universal =
+    type CharSheet = ADND of ADND2nd.CharacterSheet | DND5e of DND5e.CharacterSheet
+
+    let (|GenericCharacterSheet|) = function
+        | ADND char -> {| name = char.name; Str = char.Str; Dex = char.Dex; Con = char.Con; Int = char.Int; Wis = char.Wis; Cha = char.Cha; nationalOrigin = char.nationalOrigin; sex = char.sex|}
+        | DND5e char -> {| name = char.name; Str = char.Str; Dex = char.Dex; Con = char.Con; Int = char.Int; Wis = char.Wis; Cha = char.Cha; nationalOrigin = char.nationalOrigin; sex = char.sex|}

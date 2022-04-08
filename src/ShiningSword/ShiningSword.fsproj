@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <TargetFramework>net6.0</TargetFramework>
+        <TargetFramework>net5.0</TargetFramework>
     </PropertyGroup>
     <ItemGroup>
         <Compile Include="Scripts\Scratch.fsx" />
@@ -23,6 +23,6 @@
     </ItemGroup>
     <ItemGroup>
       <ProjectReference Include="..\Lib\Lib.fsproj" />
-      <PackageReference Update="FSharp.Core" Version="6.0.3" />
+      <PackageReference Include="FSharp.Core" Version="5.0.0" />
     </ItemGroup>
 </Project>

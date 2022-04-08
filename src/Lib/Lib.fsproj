@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net5.0</TargetFramework>
     <OtherFlags></OtherFlags>
   </PropertyGroup>
   <ItemGroup>
@@ -22,6 +22,8 @@
     <Compile Include="DerivedTraits.fs" />
     <Compile Include="Onomastikon.fs" />
     <Compile Include="Character.fs" />
-    <PackageReference Update="FSharp.Core" Version="6.0.3" />
+    <Compile Include="Ribbit\Model.fs" />
+    <Compile Include="Adventure.fs" />
+    <PackageReference Include="FSharp.Core" Version="5.0.0" />
   </ItemGroup>
 </Project>

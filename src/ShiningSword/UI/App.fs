@@ -19,15 +19,10 @@ module App =
     open Thoth.Json
     open UI.Chargen.Interaction
 
-    type CharSheet = ADND of Domain.Character.ADND2nd.CharacterSheet | DND5e of Domain.Character.DND5e.CharacterSheet
-    type Adventure = {
-        damage: Map<Name, int>
-        character: CharSheet
-        }
     type Page =
         | Home
         | Generate of Chargen.View.Model
-        | Adventure of Adventure
+        | Adventure of Domain.Adventure.AdventureState
     type Model = { current: Page; error: string option; roster: Chargen.View.Model array }
     type Msg =
         | Error of msg: string
@@ -36,6 +31,7 @@ module App =
         | Open of Page
         | GoHome
         | Navigate of url: string
+        | UpdateUrl of url: string // change URL without adding it to history--use this when a user would be surprised/irritated if "back button" acted as "undo"
         | AddOrUpdateRoster of Chargen.View.Model
         | ClearRoster
         | DeleteCharacter of Name
@@ -60,11 +56,25 @@ module App =
         let json = Browser.Dom.window.localStorage["PCs"]
         let models = LocalStorage.read<Chargen.View.Model array> Array.empty
         { current = Page.Home; error = None; roster = models }, Cmd.batch initialCmd
+    let chargenControl dispatch = function
+        | Chargen.View.SaveAndQuit chargenModel ->
+            AddOrUpdateRoster chargenModel |> dispatch
+            GoHome |> dispatch
+        | Chargen.View.Cancel -> dispatch GoHome
+        | Chargen.View.UpdateUrl ruleset ->
+            match ruleset with
+            | Ruleset.TSR -> Navigate "chargen/adnd"
+            | Ruleset.WOTC -> Navigate "chargen/5e"
+            |> dispatch
+        | Chargen.View.BeginAdventuring adv ->
+            Transform (fun m -> { m with current = Page.Adventure adv }) |> dispatch
+            UpdateUrl "/" |> dispatch // TODO: make a URL router directly to character's adventure
     let update msg model =
         match msg, model.current with
         | Error msg, _ -> { model with error = Some msg }, Cmd.Empty
         | Transform f, _ -> { f model with error = None }, Cmd.Empty
         | Navigate url, _ -> model, Navigation.Navigation.newUrl ("#" + url)
+        | UpdateUrl url, _ -> model, Navigation.Navigation.modifyUrl ("#" + url)
         | AddOrUpdateRoster chargenModel, _ ->
             let roster' =
                 match model.roster |> Array.tryFindIndex (function { draft = Some { name = name } } when chargenModel.draft.IsSome && name = chargenModel.draft.Value.name -> true | _ -> false) with
@@ -83,20 +93,8 @@ module App =
             LocalStorage.write roster'
             { model with roster = roster' }, Cmd.Empty
         | Chargen msg, (Page.Generate chargenModel)->
-            let control = function
-            | Chargen.View.Complete chargenModel ->
-                Cmd.ofSub(fun dispatch ->
-                    AddOrUpdateRoster chargenModel |> dispatch
-                    GoHome |> dispatch
-                    )
-            | Chargen.View.Cancel -> Cmd.ofMsg GoHome
-            | Chargen.View.NavigateTo ruleset ->
-                match ruleset with
-                | Ruleset.TSR -> Navigate "chargen/adnd"
-                | Ruleset.WOTC -> Navigate "chargen/5e"
-                |> Cmd.ofMsg
             let cmd = (Chargen >> Cmd.ofMsg)
-            let chargenModel, cmd = Chargen.View.update (Chargen >> Cmd.ofMsg) control msg chargenModel
+            let chargenModel, cmd = Chargen.View.update (Chargen >> Cmd.ofMsg) (flip chargenControl >> Cmd.ofSub) msg chargenModel
             { model with current = (Page.Generate chargenModel)}, cmd
         | GoHome, _ ->
             // default to welcome screen if stack is empty
@@ -108,18 +106,13 @@ module App =
     let view (model: Model) dispatch =
         let window = Browser.Dom.window;
         match model.current with
-        | (Page.Generate model) ->
-            let control = function
-            | Chargen.View.Complete chargenModel ->
-                AddOrUpdateRoster chargenModel |> dispatch
-                GoHome |> dispatch
-            | Chargen.View.Cancel -> dispatch GoHome
-            | Chargen.View.NavigateTo ruleset ->
-                match ruleset with
-                | Ruleset.TSR -> Navigate "chargen/adnd"
-                | Ruleset.WOTC -> Navigate "chargen/5e"
-                |> dispatch
-            Chargen.View.view model control (Chargen >> dispatch)
+        | Page.Generate model ->
+            Chargen.View.view model (chargenControl dispatch) (Chargen >> dispatch)
+        | Page.Adventure adventure ->
+            Html.div [
+                Html.text "We're going on an adventure (Under Construction)!"
+                Html.button [prop.text "Home"; prop.onClick (thunk1 dispatch GoHome)]
+                ]
         | _ ->
             let class' element (className: string) (children: ReactElement list) =
                 element [prop.className className; prop.children children]
@@ -179,8 +172,8 @@ module App =
                ]
 
 module Url =
-    open App
     open Chargen.View
+    open App
     module Parse =
         open Browser.Types
         open Packrat

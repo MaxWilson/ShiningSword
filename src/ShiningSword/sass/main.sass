@@ -3,19 +3,19 @@ $purple: #7a325d
 $primary: $purple
 $black: #202020
 
-html, body, #feliz-app
-    display: inline-block // prevent margin collapse which will make vertical scrollbar appear for no reason, see https://stackoverflow.com/questions/12989931/body-height-100-displaying-vertical-scrollbar
+html, body
     width: 100%
     height: 100%
     box-sizing: border-box
     margin: 0px
+    padding: 1px
 #feliz-app
     width: 100%
     height: 100%
     box-sizing: border-box
+    padding: 2px
 
 .homePage
-    padding: 2px
     height: 100%
     box-sizing: border-box
     display: flex
@@ -74,7 +74,7 @@ html, body, #feliz-app
     // layout: grid.layoutit.com?id=mnmti5C
     display: grid
     grid-template-columns: [left-edge] 10em 1fr 1fr 1fr 1fr [right-edge]
-    grid-template-rows: [header-start]1.2em 1.2em [header-end middle-start] 1.2em 1.2em [stat-start stat1]1.2em [stat2]1.2em [stat3]1.2em [stat4]1.2em [stat5]1.2em [stat6]1.2em [stat7]auto [statControl] auto [stat-end middle-end footer-start] auto 1fr [footer-end]
+    grid-template-rows: [header-start]1.2em 1.2em [header-end middle-start] 1.2em 1.2em [stat-start stat1]1.2em [stat2]1.2em [stat3]1.2em [stat4]1.2em [stat5]1.2em [stat6]1.2em [stat7]auto [statControl] auto [stat-end middle-end choice-start footer-start] auto [choice-end finalize] auto 1fr [footer-end]
     gap: 0px 0px
     grid-auto-flow: row
     user-select: none
@@ -88,27 +88,6 @@ html, body, #feliz-app
             right: 0
             button
                 margin-left: 0.2em
-    .rollingMethods
-        grid-column: left-edge/right-edge
-        grid-row: statControl
-        margin-left: 5px
-        margin-bottom: 5px
-    .chooseTraits
-        grid-column: left-edge/right-edge
-        grid-row: footer-start/footer-end
-        .choice
-            margin-top: 0.2em
-            label, span
-                margin-right: 1em
-        .plainTrait
-            margin-right: 0.5em
-            margin-left: 0.5em
-    .prettyMiddle
-        grid-column: left-edge/right-edge
-        grid-row: middle-start/middle-end
-        border-style: solid
-        padding: 0.5em
-
     .characterHeader
         margin-left: 5px
         grid-column: left-edge/right-edge
@@ -179,6 +158,32 @@ html, body, #feliz-app
                 width: 2em
                 box-sizing: content-box
                 min-height: 1em
+    .rollingMethods
+        grid-column: left-edge/right-edge
+        grid-row: statControl
+        margin-left: 5px
+        margin-bottom: 5px
+    .chooseTraits
+        grid-column: left-edge/right-edge
+        grid-row: choice-start/choice-end
+        .choice
+            margin-top: 0.2em
+            label, span
+                margin-right: 1em
+        .plainTrait
+            margin-right: 0.5em
+            margin-left: 0.5em
+    .finalize
+        grid-column: left-edge/right-edge
+        grid-row: finalize
+        padding: 3px
+    .prettyMiddle
+        grid-column: left-edge/right-edge
+        grid-row: middle-start/middle-end
+        border-style: solid
+        padding: 0.5em
+
+
 
 .hide
     visibility: hidden

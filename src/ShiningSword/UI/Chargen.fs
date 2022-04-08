@@ -45,31 +45,35 @@ module Interaction =
             | None -> Some n
         statMods |> List.fold (fun map (stat, n) -> map |> Map.change stat (addStat n)) rawTotals
 
-    let (|CharacterSheetADND2nd|_|) (draft:Draft) : CharacterSheet option =
+    let (|CharacterSheetADND2nd|_|) (draft:Draft) : ADND2nd.CharacterSheet option =
         match draft.traits with
-        | DND5e(traits) ->
+        | ADND(traits) ->
             let statModsOnly(_, _, _, decisions) =
-                match decisions |> List.choose (function StatMod(stat, n) -> Some(stat, n) | _ -> None) with
+                match decisions |> List.choose (function ADND2nd.StatMod(stat, n) -> Some(stat, n) | _ -> None) with
                 | [] -> None
                 | mods -> Some mods
-            let statMods = summarize statModsOnly DND5e.rules traits [DND5e.Trait.PC] |> List.collect id
+            let statMods = summarize statModsOnly ADND2nd.rules traits [ADND2nd.Trait.PC] |> List.collect id
             match draft.allocations |> addUpStats statMods with
             | Lookup Str str & Lookup Dex dex & Lookup Con con
                 & Lookup Int int & Lookup Wis wis & Lookup Cha cha
                 ->
-                {
-                    CharacterSheet.name = draft.name
-                    nationalOrigin = draft.nationalOrigin
-                    Str = str
-                    Dex = dex
-                    Con = con
-                    Int = int
-                    Wis = wis
-                    Cha = cha
-                    sex = draft.sex
-                    traits = Map.empty |> toSetting Set.ofList rules [PC]
-                    originalRolls = draft.originalRolls
-                    } |> Some
+                let retval: ADND2nd.CharacterSheet =
+                    {
+                        name = draft.name
+                        nationalOrigin = draft.nationalOrigin
+                        Str = str
+                        Dex = dex
+                        Con = con
+                        Int = int
+                        Wis = wis
+                        Cha = cha
+                        sex = draft.sex
+                        traits = Map.empty |> toSetting Set.ofList ADND2nd.rules [ADND2nd.PC]
+                        originalRolls = draft.originalRolls
+                        xp = 0
+                        levels = [||]
+                        }
+                Some retval
             | _ ->
                 None
         | _ -> None
@@ -97,6 +101,8 @@ module Interaction =
                     sex = draft.sex
                     traits = Map.empty |> toSetting Set.ofList rules [PC]
                     originalRolls = draft.originalRolls
+                    xp = 0
+                    levels = Array.empty
                     } |> Some
             | _ ->
                 None
@@ -274,16 +280,17 @@ module View =
 
     type Model = {
         draft: Draft option
-        export: CharacterSheet option
+        export: Universal.CharSheet option
         method: ChargenMethod
         editMode: TextEditMode
         ruleset: Ruleset
         }
     and TextEditMode = | NotEditingText | EditingName // "not editing" is a bit of a misnomer--you can still edit stats and choices, but they aren't text
     type ParentMsg =
-        | Complete of Model
+        | SaveAndQuit of Model
+        | BeginAdventuring of Domain.Adventure.AdventureState
         | Cancel
-        | NavigateTo of Ruleset
+        | UpdateUrl of Ruleset
     type Msg =
         | Reroll
         | SetMethod of ChargenMethod
@@ -296,6 +303,7 @@ module View =
         | Toggle5ETrait of head:DND5e.Trait * choiceIx: int * decisionIx: int
         | SetEditMode of TextEditMode
         | SetRuleset of Ruleset
+        | FinalizeCharacterSheet of Universal.CharSheet
     let init _ =
         {
             draft = None
@@ -325,7 +333,7 @@ module View =
             { model with draft = draft' }, Cmd.Empty
         | SetRuleset ruleset ->
             let msg = SetMethod (if ruleset = Ruleset.TSR then ChargenMethod.ADND.Head else ChargenMethod.DND5e.Head)
-            { model with ruleset = ruleset }, Cmd.batch [msg |> cmd;informParent (NavigateTo ruleset)]
+            { model with ruleset = ruleset }, Cmd.batch [msg |> cmd;informParent (UpdateUrl ruleset)]
         | SetName(name) ->
             { model with draft = model.draft |> Option.map (fun draft -> { draft with name = name; nationalOrigin = "" }) }, Cmd.Empty
         | SetEditMode mode ->
@@ -385,6 +393,8 @@ module View =
                         )
                 { draft with traits = draft.traits.map toggleTrait }
             { model with draft = model.draft |> Option.map toggle }, Cmd.Empty
+        | FinalizeCharacterSheet sheet ->
+            { model with export = Some sheet }, Cmd.Empty
 
     let getPercentile =
         // for a given stat like 18, how many people have a lower stat?
@@ -420,6 +430,7 @@ module View =
             prop.children (children: _ list)
             ]
 
+    type ChoiceStatus = Fixed | Open | Resolved
     let describeChoiceInReact dispatch msg describe (head, choiceIx, choice: DerivedTraits.Choice<_>, decision: _ list) =
         let toString x = x.ToString()
         if choice.options.Length = decision.Length then
@@ -430,7 +441,7 @@ module View =
                         Html.text (name: string)
                         ]
                 ]
-            |> fun x -> Some(2, x)
+            |> fun x -> Some(Fixed, x)
         elif choice.numberAllowed = decision.Length then
             React.fragment [
                 // filter out the non-chosen options after the choice is made, to save on screen space
@@ -440,7 +451,7 @@ module View =
                         Html.input [prop.type'.checkbox; prop.ariaChecked (decision |> List.contains option); prop.isChecked (decision |> List.contains option); prop.id name; prop.onClick (fun _ -> msg(head, choiceIx, ix) |> dispatch); prop.readOnly true]
                         Html.label [prop.htmlFor name; prop.text name]
                 ]
-            |> fun x -> Some(1, x)
+            |> fun x -> Some(Resolved, x)
         else
             Html.div [
                 class' Html.section "choice" [
@@ -450,17 +461,10 @@ module View =
                         Html.label [prop.htmlFor name; prop.text name]
                     ]
                 ]
-            |> fun x -> Some(3, x)
+            |> fun x -> Some(Open, x)
 
     [<ReactComponent>]
     let view model (control: ParentMsg -> unit) dispatch =
-        let window = Browser.Dom.window
-        let width = (int window.innerWidth - 80)
-        let mutable id = 0
-        let key() =
-            id <- id + 1
-            Shape.key id
-
         class' Html.div "charGen" [
             class' Html.div "header" [
                 match model.ruleset with
@@ -474,7 +478,7 @@ module View =
                     Html.input [prop.type'.checkbox; prop.ariaChecked (model.ruleset = ruleset); prop.isChecked (model.ruleset = ruleset); prop.id name; prop.onClick (fun _ -> SetRuleset ruleset |> dispatch); prop.readOnly true]
                     Html.label [prop.htmlFor name; prop.text name]
                 class' Html.div "controls" [
-                    Html.button [prop.text "Save and quit"; prop.onClick(fun _ -> Complete model |> control)]
+                    Html.button [prop.text "Save and quit"; prop.onClick(fun _ -> SaveAndQuit model |> control)]
                     Html.button [prop.text "Quit without saving"; prop.onClick(fun _ -> Cancel |> control)]
                     ]
                 ]
@@ -505,7 +509,7 @@ module View =
                                         Html.span [
                                             prop.key $"{stat}"
                                             match stat, model.draft with
-                                            | Str, (Some { exceptionalStrength = Some exStr; traits = Traits.ADND(HasTrait ADND2nd.rules ADND2nd.Trait.CharacterClass ADND2nd.Trait.Fighter true) }) when model.ruleset = Ruleset.TSR && statValue = 18 ->
+                                            | Str, (Some { exceptionalStrength = Some exStr; traits = Traits.ADND(HasTrait ADND2nd.rules ADND2nd.Trait.CharacterClass (ADND2nd.Trait.Level(ADND2nd.Fighter, 1)) true) }) when model.ruleset = Ruleset.TSR && statValue = 18 ->
                                                 prop.text $"{stat} {statValue} ({exStr}) "
                                             | _ ->
                                                 prop.text $"{stat} {statValue} "
@@ -561,20 +565,26 @@ module View =
                     | None -> ()
                     ]
             match model.export with
-            | Some char ->
-                class' Html.div "middle" [
-                    class' Html.div "characterHeader" [
+            | Some (Universal.GenericCharacterSheet char as sheet) ->
+                class' Html.div "characterHeader" [
+                    class' Html.div "title" [
                         Html.text $"{char.name} from {char.nationalOrigin} ({char.sex})"
                         ]
-                    class' Html.div "assignedStats" [
-                        let describe stat value = describe stat (Some value)
-                        describe Str char.Str
-                        describe Dex char.Dex
-                        describe Con char.Con
-                        describe Int char.Int
-                        describe Wis char.Wis
-                        describe Cha char.Cha
-                        ]
+                    ]
+                let describe stat value = describe stat (Some value)
+                describe Str char.Str
+                describe Dex char.Dex
+                describe Con char.Con
+                describe Int char.Int
+                describe Wis char.Wis
+                describe Cha char.Cha
+                class' Html.div "prettyMiddle" []
+                let beginAdventure _ =
+                    Domain.Adventure.createAdventure sheet
+                    |> BeginAdventuring
+                    |> control
+                class' Html.div "finalize" [
+                    Html.button [prop.text "Begin adventure"; prop.onClick beginAdventure]
                     ]
             | None ->
                 match model.draft with
@@ -682,11 +692,10 @@ module View =
                                 ]
                         ]
 
-                    let display (lst: (int * ReactElement) list) =
-                        // maybe I should use enums here instead of ints
-                        let chosen = lst |> List.choose (fun (pri, e) -> if pri = 1 then Some e else None)
-                        let traits = lst |> List.choose (fun (pri, e) -> if pri = 2 then Some e else None)
-                        let choice = lst |> List.choose (fun (pri, e) -> if pri = 3 then Some e else None)
+                    let display (lst: (_ * ReactElement) list) =
+                        let chosen = lst |> List.choose (fun (pri, e) -> if pri = Resolved then Some e else None)
+                        let traits = lst |> List.choose (fun (pri, e) -> if pri = Fixed then Some e else None)
+                        let choice = lst |> List.choose (fun (pri, e) -> if pri = Open then Some e else None)
                         [
                             class' Html.div "chosen" chosen
                             class' Html.div "traits" traits
@@ -696,19 +705,33 @@ module View =
                     match draft.traits with
                     | DND5e traits ->
                         let toReact = describeChoiceInReact dispatch Toggle5ETrait DND5e.describe
+                        let traits = summarize toReact DND5e.rules traits [PC]
                         class' Html.div "chooseTraits" [
-                            yield! (summarize toReact DND5e.rules traits [PC] |> display)
+                            yield! (traits |> display)
                             ]
                         class' Html.div "summary" [
                             Html.text "Level 1"
                             ]
+                        match draft with
+                        | CharacterSheet5E sheet when (traits |> List.exists(fun (pri, e) -> pri = Open) |> not) ->
+                                Html.button [prop.text "OK"; prop.onClick (fun _ -> Universal.DND5e sheet |> FinalizeCharacterSheet |> dispatch)]
+                        | _ -> ()
+
                     | ADND traits ->
                         let toReact = describeChoiceInReact dispatch ToggleADNDTrait ADND2nd.describe
+                        let traits = summarize toReact ADND2nd.rules traits [ADND2nd.Trait.PC]
                         class' Html.div "chooseTraits" [
-                            yield! (summarize toReact ADND2nd.rules traits [ADND2nd.Trait.PC] |> display)
+                            yield! (traits |> display)
                             ]
                         class' Html.div "summary" [
                             Html.text "Level 1"
                             ]
+                        match draft with
+                        | CharacterSheetADND2nd sheet when (traits |> List.exists(fun (pri, e) -> pri = Open) |> not) ->
+                            class' Html.div "finalize" [
+                                Html.button [prop.text "OK"; prop.onClick (fun _ -> Universal.ADND sheet |> FinalizeCharacterSheet |> dispatch)]
+                                ]
+                        | _ -> ()
+
                 | None -> ()
             ]
