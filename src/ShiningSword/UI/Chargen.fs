@@ -268,6 +268,7 @@ module View =
 
     type Ruleset = TSR | WotC
     type Model = {
+        id: int option
         draft: Draft option
         export: Universal.CharacterSheet option
         method: ChargenMethod
@@ -295,6 +296,7 @@ module View =
         | FinalizeCharacterSheet of Universal.CharacterSheet
     let rec init _ =
         {
+            id = None
             draft = None
             export = None
             method = ChargenMethod.ADND.Head

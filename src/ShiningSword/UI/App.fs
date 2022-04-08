@@ -23,7 +23,7 @@ module App =
         | Home
         | Generate of Chargen.View.Model
         | Adventure of Domain.Adventure.AdventureState
-    type Model = { current: Page; error: string option; roster: Chargen.View.Model array }
+    type Model = { current: Page; currentUrl: string option; error: string option; roster: Chargen.View.Model array }
     type Msg =
         | Error of msg: string
         | Transform of (Model -> Model)
@@ -33,6 +33,7 @@ module App =
         | Navigate of url: string
         | UpdateUrl of url: string // change URL without adding it to history--use this when a user would be surprised/irritated if "back button" acted as "undo"
         | AddOrUpdateRoster of Chargen.View.Model
+        | ResumePlay of id: int
         | ClearRoster
         | DeleteCharacter of Name
 
@@ -54,7 +55,7 @@ module App =
     let init initialCmd =
         let json = Browser.Dom.window.localStorage["PCs"]
         let models = LocalStorage.read<Chargen.View.Model array> Array.empty
-        { current = Page.Home; error = None; roster = models }, Cmd.batch initialCmd
+        { current = Page.Home; currentUrl = None; error = None; roster = models }, Cmd.batch initialCmd
     let chargenControl dispatch = function
         | Chargen.View.SaveAndQuit chargenModel ->
             AddOrUpdateRoster chargenModel |> dispatch
@@ -67,20 +68,42 @@ module App =
             Transform (fun m -> { m with current = Page.Adventure adv }) |> dispatch
             UpdateUrl "/" |> dispatch // TODO: make a URL router directly to character's adventure
     let update msg model =
+        let model = { model with error = None } // clear error message whenever a new command is received
         match msg with
-        | Error msg -> { model with error = Some msg }, Cmd.Empty
+        | Error msg ->
+            // print to console as well as screen just in case somehow another message prevents us from seeing this error
+            // consider using Browser.window.alert instead.
+            printfn $"\n============================\n=========ERROR==============\n{msg}\n============================\n\n"
+            { model with error = Some msg }, Cmd.Empty
         | Transform f -> { f model with error = None }, Cmd.Empty
         | Navigate url ->
-            model, Navigation.Navigation.newUrl ("#" + url)
+            // if we send a command like OpenPage that sends a Navigate message, we don't want
+            // that to trigger the re-loading logic in Url.parse which will re-send the original
+            // message and mess up our browser history
+            if model.currentUrl <> Some url then
+                { model with currentUrl = Some url }, Navigation.Navigation.newUrl ("#" + url)
+            else
+                model, Cmd.Empty
         | UpdateUrl url ->
-            model, Navigation.Navigation.modifyUrl ("#" + url)
+            // if we send a command like OpenPage that sends a Navigate message, we don't want
+            // that to trigger the re-loading logic in Url.parse which will re-send the original
+            // message and make us do unnecessary work
+            if model.currentUrl <> Some url then
+                { model with currentUrl = Some url }, Navigation.Navigation.modifyUrl ("#" + url)
+            else
+                model, Cmd.Empty
         | AddOrUpdateRoster chargenModel ->
+            // assign a unique id if one isn't already there
+            let chargenModel =
+                if chargenModel.id.IsSome then chargenModel
+                elif model.roster.Length = 0 then { chargenModel with id = Some 1 }
+                else { chargenModel with id = Some (model.roster |> Array.maxBy (fun r -> r.id) |> fun r -> 1 + defaultArg r.id 1) }
+
             // recent updated entries should be at the head of the list, so filter and then re-add at front
             let roster' =
                 model.roster
-                |> Array.filter (function
-                    | { draft = Some { name = name } } when chargenModel.draft.IsSome && name = chargenModel.draft.Value.name -> false
-                    | _ -> true)
+                |> Array.filter (fun r -> r.id <> chargenModel.id)
+
             let roster' = Array.append [|chargenModel|] roster'
             LocalStorage.write roster'
             { model with roster = roster' }, Cmd.Empty
@@ -93,7 +116,7 @@ module App =
             LocalStorage.write roster'
             { model with roster = roster' }, Cmd.Empty
         | GoHome ->
-            { model with current = Home}, Navigate "/" |> Cmd.ofMsg
+            { model with current = Home; error = None }, Navigate "/" |> Cmd.ofMsg
         | Open(page, Some url) -> { model with current = page}, Navigate url |> Cmd.ofMsg
         | Open(page, None) -> { model with current = page}, Cmd.Empty
         | Chargen msg ->
@@ -103,10 +126,23 @@ module App =
                 let chargenModel, cmd = Chargen.View.update (Chargen >> Cmd.ofMsg) (flip chargenControl >> Cmd.ofSub) msg chargenModel
                 { model with current = (Page.Generate chargenModel)}, cmd
             | _ -> model, (Error $"Message '{msg}' not compatible with current page ({model.current}))" |> Cmd.ofMsg)
+        | ResumePlay id ->
+            match model.roster |> Array.tryFind (fun r -> r.id = Some id) with
+            | Some m ->
+                model, Open(Page.Generate m, Some $"resume/{id}") |> Cmd.ofMsg
+            | _ -> model, Error "There is no character with id #{id}" |> Cmd.ofMsg
+
     open Feliz.Router
     let view (model: Model) dispatch =
-        let window = Browser.Dom.window;
+        let class' element (className: string) (children: ReactElement list) =
+            element [prop.className className; prop.children children]
+
         match model.current with
+        | _ when model.error.IsSome ->
+            class' Html.div "errorMsg" [
+                Html.div [Html.text model.error.Value]
+                Html.button [prop.text "Home"; prop.onClick (thunk1 dispatch GoHome)]
+                ]
         | Page.Generate model ->
             Chargen.View.view model (chargenControl dispatch) (Chargen >> dispatch)
         | Page.Adventure adventure ->
@@ -115,8 +151,6 @@ module App =
                 Html.button [prop.text "Home"; prop.onClick (thunk1 dispatch GoHome)]
                 ]
         | _ ->
-            let class' element (className: string) (children: ReactElement list) =
-                element [prop.className className; prop.children children]
             Html.div [
                 prop.className "homePage"
                 prop.children [
@@ -155,9 +189,7 @@ module App =
                                 Html.button [
                                     prop.text $"Resume"
                                     prop.className "resumeCommand"
-                                    prop.onClick (fun _ ->
-                                        Open(Page.Generate ch, None) |> dispatch
-                                        )
+                                    prop.onClick (thunk1 dispatch (ResumePlay ch.id.Value))
                                     ]
                                 Html.button [
                                     prop.text $"Delete"
@@ -218,6 +250,8 @@ module Url =
                     Open (Page.Generate model', None)
                     ]
                 Some(cmd, ctx)
+            | Str "resume/" (Int (id, ctx)) ->
+                Some([ResumePlay id], ctx)
             | Str "/" ctx | Str "" (End as ctx) ->
                 Some([GoHome], ctx)
             | _ -> None
