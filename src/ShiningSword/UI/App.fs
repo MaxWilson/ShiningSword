@@ -28,7 +28,7 @@ module App =
         | Error of msg: string
         | Transform of (Model -> Model)
         | Chargen of Chargen.View.Msg
-        | Open of Page
+        | Open of Page * url: string option
         | GoHome
         | Navigate of url: string
         | UpdateUrl of url: string // change URL without adding it to history--use this when a user would be surprised/irritated if "back button" acted as "undo"
@@ -42,7 +42,6 @@ module App =
             match Decode.Auto.fromString str with
             | Ok result -> result
             | Result.Error err ->
-                printfn "Parse Error: %A " err
                 fallback
         let inline read<'t> fallback =
             try
@@ -61,21 +60,21 @@ module App =
             AddOrUpdateRoster chargenModel |> dispatch
             GoHome |> dispatch
         | Chargen.View.Cancel -> dispatch GoHome
-        | Chargen.View.UpdateUrl ruleset ->
-            match ruleset with
-            | Ruleset.TSR -> Navigate "chargen/adnd"
-            | Ruleset.WOTC -> Navigate "chargen/5e"
+        | Chargen.View.UpdateUrl suffix ->
+            UpdateUrl $"chargen/{suffix}"
             |> dispatch
         | Chargen.View.BeginAdventuring adv ->
             Transform (fun m -> { m with current = Page.Adventure adv }) |> dispatch
             UpdateUrl "/" |> dispatch // TODO: make a URL router directly to character's adventure
     let update msg model =
-        match msg, model.current with
-        | Error msg, _ -> { model with error = Some msg }, Cmd.Empty
-        | Transform f, _ -> { f model with error = None }, Cmd.Empty
-        | Navigate url, _ -> model, Navigation.Navigation.newUrl ("#" + url)
-        | UpdateUrl url, _ -> model, Navigation.Navigation.modifyUrl ("#" + url)
-        | AddOrUpdateRoster chargenModel, _ ->
+        match msg with
+        | Error msg -> { model with error = Some msg }, Cmd.Empty
+        | Transform f -> { f model with error = None }, Cmd.Empty
+        | Navigate url ->
+            model, Navigation.Navigation.newUrl ("#" + url)
+        | UpdateUrl url ->
+            model, Navigation.Navigation.modifyUrl ("#" + url)
+        | AddOrUpdateRoster chargenModel ->
             // recent updated entries should be at the head of the list, so filter and then re-add at front
             let roster' =
                 model.roster
@@ -85,24 +84,25 @@ module App =
             let roster' = Array.append [|chargenModel|] roster'
             LocalStorage.write roster'
             { model with roster = roster' }, Cmd.Empty
-        | ClearRoster, _ ->
+        | ClearRoster ->
             let roster' = Array.empty
             LocalStorage.write roster'
             { model with roster = roster' }, Cmd.Empty
-        | DeleteCharacter characterName, _ ->
+        | DeleteCharacter characterName ->
             let roster' = model.roster |> Array.filter (function { draft = Some { name = name' } } when name' = characterName -> false | _ -> true)
             LocalStorage.write roster'
             { model with roster = roster' }, Cmd.Empty
-        | Chargen msg, (Page.Generate chargenModel)->
-            let cmd = (Chargen >> Cmd.ofMsg)
-            let chargenModel, cmd = Chargen.View.update (Chargen >> Cmd.ofMsg) (flip chargenControl >> Cmd.ofSub) msg chargenModel
-            { model with current = (Page.Generate chargenModel)}, cmd
-        | GoHome, _ ->
-            // default to welcome screen if stack is empty
-            let model', msg = Chargen.View.init()
+        | GoHome ->
             { model with current = Home}, Navigate "/" |> Cmd.ofMsg
-        | Open(page), stack -> { model with current = page}, Cmd.Empty
-        | _ -> model, (Error $"Message '{msg}' not compatible with current page ({model.current}))" |> Cmd.ofMsg)
+        | Open(page, Some url) -> { model with current = page}, Navigate url |> Cmd.ofMsg
+        | Open(page, None) -> { model with current = page}, Cmd.Empty
+        | Chargen msg ->
+            match model.current with
+            | (Page.Generate chargenModel) ->
+                let cmd = (Chargen >> Cmd.ofMsg)
+                let chargenModel, cmd = Chargen.View.update (Chargen >> Cmd.ofMsg) (flip chargenControl >> Cmd.ofSub) msg chargenModel
+                { model with current = (Page.Generate chargenModel)}, cmd
+            | _ -> model, (Error $"Message '{msg}' not compatible with current page ({model.current}))" |> Cmd.ofMsg)
     open Feliz.Router
     let view (model: Model) dispatch =
         let window = Browser.Dom.window;
@@ -128,16 +128,23 @@ module App =
                         ]
                     Html.button [
                         prop.text "Create a character"
-                        prop.onClick(thunk1 dispatch (Navigate "chargen/adnd"))
+                        // "remember" the user's ruleset preference
+                        prop.onClick(fun _ ->
+                            if model.roster.Length = 0 || model.roster[0].ruleset = Chargen.View.TSR then
+                                Open(Page.Generate (Chargen.View.init()), Some "chargen/adnd") |> dispatch
+                            else
+                                Open(Page.Generate (Chargen.View.init()), Some "chargen/5e") |> dispatch
+                                Chargen(Chargen.View.SetRuleset Chargen.View.WotC) |> dispatch
+                            )
                         ]
                     class' Html.div "growToFill" [
                         class' Html.div "existingCharacters" [
                             for ch in model.roster do
                                 let txt, flair, cssClass =
                                     match ch with
-                                    | { ruleset = Ruleset.TSR; draft = Some { name = name } } ->
+                                    | { ruleset = Chargen.View.TSR; draft = Some { name = name } } ->
                                         name, "AD&D", "flairADND"
-                                    | { ruleset = Ruleset.WOTC; draft = Some { name = name } } ->
+                                    | { ruleset = Chargen.View.WotC; draft = Some { name = name } } ->
                                         name, "D&D 5E", "flairDND5e"
                                     | _ -> shouldntHappen()
                                 Html.span [
@@ -149,7 +156,7 @@ module App =
                                     prop.text $"Resume"
                                     prop.className "resumeCommand"
                                     prop.onClick (fun _ ->
-                                        Page.Generate ch |> Open |> dispatch
+                                        Open(Page.Generate ch, None) |> dispatch
                                         )
                                     ]
                                 Html.button [
@@ -186,46 +193,40 @@ module Url =
 
         let (|Page|_|) = function
             | Str "chargen/adnd/DarkSun" ctx ->
-                let model', msg = Chargen.View.init()
-                let cmd =
-                    [
-                        Cmd.ofMsg (Open (Page.Generate model'))
-                        Cmd.ofMsg (SetMethod DarkSunMethodI |> Chargen)
-                        msg |> Cmd.map Chargen
-                        ]
+                let model'= Chargen.View.init()
+                let cmd = [
+                    Open (Page.Generate model', None)
+                    SetMethod DarkSunMethodI |> Chargen
+                    ]
                 Some(cmd, ctx)
             | Str "chargen/adnd" ctx ->
-                let model', msg = Chargen.View.init()
-                let cmd =
-                    [
-                        Cmd.ofMsg (Open (Page.Generate model'))
-                        msg |> Cmd.map Chargen
-                        ]
+                let model' = Chargen.View.init()
+                let cmd = [
+                    Open (Page.Generate model', None)
+                    ]
                 Some(cmd, ctx)
             | Str "chargen/5e" ctx ->
-                let model', msg = Chargen.View.init()
-                let cmd =
-                    [
-                        Cmd.ofMsg (Open (Page.Generate model'))
-                        msg |> Cmd.map Chargen
-                        Cmd.ofMsg (Chargen (SetRuleset Domain.Character.Ruleset.WOTC))
-                        ]
+                let model' = Chargen.View.init()
+                let cmd = [
+                    Open (Page.Generate model', None)
+                    Chargen (SetRuleset Chargen.View.WotC)
+                    ]
                 Some(cmd, ctx)
             | Str "chargen" ctx ->
-                let model', msg = Chargen.View.init()
-                let cmd =
-                    [
-                        Cmd.ofMsg (Open (Page.Generate model'))
-                        msg |> Cmd.map Chargen
-                        ]
+                let model' = Chargen.View.init()
+                let cmd = [
+                    Open (Page.Generate model', None)
+                    ]
                 Some(cmd, ctx)
+            | Str "/" ctx | Str "" (End as ctx) ->
+                Some([GoHome], ctx)
             | _ -> None
 
         let page = locationParser (|Page|_|)
     let parse loc =
         let parsed = Parse.page loc
-        parsed
-    let unpack cmds model =
+        parsed |> List.map Cmd.ofMsg
+    let unpack (cmds: Cmd<Msg> list) model =
         model, Cmd.batch cmds
 
 open App

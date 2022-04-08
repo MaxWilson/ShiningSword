@@ -6,20 +6,9 @@ module Interaction =
     open Domain
     open DerivedTraits
     open Domain.Character
-    open Domain.Character.DND5e
+    open Domain.Character.Universal
 
     type Rolls = int array
-
-    type Traits = ADND of ADND2nd.Trait DerivationInstance | DND5e of DND5e.Trait DerivationInstance
-        with
-        member this.map (f: (ADND2nd.Trait DerivationInstance -> ADND2nd.Trait DerivationInstance)) =
-            match this with
-            | ADND instance -> ADND (f instance)
-            | unchanged -> unchanged
-        member this.map (f: (DND5e.Trait DerivationInstance -> DND5e.Trait DerivationInstance)) =
-            match this with
-            | DND5e instance -> DND5e (f instance)
-            | unchanged -> unchanged
 
     type Mode = CumulativeFrom of min:int * max:int | Assign | InOrder | PointBuy
     type Draft = {
@@ -30,7 +19,7 @@ module Interaction =
         exceptionalStrength: int option
         originalRolls: Rolls
         mode: Mode
-        traits: Traits
+        traits: DerivationInstance
         }
 
     let addUpStats (statMods: (Stat * int) list) (allocations: (int * Stat option) array) =
@@ -45,9 +34,9 @@ module Interaction =
             | None -> Some n
         statMods |> List.fold (fun map (stat, n) -> map |> Map.change stat (addStat n)) rawTotals
 
-    let (|CharacterSheetADND2nd|_|) (draft:Draft) : ADND2nd.CharacterSheet option =
+    let (|CharacterSheetADND2nd|_|) (draft:Draft) : CharacterSheet2e option =
         match draft.traits with
-        | ADND(traits) ->
+        | Universal.IsADND(traits) ->
             let statModsOnly(_, _, _, decisions) =
                 match decisions |> List.choose (function ADND2nd.StatMod(stat, n) -> Some(stat, n) | _ -> None) with
                 | [] -> None
@@ -57,40 +46,8 @@ module Interaction =
             | Lookup Str str & Lookup Dex dex & Lookup Con con
                 & Lookup Int int & Lookup Wis wis & Lookup Cha cha
                 ->
-                let retval: ADND2nd.CharacterSheet =
-                    {
-                        name = draft.name
-                        nationalOrigin = draft.nationalOrigin
-                        Str = str
-                        Dex = dex
-                        Con = con
-                        Int = int
-                        Wis = wis
-                        Cha = cha
-                        sex = draft.sex
-                        traits = Map.empty |> toSetting Set.ofList ADND2nd.rules [ADND2nd.PC]
-                        originalRolls = draft.originalRolls
-                        xp = 0
-                        levels = [||]
-                        }
-                Some retval
-            | _ ->
-                None
-        | _ -> None
-    let (|CharacterSheet5E|_|) (draft:Draft) : CharacterSheet option =
-        match draft.traits with
-        | DND5e(traits) ->
-            let statModsOnly(_, _, _, decisions) =
-                match decisions |> List.choose (function StatMod(stat, n) -> Some(stat, n) | _ -> None) with
-                | [] -> None
-                | mods -> Some mods
-            let statMods = summarize statModsOnly DND5e.rules traits [DND5e.Trait.PC] |> List.collect id
-            match draft.allocations |> addUpStats statMods with
-            | Lookup Str str & Lookup Dex dex & Lookup Con con
-                & Lookup Int int & Lookup Wis wis & Lookup Cha cha
-                ->
-                {
-                    CharacterSheet.name = draft.name
+                Some {
+                    name = draft.name
                     nationalOrigin = draft.nationalOrigin
                     Str = str
                     Dex = dex
@@ -99,11 +56,41 @@ module Interaction =
                     Wis = wis
                     Cha = cha
                     sex = draft.sex
-                    traits = Map.empty |> toSetting Set.ofList rules [PC]
+                    traits = Map.empty |> toSetting Set.ofList rules2e [ADND2nd.PC]
+                    originalRolls = draft.originalRolls
+                    xp = 0
+                    levels = [||]
+                    }
+            | _ ->
+                None
+        | _ -> None
+    let (|CharacterSheet5E|_|) (draft:Draft) : CharacterSheet5e option =
+        match draft.traits with
+        | Universal.Is5e(traits) ->
+            let statModsOnly(_, _, _, decisions) =
+                match decisions |> List.choose (function DND5e.StatMod(stat, n) -> Some(stat, n) | _ -> None) with
+                | [] -> None
+                | mods -> Some mods
+            let statMods = summarize statModsOnly DND5e.rules traits [DND5e.PC] |> List.collect id
+            match draft.allocations |> addUpStats statMods with
+            | Lookup Str str & Lookup Dex dex & Lookup Con con
+                & Lookup Int int & Lookup Wis wis & Lookup Cha cha
+                ->
+                Some {
+                    name = draft.name
+                    nationalOrigin = draft.nationalOrigin
+                    Str = str
+                    Dex = dex
+                    Con = con
+                    Int = int
+                    Wis = wis
+                    Cha = cha
+                    sex = draft.sex
+                    traits = Map.empty |> toSetting Set.ofList rules5e [DND5e.PC]
                     originalRolls = draft.originalRolls
                     xp = 0
                     levels = Array.empty
-                    } |> Some
+                    }
             | _ ->
                 None
         | _ -> None
@@ -227,7 +214,7 @@ module Interaction =
                 allocate pointsLeft amount
             | _ -> draft // unchanged
         | _ -> shouldntHappen()
-    let create ruleset method : Draft =
+    let create (traits: Universal.Detail<_,_>) method : Draft =
         let sex = chooseRandom [Male; Female]
         let nationalOrigin, name = makeName sex
         method(fun rolls -> {
@@ -237,8 +224,8 @@ module Interaction =
                 originalRolls = rolls
                 allocations = rolls |> Array.map (fun x -> x, None)
                 mode = Assign
-                exceptionalStrength = match ruleset with Ruleset.TSR -> Some (rand 100) | _ -> None
-                traits = match ruleset with Ruleset.TSR -> ADND Map.empty | _ -> DND5e Map.empty
+                exceptionalStrength = if traits.isADND then Some (rand 100) else None
+                traits = traits
                 })
 
 open Interaction
@@ -251,6 +238,7 @@ module View =
     open Feliz
     open Feliz.UseElmish
     open DerivedTraits
+    open Domain.Character.Universal
 
     type ChargenMethod =
         | Roll3d6InOrder
@@ -278,9 +266,10 @@ module View =
         member this.f = match this with (MethodInfo(name, f)) -> f
         member this.name' = match this with (MethodInfo(name, f)) -> name
 
+    type Ruleset = TSR | WotC
     type Model = {
         draft: Draft option
-        export: Universal.CharSheet option
+        export: Universal.CharacterSheet option
         method: ChargenMethod
         editMode: TextEditMode
         ruleset: Ruleset
@@ -290,7 +279,7 @@ module View =
         | SaveAndQuit of Model
         | BeginAdventuring of Domain.Adventure.AdventureState
         | Cancel
-        | UpdateUrl of Ruleset
+        | UpdateUrl of suffix: string
     type Msg =
         | Reroll
         | SetMethod of ChargenMethod
@@ -303,21 +292,23 @@ module View =
         | Toggle5ETrait of head:DND5e.Trait * choiceIx: int * decisionIx: int
         | SetEditMode of TextEditMode
         | SetRuleset of Ruleset
-        | FinalizeCharacterSheet of Universal.CharSheet
-    let init _ =
+        | FinalizeCharacterSheet of Universal.CharacterSheet
+    let rec init _ =
         {
             draft = None
             export = None
             method = ChargenMethod.ADND.Head
             editMode = NotEditingText
             ruleset = Ruleset.TSR
-            },
-            Cmd.ofMsg Reroll
+            } |> reroll
+    and reroll model =
+        let traits = if model.ruleset = TSR then DetailADND Map.empty else Detail5e Map.empty
+        let char = create traits model.method.info.f
+        { model with draft = Some char; export = None }
     let update cmd informParent msg model =
         match msg with
         | Reroll ->
-            let char = create model.ruleset model.method.info.f
-            { model with draft = Some char; export = None }, Cmd.Empty
+            reroll model, Cmd.Empty
         | SetMethod m ->
             { model with method = m }, cmd Reroll
         | AssignRoll(ix, stat) ->
@@ -333,7 +324,7 @@ module View =
             { model with draft = draft' }, Cmd.Empty
         | SetRuleset ruleset ->
             let msg = SetMethod (if ruleset = Ruleset.TSR then ChargenMethod.ADND.Head else ChargenMethod.DND5e.Head)
-            { model with ruleset = ruleset }, Cmd.batch [msg |> cmd;informParent (UpdateUrl ruleset)]
+            { model with ruleset = ruleset }, Cmd.batch [msg |> cmd;informParent (UpdateUrl (if ruleset = TSR then "adnd" else "5e"))]
         | SetName(name) ->
             { model with draft = model.draft |> Option.map (fun draft -> { draft with name = name; nationalOrigin = "" }) }, Cmd.Empty
         | SetEditMode mode ->
@@ -345,10 +336,9 @@ module View =
             { model with draft = model.draft |> Option.map setSex }, Cmd.Empty
         | Toggle5ETrait(head, choiceIx, decisionIx) ->
             let toggle (draft:Draft) =
-                let rules = Domain.Character.DND5e.rules
-                let toggleTrait (instance: DerivationInstance<Trait>) =
+                let toggleTrait (instance: DerivationInstance<Trait5e>) =
                     let rule =
-                        match rules with
+                        match rules5e with
                         | Lookup head rule ->
                             rule[choiceIx]
                         | _ -> shouldntHappen()
@@ -370,8 +360,8 @@ module View =
             { model with draft = model.draft |> Option.map toggle }, Cmd.Empty
         | ToggleADNDTrait(head, choiceIx, decisionIx) ->
             let toggle (draft:Draft) =
-                let rules = Domain.Character.ADND2nd.rules
-                let toggleTrait (instance: DerivationInstance<_>) =
+                let rules = rules2e
+                let toggleTrait (instance: DerivationInstance2e) =
                     let rule =
                         match rules with
                         | Lookup head rule ->
@@ -470,9 +460,9 @@ module View =
                 match model.ruleset with
                 | Ruleset.TSR ->
                     Html.text "Create a character for Advanced Dungeons and Dragons!"
-                | Ruleset.WOTC ->
+                | Ruleset.WotC ->
                     Html.text "Create a character for Fifth Edition Dungeons and Dragons!"
-                for ix, ruleset in [Ruleset.TSR; Ruleset.WOTC] |> List.mapi tuple2 do
+                for ix, ruleset in [Ruleset.TSR; Ruleset.WotC] |> List.mapi tuple2 do
                     let name = match ruleset with Ruleset.TSR -> "AD&D" | _ -> "5th Edition"
                     // there's probably a better way to navigate/set the URL...
                     Html.input [prop.type'.checkbox; prop.ariaChecked (model.ruleset = ruleset); prop.isChecked (model.ruleset = ruleset); prop.id name; prop.onClick (fun _ -> SetRuleset ruleset |> dispatch); prop.readOnly true]
@@ -509,7 +499,7 @@ module View =
                                         Html.span [
                                             prop.key $"{stat}"
                                             match stat, model.draft with
-                                            | Str, (Some { exceptionalStrength = Some exStr; traits = Traits.ADND(HasTrait ADND2nd.rules ADND2nd.Trait.CharacterClass (ADND2nd.Trait.Level(ADND2nd.Fighter, 1)) true) }) when model.ruleset = Ruleset.TSR && statValue = 18 ->
+                                            | Str, (Some { exceptionalStrength = Some exStr; traits = IsADND(HasTrait ADND2nd.rules ADND2nd.Trait.CharacterClass (ADND2nd.Trait.Level(ADND2nd.Fighter, 1)) true) }) when model.ruleset = Ruleset.TSR && statValue = 18 ->
                                                 prop.text $"{stat} {statValue} ({exStr}) "
                                             | _ ->
                                                 prop.text $"{stat} {statValue} "
@@ -616,7 +606,7 @@ module View =
                         ]
                     let statMods =
                         match draft.traits with
-                        | DND5e traits ->
+                        | Detail5e traits ->
                             let statModsOnly(_, _, _, decisions) =
                                 match decisions |> List.choose (function StatMod(stat, n) -> Some(stat, n) | _ -> None) with
                                 | [] -> None
@@ -627,7 +617,7 @@ module View =
                             @
                             (summarize statModsOnly DND5e.rules traits [PC]
                             |> List.collect (fun x -> x))
-                        | ADND traits ->
+                        | DetailADND traits ->
                             let statModsOnly(_, _, _, decisions) =
                                 match decisions |> List.choose (function ADND2nd.StatMod(stat, n) -> Some(stat, n) | _ -> None) with
                                 | [] -> None
@@ -703,7 +693,7 @@ module View =
                                 element
                             ]
                     match draft.traits with
-                    | DND5e traits ->
+                    | Detail5e traits ->
                         let toReact = describeChoiceInReact dispatch Toggle5ETrait DND5e.describe
                         let traits = summarize toReact DND5e.rules traits [PC]
                         class' Html.div "chooseTraits" [
@@ -714,10 +704,10 @@ module View =
                             ]
                         match draft with
                         | CharacterSheet5E sheet when (traits |> List.exists(fun (pri, e) -> pri = Open) |> not) ->
-                                Html.button [prop.text "OK"; prop.onClick (fun _ -> Universal.DND5e sheet |> FinalizeCharacterSheet |> dispatch)]
+                                Html.button [prop.text "OK"; prop.onClick (fun _ -> Universal.Detail5e sheet |> FinalizeCharacterSheet |> dispatch)]
                         | _ -> ()
 
-                    | ADND traits ->
+                    | DetailADND traits ->
                         let toReact = describeChoiceInReact dispatch ToggleADNDTrait ADND2nd.describe
                         let traits = summarize toReact ADND2nd.rules traits [ADND2nd.Trait.PC]
                         class' Html.div "chooseTraits" [
@@ -729,7 +719,7 @@ module View =
                         match draft with
                         | CharacterSheetADND2nd sheet when (traits |> List.exists(fun (pri, e) -> pri = Open) |> not) ->
                             class' Html.div "finalize" [
-                                Html.button [prop.text "OK"; prop.onClick (fun _ -> Universal.ADND sheet |> FinalizeCharacterSheet |> dispatch)]
+                                Html.button [prop.text "OK"; prop.onClick (fun _ -> Universal.DetailADND sheet |> FinalizeCharacterSheet |> dispatch)]
                                 ]
                         | _ -> ()
 

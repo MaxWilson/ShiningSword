@@ -7,7 +7,7 @@ type Encounter = {
     }
 
 type AdventureState = {
-    mainCharacter: CharSheet
+    mainCharacter: CharacterSheet
     currentEncounter: Encounter option
     scheduledEncounters: Encounter list
     ribbit: Ribbit.Types.State
