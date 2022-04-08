@@ -89,6 +89,26 @@ let choose rules roots head value instance =
         instance |> Map.change head assign
     | _ -> instance
 
+let toggleTrait (rules: DerivationRules<_>, head, choiceIx, decisionIx) (instance: DerivationInstance<_>) : DerivationInstance<_> =
+    let rule =
+        match rules with
+        | Lookup head rules ->
+            rules[choiceIx]
+        | _ -> shouldntHappen()
+    instance |> Map.change head (function
+        | None -> Map.ofList [choiceIx, [decisionIx]] |> Some
+        | Some decisions ->
+            let change = function
+            | Some ixs ->
+                let d =
+                    if ixs |> List.contains decisionIx then ixs |> List.filter ((<>) decisionIx)
+                    else
+                        match decisionIx::ixs with | ixs when rule.mustBeDistinct -> List.distinct ixs | ixs -> ixs
+                if rule.numberAllowed >= d.Length then d else d |> List.take rule.numberAllowed
+                |> Some
+            | None -> [decisionIx] |> Some
+            decisions |> Map.change choiceIx change |> Some
+        )
 
 let (|HasTrait|) (rules: DerivationRules<_>) head trait' (instance: DerivationInstance<_>) =
     match rules with

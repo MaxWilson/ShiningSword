@@ -284,6 +284,14 @@ module Universal =
         with
         member this.isADND = match this with DetailADND _ -> true | Detail5e _ -> false
         member this.is5E = match this with DetailADND _ -> false | Detail5e _ -> true
+        member this.map2e (f: ('t1 -> 't1)) =
+            match this with
+            | DetailADND instance -> DetailADND (f instance)
+            | unchanged -> unchanged
+        member this.map5e (f: ('t2 -> 't2)) =
+            match this with
+            | Detail5e instance -> Detail5e (f instance)
+            | unchanged -> unchanged
         member this.map (f: ('t1 -> 't1)) =
             match this with
             | DetailADND instance -> DetailADND (f instance)
@@ -308,8 +316,8 @@ module Universal =
     type DerivationInstance2e = DerivationInstance<Trait2e>
     type DerivationInstance5e = DerivationInstance<Trait5e>
     type DerivationInstance = Detail<DerivationInstance2e, DerivationInstance5e>
-    let rules2e = ADND2nd.rules
-    let rules5e = DND5e.rules
+    let rules2e: DerivationRules<Trait2e> = ADND2nd.rules
+    let rules5e: DerivationRules<Trait5e> = DND5e.rules
     let (|GenericCharacterSheet|) = function
         | DetailADND (char: ADND2nd.CharacterSheet) -> {| name = char.name; Str = char.Str; Dex = char.Dex; Con = char.Con; Int = char.Int; Wis = char.Wis; Cha = char.Cha; nationalOrigin = char.nationalOrigin; sex = char.sex|}
         | Detail5e (char: DND5e.CharacterSheet) -> {| name = char.name; Str = char.Str; Dex = char.Dex; Con = char.Con; Int = char.Int; Wis = char.Wis; Cha = char.Cha; nationalOrigin = char.nationalOrigin; sex = char.sex|}

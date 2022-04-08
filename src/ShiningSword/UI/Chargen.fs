@@ -338,52 +338,11 @@ module View =
             { model with draft = model.draft |> Option.map setSex }, Cmd.Empty
         | Toggle5ETrait(head, choiceIx, decisionIx) ->
             let toggle (draft:Draft) =
-                let toggleTrait (instance: DerivationInstance<Trait5e>) =
-                    let rule =
-                        match rules5e with
-                        | Lookup head rule ->
-                            rule[choiceIx]
-                        | _ -> shouldntHappen()
-                    instance |> Map.change head (function
-                        | None -> Map.ofList [choiceIx, [decisionIx]] |> Some
-                        | Some decisions ->
-                            let change = function
-                            | Some ixs ->
-                                let d =
-                                    if ixs |> List.contains decisionIx then ixs |> List.filter ((<>) decisionIx)
-                                    else
-                                        match decisionIx::ixs with | ixs when rule.mustBeDistinct -> List.distinct ixs | ixs -> ixs
-                                if rule.numberAllowed >= d.Length then d else d |> List.take rule.numberAllowed
-                                |> Some
-                            | None -> [decisionIx] |> Some
-                            decisions |> Map.change choiceIx change |> Some
-                        )
-                { draft with traits = draft.traits.map toggleTrait }
+                { draft with traits = draft.traits.map5e (toggleTrait(rules5e, head, choiceIx, decisionIx)) }
             { model with draft = model.draft |> Option.map toggle }, Cmd.Empty
         | ToggleADNDTrait(head, choiceIx, decisionIx) ->
             let toggle (draft:Draft) =
-                let rules = rules2e
-                let toggleTrait (instance: DerivationInstance2e) =
-                    let rule =
-                        match rules with
-                        | Lookup head rule ->
-                            rule[choiceIx]
-                        | _ -> shouldntHappen()
-                    instance |> Map.change head (function
-                        | None -> Map.ofList [choiceIx, [decisionIx]] |> Some
-                        | Some decisions ->
-                            let change = function
-                            | Some ixs ->
-                                let d =
-                                    if ixs |> List.contains decisionIx then ixs |> List.filter ((<>) decisionIx)
-                                    else
-                                        match decisionIx::ixs with | ixs when rule.mustBeDistinct -> List.distinct ixs | ixs -> ixs
-                                if rule.numberAllowed >= d.Length then d else d |> List.take rule.numberAllowed
-                                |> Some
-                            | None -> [decisionIx] |> Some
-                            decisions |> Map.change choiceIx change |> Some
-                        )
-                { draft with traits = draft.traits.map toggleTrait }
+                { draft with traits = draft.traits.map2e (toggleTrait(rules2e, head, choiceIx, decisionIx)) }
             { model with draft = model.draft |> Option.map toggle }, Cmd.Empty
         | FinalizeCharacterSheet sheet ->
             { model with export = Some sheet }, Cmd.Empty
