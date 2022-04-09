@@ -574,8 +574,8 @@ module View =
                             Html.input [prop.type'.radio; prop.ariaChecked (draft.sex = sex); prop.isChecked (draft.sex = sex); prop.id id; prop.onClick (fun _ -> SetSex sex |> dispatch); prop.readOnly true]
                             Html.label [prop.htmlFor id; prop.text id]
                         ]
-                    let statMods =
-                        match draft.traits with
+                    let statMods traits =
+                        match traits with
                         | Detail5e traits ->
                             let statModsOnly(_, _, _, decisions) =
                                 match decisions |> Array.choose (function StatMod(stat, n) -> Some(stat, n) | _ -> None) with
@@ -599,7 +599,7 @@ module View =
                             @
                             (summarize statModsOnly ADND2nd.rules traits [ADND2nd.Trait.PC]
                             |> List.collect (List.ofArray))
-                    let statAssignments = addUpStats statMods draft.allocations
+                    let statAssignments = addUpStats (statMods draft.traits) draft.allocations
                     for stat in Stat.All do
                         match statAssignments |> Map.tryFind stat with
                         | Some v -> describe stat (Some v)
@@ -687,7 +687,7 @@ module View =
                         let roots = [ADND2nd.PC]
                         let rules = ADND2nd.rules
                         let makeContext traits : PreconditionContext2e =
-                            { traits = traits |> Set.ofSeq; preracialStats = addUpStats [] draft.allocations; postracialStats = statAssignments }
+                            { traits = traits |> Set.ofSeq; preracialStats = addUpStats (Map.empty |> DetailADND |> statMods) draft.allocations; postracialStats = statAssignments }
                         let currentTraits = DerivedTraits.collect rules traits roots makeContext
                         let toReact = describeChoiceInReact dispatch ToggleADNDTrait ADND2nd.describe (makeContext currentTraits)
                         let traits = summarize toReact ADND2nd.rules traits [ADND2nd.Trait.PC]

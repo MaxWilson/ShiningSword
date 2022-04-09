@@ -99,11 +99,11 @@ module ADND2nd =
     let precondition pattern (head, options) =
         head, { options with preconditions = Some(fun (trait1, ctx: PreconditionContext) -> pattern (trait1, ctx)) }
     let preracialStatMin (prereqs: (Stat * int) list) (ctx: PreconditionContext) =
-        prereqs |> List.every (fun (stat, minimum) -> ctx.preracialStats[stat] >= minimum)
+        prereqs |> List.every (fun (stat, minimum) -> ctx.preracialStats |> Map.containsKey stat && ctx.preracialStats[stat] >= minimum)
     let preracialStatRange (prereqs: (Stat * int * int) list) (ctx: PreconditionContext) =
-        prereqs |> List.every (fun (stat, minimum, maximum) -> minimum <= ctx.preracialStats[stat] && ctx.preracialStats[stat] <= maximum)
+        prereqs |> List.every (fun (stat, minimum, maximum) -> ctx.preracialStats |> Map.containsKey stat && minimum <= ctx.preracialStats[stat] && ctx.preracialStats[stat] <= maximum)
     let statMin (prereqs: (Stat * int) list) (ctx: PreconditionContext) =
-        prereqs |> List.every (fun (stat, minimum) -> ctx.postracialStats[stat] >= minimum)
+        prereqs |> List.every (fun (stat, minimum) -> ctx.postracialStats |> Map.containsKey stat && ctx.postracialStats[stat] >= minimum)
     let hasTrait trait1 (ctx: PreconditionContext) =
         ctx.traits |> Set.contains trait1
     let rules : DerivationRules<_,PreconditionContext> =
@@ -114,6 +114,7 @@ module ADND2nd =
                             | Elf, ctx -> preracialStatMin [Dex, 6; Con, 7; Int, 8; Cha, 8] ctx
                             | HalfElf, ctx -> preracialStatMin [Dex, 6; Con, 6; Int, 4] ctx
                             | Dwarf, ctx -> preracialStatRange [Str, 8, 18; Dex, 3, 17; Con, 11, 18; Cha, 3, 17] ctx
+                            | Halfling, ctx -> preracialStatRange [Str, 3, 18; Dex, 12, 20; Con, 3, 20; Wis, 7, 20] ctx
                             | ThriKreen, ctx -> preracialStatRange [Str, 8, 20; Dex, 15, 20; Cha, 3, 17] ctx
                             | HalfGiant, ctx -> preracialStatRange [Str, 17, 20; Dex, 3, 15; Con, 15, 20; Int, 3, 15; Wis, 3, 17; Cha, 3, 17] ctx
                             | _ -> true)
@@ -140,6 +141,7 @@ module ADND2nd =
     let describe = function
         | StatMod(stat, n) ->
             $"%+d{n} {stat}"
+        | Halfling -> "Athasian halfling"
         | SwordBowBonus n ->
             $"%+d{n} to hit with swords and bows"
         | Worship focus ->
