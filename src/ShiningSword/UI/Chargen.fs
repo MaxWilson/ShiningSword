@@ -680,7 +680,9 @@ module View =
                             ]
                         match draft with
                         | CharacterSheet5E sheet when (traits |> List.exists(fun (pri, e) -> pri = Open) |> not) ->
+                            class' Html.div "finalize" [
                                 Html.button [prop.text "OK"; prop.onClick (fun _ -> Universal.Detail5e sheet |> FinalizeCharacterSheet |> dispatch)]
+                                ]
                         | _ -> ()
 
                     | DetailADND traits ->
