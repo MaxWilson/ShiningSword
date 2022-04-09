@@ -7,6 +7,51 @@ type Stat = Str | Dex | Con | Int | Wis | Cha
 type Sex = Male | Female | Neither
 type Name = string
 type Origin = { ruleSystem: string; nationalOrigin: string; startingLevel: int; statRollMethod: string }
+[<Measure>] type gp
+type RollSpec = StaticBonus of int | RollSpec of n:int * d:int * rest: RollSpec option
+    with
+    member this.roll() =
+        let rec loop = function
+            | StaticBonus n -> n
+            | RollSpec(n,d,rest) ->
+                let sum = List.init (abs n) (thunk1 rand d) |> List.sum
+                let sum = if n < 0 then -sum else sum
+                match rest with | Some rest -> sum + loop rest | None -> sum
+        loop this
+    override this.ToString() =
+        let rec loop needsOperator = function
+            | StaticBonus n -> if needsOperator && n >= 0 then $"+{n}" else n.ToString()
+            | RollSpec(n,d,rest) ->
+                let prefix = if needsOperator && n >= 0 then $"+{n}d{d}" else $"{n}d{d}"
+                match rest with
+                | None | Some (StaticBonus 0) -> prefix
+                | Some rest -> $"{prefix}{loop true rest}"
+        loop false this
+    static member create(bonus) = StaticBonus bonus
+    static member create(n,d) = RollSpec(n,d,None)
+    static member create(n,d,bonus) =
+        if bonus <> 0 then RollSpec(n,d,Some (StaticBonus bonus))
+        else RollSpec(n,d,None)
+    static member create(n,d,rest) = RollSpec(n,d,Some (rest))
+    static member (+)(lhs, rhs: int) =
+        let rec addBonus (bonus: int) = function
+            | StaticBonus n -> StaticBonus (n + bonus)
+            | RollSpec(n, d, None) -> RollSpec(n, d, Some (StaticBonus bonus))
+            | RollSpec(n, d, Some rest) -> RollSpec(n, d, addBonus bonus rest |> Some)
+        addBonus rhs lhs
+    static member (+)(lhs, rhs: RollSpec) =
+        let rec addRhs = function
+            | StaticBonus n -> (rhs + n)
+            | RollSpec(n, d, None) -> RollSpec(n, d, Some rhs)
+            | RollSpec(n, d, Some rest) -> RollSpec(n, d, Some (addRhs rest))
+        addRhs lhs
+    static member (-)(lhs, rhs: int) = lhs + (-rhs)
+    static member (-)(lhs, rhs: RollSpec) =
+        let rec invert = function
+            | StaticBonus n -> StaticBonus -n
+            | RollSpec(n, d, None) -> RollSpec(-n, d, None)
+            | RollSpec(n, d, Some rest) -> RollSpec(-n, d, invert rest |> Some)
+        lhs + invert rhs
 
 // turn camel casing back into words with spaces, for display to user
 let uncamel (str: string) =
@@ -86,11 +131,16 @@ module ADND2nd =
         Int: int
         Wis: int
         Cha: int
+        exceptionalStrength: int option
         originalRolls: int array
+        hp: (int * int) array
         xp: int
+        ac: int // todo: replace with derived computation from equipment
+        damage: RollSpec
         levels: (CharacterClass * int) array
         // Storing the derivation instead of just the end result makes it easier to do things like add new traits on levelling up
         traits: Setting<Trait, Trait Set>
+        wealth: int<gp>
         }
     type PreconditionContext = {
         traits: Trait Set
@@ -144,6 +194,64 @@ module ADND2nd =
             Level(Psionicist,1) ==> (PsionicDiscipline.All |> List.map PrimaryDiscipline)
             ]
         |> rulesOf
+    let strBonus = function
+        | n, _ when n <= 1 -> -5, -4
+        | 2, _ -> -3, -2
+        | 3, _ -> -3, -1
+        | (4|5), _ -> -2, -1
+        | (6|7), _ -> -1, 0
+        | 16, _ -> 0, +1
+        | 17, _ -> +1, +1
+        | 18, None -> +1, +2
+        | 18, Some e when e <= 50 -> +1, +3
+        | 18, Some e when e <= 75 -> +2, +3
+        | 18, Some e when e <= 90 -> +2, +4
+        | 18, Some e when e <= 99 -> +2, +5
+        | 18, Some e -> +3, +6
+        | 19, _ -> +3, +7
+        | 20, _ -> +3, +8
+        | 21, _ -> +4, +9
+        | 22, _ -> +4, +10
+        | 23, _ -> +5, +11
+        | 24, _ -> +6, +12
+        | 25, _ -> +7, +14
+        | _ -> 0, 0
+    let dexACBonus = function
+        | n when n <= 2 -> -5
+        | 3 -> -4
+        | 4 -> -3
+        | 5 -> -2
+        | 6 -> -1
+        | 15 -> +1
+        | 16 -> +2
+        | 17 -> +3
+        | 18 | 19 | 20 -> +4
+        | 21 | 22 | 23 -> +5
+        | 24 | 25 -> +6
+        | _ -> 0
+    let conBonus isWarrior = function
+        | n when n <= 1 -> -3
+        | 2 | 3 -> -2
+        | 4 | 5 | 6 -> -1
+        | 15 -> +1
+        | 16 -> +2
+        | n when n > 16 && not isWarrior -> +2
+        | 17 -> +3
+        | 18 -> +4
+        | 19 | 20 -> +5
+        | 21 | 22 | 23 -> +6
+        | 24 | 25 -> +7
+        | _ -> 0
+
+    // hdMultiplier is so half-giants can have double HP on their rolled HP
+    let hpOf hdMultiplier lvl class' conBonus =
+        let d n = if hdMultiplier = 1 then rand n else List.init hdMultiplier (thunk1 rand n) |> List.sum
+        match class' with
+        | Fighter | Paladin | Ranger -> if lvl <= 9 then d 10, conBonus else 3, 0
+        | Cleric | Psionicist | Priest | Druid -> if lvl <= 9 then d 8, conBonus else 2, 0
+        | Thief | Bard -> if lvl <= 10 then d 6, conBonus else 2, 0
+        | Wizard -> if lvl <= 10 then d 4, conBonus else 1, 0
+
     let describeTrait = function
         | StatMod(stat, n) ->
             $"%+d{n} {stat}"

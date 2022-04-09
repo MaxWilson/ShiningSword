@@ -95,6 +95,30 @@ let summarize f (rules: DerivationRules<'trait0, 'ctx>) (instance: DerivationIns
         ]
     recur roots
 
+// like summarize, but ignore elides. May be redundant with collect, I'm not entirely sure.
+let summarizeAll f (rules: DerivationRules<'trait0, 'ctx>) (instance: DerivationInstance<'trait0>) (roots: _ seq) =
+    let rec recur (roots: 'trait0 seq) = [
+        for root in roots do
+            match rules with
+            | Lookup root choices ->
+                for ix, choice in choices |> Array.mapi tuple2 do
+                    let chosenOptions =
+                        match instance with
+                        | _ when choice.autopick ->
+                            choice.options
+                        | Lookup root (Lookup ix decision) ->
+                            let pick i = choice.options[i]
+                            (instance[root][ix] |> Array.map pick)
+                        | _ -> Array.empty
+                    match f(root, ix, choice, chosenOptions) with
+                    | Some v ->
+                        yield v
+                    | None -> ()
+                    yield! recur chosenOptions
+            | _ -> () // a root with no rules is judged irrelevant
+        ]
+    recur roots
+
 
 let describeChoiceAsText (toText: 'trait0 -> string) (head, ix, choice, decision: 'trait0 array) =
     if choice.numberAllowed = decision.Length then

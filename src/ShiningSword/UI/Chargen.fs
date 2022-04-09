@@ -41,12 +41,38 @@ module Interaction =
                 match decisions |> Array.choose (function ADND2nd.StatMod(stat, n) -> Some(stat, n) | _ -> None) with
                 | [||] -> None
                 | mods -> Some mods
-            let statMods = summarize statModsOnly ADND2nd.rules traits [ADND2nd.Trait.PC] |> List.collect List.ofArray
+            let statMods = summarizeAll statModsOnly ADND2nd.rules traits [ADND2nd.Trait.PC] |> List.collect List.ofArray
             match draft.allocations |> addUpStats statMods with
             | Lookup Str str & Lookup Dex dex & Lookup Con con
                 & Lookup Int int & Lookup Wis wis & Lookup Cha cha
                 ->
                 let traits = traits |> toSetting Set.ofList rules2e [ADND2nd.PC]
+                let classes = traits.summary |> Seq.choose (function Trait2e.Level(cl,lvl) -> Some (cl, lvl) | _ -> None)
+                let isWarrior = classes |> Seq.exists (function (ADND2nd.Fighter | ADND2nd.Ranger | ADND2nd.Paladin), _  -> true | _ -> false)
+                let conBonus = ADND2nd.conBonus isWarrior con
+                let hasTrait trait1 = traits.summary.Contains trait1
+                let hdMultiplier = if hasTrait Trait2e.HalfGiant then 2 else 1
+                let hp = traits.summary |> Seq.choose (function Trait2e.Level(cl,lvl) -> Some (ADND2nd.hpOf hdMultiplier lvl cl conBonus) | _ -> None)
+                let ac =
+                    classes |> Seq.map (function
+                        | (ADND2nd.Fighter | ADND2nd.Ranger | ADND2nd.Paladin | ADND2nd.Cleric | ADND2nd.Bard), _ -> 3 // plate mail
+                        | (ADND2nd.Priest | ADND2nd.Druid| ADND2nd.Psionicist), _ -> 5 // hide + shield
+                        | ADND2nd.Thief, _ -> 8 // leather
+                        | ADND2nd.Wizard, _ -> 10 // nothing
+                        )
+                        |> Seq.fold min 10
+                        |> fun ac -> ac - ADND2nd.dexACBonus dex
+                let damage =
+                    classes |> Seq.map (function
+                        | (ADND2nd.Fighter | ADND2nd.Ranger | ADND2nd.Paladin | ADND2nd.Bard), _ -> RollSpec.create(3, 6) // greatsword
+                        | (ADND2nd.Cleric | ADND2nd.Priest | ADND2nd.Druid), _ -> RollSpec.create(1, 6, 1) // morning star
+                        | ADND2nd.Psionicist, _ -> RollSpec.create(1, 8) // scimitar
+                        | ADND2nd.Thief, _ -> RollSpec.create(1,12) // longsword
+                        | ADND2nd.Wizard, _ -> RollSpec.create(1,6) // quarterstaff
+                        )
+                        |> Seq.fold max (RollSpec.create(0,0))
+                        |> fun roll -> roll + (ADND2nd.strBonus (str, draft.exceptionalStrength) |> snd)
+
                 if traits.validated then
                     Some {
                         name = draft.name
@@ -57,11 +83,16 @@ module Interaction =
                         Int = int
                         Wis = wis
                         Cha = cha
+                        exceptionalStrength = draft.exceptionalStrength
                         sex = draft.sex
                         traits = traits
                         originalRolls = draft.originalRolls
+                        levels = Array.ofSeq classes
+                        hp = hp |> Array.ofSeq
+                        ac = ac
+                        damage = damage
                         xp = 0
-                        levels = [||]
+                        wealth = 0<gp>
                         }
                 else None
             | _ ->
@@ -74,7 +105,7 @@ module Interaction =
                 match decisions |> Array.choose (function DND5e.StatMod(stat, n) -> Some(stat, n) | _ -> None) with
                 | [||] -> None
                 | mods -> Some mods
-            let statMods = summarize statModsOnly DND5e.rules traits [DND5e.PC] |> List.collect List.ofArray
+            let statMods = summarizeAll statModsOnly DND5e.rules traits [DND5e.PC] |> List.collect List.ofArray
             match draft.allocations |> addUpStats statMods with
             | Lookup Str str & Lookup Dex dex & Lookup Con con
                 & Lookup Int int & Lookup Wis wis & Lookup Cha cha
@@ -379,19 +410,27 @@ module View =
         | DetailADND (char: CharacterSheet2e) ->
             [
                 let describe = ADND2nd.describeTrait
+                let classes' =
+                    char.levels |> Array.map (fun (class', lvl) -> $"{class'} {lvl}") |> String.join "/"
                 match char.traits.instance with
                 | FirstTrait rules2e Trait2e.Race race & FirstTrait rules2e Trait2e.SingleClass class' ->
                     match char.origin.nationalOrigin with
                     | "" ->
-                        line $"{char.sex} {describe race} {describe class'} "
+                        line $"{char.sex} {describe race} {classes'} "
                     | place ->
-                        line $"{char.sex} {describe race} {describe class'} from {place}"
+                        line $"{char.sex} {describe race} {classes'} from {place}"
                 | _ ->
                     shouldntHappen() // should always have a race and class before exporting
                 line $"{char.origin.ruleSystem}, {char.origin.statRollMethod}, from level {char.origin.startingLevel}"
                 line ""
-                line $"HP: 0, AC: 0, THAC0: 0"
-                line $"XP: 0"
+                let hpTotal = char.hp |> Array.sumBy(fun (hpRoll,conBonus) -> hpRoll + conBonus)
+                let hpBreakdown =
+                    char.hp |> Array.map (function (hpRoll, 0) -> hpRoll.ToString() | (hpRoll, conBonus) -> $"{hpRoll}%+d{conBonus}")
+                    |> List.ofArray
+                    |> String.oxfordJoin
+                line $"HP: {hpTotal} ({hpBreakdown})"
+                line $"AC: {char.ac}, Damage: {char.damage}"
+                line $"XP: {char.xp}"
                 ]
         | Detail5e (char: CharacterSheet5e) ->
             [
@@ -635,7 +674,7 @@ module View =
                             | _ -> []
 
                             @
-                            (summarize statModsOnly DND5e.rules traits [PC]
+                            (summarizeAll statModsOnly DND5e.rules traits [PC]
                             |> List.collect (List.ofArray))
                         | DetailADND traits ->
                             let statModsOnly(_, _, _, decisions) =
@@ -646,7 +685,7 @@ module View =
                             | CumulativeFrom(min, _) -> Stat.All |> List.map (fun stat -> stat, min)
                             | _ -> []
                             @
-                            (summarize statModsOnly ADND2nd.rules traits [ADND2nd.Trait.PC]
+                            (summarizeAll statModsOnly ADND2nd.rules traits [ADND2nd.Trait.PC]
                             |> List.collect (List.ofArray))
                     let statAssignments = addUpStats (statMods draft.traits) draft.allocations
                     for stat in Stat.All do
