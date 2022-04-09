@@ -7,16 +7,17 @@
 ///   Setting<Trait>: a list of Traits and how they were derived. DerivationRules must be stored separately, as must the summarization logic.
 module DerivedTraits
 
-type Choice<'trait0> = {
+type Choice<'trait0, 'filterContext> = {
     options: 'trait0 array;
+    preconditions: (('trait0 * 'filterContext) -> bool) option
     numberAllowed: int;
     mustBeDistinct: bool;
     elideFromDisplayAndSummary: bool;
     autopick: bool
     }
 
-let fresh options = { options = options |> Array.ofSeq; numberAllowed = 1; mustBeDistinct = false; elideFromDisplayAndSummary = false; autopick = false }
-type DerivationRules<'trait0 when 'trait0: comparison> = Map<'trait0, Choice<'trait0> array>
+let fresh options = { options = options |> Array.ofSeq; preconditions = None; numberAllowed = 1; mustBeDistinct = false; elideFromDisplayAndSummary = false; autopick = false }
+type DerivationRules<'trait0, 'ctx when 'trait0: comparison> = Map<'trait0, Choice<'trait0, 'ctx> array>
 type DerivationInstance<'trait0 when 'trait0: comparison> = Map<'trait0, Map<int, int array>>
 type Setting<'trait0, 'summary when 'trait0: comparison> = { instance: DerivationInstance<'trait0>; summary: 'summary; validated: bool }
 
@@ -27,7 +28,7 @@ let confer (trait0: 'trait0) (options: 'trait0 list) =
 let invisiblyConfer (trait0: 'trait0) (options: 'trait0 list) =
     trait0, { fresh options with numberAllowed = options.Length; autopick = true; elideFromDisplayAndSummary = true }
 
-let rulesOf rules : DerivationRules<_> =
+let rulesOf rules : DerivationRules<_, _> =
     let mutable derivationRules = Map.empty
     for key, choice in rules do
         match derivationRules |> Map.tryFind key with
@@ -37,9 +38,11 @@ let rulesOf rules : DerivationRules<_> =
             derivationRules <- derivationRules |> Map.add key (Array.append choices [|choice|])
     derivationRules
 
-let summarize f (rules: DerivationRules<'trait0>) (instance: DerivationInstance<'trait0>) (roots: _ seq) =
-    let rec recur (roots: 'trait0 seq) =
-        [
+// similar to summarize but ignores the elideFromDisplayAndSummary flag. Intended for internal use such as
+// implementing preconditions. This guy is complicated enough that I should probably add a unit test for it.
+let collect (rules: DerivationRules<'trait0, 'ctx>) (instance: DerivationInstance<'trait0>) (roots: 'trait0 seq) (makeContext: 'trait0 seq -> 'ctx) =
+    let rec seekFixedPoint ctx priorPoint =
+        let rec recur (roots: 'trait0 seq) = [
             for root in roots do
                 match rules with
                 | Lookup root choices ->
@@ -49,18 +52,49 @@ let summarize f (rules: DerivationRules<'trait0>) (instance: DerivationInstance<
                             | _ when choice.autopick ->
                                 choice.options
                             | Lookup root (Lookup ix decision) ->
-                                let pick i = choice.options[i]
-                                (instance[root][ix] |> Array.map pick)
+                                let pick i =
+                                    match choice.options[i], choice.preconditions with
+                                    | choice, Some isValid when isValid(choice, ctx) -> Some choice
+                                    | choice, None -> Some choice
+                                    | _ -> None
+                                (instance[root][ix] |> Array.choose pick)
                             | _ -> Array.empty
-                        if choice.elideFromDisplayAndSummary = false then
-                            match f(root, ix, choice, chosenOptions) with
-                            | Some v ->
-                                yield v
-                            | None -> ()
+                        yield! chosenOptions
                         yield! recur chosenOptions
                 | _ -> () // a root with no rules is judged irrelevant
             ]
+        let retval = recur roots
+        if Some retval = priorPoint then
+            // we're at a fixed point: go ahead and return
+            retval
+        else
+            seekFixedPoint (makeContext retval) (Some retval)
+    seekFixedPoint (makeContext roots) None
+
+let summarize f (rules: DerivationRules<'trait0, 'ctx>) (instance: DerivationInstance<'trait0>) (roots: _ seq) =
+    let rec recur (roots: 'trait0 seq) = [
+        for root in roots do
+            match rules with
+            | Lookup root choices ->
+                for ix, choice in choices |> Array.mapi tuple2 do
+                    let chosenOptions =
+                        match instance with
+                        | _ when choice.autopick ->
+                            choice.options
+                        | Lookup root (Lookup ix decision) ->
+                            let pick i = choice.options[i]
+                            (instance[root][ix] |> Array.map pick)
+                        | _ -> Array.empty
+                    if choice.elideFromDisplayAndSummary = false then
+                        match f(root, ix, choice, chosenOptions) with
+                        | Some v ->
+                            yield v
+                        | None -> ()
+                    yield! recur chosenOptions
+            | _ -> () // a root with no rules is judged irrelevant
+        ]
     recur roots
+
 
 let describeChoiceAsText (head, ix, choice, decision: _ array) =
     let toString x = x.ToString()
@@ -70,7 +104,7 @@ let describeChoiceAsText (head, ix, choice, decision: _ array) =
         $"""{head} can be {System.String.Join(", ", choice.options |> Array.map toString)}. Current: {decision}""" |> Some
 let toSetting summarize' rules roots instance =
     let mutable isValid = true
-    let validate(head', ix, choice:Choice<_>, chosenOptions: _ array) =
+    let validate(head', ix, choice:Choice<_,_>, chosenOptions: _ array) =
         if choice.numberAllowed = chosenOptions.Length then
             Some chosenOptions
         else
@@ -93,7 +127,7 @@ let choose rules roots head value instance =
         instance |> Map.change head assign
     | _ -> instance
 
-let toggleTrait (rules: DerivationRules<_>, head, choiceIx, decisionIx) (instance: DerivationInstance<_>) : DerivationInstance<_> =
+let toggleTrait (rules: DerivationRules<_,_>, head, choiceIx, decisionIx) (instance: DerivationInstance<_>) : DerivationInstance<_> =
     let rule =
         match rules with
         | Lookup head rules ->
@@ -114,10 +148,10 @@ let toggleTrait (rules: DerivationRules<_>, head, choiceIx, decisionIx) (instanc
             decisions |> Map.change choiceIx change |> Some
         )
 
-let (|HasTrait|) (rules: DerivationRules<_>) head trait' (instance: DerivationInstance<_>) =
+let (|HasTrait|) (rules: DerivationRules<_,_>) head trait' (instance: DerivationInstance<_>) =
     match rules with
     | Lookup head choices ->
-        let hasTraitSelected (ix, choice: Choice<'trait0>)=
+        let hasTraitSelected (ix, choice: Choice<'trait0,_>)=
             match instance with
             | Lookup head (Lookup ix decisionIxs) ->
                 decisionIxs |> Array.exists (fun ix -> ix < choice.options.Length && choice.options[ix] = trait')

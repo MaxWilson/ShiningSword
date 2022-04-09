@@ -91,16 +91,48 @@ module ADND2nd =
         // Storing the derivation instead of just the end result makes it easier to do things like add new traits on levelling up
         traits: Setting<Trait, Trait Set>
         }
-    let rules : DerivationRules<_> =
+    type PreconditionContext = {
+        traits: Trait Set
+        preracialStats: Map<Stat, int>
+        postracialStats: Map<Stat, int>
+        }
+    let precondition pattern (head, options) =
+        head, { options with preconditions = Some(fun (trait1, ctx: PreconditionContext) -> pattern (trait1, ctx)) }
+    let preracialStatMin (prereqs: (Stat * int) list) (ctx: PreconditionContext) =
+        prereqs |> List.every (fun (stat, minimum) -> ctx.preracialStats[stat] >= minimum)
+    let preracialStatRange (prereqs: (Stat * int * int) list) (ctx: PreconditionContext) =
+        prereqs |> List.every (fun (stat, minimum, maximum) -> minimum <= ctx.preracialStats[stat] && ctx.preracialStats[stat] <= maximum)
+    let statMin (prereqs: (Stat * int) list) (ctx: PreconditionContext) =
+        prereqs |> List.every (fun (stat, minimum) -> ctx.postracialStats[stat] >= minimum)
+    let hasTrait trait1 (ctx: PreconditionContext) =
+        ctx.traits |> Set.contains trait1
+    let rules : DerivationRules<_,PreconditionContext> =
         [
             PC, { fresh [Race;CharacterClass] with elideFromDisplayAndSummary = true; autopick = true }
             Race ==> [Human;Elf;Dwarf;HalfElf;Halfling;HalfGiant;ThriKreen]
+                |> precondition (function
+                            | Elf, ctx -> preracialStatMin [Dex, 6; Con, 7; Int, 8; Cha, 8] ctx
+                            | HalfElf, ctx -> preracialStatMin [Dex, 6; Con, 6; Int, 4] ctx
+                            | Dwarf, ctx -> preracialStatRange [Str, 8, 18; Dex, 3, 17; Con, 11, 18; Cha, 3, 17] ctx
+                            | ThriKreen, ctx -> preracialStatRange [Str, 8, 20; Dex, 15, 20; Cha, 3, 17] ctx
+                            | HalfGiant, ctx -> preracialStatRange [Str, 17, 20; Dex, 3, 15; Con, 15, 20; Int, 3, 15; Wis, 3, 17; Cha, 3, 17] ctx
+                            | _ -> true)
             confer Elf [SwordBowBonus 1; StatMod(Dex, +1); StatMod(Con, -1)]
             confer HalfGiant [StatMod(Str, +4); StatMod(Con, +2); StatMod(Int, -2); StatMod(Wis, -2); StatMod(Cha, -2)]
             confer Dwarf [StatMod(Con, +1); StatMod(Cha, -1)]
             confer Halfling [StatMod(Dex, +1); StatMod(Str, -1)]
             confer ThriKreen [StatMod(Dex, +2); StatMod(Wis, +1); StatMod(Int, -1); StatMod(Cha, -2)]
             CharacterClass ==> ([Fighter; Ranger; Paladin; Wizard; Cleric; Druid; Priest; Thief; Bard; Psionicist] |> List.map (fun x -> Level(x, 1)))
+                |> precondition (function
+                            | Level(Fighter, _), ctx -> statMin [Str, 9] ctx
+                            | Level(Paladin, _), ctx -> statMin [Str, 12; Con, 9; Wis, 13; Cha, 17] ctx
+                            | Level(Ranger, _), ctx -> statMin [Str, 13; Dex, 13; Con, 14; Wis, 14] ctx
+                            | Level(Wizard, _), ctx -> statMin [Int, 9] ctx
+                            | Level(Cleric, _), ctx -> statMin [Wis, 9] ctx
+                            | Level(Druid, _), ctx -> statMin [Wis, 12; Cha, 15] ctx
+                            | Level(Thief, _), ctx -> statMin [Dex, 9] ctx
+                            | Level(Bard, _), ctx -> statMin [Dex, 12; Int, 13; Cha, 15] ctx
+                            | _ -> true)
             Level(Priest,1) ==> (WorshipFocus.All |> List.map Worship)
             Level(Psionicist,1) ==> (PsionicDiscipline.All |> List.map PrimaryDiscipline)
             ]
@@ -210,7 +242,17 @@ module DND5e =
         }
 
     let feats = [GreatWeaponMaster;Tough;Lucky;Mobile;HeavyArmorMaster;ModeratelyArmored]
-    let rules =
+    type PreconditionContext = Map<Stat, int> * Trait Set
+    let precondition pattern (head, options) =
+        head, { options with preconditions = Some(fun (trait1, ctx: PreconditionContext) -> pattern (trait1, ctx)) }
+    let statMin (prereqs: (Stat * int) list) ((stats, _): PreconditionContext) =
+        prereqs |> List.every (fun (stat, minimum) -> stats[stat] >= minimum)
+    let statRange (prereqs: (Stat * int * int) list) ((stats, _): PreconditionContext) =
+        prereqs |> List.every (fun (stat, minimum, maximum) -> minimum <= stats[stat] && stats[stat] <= maximum)
+    let hasTrait trait1 ((stats, traits): PreconditionContext) =
+        traits |> Set.contains trait1
+
+    let rules: DerivationRules<_, PreconditionContext> =
         [
             PC, { fresh [Race] with elideFromDisplayAndSummary = true; autopick = true }
             Race ==> [Human; Elf; Dwarf; Goblin]
@@ -221,6 +263,11 @@ module DND5e =
             VariantHuman, { fresh (stats |> List.map (fun x -> StatMod (x,1))) with numberAllowed = 2; mustBeDistinct = true }
             invisiblyConfer VariantHuman [Feat]
             Feat ==> feats
+                |> precondition (function
+                | HeavyArmorMaster, ctx -> statMin [Str, 15] ctx && hasTrait HeavyArmorProficiency ctx
+                | HeavyArmorProficiency, ctx -> hasTrait MediumArmorProficiency ctx
+                | ModeratelyArmored, ctx -> hasTrait LightArmorProficiency ctx
+                | _ -> true)
             Elf ==> [HighElf; WoodElf; DrowElf]
             confer HighElf [BonusWizardCantrip]
             confer WoodElf [MaskOfTheWild; Faster 5]
@@ -251,6 +298,12 @@ module DND5e =
             for class' in CharacterClass.All do
                 // make sure they're prompted to choose a subclass if applicable at level 1
                 invisiblyConfer (Level(class', 0)) [Level(class', 1)]
+            for class' in [Fighter; Paladin] do
+                confer (Level(class',0)) [HeavyArmorProficiency; ShieldProficiency]
+            for class' in [Cleric;Ranger;Druid;Barbarian; Artificer] do
+                confer (Level(class',0)) [MediumArmorProficiency; ShieldProficiency]
+            for class' in [Rogue; Warlock; Bard] do
+                confer (Level(class',0)) [LightArmorProficiency]
             ]
         |> rulesOf
 
@@ -316,8 +369,10 @@ module Universal =
     type DerivationInstance2e = DerivationInstance<Trait2e>
     type DerivationInstance5e = DerivationInstance<Trait5e>
     type DerivationInstance = Detail<DerivationInstance2e, DerivationInstance5e>
-    let rules2e: DerivationRules<Trait2e> = ADND2nd.rules
-    let rules5e: DerivationRules<Trait5e> = DND5e.rules
+    type PreconditionContext2e = ADND2nd.PreconditionContext
+    type PreconditionContext5e = DND5e.PreconditionContext
+    let rules2e: DerivationRules<Trait2e,PreconditionContext2e> = ADND2nd.rules
+    let rules5e: DerivationRules<Trait5e,PreconditionContext5e> = DND5e.rules
     let (|GenericCharacterSheet|) = function
         | DetailADND (char: ADND2nd.CharacterSheet) -> {| name = char.name; Str = char.Str; Dex = char.Dex; Con = char.Con; Int = char.Int; Wis = char.Wis; Cha = char.Cha; nationalOrigin = char.nationalOrigin; sex = char.sex|}
         | Detail5e (char: DND5e.CharacterSheet) -> {| name = char.name; Str = char.Str; Dex = char.Dex; Con = char.Con; Int = char.Int; Wis = char.Wis; Cha = char.Cha; nationalOrigin = char.nationalOrigin; sex = char.sex|}

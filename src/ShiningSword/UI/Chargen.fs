@@ -382,7 +382,7 @@ module View =
             ]
 
     type ChoiceStatus = Fixed | Open | Resolved
-    let describeChoiceInReact dispatch msg describe (head, choiceIx, choice: DerivedTraits.Choice<_>, decision: _ array) =
+    let describeChoiceInReact dispatch msg describe preconditionContext (head, choiceIx, choice: DerivedTraits.Choice<_,_>, decision: _ array) =
         let toString x = x.ToString()
         if choice.options.Length = decision.Length then
             React.fragment [
@@ -408,8 +408,15 @@ module View =
                 class' Html.section "choice" [
                     for ix, option in choice.options |> Array.mapi tuple2 do
                         let name = option |> describe
-                        Html.input [prop.type'.checkbox; prop.ariaChecked (decision |> Array.contains option); prop.isChecked (decision |> Array.contains option); prop.id name; prop.onClick (fun _ -> msg(head, choiceIx, ix) |> dispatch); prop.readOnly true]
-                        Html.label [prop.htmlFor name; prop.text name]
+                        let isValid = choice.preconditions.IsNone || choice.preconditions.Value(option, preconditionContext)
+                        if isValid then
+                            Html.input [prop.type'.checkbox; prop.ariaChecked (decision |> Array.contains option); prop.isChecked (decision |> Array.contains option); prop.id name; prop.onClick (fun _ -> msg(head, choiceIx, ix) |> dispatch); prop.readOnly true]
+                            Html.label [prop.htmlFor name; prop.text name]
+                        else
+                            class' Html.span "lacksPrereq" [
+                                Html.input [prop.type'.checkbox; prop.ariaChecked (decision |> Array.contains option); prop.isChecked (decision |> Array.contains option); prop.id name; prop.readOnly true; prop.disabled true; prop.ariaDisabled true]
+                                Html.label [prop.htmlFor name; prop.text name; prop.disabled true; prop.ariaDisabled true]
+                                ]
                     ]
                 ]
             |> fun x -> Some(Open, x)
@@ -590,9 +597,9 @@ module View =
                             @
                             (summarize statModsOnly ADND2nd.rules traits [ADND2nd.Trait.PC]
                             |> List.collect (List.ofArray))
-                    let assignments = addUpStats statMods draft.allocations
+                    let statAssignments = addUpStats statMods draft.allocations
                     for stat in Stat.All do
-                        match assignments |> Map.tryFind stat with
+                        match statAssignments |> Map.tryFind stat with
                         | Some v -> describe stat (Some v)
                         | None ->
                             describe stat None
@@ -656,8 +663,11 @@ module View =
                             ]
                     match draft.traits with
                     | Detail5e traits ->
-                        let toReact = describeChoiceInReact dispatch Toggle5ETrait DND5e.describe
-                        let traits = summarize toReact DND5e.rules traits [PC]
+                        let roots = [PC]
+                        let rules = DND5e.rules
+                        let currentTraits = DerivedTraits.collect rules traits roots (fun traits -> (statAssignments, traits |> Set.ofSeq) ) |> Set.ofSeq
+                        let toReact = describeChoiceInReact dispatch Toggle5ETrait DND5e.describe (statAssignments, currentTraits)
+                        let traits = summarize toReact rules traits roots
                         class' Html.div "chooseTraits" [
                             yield! (traits |> display)
                             ]
@@ -670,7 +680,12 @@ module View =
                         | _ -> ()
 
                     | DetailADND traits ->
-                        let toReact = describeChoiceInReact dispatch ToggleADNDTrait ADND2nd.describe
+                        let roots = [ADND2nd.PC]
+                        let rules = ADND2nd.rules
+                        let makeContext traits : PreconditionContext2e =
+                            { traits = traits |> Set.ofSeq; preracialStats = addUpStats [] draft.allocations; postracialStats = statAssignments }
+                        let currentTraits = DerivedTraits.collect rules traits roots makeContext
+                        let toReact = describeChoiceInReact dispatch ToggleADNDTrait ADND2nd.describe (makeContext currentTraits)
                         let traits = summarize toReact ADND2nd.rules traits [ADND2nd.Trait.PC]
                         class' Html.div "chooseTraits" [
                             yield! (traits |> display)
