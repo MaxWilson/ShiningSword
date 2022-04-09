@@ -22,7 +22,7 @@ module Interaction =
         traits: DerivationInstance
         }
 
-    let addUpStats (statMods: (Stat * int) list) (allocations: (int * Stat option) array) =
+    let addUpStats (statMods: (Stat * int) seq) (allocations: (int * Stat option) array) =
         let rawTotals =
             allocations
             |> Array.choose (function (roll, Some stat) -> Some(roll, stat) | _ -> None)
@@ -32,16 +32,16 @@ module Interaction =
         let addStat n = function
             | Some current -> current + n |> Some
             | None -> Some n
-        statMods |> List.fold (fun map (stat, n) -> map |> Map.change stat (addStat n)) rawTotals
+        statMods |> Seq.fold (fun map (stat, n) -> map |> Map.change stat (addStat n)) rawTotals
 
     let (|CharacterSheetADND2nd|_|) (draft:Draft) : CharacterSheet2e option =
         match draft.traits with
         | Universal.IsADND(traits) ->
             let statModsOnly(_, _, _, decisions) =
-                match decisions |> List.choose (function ADND2nd.StatMod(stat, n) -> Some(stat, n) | _ -> None) with
-                | [] -> None
+                match decisions |> Array.choose (function ADND2nd.StatMod(stat, n) -> Some(stat, n) | _ -> None) with
+                | [||] -> None
                 | mods -> Some mods
-            let statMods = summarize statModsOnly ADND2nd.rules traits [ADND2nd.Trait.PC] |> List.collect id
+            let statMods = summarize statModsOnly ADND2nd.rules traits [ADND2nd.Trait.PC] |> List.collect List.ofArray
             match draft.allocations |> addUpStats statMods with
             | Lookup Str str & Lookup Dex dex & Lookup Con con
                 & Lookup Int int & Lookup Wis wis & Lookup Cha cha
@@ -68,10 +68,10 @@ module Interaction =
         match draft.traits with
         | Universal.Is5e(traits) ->
             let statModsOnly(_, _, _, decisions) =
-                match decisions |> List.choose (function DND5e.StatMod(stat, n) -> Some(stat, n) | _ -> None) with
-                | [] -> None
+                match decisions |> Array.choose (function DND5e.StatMod(stat, n) -> Some(stat, n) | _ -> None) with
+                | [||] -> None
                 | mods -> Some mods
-            let statMods = summarize statModsOnly DND5e.rules traits [DND5e.PC] |> List.collect id
+            let statMods = summarize statModsOnly DND5e.rules traits [DND5e.PC] |> List.collect List.ofArray
             match draft.allocations |> addUpStats statMods with
             | Lookup Str str & Lookup Dex dex & Lookup Con con
                 & Lookup Int int & Lookup Wis wis & Lookup Cha cha
@@ -382,11 +382,11 @@ module View =
             ]
 
     type ChoiceStatus = Fixed | Open | Resolved
-    let describeChoiceInReact dispatch msg describe (head, choiceIx, choice: DerivedTraits.Choice<_>, decision: _ list) =
+    let describeChoiceInReact dispatch msg describe (head, choiceIx, choice: DerivedTraits.Choice<_>, decision: _ array) =
         let toString x = x.ToString()
         if choice.options.Length = decision.Length then
             React.fragment [
-                for ix, option in choice.options |> List.mapi tuple2 do
+                for ix, option in choice.options |> Array.mapi tuple2 do
                     let name = option |> describe
                     class' Html.span "plainTrait" [
                         Html.text (name: string)
@@ -396,19 +396,19 @@ module View =
         elif choice.numberAllowed = decision.Length then
             React.fragment [
                 // filter out the non-chosen options after the choice is made, to save on screen space
-                for ix, option in choice.options |> List.mapi tuple2 do
-                    if decision |> List.contains option then
+                for ix, option in choice.options |> Array.mapi tuple2 do
+                    if decision |> Array.contains option then
                         let name = option |> describe
-                        Html.input [prop.type'.checkbox; prop.ariaChecked (decision |> List.contains option); prop.isChecked (decision |> List.contains option); prop.id name; prop.onClick (fun _ -> msg(head, choiceIx, ix) |> dispatch); prop.readOnly true]
+                        Html.input [prop.type'.checkbox; prop.ariaChecked (decision |> Array.contains option); prop.isChecked (decision |> Array.contains option); prop.id name; prop.onClick (fun _ -> msg(head, choiceIx, ix) |> dispatch); prop.readOnly true]
                         Html.label [prop.htmlFor name; prop.text name]
                 ]
             |> fun x -> Some(Resolved, x)
         else
             Html.div [
                 class' Html.section "choice" [
-                    for ix, option in choice.options |> List.mapi tuple2 do
+                    for ix, option in choice.options |> Array.mapi tuple2 do
                         let name = option |> describe
-                        Html.input [prop.type'.checkbox; prop.ariaChecked (decision |> List.contains option); prop.isChecked (decision |> List.contains option); prop.id name; prop.onClick (fun _ -> msg(head, choiceIx, ix) |> dispatch); prop.readOnly true]
+                        Html.input [prop.type'.checkbox; prop.ariaChecked (decision |> Array.contains option); prop.isChecked (decision |> Array.contains option); prop.id name; prop.onClick (fun _ -> msg(head, choiceIx, ix) |> dispatch); prop.readOnly true]
                         Html.label [prop.htmlFor name; prop.text name]
                     ]
                 ]
@@ -569,26 +569,27 @@ module View =
                         match draft.traits with
                         | Detail5e traits ->
                             let statModsOnly(_, _, _, decisions) =
-                                match decisions |> List.choose (function StatMod(stat, n) -> Some(stat, n) | _ -> None) with
-                                | [] -> None
+                                match decisions |> Array.choose (function StatMod(stat, n) -> Some(stat, n) | _ -> None) with
+                                | [||] -> None
                                 | mods -> Some mods
                             match draft.mode with
                             | CumulativeFrom(min, _) -> Stat.All |> List.map (fun stat -> stat, min)
                             | _ -> []
+
                             @
                             (summarize statModsOnly DND5e.rules traits [PC]
-                            |> List.collect (fun x -> x))
+                            |> List.collect (List.ofArray))
                         | DetailADND traits ->
                             let statModsOnly(_, _, _, decisions) =
-                                match decisions |> List.choose (function ADND2nd.StatMod(stat, n) -> Some(stat, n) | _ -> None) with
-                                | [] -> None
+                                match decisions |> Array.choose (function ADND2nd.StatMod(stat, n) -> Some(stat, n) | _ -> None) with
+                                | [||] -> None
                                 | mods -> Some mods
                             match draft.mode with
                             | CumulativeFrom(min, _) -> Stat.All |> List.map (fun stat -> stat, min)
                             | _ -> []
                             @
                             (summarize statModsOnly ADND2nd.rules traits [ADND2nd.Trait.PC]
-                            |> List.collect (fun x -> x))
+                            |> List.collect (List.ofArray))
                     let assignments = addUpStats statMods draft.allocations
                     for stat in Stat.All do
                         match assignments |> Map.tryFind stat with

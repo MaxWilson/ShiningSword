@@ -91,7 +91,7 @@ module ADND2nd =
         // Storing the derivation instead of just the end result makes it easier to do things like add new traits on levelling up
         traits: Setting<Trait, Trait Set>
         }
-    let rules =
+    let rules : DerivationRules<_> =
         [
             PC, { fresh [Race;CharacterClass] with elideFromDisplayAndSummary = true; autopick = true }
             Race ==> [Human;Elf;Dwarf;HalfElf;Halfling;HalfGiant;ThriKreen]
