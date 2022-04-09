@@ -410,8 +410,10 @@ module View =
                         let name = option |> describe
                         let isValid = choice.preconditions.IsNone || choice.preconditions.Value(option, preconditionContext)
                         if isValid then
-                            Html.input [prop.type'.checkbox; prop.ariaChecked (decision |> Array.contains option); prop.isChecked (decision |> Array.contains option); prop.id name; prop.onClick (fun _ -> msg(head, choiceIx, ix) |> dispatch); prop.readOnly true]
-                            Html.label [prop.htmlFor name; prop.text name]
+                            Html.span [
+                                Html.input [prop.type'.checkbox; prop.ariaChecked (decision |> Array.contains option); prop.isChecked (decision |> Array.contains option); prop.id name; prop.onClick (fun _ -> msg(head, choiceIx, ix) |> dispatch); prop.readOnly true]
+                                Html.label [prop.htmlFor name; prop.text name]
+                                ]
                         else
                             class' Html.span "lacksPrereq" [
                                 Html.input [prop.type'.checkbox; prop.ariaChecked (decision |> Array.contains option); prop.isChecked (decision |> Array.contains option); prop.id name; prop.readOnly true; prop.disabled true; prop.ariaDisabled true]
@@ -656,8 +658,10 @@ module View =
                         let traits = lst |> List.choose (fun (pri, e) -> if pri = Fixed then Some e else None)
                         let choice = lst |> List.choose (fun (pri, e) -> if pri = Open then Some e else None)
                         [
-                            class' Html.div "chosen" chosen
-                            class' Html.div "traits" traits
+                            if chosen.Length > 0 then
+                                class' Html.div "chosen" chosen
+                            if traits.Length > 0 then
+                                class' Html.div "traits" traits
                             for element in choice do
                                 element
                             ]
