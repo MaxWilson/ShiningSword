@@ -191,10 +191,7 @@ module DND5e =
         | Goblin
         | StatMod of Stat * int
         | Feat
-        | GreatWeaponMaster
-        | Tough
-        | Lucky
-        | Mobile
+        | GreatWeaponMaster | PolearmMaster | Sharpshooter | CrossbowExpert | Tough | Lucky | Mobile | ModeratelyArmored
         | HeavyArmorMaster
         | BonusWizardCantrip
         | Cantrip of string
@@ -204,7 +201,6 @@ module DND5e =
         | ImprovedDarkvision
         | ShieldProficiency
         | LightArmorProficiency
-        | ModeratelyArmored
         | MediumArmorProficiency
         | HeavyArmorProficiency
         | NimbleEscape
@@ -241,7 +237,7 @@ module DND5e =
         traits: Setting<Trait, Trait Set>
         }
 
-    let feats = [GreatWeaponMaster;Tough;Lucky;Mobile;HeavyArmorMaster;ModeratelyArmored]
+    let feats = [GreatWeaponMaster;PolearmMaster;Sharpshooter;CrossbowExpert;Tough;Lucky;Mobile;ModeratelyArmored;HeavyArmorMaster]
     type PreconditionContext = Map<Stat, int> * Trait Set
     let precondition pattern (head, options) =
         head, { options with preconditions = Some(fun (trait1, ctx: PreconditionContext) -> pattern (trait1, ctx)) }
@@ -304,6 +300,8 @@ module DND5e =
                 confer (Level(class',0)) [MediumArmorProficiency; ShieldProficiency]
             for class' in [Rogue; Warlock; Bard] do
                 confer (Level(class',0)) [LightArmorProficiency]
+            for subclass in [LifeCleric; NatureCleric; TempestCleric; WarCleric; ForgeCleric] do
+                confer (Subclass subclass) [HeavyArmorProficiency]
             ]
         |> rulesOf
 
