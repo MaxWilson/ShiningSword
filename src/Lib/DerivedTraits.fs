@@ -96,18 +96,19 @@ let summarize f (rules: DerivationRules<'trait0, 'ctx>) (instance: DerivationIns
     recur roots
 
 
-let describeChoiceAsText (head, ix, choice, decision: _ array) =
-    let toString x = x.ToString()
-    if choice.options.Length = decision.Length then
-        Some ($"{decision}")
+let describeChoiceAsText (toText: 'trait0 -> string) (head, ix, choice, decision: 'trait0 array) =
+    if choice.numberAllowed = decision.Length then
+        Some ($"{decision |> Array.map toText}")
     else
-        $"""{head} can be {System.String.Join(", ", choice.options |> Array.map toString)}. Current: {decision}""" |> Some
+        $"""{head} ==> [{System.String.Join("; ", decision |> Array.map toText)}]""" |> Some
+
 let toSetting summarize' rules roots instance =
     let mutable isValid = true
     let validate(head', ix, choice:Choice<_,_>, chosenOptions: _ array) =
-        if choice.numberAllowed = chosenOptions.Length then
+        if choice.numberAllowed = chosenOptions.Length || choice.autopick then
             Some chosenOptions
         else
+            printfn $"Must pick from {choice.options} but only had {chosenOptions}"
             isValid <- false
             None
     match summarize validate rules instance roots with
@@ -158,3 +159,15 @@ let (|HasTrait|) (rules: DerivationRules<_,_>) head trait' (instance: Derivation
             | _ -> false
         choices |> Array.mapi tuple2 |> Array.exists hasTraitSelected
     | _ -> false
+
+let (|FirstTrait|_|) (rules: DerivationRules<_,_>) head (instance: DerivationInstance<_>) =
+    match rules with
+    | Lookup head choices ->
+        let hasTraitSelected (ix, choice: Choice<'trait0,_>)=
+            match instance with
+            | Lookup head (Lookup ix decisionIxs) when decisionIxs.Length > 0 ->
+                choice.options[decisionIxs[0]] |> Some
+            | _ -> None
+        choices |> Array.mapi tuple2 |> Array.tryPick hasTraitSelected
+    | _ -> None
+

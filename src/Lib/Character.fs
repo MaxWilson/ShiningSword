@@ -6,6 +6,7 @@ type Stat = Str | Dex | Con | Int | Wis | Cha
     with static member All = [Str;Dex;Con;Int;Wis;Cha]
 type Sex = Male | Female | Neither
 type Name = string
+type Origin = { ruleSystem: string; nationalOrigin: string; startingLevel: int; statRollMethod: string }
 
 // turn camel casing back into words with spaces, for display to user
 let uncamel (str: string) =
@@ -62,7 +63,7 @@ module ADND2nd =
         | PC
         | StatMod of Stat * int
         | Race
-        | CharacterClass
+        | SingleClass
         | Human
         | Elf
         | SwordBowBonus of int
@@ -77,7 +78,7 @@ module ADND2nd =
 
     type CharacterSheet = {
         name: Name
-        nationalOrigin: string
+        origin: Origin
         sex: Sex
         Str: int
         Dex: int
@@ -106,9 +107,11 @@ module ADND2nd =
         prereqs |> List.every (fun (stat, minimum) -> ctx.postracialStats |> Map.containsKey stat && ctx.postracialStats[stat] >= minimum)
     let hasTrait trait1 (ctx: PreconditionContext) =
         ctx.traits |> Set.contains trait1
+    let hasATrait traits (ctx: PreconditionContext) =
+        traits |> Seq.exists (fun x -> ctx.traits |> Set.contains x)
     let rules : DerivationRules<_,PreconditionContext> =
         [
-            PC, { fresh [Race;CharacterClass] with elideFromDisplayAndSummary = true; autopick = true }
+            PC, { fresh [Race;SingleClass] with elideFromDisplayAndSummary = true; autopick = true }
             Race ==> [Human;Elf;Dwarf;HalfElf;Halfling;HalfGiant;ThriKreen]
                 |> precondition (function
                             | Elf, ctx -> preracialStatMin [Dex, 6; Con, 7; Int, 8; Cha, 8] ctx
@@ -118,27 +121,30 @@ module ADND2nd =
                             | ThriKreen, ctx -> preracialStatRange [Str, 8, 20; Dex, 15, 20; Cha, 3, 17] ctx
                             | HalfGiant, ctx -> preracialStatRange [Str, 17, 20; Dex, 3, 15; Con, 15, 20; Int, 3, 15; Wis, 3, 17; Cha, 3, 17] ctx
                             | _ -> true)
-            confer Elf [SwordBowBonus 1; StatMod(Dex, +1); StatMod(Con, -1)]
-            confer HalfGiant [StatMod(Str, +4); StatMod(Con, +2); StatMod(Int, -2); StatMod(Wis, -2); StatMod(Cha, -2)]
-            confer Dwarf [StatMod(Con, +1); StatMod(Cha, -1)]
-            confer Halfling [StatMod(Dex, +1); StatMod(Str, -1)]
-            confer ThriKreen [StatMod(Dex, +2); StatMod(Wis, +1); StatMod(Int, -1); StatMod(Cha, -2)]
-            CharacterClass ==> ([Fighter; Ranger; Paladin; Wizard; Cleric; Druid; Priest; Thief; Bard; Psionicist] |> List.map (fun x -> Level(x, 1)))
+            confer Elf [SwordBowBonus 1]
+            invisiblyConfer Elf [StatMod(Dex, +1); StatMod(Con, -1)]
+            invisiblyConfer HalfGiant [StatMod(Str, +4); StatMod(Con, +2); StatMod(Int, -2); StatMod(Wis, -2); StatMod(Cha, -2)]
+            invisiblyConfer Dwarf [StatMod(Con, +1); StatMod(Cha, -1)]
+            invisiblyConfer Halfling [StatMod(Dex, +1); StatMod(Str, -1)]
+            invisiblyConfer ThriKreen [StatMod(Dex, +2); StatMod(Wis, +1); StatMod(Int, -1); StatMod(Cha, -2)]
+            SingleClass ==> ([Fighter; Ranger; Paladin; Wizard; Cleric; Druid; Priest; Thief; Bard; Psionicist] |> List.map (fun x -> Level(x, 1)))
                 |> precondition (function
                             | Level(Fighter, _), ctx -> statMin [Str, 9] ctx
-                            | Level(Paladin, _), ctx -> statMin [Str, 12; Con, 9; Wis, 13; Cha, 17] ctx
+                            | Level(Paladin, _), ctx -> statMin [Str, 12; Con, 9; Wis, 13; Cha, 17] ctx && hasTrait Human ctx
                             | Level(Ranger, _), ctx -> statMin [Str, 13; Dex, 13; Con, 14; Wis, 14] ctx
-                            | Level(Wizard, _), ctx -> statMin [Int, 9] ctx
+                            | Level(Wizard, _), ctx -> statMin [Int, 9] ctx && hasATrait [Human; Elf; HalfElf] ctx
                             | Level(Cleric, _), ctx -> statMin [Wis, 9] ctx
+                            | Level(Priest, _), ctx -> statMin [Wis, 9] ctx
                             | Level(Druid, _), ctx -> statMin [Wis, 12; Cha, 15] ctx
                             | Level(Thief, _), ctx -> statMin [Dex, 9] ctx
-                            | Level(Bard, _), ctx -> statMin [Dex, 12; Int, 13; Cha, 15] ctx
+                            | Level(Bard, _), ctx -> statMin [Dex, 12; Int, 13; Cha, 15] ctx && hasTrait Human ctx
+                            | Level(Psionicist, _), ctx -> statMin [Con, 11; Int, 12; Wis, 15] ctx
                             | _ -> true)
             Level(Priest,1) ==> (WorshipFocus.All |> List.map Worship)
             Level(Psionicist,1) ==> (PsionicDiscipline.All |> List.map PrimaryDiscipline)
             ]
         |> rulesOf
-    let describe = function
+    let describeTrait = function
         | StatMod(stat, n) ->
             $"%+d{n} {stat}"
         | Halfling -> "Athasian halfling"
@@ -176,10 +182,9 @@ module DND5e =
         | AbjurorWizard | ConjurorWizard | DivinerWizard | EnchanterWizard | EvokerWizard | IllusionistWizard | NecromancerWizard | TransmuterWizard
 
     type Trait =
-        | PC
+        | PC | StartingClass | Race
         | Level of class':CharacterClass * level:int
         | Subclass of CharacterSubclass
-        | Race
         | Human
         | StandardHuman
         | VariantHuman
@@ -207,7 +212,7 @@ module DND5e =
         | HeavyArmorProficiency
         | NimbleEscape
         | ExtraHPPerLevel of int
-    let describe = function
+    let describeTrait = function
         | StatMod(stat, n) ->
             $"%+d{n} {stat}"
         | ExtraHPPerLevel(n) ->
@@ -224,7 +229,7 @@ module DND5e =
         | stat -> uncamel (stat.ToString())
     type CharacterSheet = {
         name: Name
-        nationalOrigin: string
+        origin: Origin
         sex: Sex
         Str: int
         Dex: int
@@ -252,9 +257,9 @@ module DND5e =
 
     let rules: DerivationRules<_, PreconditionContext> =
         [
-            PC, { fresh [Race] with elideFromDisplayAndSummary = true; autopick = true }
+            PC, { fresh [Race; StartingClass] with elideFromDisplayAndSummary = true; autopick = true }
             Race ==> [Human; Elf; Dwarf; Goblin]
-            PC ==> [for cl in CharacterClass.All -> Level(cl, 0)]
+            StartingClass ==> [for cl in CharacterClass.All -> Level(cl, 0)]
             let stats = [Str;Dex;Con;Int;Wis;Cha]
             Human ==> [StandardHuman; VariantHuman]
             confer StandardHuman [for stat in Stat.All -> StatMod(stat, 1)]
@@ -374,5 +379,5 @@ module Universal =
     let rules2e: DerivationRules<Trait2e,PreconditionContext2e> = ADND2nd.rules
     let rules5e: DerivationRules<Trait5e,PreconditionContext5e> = DND5e.rules
     let (|GenericCharacterSheet|) = function
-        | DetailADND (char: ADND2nd.CharacterSheet) -> {| name = char.name; Str = char.Str; Dex = char.Dex; Con = char.Con; Int = char.Int; Wis = char.Wis; Cha = char.Cha; nationalOrigin = char.nationalOrigin; sex = char.sex|}
-        | Detail5e (char: DND5e.CharacterSheet) -> {| name = char.name; Str = char.Str; Dex = char.Dex; Con = char.Con; Int = char.Int; Wis = char.Wis; Cha = char.Cha; nationalOrigin = char.nationalOrigin; sex = char.sex|}
+        | DetailADND (char: ADND2nd.CharacterSheet) -> {| name = char.name; Str = char.Str; Dex = char.Dex; Con = char.Con; Int = char.Int; Wis = char.Wis; Cha = char.Cha; origin = char.origin; sex = char.sex|}
+        | Detail5e (char: DND5e.CharacterSheet) -> {| name = char.name; Str = char.Str; Dex = char.Dex; Con = char.Con; Int = char.Int; Wis = char.Wis; Cha = char.Cha; origin = char.origin; sex = char.sex|}

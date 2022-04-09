@@ -34,7 +34,7 @@ module Interaction =
             | None -> Some n
         statMods |> Seq.fold (fun map (stat, n) -> map |> Map.change stat (addStat n)) rawTotals
 
-    let (|CharacterSheetADND2nd|_|) (draft:Draft) : CharacterSheet2e option =
+    let (|CharacterSheetADND2nd|_|) makeOrigin (draft:Draft) : CharacterSheet2e option =
         match draft.traits with
         | Universal.IsADND(traits) ->
             let statModsOnly(_, _, _, decisions) =
@@ -46,25 +46,28 @@ module Interaction =
             | Lookup Str str & Lookup Dex dex & Lookup Con con
                 & Lookup Int int & Lookup Wis wis & Lookup Cha cha
                 ->
-                Some {
-                    name = draft.name
-                    nationalOrigin = draft.nationalOrigin
-                    Str = str
-                    Dex = dex
-                    Con = con
-                    Int = int
-                    Wis = wis
-                    Cha = cha
-                    sex = draft.sex
-                    traits = Map.empty |> toSetting Set.ofList rules2e [ADND2nd.PC]
-                    originalRolls = draft.originalRolls
-                    xp = 0
-                    levels = [||]
-                    }
+                let traits = traits |> toSetting Set.ofList rules2e [ADND2nd.PC]
+                if traits.validated then
+                    Some {
+                        name = draft.name
+                        origin = makeOrigin "AD&D"
+                        Str = str
+                        Dex = dex
+                        Con = con
+                        Int = int
+                        Wis = wis
+                        Cha = cha
+                        sex = draft.sex
+                        traits = traits
+                        originalRolls = draft.originalRolls
+                        xp = 0
+                        levels = [||]
+                        }
+                else None
             | _ ->
                 None
         | _ -> None
-    let (|CharacterSheet5E|_|) (draft:Draft) : CharacterSheet5e option =
+    let (|CharacterSheet5E|_|) makeOrigin (draft:Draft) : CharacterSheet5e option =
         match draft.traits with
         | Universal.Is5e(traits) ->
             let statModsOnly(_, _, _, decisions) =
@@ -76,21 +79,24 @@ module Interaction =
             | Lookup Str str & Lookup Dex dex & Lookup Con con
                 & Lookup Int int & Lookup Wis wis & Lookup Cha cha
                 ->
-                Some {
-                    name = draft.name
-                    nationalOrigin = draft.nationalOrigin
-                    Str = str
-                    Dex = dex
-                    Con = con
-                    Int = int
-                    Wis = wis
-                    Cha = cha
-                    sex = draft.sex
-                    traits = Map.empty |> toSetting Set.ofList rules5e [DND5e.PC]
-                    originalRolls = draft.originalRolls
-                    xp = 0
-                    levels = Array.empty
-                    }
+                let traits = traits |> toSetting Set.ofList rules5e [DND5e.PC]
+                if traits.validated then
+                    Some {
+                        name = draft.name
+                        origin = makeOrigin "D&D 5th Edition"
+                        Str = str
+                        Dex = dex
+                        Con = con
+                        Int = int
+                        Wis = wis
+                        Cha = cha
+                        sex = draft.sex
+                        traits = traits
+                        originalRolls = draft.originalRolls
+                        xp = 0
+                        levels = Array.empty
+                        }
+                else None
             | _ ->
                 None
         | _ -> None
@@ -367,11 +373,48 @@ module View =
             elif statValue > 0 then lessThanEqualGroups[statValue]
             else 0.
 
+    let describeCharacter =
+        let line (txt: string) = Html.div [Html.text txt]
+        function
+        | DetailADND (char: CharacterSheet2e) ->
+            [
+                let describe = ADND2nd.describeTrait
+                match char.traits.instance with
+                | FirstTrait rules2e Trait2e.Race race & FirstTrait rules2e Trait2e.SingleClass class' ->
+                    match char.origin.nationalOrigin with
+                    | "" ->
+                        line $"{char.sex} {describe race} {describe class'} "
+                    | place ->
+                        line $"{char.sex} {describe race} {describe class'} from {place}"
+                | _ ->
+                    shouldntHappen() // should always have a race and class before exporting
+                line $"{char.origin.ruleSystem}, {char.origin.statRollMethod}, from level {char.origin.startingLevel}"
+                line ""
+                line $"HP: 0, AC: 0, THAC0: 0"
+                line $"XP: 0"
+                ]
+        | Detail5e (char: CharacterSheet5e) ->
+            [
+                let describe = DND5e.describeTrait
+                match char.traits.instance with
+                | FirstTrait rules5e Trait5e.Race race & FirstTrait rules5e Trait5e.StartingClass class' ->
+                    match char.origin.nationalOrigin with
+                    | "" ->
+                        line $"{char.sex} {describe race} {describe class'} "
+                    | place ->
+                        line $"{char.sex} {describe race} {describe class'} from {place}"
+                | _ ->
+                    shouldntHappen() // should always have a race and class before exporting
+                line $"{char.origin.ruleSystem}, {char.origin.statRollMethod}, from level {char.origin.startingLevel}"
+                line ""
+                line $"HP: 0, AC: 0, THAC0: 0"
+                line $"XP: 0"
+                ]
+
     open Fable.Core.JsInterop
     open Fable.React
     open Feliz
     open UI
-    open UI.Konva
     let ddprop = DragDrop.prop
 
     // helper method to make assigning css classes more concise
@@ -379,6 +422,89 @@ module View =
         f [
             prop.className (className: string)
             prop.children (children: _ list)
+            ]
+
+    let currentStat model dispatch stat statValue =
+        match model.draft with
+        | Some { mode = PointBuy } ->
+            let statValue = (defaultArg statValue 8)
+            Html.span [
+                prop.classes ["statValue"; "stat" + stat.ToString()]
+                prop.text $"{stat} {statValue}  " // dot NOT unassign rolls on click, for point buy
+                prop.key $"{stat}"
+                prop.children [
+                    Html.text $"{stat} {statValue} "
+                    Html.button [prop.text " - "; prop.className "button1"; prop.onClick (fun _ -> ChangePointAllocation(stat, -1) |> dispatch)]
+                    Html.button [prop.text " + "; prop.className "button2"; prop.onClick (fun _ -> ChangePointAllocation(stat, +1) |> dispatch)]
+                ]
+            ]
+        | _ ->
+            match statValue with
+            | Some statValue ->
+                Html.div [
+                    prop.classes ["statValue"; "stat" + stat.ToString()]
+                    prop.children [
+                        DragDrop.target [
+                            ddprop.targetKey "stats"
+                            ddprop.dropData stat
+                            ddprop.children [
+                                Html.span [
+                                    prop.key $"{stat}"
+                                    match stat, model.draft with
+                                    | Str, (Some { exceptionalStrength = Some exStr; traits = IsADND(HasTrait ADND2nd.rules ADND2nd.Trait.SingleClass (ADND2nd.Trait.Level(ADND2nd.Fighter, 1)) true) }) when model.ruleset = Ruleset.TSR && statValue = 18 ->
+                                        prop.text $"{stat} {statValue} ({exStr}) "
+                                    | _ ->
+                                        prop.text $"{stat} {statValue} "
+                                    prop.onClick(fun _ -> dispatch (UnassignRolls stat))
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+            | None ->
+                Html.div [
+                    prop.classes ["statValue"; "stat" + stat.ToString()]
+                    prop.children [
+                        DragDrop.target [
+                            ddprop.targetKey "stats"
+                            ddprop.key ("currentStat" + stat.ToString())
+                            ddprop.dropData stat
+                            ddprop.children [
+                                Html.span [
+                                    prop.text $"{stat}     "
+                                    prop.key $"{stat}"
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+    let describe model dispatch (stat:Stat) statValue =
+        let term =
+            match stat with
+            | Str -> "Stronger"
+            | Dex -> "Faster"
+            | Con -> "Tougher"
+            | Int -> "Smarter"
+            | Wis -> "Wiser"
+            | Cha -> "More charismatic"
+        React.fragment [
+            currentStat model dispatch stat statValue
+            match statValue with
+            | Some statValue ->
+                Html.div [
+                    prop.classes ["statDescription"; "stat" + stat.ToString()]
+                    prop.children [
+                        DragDrop.target [
+                            ddprop.targetKey "stats"
+                            ddprop.key ("statDescr" + stat.ToString())
+                            ddprop.dropData stat
+                            ddprop.children [
+                                Html.span [prop.key $"{stat}descr"; prop.text $"{term} than %0.1f{(getPercentile statValue)*100.}%% of humanity"]
+                                ]
+                            ]
+                        ]
+                    ]
+            | None -> ()
             ]
 
     type ChoiceStatus = Fixed | Open | Resolved
@@ -424,111 +550,31 @@ module View =
             |> fun x -> Some(Open, x)
 
     [<ReactComponent>]
-    let view model (control: ParentMsg -> unit) dispatch =
+    let view (model: Model) (control: ParentMsg -> unit) dispatch =
+        let describe = describe model dispatch
         class' Html.div "charGen" [
             class' Html.div "header" [
-                match model.ruleset with
-                | Ruleset.TSR ->
-                    Html.text "Create a character for Advanced Dungeons and Dragons!"
-                | Ruleset.WotC ->
-                    Html.text "Create a character for Fifth Edition Dungeons and Dragons!"
-                for ix, ruleset in [Ruleset.TSR; Ruleset.WotC] |> List.mapi tuple2 do
-                    let name = match ruleset with Ruleset.TSR -> "AD&D" | _ -> "5th Edition"
-                    // there's probably a better way to navigate/set the URL...
-                    Html.input [prop.type'.checkbox; prop.ariaChecked (model.ruleset = ruleset); prop.isChecked (model.ruleset = ruleset); prop.id name; prop.onClick (fun _ -> SetRuleset ruleset |> dispatch); prop.readOnly true]
-                    Html.label [prop.htmlFor name; prop.text name]
+                if model.export.IsNone then
+                    match model.ruleset with
+                    | Ruleset.TSR ->
+                        Html.text "Create a character for Advanced Dungeons and Dragons!"
+                    | Ruleset.WotC ->
+                        Html.text "Create a character for Fifth Edition Dungeons and Dragons!"
+                    for ix, ruleset in [Ruleset.TSR; Ruleset.WotC] |> List.mapi tuple2 do
+                        let name = match ruleset with Ruleset.TSR -> "AD&D" | _ -> "5th Edition"
+                        // there's probably a better way to navigate/set the URL...
+                        Html.input [prop.type'.checkbox; prop.ariaChecked (model.ruleset = ruleset); prop.isChecked (model.ruleset = ruleset); prop.id name; prop.onClick (fun _ -> SetRuleset ruleset |> dispatch); prop.readOnly true]
+                        Html.label [prop.htmlFor name; prop.text name]
                 class' Html.div "controls" [
                     Html.button [prop.text "Save and quit"; prop.onClick(fun _ -> SaveAndQuit model |> control)]
                     Html.button [prop.text "Quit without saving"; prop.onClick(fun _ -> Cancel |> control)]
                     ]
                 ]
-            let currentStat stat statValue =
-                match model.draft with
-                | Some { mode = PointBuy } ->
-                    let statValue = (defaultArg statValue 8)
-                    Html.span [
-                        prop.classes ["statValue"; "stat" + stat.ToString()]
-                        prop.text $"{stat} {statValue}  " // dot NOT unassign rolls on click, for point buy
-                        prop.key $"{stat}"
-                        prop.children [
-                            Html.text $"{stat} {statValue} "
-                            Html.button [prop.text " - "; prop.className "button1"; prop.onClick (fun _ -> ChangePointAllocation(stat, -1) |> dispatch)]
-                            Html.button [prop.text " + "; prop.className "button2"; prop.onClick (fun _ -> ChangePointAllocation(stat, +1) |> dispatch)]
-                        ]
-                    ]
-                | _ ->
-                    match statValue with
-                    | Some statValue ->
-                        Html.div [
-                            prop.classes ["statValue"; "stat" + stat.ToString()]
-                            prop.children [
-                                DragDrop.target [
-                                    ddprop.targetKey "stats"
-                                    ddprop.dropData stat
-                                    ddprop.children [
-                                        Html.span [
-                                            prop.key $"{stat}"
-                                            match stat, model.draft with
-                                            | Str, (Some { exceptionalStrength = Some exStr; traits = IsADND(HasTrait ADND2nd.rules ADND2nd.Trait.CharacterClass (ADND2nd.Trait.Level(ADND2nd.Fighter, 1)) true) }) when model.ruleset = Ruleset.TSR && statValue = 18 ->
-                                                prop.text $"{stat} {statValue} ({exStr}) "
-                                            | _ ->
-                                                prop.text $"{stat} {statValue} "
-                                            prop.onClick(fun _ -> dispatch (UnassignRolls stat))
-                                            ]
-                                        ]
-                                    ]
-                                ]
-                            ]
-                    | None ->
-                        Html.div [
-                            prop.classes ["statValue"; "stat" + stat.ToString()]
-                            prop.children [
-                                DragDrop.target [
-                                    ddprop.targetKey "stats"
-                                    ddprop.key ("currentStat" + stat.ToString())
-                                    ddprop.dropData stat
-                                    ddprop.children [
-                                        Html.span [
-                                            prop.text $"{stat}     "
-                                            prop.key $"{stat}"
-                                            ]
-                                        ]
-                                    ]
-                                ]
-                            ]
-            let describe (stat:Stat) statValue =
-                let term =
-                    match stat with
-                    | Str -> "Stronger"
-                    | Dex -> "Faster"
-                    | Con -> "Tougher"
-                    | Int -> "Smarter"
-                    | Wis -> "Wiser"
-                    | Cha -> "More charismatic"
-                React.fragment [
-                    currentStat stat statValue
-                    match statValue with
-                    | Some statValue ->
-                        Html.div [
-                            prop.classes ["statDescription"; "stat" + stat.ToString()]
-                            prop.children [
-                                DragDrop.target [
-                                    ddprop.targetKey "stats"
-                                    ddprop.key ("statDescr" + stat.ToString())
-                                    ddprop.dropData stat
-                                    ddprop.children [
-                                        Html.span [prop.key $"{stat}descr"; prop.text $"{term} than %0.1f{(getPercentile statValue)*100.}%% of humanity"]
-                                        ]
-                                    ]
-                                ]
-                            ]
-                    | None -> ()
-                    ]
             match model.export with
             | Some (Universal.GenericCharacterSheet char as sheet) ->
                 class' Html.div "characterHeader" [
                     class' Html.div "title" [
-                        Html.text $"{char.name} from {char.nationalOrigin} ({char.sex})"
+                        Html.text $"{char.name}"
                         ]
                     ]
                 let describe stat value = describe stat (Some value)
@@ -539,6 +585,9 @@ module View =
                 describe Wis char.Wis
                 describe Cha char.Cha
                 class' Html.div "prettyMiddle" []
+                class' Html.div "summary" (
+                    describeCharacter model.export.Value
+                    )
                 let beginAdventure _ =
                     Domain.Adventure.createAdventure sheet
                     |> BeginAdventuring
@@ -665,21 +714,19 @@ module View =
                             for element in choice do
                                 element
                             ]
+                    let makeOrigin s = { ruleSystem = s; nationalOrigin = draft.nationalOrigin; startingLevel = 1; statRollMethod = model.method.info.name' }
                     match draft.traits with
                     | Detail5e traits ->
                         let roots = [PC]
                         let rules = DND5e.rules
                         let currentTraits = DerivedTraits.collect rules traits roots (fun traits -> (statAssignments, traits |> Set.ofSeq) ) |> Set.ofSeq
-                        let toReact = describeChoiceInReact dispatch Toggle5ETrait DND5e.describe (statAssignments, currentTraits)
+                        let toReact = describeChoiceInReact dispatch Toggle5ETrait DND5e.describeTrait (statAssignments, currentTraits)
                         let traits = summarize toReact rules traits roots
                         class' Html.div "chooseTraits" [
                             yield! (traits |> display)
                             ]
-                        class' Html.div "summary" [
-                            Html.text "Level 1"
-                            ]
                         match draft with
-                        | CharacterSheet5E sheet when (traits |> List.exists(fun (pri, e) -> pri = Open) |> not) ->
+                        | CharacterSheet5E makeOrigin sheet when (traits |> List.exists(fun (pri, e) -> pri = Open) |> not) ->
                             class' Html.div "finalize" [
                                 Html.button [prop.text "OK"; prop.onClick (fun _ -> Universal.Detail5e sheet |> FinalizeCharacterSheet |> dispatch)]
                                 ]
@@ -691,16 +738,13 @@ module View =
                         let makeContext traits : PreconditionContext2e =
                             { traits = traits |> Set.ofSeq; preracialStats = addUpStats (Map.empty |> DetailADND |> statMods) draft.allocations; postracialStats = statAssignments }
                         let currentTraits = DerivedTraits.collect rules traits roots makeContext
-                        let toReact = describeChoiceInReact dispatch ToggleADNDTrait ADND2nd.describe (makeContext currentTraits)
+                        let toReact = describeChoiceInReact dispatch ToggleADNDTrait ADND2nd.describeTrait (makeContext currentTraits)
                         let traits = summarize toReact ADND2nd.rules traits [ADND2nd.Trait.PC]
                         class' Html.div "chooseTraits" [
                             yield! (traits |> display)
                             ]
-                        class' Html.div "summary" [
-                            Html.text "Level 1"
-                            ]
                         match draft with
-                        | CharacterSheetADND2nd sheet when (traits |> List.exists(fun (pri, e) -> pri = Open) |> not) ->
+                        | CharacterSheetADND2nd makeOrigin sheet when (traits |> List.exists(fun (pri, e) -> pri = Open) |> not) ->
                             class' Html.div "finalize" [
                                 Html.button [prop.text "OK"; prop.onClick (fun _ -> Universal.DetailADND sheet |> FinalizeCharacterSheet |> dispatch)]
                                 ]
