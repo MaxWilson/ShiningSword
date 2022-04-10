@@ -22,37 +22,27 @@ module Interaction =
         traits: DerivationInstance
         }
 
-    let addUpStats (statMods: (Stat * int) seq) (allocations: (int * Stat option) array) =
-        let rawTotals =
-            allocations
-            |> Array.choose (function (roll, Some stat) -> Some(roll, stat) | _ -> None)
-            |> Array.groupBy snd
-            |> Array.map (fun (stat, lst) -> stat, lst |> Array.map fst |> Array.fold (+) 0)
-            |> Map.ofArray
+    let addUpStats (statMods: (Stat * int) seq) =
         let addStat n = function
             | Some current -> current + n |> Some
             | None -> Some n
-        statMods |> Seq.fold (fun map (stat, n) -> map |> Map.change stat (addStat n)) rawTotals
+        statMods |> Seq.fold (fun map (stat, n) -> map |> Map.change stat (addStat n)) Map.empty
 
-    let (|CharacterSheetADND2nd|_|) makeOrigin (draft:Draft) : CharacterSheet2e option =
+    let (|CharacterSheet2E|_|) (ctx: PreconditionContext2e) makeOrigin (draft:Draft) : CharacterSheet2e option =
         match draft.traits with
         | Universal.IsADND(traits) ->
-            let statModsOnly(_, _, _, decisions) =
-                match decisions |> Array.choose (function ADND2nd.StatMod(stat, n) -> Some(stat, n) | _ -> None) with
-                | [||] -> None
-                | mods -> Some mods
-            let statMods = summarizeAll statModsOnly ADND2nd.rules traits [ADND2nd.Trait.PC] |> List.collect List.ofArray
-            match draft.allocations |> addUpStats statMods with
+            match ctx.postracialStats with
             | Lookup Str str & Lookup Dex dex & Lookup Con con
                 & Lookup Int int & Lookup Wis wis & Lookup Cha cha
                 ->
-                let traits = traits |> toSetting Set.ofList rules2e [ADND2nd.PC]
-                let classes = traits.summary |> Seq.choose (function Trait2e.Level(cl,lvl) -> Some (cl, lvl) | _ -> None)
+                let traitSetting = traits |> toSetting Set.ofSeq rules2e [Trait2e.PC] ctx
+                let traits = traitSetting.summary
+                let classes = traits |> Seq.choose (function Trait2e.Level(cl,lvl) -> Some (cl, lvl) | _ -> None)
                 let isWarrior = classes |> Seq.exists (function (ADND2nd.Fighter | ADND2nd.Ranger | ADND2nd.Paladin), _  -> true | _ -> false)
                 let conBonus = ADND2nd.conBonus isWarrior con
-                let hasTrait trait1 = traits.summary.Contains trait1
-                let hdMultiplier = if hasTrait Trait2e.HalfGiant then 2 else 1
-                let hp = traits.summary |> Seq.choose (function Trait2e.Level(cl,lvl) -> Some (ADND2nd.hpOf hdMultiplier lvl cl conBonus) | _ -> None)
+                let hasTrait = traits.Contains
+                let hdMultiplier = (traits |> Seq.tryPick (function Trait2e.HDMultiplier n -> Some n | _ -> None) |> Option.defaultValue 1)
+                let hp = traits |> Seq.choose (function Trait2e.Level(cl,lvl) -> Some (ADND2nd.hpOf hdMultiplier lvl cl conBonus) | _ -> None)
                 let ac =
                     classes |> Seq.map (function
                         | (ADND2nd.Fighter | ADND2nd.Ranger | ADND2nd.Paladin | ADND2nd.Cleric | ADND2nd.Bard), _ -> 3 // plate mail
@@ -72,62 +62,52 @@ module Interaction =
                         )
                         |> Seq.fold max (RollSpec.create(0,0))
                         |> fun roll -> roll + (ADND2nd.strBonus (str, draft.exceptionalStrength) |> snd)
-
-                if traits.validated then
-                    Some {
-                        name = draft.name
-                        origin = makeOrigin "AD&D"
-                        Str = str
-                        Dex = dex
-                        Con = con
-                        Int = int
-                        Wis = wis
-                        Cha = cha
-                        exceptionalStrength = draft.exceptionalStrength
-                        sex = draft.sex
-                        traits = traits
-                        originalRolls = draft.originalRolls
-                        levels = Array.ofSeq classes
-                        hp = hp |> Array.ofSeq
-                        ac = ac
-                        damage = damage
-                        xp = 0
-                        wealth = 0<gp>
-                        }
-                else None
+                Some {
+                    name = draft.name
+                    origin = makeOrigin "AD&D"
+                    Str = str
+                    Dex = dex
+                    Con = con
+                    Int = int
+                    Wis = wis
+                    Cha = cha
+                    exceptionalStrength = draft.exceptionalStrength
+                    sex = draft.sex
+                    traits = traitSetting
+                    originalRolls = draft.originalRolls
+                    levels = Array.ofSeq classes
+                    hp = hp |> Array.ofSeq
+                    ac = ac
+                    damage = damage
+                    xp = 0
+                    wealth = 0<gp>
+                    }
             | _ ->
                 None
         | _ -> None
-    let (|CharacterSheet5E|_|) makeOrigin (draft:Draft) : CharacterSheet5e option =
+    let (|CharacterSheet5E|_|) (ctx: PreconditionContext5e) makeOrigin (draft:Draft) : CharacterSheet5e option =
         match draft.traits with
         | Universal.Is5e(traits) ->
-            let statModsOnly(_, _, _, decisions) =
-                match decisions |> Array.choose (function DND5e.StatMod(stat, n) -> Some(stat, n) | _ -> None) with
-                | [||] -> None
-                | mods -> Some mods
-            let statMods = summarizeAll statModsOnly DND5e.rules traits [DND5e.PC] |> List.collect List.ofArray
-            match draft.allocations |> addUpStats statMods with
+            match ctx with
             | Lookup Str str & Lookup Dex dex & Lookup Con con
                 & Lookup Int int & Lookup Wis wis & Lookup Cha cha
                 ->
-                let traits = traits |> toSetting Set.ofList rules5e [DND5e.PC]
-                if traits.validated then
-                    Some {
-                        name = draft.name
-                        origin = makeOrigin "D&D 5th Edition"
-                        Str = str
-                        Dex = dex
-                        Con = con
-                        Int = int
-                        Wis = wis
-                        Cha = cha
-                        sex = draft.sex
-                        traits = traits
-                        originalRolls = draft.originalRolls
-                        xp = 0
-                        levels = Array.empty
-                        }
-                else None
+                let traits = traits |> toSetting Set.ofList rules5e [DND5e.PC] ctx
+                Some {
+                    name = draft.name
+                    origin = makeOrigin "D&D 5th Edition"
+                    Str = str
+                    Dex = dex
+                    Con = con
+                    Int = int
+                    Wis = wis
+                    Cha = cha
+                    sex = draft.sex
+                    traits = traits
+                    originalRolls = draft.originalRolls
+                    xp = 0
+                    levels = Array.empty
+                    }
             | _ ->
                 None
         | _ -> None
@@ -341,7 +321,7 @@ module View =
             ruleset = Ruleset.TSR
             } |> reroll
     and reroll model =
-        let traits = if model.ruleset = TSR then DetailADND Map.empty else Detail5e Map.empty
+        let traits = if model.ruleset = TSR then Detail2e Map.empty else Detail5e Map.empty
         let char = create traits model.method.info.f
         { model with draft = Some char; export = None }
     let update cmd informParent msg model =
@@ -407,20 +387,17 @@ module View =
     let describeCharacter =
         let line (txt: string) = Html.div [Html.text txt]
         function
-        | DetailADND (char: CharacterSheet2e) ->
+        | Detail2e (char: CharacterSheet2e) ->
             [
                 let describe = ADND2nd.describeTrait
                 let classes' =
                     char.levels |> Array.map (fun (class', lvl) -> $"{class'} {lvl}") |> String.join "/"
-                match char.traits.instance with
-                | FirstTrait rules2e Trait2e.Race race & FirstTrait rules2e Trait2e.SingleClass class' ->
-                    match char.origin.nationalOrigin with
-                    | "" ->
-                        line $"{char.sex} {describe race} {classes'} "
-                    | place ->
-                        line $"{char.sex} {describe race} {classes'} from {place}"
-                | _ ->
-                    shouldntHappen() // should always have a race and class before exporting
+                let race = char.traits.summary |> Seq.pick (function (Trait2e.RaceOf race) -> Some (race.ToString() |> uncamel) | _ -> None)
+                match char.origin.nationalOrigin with
+                | "" ->
+                    line $"{char.sex} {race} {classes'} "
+                | place ->
+                    line $"{char.sex} {race} {classes'} from {place}"
                 line $"{char.origin.ruleSystem}, {char.origin.statRollMethod}, from level {char.origin.startingLevel}"
                 line ""
                 let hpTotal = char.hp |> Array.sumBy(fun (hpRoll,conBonus) -> hpRoll + conBonus)
@@ -431,6 +408,8 @@ module View =
                 line $"HP: {hpTotal} ({hpBreakdown})"
                 line $"AC: {char.ac}, Damage: {char.damage}"
                 line $"XP: {char.xp}"
+                let exceptStatMods = Set.filter (function Trait2e.StatMod _ | Trait2e.RaceOf _ | Trait2e.Level _ | Trait2e.SingleClass -> false | _ -> true)
+                line $"""{char.traits.summary |> exceptStatMods |> Seq.map ADND2nd.describeTrait |> String.join "; "}"""
                 ]
         | Detail5e (char: CharacterSheet5e) ->
             [
@@ -663,34 +642,30 @@ module View =
                             Html.input [prop.type'.radio; prop.ariaChecked (draft.sex = sex); prop.isChecked (draft.sex = sex); prop.id id; prop.onClick (fun _ -> SetSex sex |> dispatch); prop.readOnly true]
                             Html.label [prop.htmlFor id; prop.text id]
                         ]
-                    let statMods traits =
-                        match traits with
-                        | Detail5e traits ->
-                            let statModsOnly(_, _, _, decisions) =
-                                match decisions |> Array.choose (function StatMod(stat, n) -> Some(stat, n) | _ -> None) with
-                                | [||] -> None
-                                | mods -> Some mods
-                            match draft.mode with
-                            | CumulativeFrom(min, _) -> Stat.All |> List.map (fun stat -> stat, min)
-                            | _ -> []
-
-                            @
-                            (summarizeAll statModsOnly DND5e.rules traits [PC]
-                            |> List.collect (List.ofArray))
-                        | DetailADND traits ->
-                            let statModsOnly(_, _, _, decisions) =
-                                match decisions |> Array.choose (function ADND2nd.StatMod(stat, n) -> Some(stat, n) | _ -> None) with
-                                | [||] -> None
-                                | mods -> Some mods
-                            match draft.mode with
-                            | CumulativeFrom(min, _) -> Stat.All |> List.map (fun stat -> stat, min)
-                            | _ -> []
-                            @
-                            (summarizeAll statModsOnly ADND2nd.rules traits [ADND2nd.Trait.PC]
-                            |> List.collect (List.ofArray))
-                    let statAssignments = addUpStats (statMods draft.traits) draft.allocations
+                    let preracialStatMods =
+                        let allocations = draft.allocations |> Array.choose (function (value, Some stat) -> Some (stat, value) | _ -> None) |> List.ofArray
+                        match draft.mode with
+                        | CumulativeFrom(min, _) -> Stat.All |> List.map (fun stat -> stat, min) |> List.append allocations
+                        | _ -> allocations
+                    let preracialStatAssignments: Map<Stat, int> = addUpStats preracialStatMods
+                    let statsAndTraits =
+                        let addStat n = function
+                            | Some current -> current + n |> Some
+                            | None -> Some n
+                        match draft.traits with
+                        | Detail5e decisions ->
+                            let preracialTraits = decisions |> collect rules5e [Trait5e.PC] preracialStatAssignments
+                            let racialStatMods = preracialTraits |> List.choose(function Trait5e.StatMod(stat, delta) -> Some (stat, delta) | _ -> None)
+                            let postRacialStatAssignments = racialStatMods |> Seq.fold (fun map (stat, n) -> map |> Map.change stat (addStat n)) preracialStatAssignments
+                            Detail5e {| decisions = decisions; ctx = postRacialStatAssignments; traits = decisions |> collect rules5e [Trait5e.PC] postRacialStatAssignments |}
+                        | Detail2e decisions ->
+                            let preracialTraits = decisions |> collect rules2e [Trait2e.PC] { preracialStats = preracialStatAssignments; postracialStats = Map.empty }
+                            let racialStatMods = preracialTraits |> List.choose(function Trait2e.StatMod(stat, delta) -> Some (stat, delta) | _ -> None)
+                            let postRacialStatAssignments = racialStatMods |> Seq.fold (fun map (stat, n) -> map |> Map.change stat (addStat n)) preracialStatAssignments
+                            let ctx : PreconditionContext2e = { preracialStats = preracialStatAssignments; postracialStats = postRacialStatAssignments }
+                            Detail2e {| decisions = decisions; ctx = ctx; traits = decisions |> collect rules2e [Trait2e.PC] ctx |}
                     for stat in Stat.All do
-                        match statAssignments |> Map.tryFind stat with
+                        match statsAndTraits.converge((fun d -> d.ctx.postracialStats),(fun d -> d.ctx)) |> Map.tryFind stat with
                         | Some v -> describe stat (Some v)
                         | None ->
                             describe stat None
@@ -755,40 +730,38 @@ module View =
                                 element
                             ]
                     let makeOrigin s = { ruleSystem = s; nationalOrigin = draft.nationalOrigin; startingLevel = 1; statRollMethod = model.method.info.name' }
-                    match draft.traits with
-                    | Detail5e traits ->
-                        let roots = [PC]
+                    match statsAndTraits with
+                    | Detail5e d ->
+                        let traits, ctx, decisions = d.traits, d.ctx, d.decisions
+                        let roots = [Trait5e.PC]
                         let rules = DND5e.rules
-                        let currentTraits = DerivedTraits.collect rules traits roots (fun traits -> (statAssignments, traits |> Set.ofSeq) ) |> Set.ofSeq
                         let exceptStatMods = function Trait5e.StatMod _ -> false | _ -> true
-                        let toReact = describeChoiceInReact exceptStatMods dispatch Toggle5ETrait DND5e.describeTrait (statAssignments, currentTraits)
-                        let traits = summarize toReact rules traits roots
+                        let toReact = describeChoiceInReact exceptStatMods dispatch Toggle5ETrait DND5e.describeTrait (traits |> Set.ofSeq, ctx)
+                        let traitsForDisplay = decisions |> summarize toReact rules roots ctx
                         class' Html.div "chooseTraits" [
-                            yield! (traits |> display)
+                            yield! (traitsForDisplay |> display)
                             ]
                         match draft with
-                        | CharacterSheet5E makeOrigin sheet when (traits |> List.exists(fun (pri, e) -> pri = Open) |> not) ->
+                        | CharacterSheet5E ctx makeOrigin sheet when (traitsForDisplay |> List.exists(fun (pri, e) -> pri = Open) |> not) ->
                             class' Html.div "finalize" [
                                 Html.button [prop.text "OK"; prop.onClick (fun _ -> Universal.Detail5e sheet |> FinalizeCharacterSheet |> dispatch)]
                                 ]
                         | _ -> ()
 
-                    | DetailADND traits ->
-                        let roots = [ADND2nd.PC]
+                    | Detail2e d ->
+                        let traits, ctx, decisions = d.traits, d.ctx, d.decisions
+                        let roots = [Trait2e.PC]
                         let rules = ADND2nd.rules
-                        let makeContext traits : PreconditionContext2e =
-                            { traits = traits |> Set.ofSeq; preracialStats = addUpStats (Map.empty |> DetailADND |> statMods) draft.allocations; postracialStats = statAssignments }
-                        let currentTraits = DerivedTraits.collect rules traits roots makeContext
                         let exceptStatMods = function Trait2e.StatMod _ -> false | _ -> true
-                        let toReact = describeChoiceInReact exceptStatMods dispatch ToggleADNDTrait ADND2nd.describeTrait (makeContext currentTraits)
-                        let traits = summarize toReact ADND2nd.rules traits [ADND2nd.Trait.PC]
+                        let toReact = describeChoiceInReact exceptStatMods dispatch ToggleADNDTrait ADND2nd.describeTrait (traits |> Set.ofSeq, ctx)
+                        let traitsForDisplay = decisions |> summarize toReact rules [Trait2e.PC] ctx
                         class' Html.div "chooseTraits" [
-                            yield! (traits |> display)
+                            yield! (traitsForDisplay |> display)
                             ]
                         match draft with
-                        | CharacterSheetADND2nd makeOrigin sheet when (traits |> List.exists(fun (pri, e) -> pri = Open) |> not) ->
+                        | CharacterSheet2E ctx makeOrigin sheet when (traitsForDisplay |> List.exists(fun (pri, e) -> pri = Open) |> not) ->
                             class' Html.div "finalize" [
-                                Html.button [prop.text "OK"; prop.onClick (fun _ -> Universal.DetailADND sheet |> FinalizeCharacterSheet |> dispatch)]
+                                Html.button [prop.text "OK"; prop.onClick (fun _ -> Universal.Detail2e sheet |> FinalizeCharacterSheet |> dispatch)]
                                 ]
                         | _ -> ()
 

@@ -7,9 +7,9 @@
 ///   Setting<Trait>: a list of Traits and how they were derived. DerivationRules must be stored separately, as must the summarization logic.
 module DerivedTraits
 
-type Choice<'trait0, 'filterContext> = {
+type Choice<'trait0, 'filterContext when 'trait0: comparison> = {
     options: 'trait0 array;
-    preconditions: (('trait0 * 'filterContext) -> bool) option
+    preconditions: (('trait0 * ('trait0 Set * 'filterContext)) -> bool) option
     numberAllowed: int;
     mustBeDistinct: bool;
     elideFromDisplayAndSummary: bool;
@@ -19,7 +19,7 @@ type Choice<'trait0, 'filterContext> = {
 let fresh options = { options = options |> Array.ofSeq; preconditions = None; numberAllowed = 1; mustBeDistinct = false; elideFromDisplayAndSummary = false; autopick = false }
 type DerivationRules<'trait0, 'ctx when 'trait0: comparison> = Map<'trait0, Choice<'trait0, 'ctx> array>
 type DerivationInstance<'trait0 when 'trait0: comparison> = Map<'trait0, Map<int, int array>>
-type Setting<'trait0, 'summary when 'trait0: comparison> = { instance: DerivationInstance<'trait0>; summary: 'summary; validated: bool }
+type Setting<'trait0, 'summary when 'trait0: comparison> = { instance: DerivationInstance<'trait0>; summary: 'summary }
 
 let (==>) (trait0: 'trait0) (options: 'trait0 list) =
     trait0, fresh options
@@ -40,24 +40,24 @@ let rulesOf rules : DerivationRules<_, _> =
 
 // similar to summarize but ignores the elideFromDisplayAndSummary flag. Intended for internal use such as
 // implementing preconditions. This guy is complicated enough that I should probably add a unit test for it.
-let collect (rules: DerivationRules<'trait0, 'ctx>) (instance: DerivationInstance<'trait0>) (roots: 'trait0 seq) (makeContext: 'trait0 seq -> 'ctx) =
-    let rec seekFixedPoint ctx priorPoint =
+let collect (rules: DerivationRules<'trait0, 'ctx>) (roots: 'trait0 seq) (ctx:'ctx) (instance: DerivationInstance<'trait0>) =
+    let rec seekFixedPoint filterArgs priorPoint =
         let rec recur (roots: 'trait0 seq) = [
             for root in roots do
                 match rules with
                 | Lookup root choices ->
                     for ix, choice in choices |> Array.mapi tuple2 do
+                        let isValid =
+                            match choice.preconditions with
+                            | None -> thunk true
+                            | Some filter -> fun (trait1: 'trait0) -> filter(trait1, filterArgs)
                         let chosenOptions =
                             match instance with
                             | _ when choice.autopick ->
-                                choice.options
+                                choice.options |> Array.filter isValid
                             | Lookup root (Lookup ix decision) ->
-                                let pick i =
-                                    match choice.options[i], choice.preconditions with
-                                    | choice, Some isValid when isValid(choice, ctx) -> Some choice
-                                    | choice, None -> Some choice
-                                    | _ -> None
-                                (instance[root][ix] |> Array.choose pick)
+                                let deref i = choice.options[i]
+                                (instance[root][ix] |> Array.map deref |> Array.filter isValid)
                             | _ -> Array.empty
                         yield! chosenOptions
                         yield! recur chosenOptions
@@ -68,22 +68,28 @@ let collect (rules: DerivationRules<'trait0, 'ctx>) (instance: DerivationInstanc
             // we're at a fixed point: go ahead and return
             retval
         else
-            seekFixedPoint (makeContext retval) (Some retval)
-    seekFixedPoint (makeContext roots) None
+            seekFixedPoint (Set.ofSeq retval, ctx) (Some retval)
+    seekFixedPoint (Set.empty, ctx) None
 
-let summarize f (rules: DerivationRules<'trait0, 'ctx>) (instance: DerivationInstance<'trait0>) (roots: _ seq) =
+let summarize f (rules: DerivationRules<'trait0, 'ctx>) (roots: _ seq) (ctx:'ctx) (instance: DerivationInstance<'trait0>) =
+    let currentTraits = instance |> collect (rules: DerivationRules<'trait0, 'ctx>) (roots: 'trait0 seq) (ctx:'ctx)
+    let filterArgs = currentTraits |> Set.ofSeq, ctx
     let rec recur (roots: 'trait0 seq) = [
         for root in roots do
             match rules with
             | Lookup root choices ->
                 for ix, choice in choices |> Array.mapi tuple2 do
+                    let isValid =
+                        match choice.preconditions with
+                        | None -> thunk true
+                        | Some filter -> fun (trait1: 'trait0) -> filter(trait1, filterArgs)
                     let chosenOptions =
                         match instance with
                         | _ when choice.autopick ->
-                            choice.options
+                            choice.options |> Array.filter isValid
                         | Lookup root (Lookup ix decision) ->
                             let pick i = choice.options[i]
-                            (instance[root][ix] |> Array.map pick)
+                            (instance[root][ix] |> Array.map pick |> Array.filter isValid)
                         | _ -> Array.empty
                     if choice.elideFromDisplayAndSummary = false then
                         match f(root, ix, choice, chosenOptions) with
@@ -96,19 +102,25 @@ let summarize f (rules: DerivationRules<'trait0, 'ctx>) (instance: DerivationIns
     recur roots
 
 // like summarize, but ignore elides. May be redundant with collect, I'm not entirely sure.
-let summarizeAll f (rules: DerivationRules<'trait0, 'ctx>) (instance: DerivationInstance<'trait0>) (roots: _ seq) =
+let summarizeAll f (rules: DerivationRules<'trait0, 'ctx>) (roots: _ seq) (ctx: 'ctx) (instance: DerivationInstance<'trait0>) =
+    let currentTraits = instance |> collect (rules: DerivationRules<'trait0, 'ctx>) (roots: 'trait0 seq) (ctx:'ctx)
+    let filterArgs = currentTraits |> Set.ofSeq, ctx
     let rec recur (roots: 'trait0 seq) = [
         for root in roots do
             match rules with
             | Lookup root choices ->
                 for ix, choice in choices |> Array.mapi tuple2 do
+                    let isValid =
+                        match choice.preconditions with
+                        | None -> thunk true
+                        | Some filter -> fun (trait1: 'trait0) -> filter(trait1, filterArgs)
                     let chosenOptions =
                         match instance with
                         | _ when choice.autopick ->
-                            choice.options
+                            choice.options |> Array.filter isValid
                         | Lookup root (Lookup ix decision) ->
                             let pick i = choice.options[i]
-                            (instance[root][ix] |> Array.map pick)
+                            (instance[root][ix] |> Array.map pick |> Array.filter isValid)
                         | _ -> Array.empty
                     match f(root, ix, choice, chosenOptions) with
                     | Some v ->
@@ -126,31 +138,9 @@ let describeChoiceAsText (toText: 'trait0 -> string) (head, ix, choice, decision
     else
         $"""{head} ==> [{System.String.Join("; ", decision |> Array.map toText)}]""" |> Some
 
-let toSetting summarize' rules roots instance =
-    let mutable isValid = true
-    let validate(head', ix, choice:Choice<_,_>, chosenOptions: _ array) =
-        if choice.numberAllowed = chosenOptions.Length || choice.autopick then
-            Some chosenOptions
-        else
-            printfn $"Must pick from {choice.options} but only had {chosenOptions}"
-            isValid <- false
-            None
-    match summarize validate rules instance roots with
-    | traits -> { instance = instance; summary = traits |> List.collect List.ofArray |> summarize'; validated = isValid }
-// very rough helper function for FSI choosing. UI choosing will be totally different, based on summarize
-let choose rules roots head value instance =
-    let render(head', ix, choice, _) =
-        if head = head' && (choice.options |> Array.contains value) then
-            Some(head, ix, choice)
-        else None
-    match summarize render rules instance roots with
-    | [(head, ix, choice)] ->
-        let choiceIx = [|for i in 0..(choice.options.Length - 1) do if choice.options[i] = value then i|]
-        let assign = function
-        | None -> Map.ofList [ix, choiceIx] |> Some
-        | Some existing -> existing |> Map.add ix choiceIx |> Some
-        instance |> Map.change head assign
-    | _ -> instance
+let toSetting summarize' rules roots ctx instance =
+    match instance |> collect rules roots ctx with
+    | traits -> { instance = instance; summary = traits |> summarize' }
 
 let toggleTrait (rules: DerivationRules<_,_>, head, choiceIx, decisionIx) (instance: DerivationInstance<_>) : DerivationInstance<_> =
     let rule =
