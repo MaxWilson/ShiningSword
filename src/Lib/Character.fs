@@ -318,6 +318,8 @@ module DND5e =
         | LightArmorProficiency
         | MediumArmorProficiency
         | HeavyArmorProficiency
+        | MartialWeaponProficiency
+        | ``Hexblade'sCurse``
         | NimbleEscape
         | ExtraHPPerLevel of int
     let describeTrait = function
@@ -392,6 +394,7 @@ module DND5e =
             confer Tough [ExtraHPPerLevel 2]
             confer HeavyArmorMaster [StatMod (Str, 1)]
             confer ModeratelyArmored [StatMod (Dex, 1); MediumArmorProficiency; ShieldProficiency]
+            confer Mobile [Faster 10]
             let subclass lst = lst |> List.map Subclass
             Level(Artificer, 3) ==> subclass [AlchemistArtificer; ArtilleristArtificer; BattlesmithArtificer]
             Level(Bard, 3) ==> subclass [LoreBard; ValorBard]
@@ -417,6 +420,7 @@ module DND5e =
                 confer (Level(class',0)) [LightArmorProficiency]
             for subclass in [LifeCleric; NatureCleric; TempestCleric; WarCleric; ForgeCleric] do
                 confer (Subclass subclass) [HeavyArmorProficiency]
+            confer (Subclass HexbladeWarlock) [MediumArmorProficiency;ShieldProficiency;MartialWeaponProficiency;``Hexblade'sCurse``]
             ]
         |> rulesOf
 
