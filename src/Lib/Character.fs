@@ -439,31 +439,6 @@ module DND5e =
             ]
         |> rulesOf
 
-let rec makeName(sex: Sex) =
-    let nationOfOrigin = chooseRandom ["Tir na n'Og"; "Abysia"; "Kailasa"; "Ermor"; "Undauntra"; "Arboria"; "Mordor"]
-    let rec chooseFromLists =
-        function
-        | potentialCategory::rest ->
-            match Onomastikon.nameLists |> Map.tryFind (nationOfOrigin, potentialCategory) with
-            | Some nameList -> chooseRandom nameList
-            | None -> chooseFromLists rest
-        | [] -> "" // sometimes e.g. there is no last name for a given national origin
-    let firstName = chooseFromLists [sex.ToString()]
-    match firstName with
-    | "" -> makeName(sex) // invalid nation/sex combination (e.g. no females in Mordor), try again
-    | _ ->
-        let lastName name =
-            let surname = chooseFromLists [$"Last";$"Cognomen{sex}";$"Last{sex}";]
-            $"{name} {surname}".Trim()
-        let prefix name =
-            let prefixes = ["Insanity"; "Black"; "Merciless"; "Gentle"; "Calamity"]
-            $"{chooseRandom prefixes} {name}".Trim()
-        let title name =
-            let suffixes = ["Defender of Humanity"; "Last of the Dwarflords"; "the Accursed"; "Esquire"; "the Undying"]
-            $"{name}, {chooseRandom suffixes}".Trim()
-        let allThree = (prefix >> lastName >> title)
-        nationOfOrigin, chooseRandom [prefix; lastName; (lastName >> title); allThree] firstName
-
 module Universal =
     type Detail<'t1, 't2> = Detail2e of 't1 | Detail5e of 't2
         with
@@ -513,3 +488,29 @@ module Universal =
     let (|GenericCharacterSheet|) = function
         | Detail2e (char: ADND2nd.CharacterSheet) -> {| name = char.name; Str = char.Str; Dex = char.Dex; Con = char.Con; Int = char.Int; Wis = char.Wis; Cha = char.Cha; origin = char.origin; sex = char.sex|}
         | Detail5e (char: DND5e.CharacterSheet) -> {| name = char.name; Str = char.Str; Dex = char.Dex; Con = char.Con; Int = char.Int; Wis = char.Wis; Cha = char.Cha; origin = char.origin; sex = char.sex|}
+
+let rec makeName(sex: Sex) =
+    let nationOfOrigin = chooseRandom ["Tir na n'Og"; "Abysia"; "Kailasa"; "Ermor"; "Undauntra"; "Arboria"; "Mordor"]
+    let rec chooseFromLists =
+        function
+        | potentialCategory::rest ->
+            match Onomastikon.nameLists |> Map.tryFind (nationOfOrigin, potentialCategory) with
+            | Some nameList -> chooseRandom nameList
+            | None -> chooseFromLists rest
+        | [] -> "" // sometimes e.g. there is no last name for a given national origin
+    let firstName = chooseFromLists [sex.ToString()]
+    match firstName with
+    | "" -> makeName(sex) // invalid nation/sex combination (e.g. no females in Mordor), try again
+    | _ ->
+        let lastName name =
+            let surname = chooseFromLists [$"Last";$"Cognomen{sex}";$"Last{sex}";]
+            $"{name} {surname}".Trim()
+        let prefix name =
+            let prefixes = ["Insanity"; "Black"; "Merciless"; "Gentle"; "Calamity"]
+            $"{chooseRandom prefixes} {name}".Trim()
+        let title name =
+            let suffixes = ["Defender of Humanity"; "Last of the Dwarflords"; "the Accursed"; "Esquire"; "the Undying"]
+            $"{name}, {chooseRandom suffixes}".Trim()
+        let allThree = (prefix >> lastName >> title)
+        nationOfOrigin, chooseRandomExponentialDecay 0.4 [lastName; (lastName >> title); prefix; allThree] firstName
+

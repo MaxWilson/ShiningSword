@@ -25,6 +25,15 @@ let betweenInclusive a b n = min a b <= n && n <= max a b
 let inv f = f()
 let chooseRandom (options: _ seq) =
     options |> Seq.skip (random.Next (Seq.length options)) |> Seq.head
+let chooseRandomExponentialDecay (acceptRate: float) (options: _ list) =
+    let rec recur = function
+    | option::rest ->
+        if random.NextDouble() < acceptRate then option
+        else recur rest
+    // fall back to first value in list if nothing else was accepted
+    | [] -> options.Head
+    recur options
+
 // iterate a mutable value
 let iter (data: byref<_>) f =
     data <- f data
