@@ -423,7 +423,7 @@ module DND5e =
             invisiblyConfer VariantHuman [Feat]
             Feat ==> feats
                 |> precondition (function
-                | HeavyArmorMaster, ctx -> statMin [Str, 15] ctx && hasTrait HeavyArmorProficiency ctx
+                | HeavyArmorMaster, ctx -> hasTrait HeavyArmorProficiency ctx
                 | HeavyArmorProficiency, ctx -> hasTrait MediumArmorProficiency ctx
                 | ModeratelyArmored, ctx -> hasTrait LightArmorProficiency ctx
                 | _ -> true)
