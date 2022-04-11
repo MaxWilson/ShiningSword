@@ -37,21 +37,43 @@ module Interaction =
                 ->
                 let traitSetting = decisions |> toSetting Set.ofSeq rules2e [Trait2e.PC] ctx
                 let traits = traitSetting.summary
-                let classes = traits |> Seq.choose (function Trait2e.Level(cl,lvl) -> Some (cl, lvl) | _ -> None)
+                let classes =
+                    traits |> Seq.choose (function Trait2e.Level(cl,lvl) -> Some (cl, lvl) | _ -> None)
+                    |> Seq.groupBy fst |> Seq.map (fun (cl, lst) -> cl, lst |> Seq.map snd |> Seq.max)
+                    |> Array.ofSeq
                 let isWarrior = classes |> Seq.exists (function (ADND2nd.Fighter | ADND2nd.Ranger | ADND2nd.Paladin), _  -> true | _ -> false)
-                let conBonus = ADND2nd.conBonus isWarrior con
-                let hasTrait = traits.Contains
+                let has = traits.Contains
                 let hdMultiplier = (traits |> Seq.tryPick (function Trait2e.HDMultiplier n -> Some n | _ -> None) |> Option.defaultValue 1)
-                let hp = traits |> Seq.choose (function Trait2e.Level(cl,lvl) -> Some (ADND2nd.hpOf hdMultiplier lvl cl conBonus) | _ -> None)
+                let hp = traits |> Seq.choose (function Trait2e.Level(cl,lvl) -> Some (ADND2nd.hpOf (con, isWarrior, hdMultiplier) lvl cl) | _ -> None)
                 let ac =
                     classes |> Seq.map (function
-                        | (ADND2nd.Fighter | ADND2nd.Ranger | ADND2nd.Paladin | ADND2nd.Cleric | ADND2nd.Bard), _ -> 3 // plate mail
-                        | (ADND2nd.Priest | ADND2nd.Druid| ADND2nd.Psionicist), _ -> 5 // hide + shield
+                        | (ADND2nd.Fighter | ADND2nd.Ranger | ADND2nd.Paladin), _ -> 3 // plate mail
+                        | ADND2nd.Cleric, _ -> 3 // chain mail + shield
+                        | ADND2nd.Bard, _ -> 5 // chain mail
+                        | (ADND2nd.Priest | ADND2nd.Druid| ADND2nd.Psionicist), _ -> 4 // hide + shield
                         | ADND2nd.Thief, _ -> 8 // leather
                         | ADND2nd.Wizard, _ -> 10 // nothing
                         )
                         |> Seq.fold min 10
                         |> fun ac -> ac - ADND2nd.dexACBonus dex
+                let attacks =
+                    classes |> Seq.map (function
+                    | (ADND2nd.Fighter | ADND2nd.Ranger | ADND2nd.Paladin), lvl ->
+                        if lvl >= 13 then 3 elif lvl >= 7 then 2 else 1
+                    | _ -> 1
+                    )
+                    |> Seq.fold max 1
+                    |> fun n -> if has Trait2e.WeaponSpecialist then n + 1 else n
+                let toHitBonus =
+                    classes |> Seq.map (function
+                        | (ADND2nd.Fighter | ADND2nd.Ranger | ADND2nd.Paladin), lvl -> lvl - 1
+                        | (ADND2nd.Cleric | ADND2nd.Priest | ADND2nd.Druid), lvl -> 2 * ((lvl+2)/3 - 1)
+                        | (ADND2nd.Psionicist | ADND2nd.Bard | ADND2nd.Thief), lvl -> (lvl+1)/2 - 1
+                        | ADND2nd.Wizard, lvl -> (lvl+2)/3 - 1
+                        )
+                        |> Seq.fold max 0
+                        |> fun bonus -> bonus + (ADND2nd.strBonus (str, draft.exceptionalStrength) |> fst)
+                                            + if has Trait2e.WeaponSpecialist then 1 else 0
                 let damage =
                     classes |> Seq.map (function
                         | (ADND2nd.Fighter | ADND2nd.Ranger | ADND2nd.Paladin | ADND2nd.Bard), _ -> RollSpec.create(3, 6) // greatsword
@@ -62,6 +84,7 @@ module Interaction =
                         )
                         |> Seq.fold max (RollSpec.create(0,0))
                         |> fun roll -> roll + (ADND2nd.strBonus (str, draft.exceptionalStrength) |> snd)
+                                        + if has Trait2e.WeaponSpecialist then 2 else 0
                 Some {
                     name = draft.name
                     origin = makeOrigin "AD&D"
@@ -75,11 +98,13 @@ module Interaction =
                     sex = draft.sex
                     traits = traitSetting
                     originalRolls = draft.originalRolls
-                    levels = Array.ofSeq classes
                     hp = hp |> Array.ofSeq
                     ac = ac
+                    attacks = attacks
+                    toHitBonus = toHitBonus
                     damage = damage
                     xp = 0
+                    levels = Array.ofSeq classes
                     wealth = 0<gp>
                     }
             | _ ->
@@ -439,8 +464,8 @@ module View =
                     char.hp |> Array.map (function (hpRoll, 0) -> hpRoll.ToString() | (hpRoll, conBonus) -> $"{hpRoll}%+d{conBonus}")
                     |> List.ofArray
                     |> String.oxfordJoin
-                line $"HP: {hpTotal} ({hpBreakdown})"
-                line $"AC: {char.ac}, Damage: {char.damage}"
+                line $"AC: {char.ac}, HP: {hpTotal} ({hpBreakdown})"
+                line $"""{if char.attacks > 1 then $"{char.attacks} attacks, " else ""}THAC0 {20 - char.toHitBonus}, Damage: {char.damage}"""
                 line $"XP: {char.xp}"
                 let displayFilter = Set.filter (function Trait2e.StatMod _ | Trait2e.RaceOf _ | Trait2e.Level _ | Trait2e.SingleClass -> false | _ -> true)
                 line $"""{char.traits.summary |> displayFilter |> Seq.map ADND2nd.describeTrait |> String.join "; "}"""
@@ -462,8 +487,9 @@ module View =
                     char.hp |> Array.map (function (hpRoll, 0) -> hpRoll.ToString() | (hpRoll, conBonus) -> $"{hpRoll}%+d{conBonus}")
                     |> List.ofArray
                     |> String.oxfordJoin
-                line $"HP: {hpTotal} ({hpBreakdown})"
-                line $"AC: {char.ac}, Damage: {char.damage}"
+                line $"AC: {char.ac}, HP: {hpTotal} ({hpBreakdown})"
+                let attacks = char.traits.summary |> Seq.choose (function Trait5e.ExtraAttack n -> Some (n+1) | _ -> None) |> Seq.fold max 1
+                line $"""{if attacks > 1 then $"{attacks} attacks, " else ""}Damage: {char.damage}"""
                 line $"XP: {char.xp}"
                 let displayFilter = Set.filter (function Trait5e.StatMod _  | Trait5e.Level _ | Trait5e.Race _ | Trait5e.StartingClass _ | Trait5e.Feat -> false | r when races |> List.contains r -> false | _ -> true)
                 line $"""{char.traits.summary |> displayFilter |> Seq.map DND5e.describeTrait |> String.join "; "}"""

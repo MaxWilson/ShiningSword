@@ -123,6 +123,7 @@ module ADND2nd =
         | Worship of WorshipFocus
         | PrimaryDiscipline of PsionicDiscipline
         | LimitedRegeneration of minutes: int
+        | WeaponSpecialist
 
     type CharacterSheet = {
         name: Name
@@ -137,9 +138,11 @@ module ADND2nd =
         exceptionalStrength: int option
         originalRolls: int array
         hp: (int * int) array
-        xp: int
         ac: int // todo: replace with derived computation from equipment
+        attacks: int
+        toHitBonus: int
         damage: RollSpec
+        xp: int
         levels: (CharacterClass * int) array
         // Storing the derivation instead of just the end result makes it easier to do things like add new traits on levelling up
         traits: Setting<Trait, Trait Set>
@@ -204,6 +207,7 @@ module ADND2nd =
                             | _ -> true)
             Level(Priest,1) ==> (WorshipFocus.All |> List.map Worship)
             Level(Psionicist,1) ==> (PsionicDiscipline.All |> List.map PrimaryDiscipline)
+            confer (Level(Fighter, 1)) [WeaponSpecialist]
             ]
         |> rulesOf
     let strBonus = function
@@ -256,7 +260,14 @@ module ADND2nd =
         | _ -> 0
 
     // hdMultiplier is so half-giants can have double HP on their rolled HP
-    let hpOf hdMultiplier lvl class' conBonus =
+    let hpOf (con, isWarrior, hdMultiplier) lvl class' =
+        let conBonus = conBonus isWarrior con
+        let hpRoll dieSize =
+            // high Con gives you certain minimums on HP rolls that you can't go below
+            if con < 20 then rand dieSize
+            elif con < 21 then max 2 (rand dieSize)
+            elif con < 23 then max 3 (rand dieSize)
+            else max 4 (rand dieSize)
         let d n = if hdMultiplier = 1 then rand n else List.init hdMultiplier (thunk1 rand n) |> List.sum
         match class' with
         | Fighter | Paladin | Ranger -> if lvl <= 9 then d 10, conBonus else 3, 0
@@ -337,6 +348,7 @@ module DND5e =
         | ``Hexblade'sCurse``
         | NimbleEscape
         | ExtraHPPerLevel of int
+        | ExtraAttack of extras: int
     let describeTrait = function
         | StatMod(stat, n) ->
             $"%+d{n} {stat}"
@@ -454,6 +466,10 @@ module DND5e =
             for subclass in [LifeCleric; NatureCleric; TempestCleric; WarCleric; ForgeCleric] do
                 confer (Subclass subclass) [HeavyArmorProficiency]
             confer (Subclass HexbladeWarlock) [MediumArmorProficiency;ShieldProficiency;MartialWeaponProficiency;``Hexblade'sCurse``]
+            for class' in [Fighter; Paladin; Ranger; Barbarian] do
+                confer (Level(class', 5)) [ExtraAttack 1]
+            confer (Level(Fighter, 11)) [ExtraAttack 2]
+            confer (Level(Fighter, 20)) [ExtraAttack 3]
             ]
         |> rulesOf
 
