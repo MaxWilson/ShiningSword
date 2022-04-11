@@ -64,6 +64,15 @@ module Interaction =
                     )
                     |> Seq.fold max 1
                     |> fun n -> if has Trait2e.WeaponSpecialist then n + 1 else n
+                let weapon =
+                    classes |> Seq.map (function
+                    | (ADND2nd.Fighter | ADND2nd.Ranger | ADND2nd.Paladin | ADND2nd.Bard), _ -> {| name = "Greatsword"; isSword = true; damage = RollSpec.create(3, 6);  |}
+                    | (ADND2nd.Cleric | ADND2nd.Priest | ADND2nd.Druid), _ -> {| name = "Morning star"; isSword = true; damage = RollSpec.create(1, 6, 1);  |}
+                    | ADND2nd.Psionicist, _ -> {| name = "Scimitar"; isSword = true; damage = RollSpec.create(1, 8);  |}
+                    | ADND2nd.Thief, _ -> {| name = "Longsword"; isSword = true; damage = RollSpec.create(1, 12);  |}
+                    | ADND2nd.Wizard, _ -> {| name = "Quarterstaff"; isSword = true; damage = RollSpec.create(1, 6);  |}
+                    )
+                    |> Seq.maxBy (fun weapon -> weapon.damage)
                 let toHitBonus =
                     classes |> Seq.map (function
                         | (ADND2nd.Fighter | ADND2nd.Ranger | ADND2nd.Paladin), lvl -> lvl - 1
@@ -73,7 +82,8 @@ module Interaction =
                         )
                         |> Seq.fold max 0
                         |> fun bonus -> bonus + (ADND2nd.strBonus (str, draft.exceptionalStrength) |> fst)
-                                            + if has Trait2e.WeaponSpecialist then 1 else 0
+                                              + if has Trait2e.WeaponSpecialist then 1 else 0
+                                              + if weapon.isSword then (traits |> Seq.tryPick(function Trait2e.SwordBowBonus n -> Some n | _ -> None) |> Option.defaultValue 0) else 0
                 let damage =
                     classes |> Seq.map (function
                         | (ADND2nd.Fighter | ADND2nd.Ranger | ADND2nd.Paladin | ADND2nd.Bard), _ -> RollSpec.create(3, 6) // greatsword
@@ -845,12 +855,13 @@ module View =
                         class' Html.div "chooseTraits" [
                             yield! (traitsForDisplay |> display)
                             ]
-                        match draft with
-                        | CharacterSheet2E ctx makeOrigin sheet when (traitsForDisplay |> List.exists(fun (pri, e) -> pri = Open) |> not) ->
-                            class' Html.div "finalize" [
-                                Html.button [prop.text "OK"; prop.onClick (fun _ -> Universal.Detail2e sheet |> FinalizeCharacterSheet |> dispatch)]
-                                ]
-                        | _ -> ()
+                        if (traitsForDisplay |> List.exists(fun (pri, e) -> pri = Open) |> not) then
+                            match draft with
+                            | CharacterSheet2E ctx makeOrigin sheet ->
+                                class' Html.div "finalize" [
+                                    Html.button [prop.text "OK"; prop.onClick (fun _ -> Universal.Detail2e sheet |> FinalizeCharacterSheet |> dispatch)]
+                                    ]
+                            | _ -> ()
 
                 | None -> ()
             ]
