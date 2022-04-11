@@ -9,6 +9,7 @@
         <Compile Include="UI\DragDrop.fs" />
         <Compile Include="UI\Konva.fs" />
         <Compile Include="UI\Chargen.fs" />
+        <Compile Include="UI\Adventure.fs" />
         <Compile Include="UI\App.fs" />
     </ItemGroup>
     <ItemGroup>

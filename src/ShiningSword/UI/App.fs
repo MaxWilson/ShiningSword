@@ -22,7 +22,7 @@ module App =
     type Page =
         | Home
         | Generate of Chargen.View.Model
-        | Adventure of Domain.Adventure.AdventureState
+        | Adventure of Adventure.Model
     type Model = { current: Page; currentUrl: string option; error: string option; roster: Chargen.View.Model array }
     type Msg =
         | Error of msg: string
@@ -65,7 +65,7 @@ module App =
             UpdateUrl $"chargen/{suffix}"
             |> dispatch
         | Chargen.View.BeginAdventuring adv ->
-            Transform (fun m -> { m with current = Page.Adventure adv }) |> dispatch
+            Transform (fun m -> { m with current = Page.Adventure (Adventure.init adv) }) |> dispatch
             UpdateUrl "/" |> dispatch // TODO: make a URL router directly to character's adventure
     let update msg model =
         let model = { model with error = None } // clear error message whenever a new command is received
@@ -146,10 +146,7 @@ module App =
         | Page.Generate model ->
             Chargen.View.view model (chargenControl dispatch) (Chargen >> dispatch)
         | Page.Adventure adventure ->
-            Html.div [
-                Html.text "We're going on an adventure (Under Construction)!"
-                Html.button [prop.text "Home"; prop.onClick (thunk1 dispatch GoHome)]
-                ]
+            UI.Adventure.view adventure (function Adventure.Quit -> dispatch GoHome) dispatch
         | _ ->
             Html.div [
                 prop.className "homePage"

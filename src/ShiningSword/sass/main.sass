@@ -182,7 +182,68 @@ html, body
         border-style: solid
         padding: 0.5em
 
-
+.adventure
+    width: 100%
+    height: 100%
+    box-sizing: border-box
+    margin: 2px
+    display: grid
+    grid-template-columns: [left-edge] 10em 1fr 1fr 1fr 1fr [right-edge]
+    grid-template-rows: [header-start]1.2em 1.2em [header-end middle-start] 1.2em 1.2em [stat-start stat1]1.2em [stat2]1.2em [stat3]1.2em [stat4]1.2em [stat5]1.2em [stat6]1.2em [stat7]auto [statControl] auto [stat-end middle-end choice-start footer-start] auto [choice-end finalize] auto 1fr [footer-end]
+    gap: 0px 0px
+    grid-auto-flow: row
+    user-select: none
+    font-size: large
+    .header
+        grid-column: left-edge/right-edge
+        grid-row: header-start/header-end
+    .characterHeader
+        margin-left: 5px
+        grid-column: left-edge/right-edge
+        grid-row: middle-start/stat-start
+        .title
+            font-size: xx-large
+            input
+                font-size: xx-large
+                margin-right: 1em
+        .details
+            margin: 10px 0px 10px 40px
+            label
+                margin-right: 2em
+    .summary
+        grid-column: 4/6
+        grid-row: stat-start/stat-end
+        margin-left: 5px
+    .statValue
+        grid-column: 1
+        margin-left: 5px
+        .droptarget span
+            min-width: 8em
+            display: block
+    .statDescription
+        grid-column: 2/4
+        margin: 1px
+    .statStr
+        grid-row: stat1
+    .statDex
+        grid-row: stat2
+    .statCon
+        grid-row: stat3
+    .statInt
+        grid-row: stat4
+    .statWis
+        grid-row: stat5
+    .statCha
+        grid-row: stat6
+    .finalize
+        grid-column: left-edge/right-edge
+        grid-row: finalize
+        padding: 3px
+    .prettyMiddle
+        grid-column: left-edge/right-edge
+        grid-row: middle-start/middle-end
+        border-style: solid
+        padding: 0.5em
 
 .hide
     visibility: hidden

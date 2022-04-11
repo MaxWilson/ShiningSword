@@ -536,7 +536,7 @@ module View =
                             ]
                         ]
                     ]
-    let describe model dispatch (stat:Stat) statValue =
+    let describeStatTextOnly stat statValue =
         let term =
             match stat with
             | Str -> "Stronger"
@@ -545,6 +545,9 @@ module View =
             | Int -> "Smarter"
             | Wis -> "Wiser"
             | Cha -> "More charismatic"
+        $"{term} than %0.1f{(getPercentile statValue)*100.}%% of humanity"
+
+    let describe model dispatch (stat:Stat) statValue =
         React.fragment [
             currentStat model dispatch stat statValue
             match statValue with
@@ -557,7 +560,7 @@ module View =
                             ddprop.key ("statDescr" + stat.ToString())
                             ddprop.dropData stat
                             ddprop.children [
-                                Html.span [prop.key $"{stat}descr"; prop.text $"{term} than %0.1f{(getPercentile statValue)*100.}%% of humanity"]
+                                Html.span [prop.key $"{stat}descr"; prop.text (describeStatTextOnly stat statValue)]
                                 ]
                             ]
                         ]
@@ -608,6 +611,32 @@ module View =
                 ]
             |> fun x -> Some(Open, x)
 
+    let viewCharacter = function
+        | Universal.GenericCharacterSheet char as sheet -> [
+            class' Html.div "characterHeader" [
+                class' Html.div "title" [
+                    Html.text $"{char.name}"
+                    ]
+                ]
+            let describe stat statValue = Html.div [
+                prop.classes ["statDescription"; "stat" + stat.ToString()]
+                prop.children [
+                    Html.span [prop.key $"{stat}descr"; prop.text (describeStatTextOnly stat statValue)]
+                    ]
+                ]
+
+            describe Str char.Str
+            describe Dex char.Dex
+            describe Con char.Con
+            describe Int char.Int
+            describe Wis char.Wis
+            describe Cha char.Cha
+            class' Html.div "prettyMiddle" []
+            class' Html.div "summary" (
+                describeCharacter sheet
+                )
+            ]
+
     [<ReactComponent>]
     let view (model: Model) (control: ParentMsg -> unit) dispatch =
         let describe = describe model dispatch
@@ -630,23 +659,8 @@ module View =
                     ]
                 ]
             match model.export with
-            | Some (Universal.GenericCharacterSheet char as sheet) ->
-                class' Html.div "characterHeader" [
-                    class' Html.div "title" [
-                        Html.text $"{char.name}"
-                        ]
-                    ]
-                let describe stat value = describe stat (Some value)
-                describe Str char.Str
-                describe Dex char.Dex
-                describe Con char.Con
-                describe Int char.Int
-                describe Wis char.Wis
-                describe Cha char.Cha
-                class' Html.div "prettyMiddle" []
-                class' Html.div "summary" (
-                    describeCharacter model.export.Value
-                    )
+            | Some sheet ->
+                yield! viewCharacter sheet
                 let beginAdventure _ =
                     Domain.Adventure.createAdventure sheet
                     |> BeginAdventuring
