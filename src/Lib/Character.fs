@@ -279,6 +279,7 @@ module ADND2nd =
         | StatMod(stat, n) ->
             $"%+d{n} {stat}"
         | (RaceOf Halfling) -> "Athasian halfling"
+        | (RaceOf HalfGiant) -> "Half-giant"
         | (RaceOf race) -> $"{race}" |> uncamel
         | HDMultiplier 2 -> "Double HP rolls"
         | LimitedRegeneration minutes -> $"Limited regeneration (1 HP every {minutes} minutes)"
