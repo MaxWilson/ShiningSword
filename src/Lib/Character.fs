@@ -363,12 +363,17 @@ module DND5e =
         Wis: int
         Cha: int
         originalRolls: int array
+        hp: (int * int) array
+        ac: int
+        toHit: int
+        damage: RollSpec
         xp: int
         levels: (CharacterClass * int) array
         // Storing the derivation instead of just the end result makes it easier to do things like add new traits on levelling up
         traits: Setting<Trait, Trait Set>
         }
 
+    let races = [Human; Elf; Dwarf; Goblin]
     let feats = [GreatWeaponMaster;PolearmMaster;Sharpshooter;CrossbowExpert;Tough;Lucky;Mobile;ModeratelyArmored;HeavyArmorMaster]
     type PreconditionContext = Map<Stat, int>
     let precondition pattern (head, options) =
@@ -379,11 +384,24 @@ module DND5e =
         prereqs |> List.every (fun (stat, minimum, maximum) -> minimum <= stats[stat] && stats[stat] <= maximum)
     let hasTrait trait1 (traits, _ : PreconditionContext) =
         traits |> Set.contains trait1
+    let hpOf lvl = function
+        | Barbarian -> if lvl = 1 then 12 else 7
+        | (Fighter | Paladin | Ranger) -> if lvl = 1 then 10 else 6
+        | (Artificer | Bard | Monk | Cleric | Druid | Warlock | Rogue) -> if lvl = 1 then 8 else 5
+        | (Sorcerer | Wizard) -> if lvl = 1 then 6 else 4
+    // generic function for stat bonuses in 5E
+    let statBonus statValue = ((statValue)/2)-5
+    let proficiencyBonus (traits: Trait seq) =
+        traits |> Seq.choose (function Level(class', lvl) -> Some (class', lvl) | _ -> None)
+            |> Seq.groupBy fst
+            |> Seq.map (snd >> Seq.map snd >> Seq.max)
+            |> Seq.sum
+            |> fun n -> 1+(n+3)/4
 
     let rules: DerivationRules<_, PreconditionContext> =
         [
             PC, { fresh [Race; StartingClass] with elideFromDisplayAndSummary = true; autopick = true }
-            Race ==> [Human; Elf; Dwarf; Goblin]
+            Race ==> races
             StartingClass ==> [for cl in CharacterClass.All -> Level(cl, 0)]
             let stats = [Str;Dex;Con;Int;Wis;Cha]
             Human ==> [StandardHuman; VariantHuman]

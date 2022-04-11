@@ -174,14 +174,3 @@ let (|HasTrait|) (rules: DerivationRules<_,_>) head trait' (instance: Derivation
         choices |> Array.mapi tuple2 |> Array.exists hasTraitSelected
     | _ -> false
 
-let (|FirstTrait|_|) (rules: DerivationRules<_,_>) head (instance: DerivationInstance<_>) =
-    match rules with
-    | Lookup head choices ->
-        let hasTraitSelected (ix, choice: Choice<'trait0,_>)=
-            match instance with
-            | Lookup head (Lookup ix decisionIxs) when decisionIxs.Length > 0 ->
-                choice.options[decisionIxs[0]] |> Some
-            | _ -> None
-        choices |> Array.mapi tuple2 |> Array.tryPick hasTraitSelected
-    | _ -> None
-

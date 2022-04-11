@@ -19,7 +19,7 @@ module Interaction =
         exceptionalStrength: int option
         originalRolls: Rolls
         mode: Mode
-        traits: DerivationInstance
+        decisions: DerivationInstance
         }
 
     let addUpStats (statMods: (Stat * int) seq) =
@@ -29,13 +29,13 @@ module Interaction =
         statMods |> Seq.fold (fun map (stat, n) -> map |> Map.change stat (addStat n)) Map.empty
 
     let (|CharacterSheet2E|_|) (ctx: PreconditionContext2e) makeOrigin (draft:Draft) : CharacterSheet2e option =
-        match draft.traits with
-        | Universal.IsADND(traits) ->
+        match draft.decisions with
+        | Universal.IsADND(decisions) ->
             match ctx.postracialStats with
             | Lookup Str str & Lookup Dex dex & Lookup Con con
                 & Lookup Int int & Lookup Wis wis & Lookup Cha cha
                 ->
-                let traitSetting = traits |> toSetting Set.ofSeq rules2e [Trait2e.PC] ctx
+                let traitSetting = decisions |> toSetting Set.ofSeq rules2e [Trait2e.PC] ctx
                 let traits = traitSetting.summary
                 let classes = traits |> Seq.choose (function Trait2e.Level(cl,lvl) -> Some (cl, lvl) | _ -> None)
                 let isWarrior = classes |> Seq.exists (function (ADND2nd.Fighter | ADND2nd.Ranger | ADND2nd.Paladin), _  -> true | _ -> false)
@@ -86,13 +86,44 @@ module Interaction =
                 None
         | _ -> None
     let (|CharacterSheet5E|_|) (ctx: PreconditionContext5e) makeOrigin (draft:Draft) : CharacterSheet5e option =
-        match draft.traits with
-        | Universal.Is5e(traits) ->
+        match draft.decisions with
+        | Universal.Is5e(decisions) ->
             match ctx with
             | Lookup Str str & Lookup Dex dex & Lookup Con con
                 & Lookup Int int & Lookup Wis wis & Lookup Cha cha
                 ->
-                let traits = traits |> toSetting Set.ofList rules5e [DND5e.PC] ctx
+                let traitSetting = decisions |> toSetting Set.ofList rules5e [DND5e.PC] ctx
+                let traits = traitSetting.summary
+                let extraHPPerLevel = traits |> Seq.tryPick(function Trait5e.ExtraHPPerLevel n -> Some n | _ -> None) |> Option.defaultValue 0
+                let hp = traits |> Seq.choose (function Trait5e.Level(cl,lvl) when lvl > 0 -> Some (DND5e.hpOf lvl cl, DND5e.statBonus con + extraHPPerLevel) | _ -> None)
+                let ac, toHit, damage =
+                    let statBonus = DND5e.statBonus
+                    let toHit = statBonus (max str dex) + DND5e.proficiencyBonus traits
+                    let has trait1 = traits |> Set.contains trait1
+                    if has Trait5e.HeavyArmorProficiency && has Trait5e.MartialWeaponProficiency then
+                        // chain mail and greatsword
+                        if str >= dex then 16, toHit, RollSpec.create(2, 6, DND5e.statBonus str)
+                        // chain mail, maybe a shield, and rapier
+                        else (if has Trait5e.ShieldProficiency then 18 else 16), toHit, RollSpec.create(1, 8, DND5e.statBonus dex)
+                    elif has Trait5e.HeavyArmorProficiency && has Trait5e.ShieldProficiency then
+                        18, toHit, RollSpec.create(2, 6, DND5e.statBonus str)
+                    elif has Trait5e.MediumArmorProficiency then
+                        let acBonus = min 2 (statBonus dex)
+                        if dex >= str then
+                            14 + acBonus + (if has Trait5e.ShieldProficiency then +2 else 0), toHit, RollSpec.create(1, (if has Trait5e.MartialWeaponProficiency then 8 else 6), DND5e.statBonus dex)
+                        else
+                            let dmg = if not (has Trait5e.ShieldProficiency) then RollSpec.create(2,6,statBonus str)
+                                        else RollSpec.create(1, (if has Trait5e.MartialWeaponProficiency then 8 else 6), statBonus str)
+                            14 + acBonus + (if has Trait5e.ShieldProficiency then +2 else 0), toHit, dmg
+                    else
+                        let ac = if has Trait5e.LightArmorProficiency then 12 + statBonus dex else 10 + statBonus dex
+                        if dex >= str then
+                            ac, toHit, RollSpec.create(1, (if has Trait5e.MartialWeaponProficiency then 8 else 6), statBonus dex)
+                        else
+                            let dmg = if not (has Trait5e.ShieldProficiency) then RollSpec.create(2,6,statBonus str)
+                                        else RollSpec.create(1, (if has Trait5e.MartialWeaponProficiency then 8 else 6), statBonus str)
+                            ac, toHit, dmg
+
                 Some {
                     name = draft.name
                     origin = makeOrigin "D&D 5th Edition"
@@ -103,10 +134,14 @@ module Interaction =
                     Wis = wis
                     Cha = cha
                     sex = draft.sex
-                    traits = traits
+                    traits = traitSetting
                     originalRolls = draft.originalRolls
                     xp = 0
                     levels = Array.empty
+                    hp = hp |> Array.ofSeq
+                    toHit = toHit
+                    ac = ac
+                    damage = damage
                     }
             | _ ->
                 None
@@ -242,7 +277,7 @@ module Interaction =
                 allocations = rolls |> Array.map (fun x -> x, None)
                 mode = Assign
                 exceptionalStrength = if traits.isADND then Some (rand 100) else None
-                traits = traits
+                decisions = traits
                 })
 
 open Interaction
@@ -355,11 +390,11 @@ module View =
             { model with draft = model.draft |> Option.map setSex }, Cmd.Empty
         | Toggle5ETrait(head, choiceIx, decisionIx) ->
             let toggle (draft:Draft) =
-                { draft with traits = draft.traits.map5e (toggleTrait(rules5e, head, choiceIx, decisionIx)) }
+                { draft with decisions = draft.decisions.map5e (toggleTrait(rules5e, head, choiceIx, decisionIx)) }
             { model with draft = model.draft |> Option.map toggle }, Cmd.Empty
         | ToggleADNDTrait(head, choiceIx, decisionIx) ->
             let toggle (draft:Draft) =
-                { draft with traits = draft.traits.map2e (toggleTrait(rules2e, head, choiceIx, decisionIx)) }
+                { draft with decisions = draft.decisions.map2e (toggleTrait(rules2e, head, choiceIx, decisionIx)) }
             { model with draft = model.draft |> Option.map toggle }, Cmd.Empty
         | FinalizeCharacterSheet sheet ->
             { model with export = Some sheet }, Cmd.Empty
@@ -389,7 +424,6 @@ module View =
         function
         | Detail2e (char: CharacterSheet2e) ->
             [
-                let describe = ADND2nd.describeTrait
                 let classes' =
                     char.levels |> Array.map (fun (class', lvl) -> $"{class'} {lvl}") |> String.join "/"
                 let race = char.traits.summary |> Seq.pick (function (Trait2e.RaceOf race) -> Some (race.ToString() |> uncamel) | _ -> None)
@@ -408,25 +442,31 @@ module View =
                 line $"HP: {hpTotal} ({hpBreakdown})"
                 line $"AC: {char.ac}, Damage: {char.damage}"
                 line $"XP: {char.xp}"
-                let exceptStatMods = Set.filter (function Trait2e.StatMod _ | Trait2e.RaceOf _ | Trait2e.Level _ | Trait2e.SingleClass -> false | _ -> true)
-                line $"""{char.traits.summary |> exceptStatMods |> Seq.map ADND2nd.describeTrait |> String.join "; "}"""
+                let displayFilter = Set.filter (function Trait2e.StatMod _ | Trait2e.RaceOf _ | Trait2e.Level _ | Trait2e.SingleClass -> false | _ -> true)
+                line $"""{char.traits.summary |> displayFilter |> Seq.map ADND2nd.describeTrait |> String.join "; "}"""
                 ]
         | Detail5e (char: CharacterSheet5e) ->
             [
                 let describe = DND5e.describeTrait
-                match char.traits.instance with
-                | FirstTrait rules5e Trait5e.Race race & FirstTrait rules5e Trait5e.StartingClass class' ->
-                    match char.origin.nationalOrigin with
-                    | "" ->
-                        line $"{char.sex} {describe race} {describe class'} "
-                    | place ->
-                        line $"{char.sex} {describe race} {describe class'} from {place}"
-                | _ ->
-                    shouldntHappen() // should always have a race and class before exporting
+                let race = char.traits.summary |> Seq.find (fun trait1 -> DND5e.races |> List.contains trait1)
+                let class' = char.traits.summary |> Seq.pick (function Level(cl, 0) as trait1 -> Some (describe trait1) | _ -> None)
+                match char.origin.nationalOrigin with
+                | "" ->
+                    line $"{char.sex} {describe race} {class'} "
+                | place ->
+                    line $"{char.sex} {describe race} {class'} from {place}"
                 line $"{char.origin.ruleSystem}, {char.origin.statRollMethod}, from level {char.origin.startingLevel}"
                 line ""
-                line $"HP: 0, AC: 0, THAC0: 0"
-                line $"XP: 0"
+                let hpTotal = char.hp |> Array.sumBy(fun (hpRoll,conBonus) -> hpRoll + conBonus)
+                let hpBreakdown =
+                    char.hp |> Array.map (function (hpRoll, 0) -> hpRoll.ToString() | (hpRoll, conBonus) -> $"{hpRoll}%+d{conBonus}")
+                    |> List.ofArray
+                    |> String.oxfordJoin
+                line $"HP: {hpTotal} ({hpBreakdown})"
+                line $"AC: {char.ac}, Damage: {char.damage}"
+                line $"XP: {char.xp}"
+                let displayFilter = Set.filter (function Trait5e.StatMod _  | Trait5e.Level _ | Trait5e.Race _ | Trait5e.StartingClass _ | Trait5e.Feat -> false | r when races |> List.contains r -> false | _ -> true)
+                line $"""{char.traits.summary |> displayFilter |> Seq.map DND5e.describeTrait |> String.join "; "}"""
                 ]
 
     open Fable.Core.JsInterop
@@ -469,7 +509,7 @@ module View =
                                 Html.span [
                                     prop.key $"{stat}"
                                     match stat, model.draft with
-                                    | Str, (Some { exceptionalStrength = Some exStr; traits = IsADND(HasTrait ADND2nd.rules ADND2nd.Trait.SingleClass (ADND2nd.Trait.Level(ADND2nd.Fighter, 1)) true) }) when model.ruleset = Ruleset.TSR && statValue = 18 ->
+                                    | Str, (Some { exceptionalStrength = Some exStr; decisions = IsADND(HasTrait ADND2nd.rules ADND2nd.Trait.SingleClass (ADND2nd.Trait.Level(ADND2nd.Fighter, 1)) true) }) when model.ruleset = Ruleset.TSR && statValue = 18 ->
                                         prop.text $"{stat} {statValue} ({exStr}) "
                                     | _ ->
                                         prop.text $"{stat} {statValue} "
@@ -652,7 +692,7 @@ module View =
                         let addStat n = function
                             | Some current -> current + n |> Some
                             | None -> Some n
-                        match draft.traits with
+                        match draft.decisions with
                         | Detail5e decisions ->
                             let preracialTraits = decisions |> collect rules5e [Trait5e.PC] preracialStatAssignments
                             let racialStatMods = preracialTraits |> List.choose(function Trait5e.StatMod(stat, delta) -> Some (stat, delta) | _ -> None)
