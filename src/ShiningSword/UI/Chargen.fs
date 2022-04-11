@@ -618,19 +618,26 @@ module View =
                     Html.text $"{char.name}"
                     ]
                 ]
-            let describe stat statValue = Html.div [
-                prop.classes ["statDescription"; "stat" + stat.ToString()]
-                prop.children [
-                    Html.span [prop.key $"{stat}descr"; prop.text (describeStatTextOnly stat statValue)]
+            let describe stat statValue = [
+                Html.span [
+                    prop.classes ["statValue"; "stat" + stat.ToString()]
+                    prop.text $"{stat} {statValue}  " // dot NOT unassign rolls on click, for point buy
+                    prop.key $"{stat}"
+                    ]
+                Html.div [
+                    prop.classes ["statDescription"; "stat" + stat.ToString()]
+                    prop.children [
+                        Html.span [prop.key $"{stat}descr"; prop.text (describeStatTextOnly stat statValue)]
+                        ]
                     ]
                 ]
 
-            describe Str char.Str
-            describe Dex char.Dex
-            describe Con char.Con
-            describe Int char.Int
-            describe Wis char.Wis
-            describe Cha char.Cha
+            yield! describe Str char.Str
+            yield! describe Dex char.Dex
+            yield! describe Con char.Con
+            yield! describe Int char.Int
+            yield! describe Wis char.Wis
+            yield! describe Cha char.Cha
             class' Html.div "prettyMiddle" []
             class' Html.div "summary" (
                 describeCharacter sheet
