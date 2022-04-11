@@ -426,7 +426,7 @@ module View =
             [
                 let classes' =
                     char.levels |> Array.map (fun (class', lvl) -> $"{class'} {lvl}") |> String.join "/"
-                let race = char.traits.summary |> Seq.pick (function (Trait2e.RaceOf race) -> Some (race.ToString() |> uncamel) | _ -> None)
+                let race = char.traits.summary |> Seq.pick (function (Trait2e.RaceOf _) as race -> Some (ADND2nd.describeTrait race) | _ -> None)
                 match char.origin.nationalOrigin with
                 | "" ->
                     line $"{char.sex} {race} {classes'} "
