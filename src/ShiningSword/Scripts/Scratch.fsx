@@ -6,4 +6,6 @@
 #load @"Lib\DerivedTraits.fs"
 #load @"Lib\Onomastikon.fs"
 #load @"Lib\Character.fs"
+#load @"Lib\Ribbit\Types.fs"
+#load @"Lib\Ribbit\Operations.fs"
 

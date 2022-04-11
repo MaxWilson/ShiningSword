@@ -17,7 +17,6 @@ let matchfail v = sprintf "No match found for %A. This is a bug." v |> invalidOp
 /// Placeholder while we're doing type-focused development, before implementation
 let notImpl _ = failwith "Not implemented yet. Email Max if you want this feature."
 let shouldntHappen _ =
-    System.Diagnostics.Debugger.Break()
     failwith "This shouldn't ever happen. If it does there's a bug."
 let emptyString = System.String.Empty
 let betweenInclusive a b n = min a b <= n && n <= max a b
@@ -212,6 +211,7 @@ module StateMonad =
                     else (), state
                 loop state
     let get() state = state, state
+    let getF f state = f state, state
     let transform f state =
         let state = f state
         (), state

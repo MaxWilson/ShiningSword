@@ -2,12 +2,15 @@ module Domain.Character
 
 open DerivedTraits
 
+[<Measure>] type gp
+[<Measure>] type xp
+
 type Stat = Str | Dex | Con | Int | Wis | Cha
     with static member All = [Str;Dex;Con;Int;Wis;Cha]
 type Sex = Male | Female | Neither
 type Name = string
 type Origin = { ruleSystem: string; nationalOrigin: string; startingLevel: int; statRollMethod: string }
-[<Measure>] type gp
+
 type RollSpec = StaticBonus of int | RollSpec of n:int * d:int * rest: RollSpec option
     with
     member this.roll() =
@@ -142,7 +145,7 @@ module ADND2nd =
         attacks: int
         toHitBonus: int
         damage: RollSpec
-        xp: int
+        xp: int<xp>
         levels: (CharacterClass * int) array
         // Storing the derivation instead of just the end result makes it easier to do things like add new traits on levelling up
         traits: Setting<Trait, Trait Set>
@@ -380,7 +383,7 @@ module DND5e =
         ac: int
         toHit: int
         damage: RollSpec
-        xp: int
+        xp: int<xp>
         levels: (CharacterClass * int) array
         // Storing the derivation instead of just the end result makes it easier to do things like add new traits on levelling up
         traits: Setting<Trait, Trait Set>

@@ -113,7 +113,7 @@ module Interaction =
                     attacks = attacks
                     toHitBonus = toHitBonus
                     damage = damage
-                    xp = 0
+                    xp = 0<xp>
                     levels = Array.ofSeq classes
                     wealth = 0<gp>
                     }
@@ -171,7 +171,7 @@ module Interaction =
                     sex = draft.sex
                     traits = traitSetting
                     originalRolls = draft.originalRolls
-                    xp = 0
+                    xp = 0<xp>
                     levels = Array.empty
                     hp = hp |> Array.ofSeq
                     toHit = toHit

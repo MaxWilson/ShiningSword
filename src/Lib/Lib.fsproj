@@ -22,7 +22,10 @@
     <Compile Include="DerivedTraits.fs" />
     <Compile Include="Onomastikon.fs" />
     <Compile Include="Character.fs" />
-    <Compile Include="Ribbit\Model.fs" />
+    <Compile Include="Ribbit\Types.fs" />
+    <Compile Include="Ribbit\Operations.fs" />
+    <Compile Include="Ribbit\Rules2e.fs" />
+    <Compile Include="Ribbit\Rules5e.fs" />
     <Compile Include="Adventure.fs" />
     <PackageReference Include="FSharp.Core" Version="5.0.0" />
   </ItemGroup>
