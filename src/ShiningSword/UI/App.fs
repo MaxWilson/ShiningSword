@@ -144,8 +144,11 @@ module App =
             Chargen.View.view model (chargenControl dispatch) (ChargenMsg >> dispatch)
         | Page.Adventure adventure ->
             let control = function
+            | Adventure.Save ->
+                for char in adventure.state.mainCharacter::adventure.state.allies |> List.rev do
+                    char |> AddOrUpdateRoster |> dispatch
             | Adventure.SaveAndQuit ->
-                for char in adventure.state.mainCharacter::adventure.state.allies do
+                for char in adventure.state.mainCharacter::adventure.state.allies |> List.rev do
                     char |> AddOrUpdateRoster |> dispatch
                 GoHome |> dispatch
             | Adventure.Error msg ->

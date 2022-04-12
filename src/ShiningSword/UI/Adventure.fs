@@ -4,7 +4,7 @@ open Domain.Adventure
 open Domain.Character.Universal
 open Domain.Ribbit.Operations
 
-type ControlMsg = SaveAndQuit | Error of msg: string
+type ControlMsg = Save | SaveAndQuit | Error of msg: string
 type Activity = Downtime | AdventureIntro | Fighting | Looting | CompletingAdventure
 type Msg = | Embark of AdventureSpec | Recruit of CharacterSheet | Proceed | Victory
 type Model = {
@@ -26,10 +26,7 @@ let recruitCompanions model control dispatch =
             "No more companions are available at this time. (Try creating more characters first.)"
         |> Error |> control
     else
-        let chosen = candidates |> chooseRandom
-        let getName = (function GenericCharacterSheet sheet -> sheet.name)
-        printfn $"{(candidates |> Array.map getName)} => {getName chosen}"
-        Recruit chosen |> dispatch
+        Recruit (candidates |> chooseRandom) |> dispatch
 
 let init sheet =
     let state = downtime sheet
@@ -124,7 +121,7 @@ let view model control dispatch =
                 Html.button [prop.text "Call it a day"; prop.onClick(fun _ -> SaveAndQuit |> control)]
             | CompletingAdventure ->
                 // later on if there are more choices, this could become a full-fledged Adventuring phase with RP choices
-                Html.button [prop.text "Finish"; prop.onClick(fun _ -> Proceed |> dispatch)]
+                Html.button [prop.text "Finish"; prop.onClick(fun _ -> Save |> control; Proceed |> dispatch)]
             ]
         ]
 
