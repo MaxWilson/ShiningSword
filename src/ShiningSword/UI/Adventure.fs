@@ -96,8 +96,8 @@ let view model control dispatch =
                         not isFriendly, not isAlive, id)
             let columns = [
                 {| title = "Name"; render = get personalNameP.Get |}
-                {| title = "HP"; render = get hpP.Get |}
                 {| title = "AC"; render = get acP.Get |}
+                {| title = "HP"; render = get hpP.Get |}
                 ]
             statusSummary rosterIds (fst >> isFriendly) columns dispatch
         class' Html.div "finalize" [
