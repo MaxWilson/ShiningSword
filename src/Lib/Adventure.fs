@@ -80,8 +80,17 @@ let toOngoing (encounter:Encounter) =
         isFinished = false
     }
 
-let beginEncounter next rest state =
-    { state with scheduledEncounters = rest; currentEncounter = Some next }
+let beginEncounter (next: OngoingEncounter) rest (adventureState: AdventureState) =
+    let ribbit =
+        state {
+            for monsterKind, qty in next.monsters do
+                if adventureState.mainCharacter.isADND then
+                    do! Domain.Ribbit.Rules2e.createByName monsterKind qty
+                else
+                    do! Domain.Ribbit.Rules5e.createByName monsterKind qty
+            }
+        |> runNoResult adventureState.ribbit
+    { adventureState with scheduledEncounters = rest; currentEncounter = Some next; ribbit = ribbit }
 
 let victory (encounter:OngoingEncounter) state =
     let sheet = state.mainCharacter

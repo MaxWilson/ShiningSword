@@ -62,7 +62,7 @@ let update msg (model:Model) =
 let class' element (className: string) (children: _ seq) = element [prop.className className; prop.children children]
 
 // Bard's Tale-like summary of all friendlies and hostiles currently extant
-let statusSummary (creatures: 'creature list) (columns: {| title: string; render: 'creature -> string |} list) dispatch =
+let statusSummary (creatures: 'creature list) isFriendly (columns: {| title: string; render: 'creature -> string |} list) dispatch =
     class' Html.table "summaryTable" [
         Html.thead [
             Html.tr [
@@ -72,7 +72,7 @@ let statusSummary (creatures: 'creature list) (columns: {| title: string; render
             ]
         Html.tbody [
             for creature in creatures do
-                Html.tr [
+                class' Html.tr (if isFriendly creature then "friendly" else "enemy") [
                     for column in columns do
                         Html.td (column.render creature)
                     ]
@@ -88,18 +88,21 @@ let view model control dispatch =
             let friendlies = (model.state.mainCharacter::model.state.allies) |> List.map (function GenericCharacterSheet sheet -> sheet.name)
             let isFriendly name =
                 friendlies |> List.contains name
-            let get f id = (f id ribbit).ToString()
+            let get f (_, id) = (f id ribbit).ToString()
             let rosterIds =
-                ribbit.roster |> List.ofSeq
-                |> List.sortBy (fun kv ->
-                    not (List.contains kv.Key friendlies), kv.Key)
-                |> List.map (fun kv -> kv.Value)
+                ribbit.roster |> Map.toList
+                |> List.sortBy(function
+                    name, id ->
+                        // friendlies first, then enemies; living before dead; otherwise alphabetical
+                        let isFriendly = friendlies |> List.contains name
+                        let isAlive = (hpP.Get id ribbit) >= 0
+                        not isFriendly, not isAlive, name)
             let columns = [
                 {| title = "Name"; render = get personalNameP.Get |}
                 {| title = "HP"; render = get hpP.Get |}
                 {| title = "AC"; render = get acP.Get |}
                 ]
-            statusSummary rosterIds columns  dispatch
+            statusSummary rosterIds (fst >> isFriendly) columns dispatch
         class' Html.div "finalize" [
             match model.activity with
             | Downtime ->

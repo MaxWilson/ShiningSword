@@ -72,3 +72,6 @@ let monsterKinds =
     ]
     |> List.map (fun args -> MonsterKind.create args |> fun monster -> monster.name, monster)
     |> Map.ofList
+
+let createByName name n =
+    create (monsterKinds[name]) n
