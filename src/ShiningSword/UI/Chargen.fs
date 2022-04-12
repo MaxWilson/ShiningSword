@@ -50,7 +50,7 @@ module Interaction =
                         | (ADND2nd.Fighter | ADND2nd.Ranger | ADND2nd.Paladin), _ -> 3 // plate mail
                         | ADND2nd.Cleric, _ -> 3 // chain mail + shield
                         | ADND2nd.Bard, _ -> 5 // chain mail
-                        | (ADND2nd.Priest | ADND2nd.Druid| ADND2nd.Psionicist), _ -> 4 // hide + shield
+                        | (ADND2nd.Priest | ADND2nd.Druid | ADND2nd.Psionicist), _ -> 4 // hide + shield
                         | ADND2nd.Thief, _ -> 8 // leather
                         | ADND2nd.Wizard, _ -> 10 // nothing
                         )
@@ -96,6 +96,7 @@ module Interaction =
                         |> fun roll -> roll + (ADND2nd.strBonus (str, draft.exceptionalStrength) |> snd)
                                         + if has Trait2e.WeaponSpecialist then 2 else 0
                 Some {
+                    id = None
                     name = draft.name
                     origin = makeOrigin "AD&D"
                     Str = str
@@ -160,6 +161,7 @@ module Interaction =
                             ac, toHit, dmg
 
                 Some {
+                    id = None
                     name = draft.name
                     origin = makeOrigin "D&D 5th Edition"
                     Str = str
@@ -177,6 +179,7 @@ module Interaction =
                     toHit = toHit
                     ac = ac
                     damage = damage
+                    wealth = 0<gp>
                     }
             | _ ->
                 None
@@ -355,7 +358,6 @@ module View =
 
     type Ruleset = TSR | WotC
     type Model = {
-        id: int option
         draft: Draft option
         export: Universal.CharacterSheet option
         method: ChargenMethod
@@ -364,8 +366,8 @@ module View =
         }
     and TextEditMode = | NotEditingText | EditingName // "not editing" is a bit of a misnomer--you can still edit stats and choices, but they aren't text
     type ParentMsg =
-        | SaveAndQuit of Model
-        | BeginAdventuring of Domain.Adventure.AdventureState
+        | SaveAndQuit of CharacterSheet
+        | BeginAdventuring of CharacterSheet
         | Cancel
         | UpdateUrl of suffix: string
     type Msg =
@@ -383,7 +385,6 @@ module View =
         | FinalizeCharacterSheet of Universal.CharacterSheet
     let rec init _ =
         {
-            id = None
             draft = None
             export = None
             method = ChargenMethod.ADND.Head
@@ -479,6 +480,7 @@ module View =
                 line $"XP: {char.xp}"
                 let displayFilter = Set.filter (function Trait2e.StatMod _ | Trait2e.RaceOf _ | Trait2e.Level _ | Trait2e.SingleClass -> false | _ -> true)
                 line $"""{char.traits.summary |> displayFilter |> Seq.map ADND2nd.describeTrait |> String.join "; "}"""
+                line $"{char.wealth} gp"
                 ]
         | Detail5e (char: CharacterSheet5e) ->
             [
@@ -503,6 +505,7 @@ module View =
                 line $"XP: {char.xp}"
                 let displayFilter = Set.filter (function Trait5e.StatMod _  | Trait5e.Level _ | Trait5e.Race _ | Trait5e.StartingClass _ | Trait5e.Feat -> false | r when races |> List.contains r -> false | _ -> true)
                 line $"""{char.traits.summary |> displayFilter |> Seq.map DND5e.describeTrait |> String.join "; "}"""
+                line $"{char.wealth} gp"
                 ]
 
     open Fable.Core.JsInterop
@@ -657,7 +660,11 @@ module View =
             let describe stat statValue = [
                 Html.span [
                     prop.classes ["statValue"; "stat" + stat.ToString()]
-                    prop.text $"{stat} {statValue}  " // dot NOT unassign rolls on click, for point buy
+                    match char.exceptionalStrength with
+                    | Some exceptionalStrength when stat = Str ->
+                        prop.text $"{stat} {statValue} ({exceptionalStrength}) "
+                    | _ ->
+                        prop.text $"{stat} {statValue}  "
                     prop.key $"{stat}"
                     ]
                 Html.div [
@@ -697,19 +704,15 @@ module View =
                         Html.input [prop.type'.checkbox; prop.ariaChecked (model.ruleset = ruleset); prop.isChecked (model.ruleset = ruleset); prop.id name; prop.onClick (fun _ -> SetRuleset ruleset |> dispatch); prop.readOnly true]
                         Html.label [prop.htmlFor name; prop.text name]
                 class' Html.div "controls" [
-                    Html.button [prop.text "Save and quit"; prop.onClick(fun _ -> SaveAndQuit model |> control)]
-                    Html.button [prop.text "Quit without saving"; prop.onClick(fun _ -> Cancel |> control)]
+                    Html.button [prop.text "Cancel"; prop.onClick(fun _ -> Cancel |> control)]
                     ]
                 ]
             match model.export with
             | Some sheet ->
                 yield! viewCharacter sheet
-                let beginAdventure _ =
-                    Domain.Adventure.createAdventure sheet
-                    |> BeginAdventuring
-                    |> control
                 class' Html.div "finalize" [
-                    Html.button [prop.text "Begin adventure"; prop.onClick beginAdventure]
+                    Html.button [prop.text "Begin adventure"; prop.onClick (thunk1 control (BeginAdventuring sheet))]
+                    Html.button [prop.text "Save and quit"; prop.onClick (thunk1 control (SaveAndQuit sheet))]
                     ]
             | None ->
                 match model.draft with

@@ -15,7 +15,7 @@ importSideEffects "../sass/main.sass"
 
 module App =
     open Domain.Character
-    open Domain.Character.DND5e
+    open Domain.Character.Universal
     open Thoth.Json
     open UI.Chargen.Interaction
 
@@ -23,19 +23,20 @@ module App =
         | Home
         | Generate of Chargen.View.Model
         | Adventure of Adventure.Model
-    type Model = { current: Page; currentUrl: string option; error: string option; roster: Chargen.View.Model array }
+    type Model = { current: Page; currentUrl: string option; error: string option; roster: CharacterSheet array }
     type Msg =
         | Error of msg: string
         | Transform of (Model -> Model)
-        | Chargen of Chargen.View.Msg
+        | ChargenMsg of Chargen.View.Msg
+        | AdventureMsg of Adventure.Msg
         | Open of Page * url: string option
         | GoHome
         | Navigate of url: string
         | UpdateUrl of url: string // change URL without adding it to history--use this when a user would be surprised/irritated if "back button" acted as "undo"
-        | AddOrUpdateRoster of Chargen.View.Model
+        | AddOrUpdateRoster of CharacterSheet
         | ResumePlay of id: int
         | ClearRoster
-        | DeleteCharacter of Name
+        | DeleteCharacter of id: int
 
     module LocalStorage =
         let key = "PCs"
@@ -54,18 +55,18 @@ module App =
 
     let init initialCmd =
         let json = Browser.Dom.window.localStorage["PCs"]
-        let models = LocalStorage.read<Chargen.View.Model array> Array.empty
+        let models = LocalStorage.read<CharacterSheet array> Array.empty
         { current = Page.Home; currentUrl = None; error = None; roster = models }, Cmd.batch initialCmd
     let chargenControl dispatch = function
-        | Chargen.View.SaveAndQuit chargenModel ->
-            AddOrUpdateRoster chargenModel |> dispatch
-            GoHome |> dispatch
+        | Chargen.View.SaveAndQuit character ->
+            dispatch (AddOrUpdateRoster character)
+            dispatch GoHome
         | Chargen.View.Cancel -> dispatch GoHome
         | Chargen.View.UpdateUrl suffix ->
             UpdateUrl $"chargen/{suffix}"
             |> dispatch
-        | Chargen.View.BeginAdventuring adv ->
-            Transform (fun m -> { m with current = Page.Adventure (Adventure.init adv) }) |> dispatch
+        | Chargen.View.BeginAdventuring character ->
+            Transform (fun m -> { m with current = Page.Adventure (Adventure.init character) }) |> dispatch
             UpdateUrl "/" |> dispatch // TODO: make a URL router directly to character's adventure
     let update msg model =
         let model = { model with error = None } // clear error message whenever a new command is received
@@ -92,44 +93,53 @@ module App =
                 { model with currentUrl = Some url }, Navigation.Navigation.modifyUrl ("#" + url)
             else
                 model, Cmd.Empty
-        | AddOrUpdateRoster chargenModel ->
+        | AddOrUpdateRoster characterSheet ->
+            // helper method for working with universal sheets
+            let getId (sheet1: CharacterSheet) = sheet1.converge((fun c -> c.id), (fun c -> c.id))
             // assign a unique id if one isn't already there
-            let chargenModel =
-                if chargenModel.id.IsSome then chargenModel
-                elif model.roster.Length = 0 then { chargenModel with id = Some 1 }
-                else { chargenModel with id = Some (model.roster |> Array.maxBy (fun r -> r.id) |> fun r -> 1 + defaultArg r.id 1) }
+            let id', sheet =
+                match getId characterSheet with
+                | Some id -> Some id, characterSheet
+                | None ->
+                    let id' = model.roster |> Array.map (getId >> Option.get) |> Array.fold max 0 |> Some
+                    id', characterSheet.map2e(fun c -> { c with id = id' }).map5e(fun c -> { c with id = id' })
 
             // recent updated entries should be at the head of the list, so filter and then re-add at front
             let roster' =
                 model.roster
-                |> Array.filter (fun r -> r.id <> chargenModel.id)
+                |> Array.filter (fun r -> getId r <> id')
 
-            let roster' = Array.append [|chargenModel|] roster'
+            let roster' = Array.append [|sheet|] roster'
             LocalStorage.write roster'
             { model with roster = roster' }, Cmd.Empty
         | ClearRoster ->
             let roster' = Array.empty
             LocalStorage.write roster'
             { model with roster = roster' }, Cmd.Empty
-        | DeleteCharacter characterName ->
-            let roster' = model.roster |> Array.filter (function { draft = Some { name = name' } } when name' = characterName -> false | _ -> true)
+        | DeleteCharacter id ->
+            let roster' = model.roster |> Array.filter (function Detail2e char -> char.id <> Some id | Detail5e char -> char.id <> Some id)
             LocalStorage.write roster'
             { model with roster = roster' }, Cmd.Empty
         | GoHome ->
             { model with current = Home; error = None }, Navigate "/" |> Cmd.ofMsg
         | Open(page, Some url) -> { model with current = page}, Navigate url |> Cmd.ofMsg
         | Open(page, None) -> { model with current = page}, Cmd.Empty
-        | Chargen msg ->
+        | ChargenMsg msg ->
             match model.current with
             | (Page.Generate chargenModel) ->
-                let cmd = (Chargen >> Cmd.ofMsg)
-                let chargenModel, cmd = Chargen.View.update (Chargen >> Cmd.ofMsg) (flip chargenControl >> Cmd.ofSub) msg chargenModel
+                let cmd = (ChargenMsg >> Cmd.ofMsg)
+                let chargenModel, cmd = Chargen.View.update (ChargenMsg >> Cmd.ofMsg) (flip chargenControl >> Cmd.ofSub) msg chargenModel
                 { model with current = (Page.Generate chargenModel)}, cmd
             | _ -> model, (Error $"Message '{msg}' not compatible with current page ({model.current}))" |> Cmd.ofMsg)
+        | AdventureMsg msg ->
+            match model.current with
+            | (Page.Adventure model') ->
+                { model with current = (Page.Adventure (Adventure.update msg model'))}, Cmd.Empty
+            | _ -> model, (Error $"Message '{msg}' not compatible with current page ({model.current}))" |> Cmd.ofMsg)
         | ResumePlay id ->
-            match model.roster |> Array.tryFind (fun r -> r.id = Some id) with
-            | Some m ->
-                model, Open(Page.Generate m, Some $"resume/{id}") |> Cmd.ofMsg
+            match model.roster |> Array.tryFind (function Detail2e c -> c.id = Some id | Detail5e c -> c.id = Some id) with
+            | Some character ->
+                model, Open(Page.Adventure (Adventure.init character), Some $"resume/{id}") |> Cmd.ofMsg
             | _ -> model, Error "There is no character with id #{id}" |> Cmd.ofMsg
 
     open Feliz.Router
@@ -144,9 +154,13 @@ module App =
                 Html.button [prop.text "Home"; prop.onClick (thunk1 dispatch GoHome)]
                 ]
         | Page.Generate model ->
-            Chargen.View.view model (chargenControl dispatch) (Chargen >> dispatch)
+            Chargen.View.view model (chargenControl dispatch) (ChargenMsg >> dispatch)
         | Page.Adventure adventure ->
-            UI.Adventure.view adventure (function Adventure.Quit -> dispatch GoHome) dispatch
+            let control = function
+            | Adventure.SaveAndQuit ->
+                adventure.state.mainCharacter |> AddOrUpdateRoster |> dispatch
+                GoHome |> dispatch
+            UI.Adventure.view adventure control (AdventureMsg >> dispatch)
         | _ ->
             Html.div [
                 prop.className "homePage"
@@ -161,37 +175,36 @@ module App =
                         prop.text "Create a character"
                         // "remember" the user's ruleset preference
                         prop.onClick(fun _ ->
-                            if model.roster.Length = 0 || model.roster[0].ruleset = Chargen.View.TSR then
+                            if model.roster.Length = 0 || model.roster[0].isADND then
                                 Open(Page.Generate (Chargen.View.init()), Some "chargen/adnd") |> dispatch
                             else
                                 Open(Page.Generate (Chargen.View.init()), Some "chargen/5e") |> dispatch
-                                Chargen(Chargen.View.SetRuleset Chargen.View.WotC) |> dispatch
+                                ChargenMsg(Chargen.View.SetRuleset Chargen.View.WotC) |> dispatch
                             )
                         ]
                     class' Html.div "growToFill" [
                         class' Html.div "existingCharacters" [
                             for ch in model.roster do
-                                let txt, flair, cssClass =
+                                let txt, id, flair, cssClass =
                                     match ch with
-                                    | { ruleset = Chargen.View.TSR; draft = Some { name = name } } ->
-                                        name, "AD&D", "flairADND"
-                                    | { ruleset = Chargen.View.WotC; draft = Some { name = name } } ->
-                                        name, "D&D 5E", "flairDND5e"
-                                    | _ -> shouldntHappen()
+                                    | Detail2e char ->
+                                        char.name, char.id, "AD&D", "flairADND"
+                                    | Detail5e char ->
+                                        char.name, char.id, "D&D 5E", "flairDND5e"
                                 Html.span [
                                     prop.text flair
                                     prop.className cssClass
                                     ]
-                                Html.span [prop.text txt; prop.className "characterName"]
+                                Html.span [prop.text txt; prop.className "characterName"; prop.onClick (thunk1 dispatch (ResumePlay id.Value))]
                                 Html.button [
                                     prop.text $"Resume"
                                     prop.className "resumeCommand"
-                                    prop.onClick (thunk1 dispatch (ResumePlay ch.id.Value))
+                                    prop.onClick (thunk1 dispatch (ResumePlay id.Value))
                                     ]
                                 Html.button [
                                     prop.text $"Delete"
                                     prop.className "deleteCommand"
-                                    prop.onClick (thunk1 dispatch (DeleteCharacter txt))
+                                    prop.onClick (thunk1 dispatch (DeleteCharacter id.Value))
                                     ]
 
                             if model.roster.Length > 0 then
@@ -225,7 +238,7 @@ module Url =
                 let model'= Chargen.View.init()
                 let cmd = [
                     Open (Page.Generate model', None)
-                    SetMethod DarkSunMethodI |> Chargen
+                    SetMethod DarkSunMethodI |> ChargenMsg
                     ]
                 Some(cmd, ctx)
             | Str "chargen/adnd" ctx ->
@@ -238,7 +251,7 @@ module Url =
                 let model' = Chargen.View.init()
                 let cmd = [
                     Open (Page.Generate model', None)
-                    Chargen (SetRuleset Chargen.View.WotC)
+                    ChargenMsg (SetRuleset Chargen.View.WotC)
                     ]
                 Some(cmd, ctx)
             | Str "chargen" ctx ->

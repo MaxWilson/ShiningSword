@@ -8,7 +8,7 @@ let traitsP = FlagsProperty<Trait>("Traits", notImpl)
 
 type MonsterKind = {
     name: string
-    preferredNumber: RollSpec
+    numberAppearing: RollSpec
     hd: RollSpec
     ac: int
     attacks: int
@@ -20,9 +20,9 @@ type MonsterKind = {
     lairTreasure: TreasureType list
     }
     with
-    static member create (name, preferredNumber, hd, ac, attacks, toHit, weaponDamage, traits, xp, treasureType, lairTreasure) =
+    static member create (name, numberAppearing, hd, ac, attacks, toHit, weaponDamage, traits, xp, treasureType, lairTreasure) =
         {
-        name = name; preferredNumber = preferredNumber; hd = hd; ac = ac;
+        name = name; numberAppearing = numberAppearing; hd = hd; ac = ac;
         attacks = attacks; toHit = toHit; weaponDamage = weaponDamage; traits = traits
         xp = xp; treasureType = treasureType; lairTreasure = lairTreasure
         }
@@ -70,5 +70,5 @@ let monsterKinds =
     "Hill Giant", roll 1 12, (rollb 10 12 +40), 13, 2, +8, rollb 3 8 +5, [], 1800, [D], []
     "Frost Giant", roll 1 8, (rollb 12 12 +60), 15, 2, +9, rollb 3 12 +6, [], 3900, [E], []
     ]
-    |> List.map MonsterKind.create
-    |> Set.ofList
+    |> List.map (fun args -> MonsterKind.create args |> fun monster -> monster.name, monster)
+    |> Map.ofList

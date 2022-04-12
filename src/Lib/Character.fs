@@ -129,6 +129,7 @@ module ADND2nd =
         | WeaponSpecialist
 
     type CharacterSheet = {
+        id: int option // for saving and loading
         name: Name
         origin: Origin
         sex: Sex
@@ -371,6 +372,7 @@ module DND5e =
             full[..(full.LastIndexOf " " - 1)]
         | stat -> uncamel (stat.ToString())
     type CharacterSheet = {
+        id: int option // for saving and loading
         name: Name
         origin: Origin
         sex: Sex
@@ -389,6 +391,7 @@ module DND5e =
         levels: (CharacterClass * int) array
         // Storing the derivation instead of just the end result makes it easier to do things like add new traits on levelling up
         traits: Setting<Trait, Trait Set>
+        wealth: int<gp>
         }
 
     let races = [Human; Elf; Dwarf; Goblin]
@@ -526,8 +529,8 @@ module Universal =
     let rules2e: DerivationRules<Trait2e,PreconditionContext2e> = ADND2nd.rules
     let rules5e: DerivationRules<Trait5e,PreconditionContext5e> = DND5e.rules
     let (|GenericCharacterSheet|) = function
-        | Detail2e (char: ADND2nd.CharacterSheet) -> {| name = char.name; Str = char.Str; Dex = char.Dex; Con = char.Con; Int = char.Int; Wis = char.Wis; Cha = char.Cha; origin = char.origin; sex = char.sex|}
-        | Detail5e (char: DND5e.CharacterSheet) -> {| name = char.name; Str = char.Str; Dex = char.Dex; Con = char.Con; Int = char.Int; Wis = char.Wis; Cha = char.Cha; origin = char.origin; sex = char.sex|}
+        | Detail2e (char: ADND2nd.CharacterSheet) -> {| name = char.name; Str = char.Str; Dex = char.Dex; Con = char.Con; Int = char.Int; Wis = char.Wis; Cha = char.Cha; origin = char.origin; sex = char.sex; exceptionalStrength = char.exceptionalStrength |}
+        | Detail5e (char: DND5e.CharacterSheet) -> {| name = char.name; Str = char.Str; Dex = char.Dex; Con = char.Con; Int = char.Int; Wis = char.Wis; Cha = char.Cha; origin = char.origin; sex = char.sex; exceptionalStrength = None |}
 
 let rec makeName(sex: Sex) =
     let nationOfOrigin = chooseRandom ["Tir na n'Og"; "Abysia"; "Kailasa"; "Ermor"; "Undauntra"; "Arboria"; "Mordor"]
