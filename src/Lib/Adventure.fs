@@ -4,9 +4,7 @@ open Domain.Character.Universal
 
 type Encounter = {
     description: string
-    monsters: (string * int) list
-    rewardGp: int<gp>
-    rewardXp: int<xp>
+    monsters: (Name * RollSpec option) list
     }
 
 type AdventureSpec = {
@@ -31,7 +29,7 @@ let beginAdventure encounters state =
     | first::rest ->
         { state with scheduledEncounters = encounters; currentEncounter = Some first }
 
-let easy5e() =
+let easy() =
     {
         description = "You hire on as a caravan guard."
         allies = []
@@ -41,8 +39,6 @@ let easy5e() =
             {
                 description = "One night, kobolds attack! Your companions cravenly flee but you fight bravely."
                 monsters = ["Kobold", kobolds]
-                rewardGp = (List.init kobolds (thunk1 rand 6) |> List.sum) * 1<gp>
-                rewardXp = kobolds * 25<xp>
             }
         ]
     }

@@ -353,6 +353,8 @@ module DND5e =
         | NimbleEscape
         | ExtraHPPerLevel of int
         | ExtraAttack of extras: int
+        | PackTactics
+        | MartialAdvantage2d6
     let describeTrait = function
         | StatMod(stat, n) ->
             $"%+d{n} {stat}"
