@@ -105,7 +105,7 @@ module Interaction =
                     Int = int
                     Wis = wis
                     Cha = cha
-                    exceptionalStrength = draft.exceptionalStrength
+                    exceptionalStrength = if isWarrior && str = 18 then draft.exceptionalStrength else None
                     sex = draft.sex
                     traits = traitSetting
                     originalRolls = draft.originalRolls
