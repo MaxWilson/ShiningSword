@@ -1,6 +1,5 @@
 module UI.App
 
-open Browser.Dom
 open Fable.Core.JsInterop
 open Elmish
 open Elmish.React
@@ -16,7 +15,6 @@ importSideEffects "../sass/main.sass"
 module App =
     open Domain.Character
     open Domain.Character.Universal
-    open Thoth.Json
     open UI.Chargen.Interaction
 
     type Page =
@@ -26,6 +24,7 @@ module App =
     type Model = { current: Page; currentUrl: string option; error: string option; roster: CharacterSheet array }
     type Msg =
         | Error of msg: string
+        | ClearError
         | Transform of (Model -> Model)
         | ChargenMsg of Chargen.View.Msg
         | AdventureMsg of Adventure.Msg
@@ -38,24 +37,9 @@ module App =
         | ClearRoster
         | DeleteCharacter of id: int
 
-    module LocalStorage =
-        let key = "PCs"
-        let inline jsonParse<'t> fallback str : 't =
-            match Decode.Auto.fromString str with
-            | Ok result -> result
-            | Result.Error err ->
-                fallback
-        let inline read<'t> fallback =
-            try
-                Browser.Dom.window.localStorage[key] |> jsonParse<'t> fallback
-            with _ ->
-                fallback
-        let inline write value =
-            Browser.Dom.window.localStorage[key] <- Encode.Auto.toString<'t>(0, value)
-
     let init initialCmd =
         let json = Browser.Dom.window.localStorage["PCs"]
-        let models = LocalStorage.read<CharacterSheet array> Array.empty
+        let models = LocalStorage.PCs.read()
         { current = Page.Home; currentUrl = None; error = None; roster = models }, Cmd.batch initialCmd
     let chargenControl dispatch = function
         | Chargen.View.SaveAndQuit character ->
@@ -76,6 +60,8 @@ module App =
             // consider using Browser.window.alert instead.
             printfn $"\n============================\n=========ERROR==============\n{msg}\n============================\n\n"
             { model with error = Some msg }, Cmd.Empty
+        | ClearError ->
+            { model with error = None }, Cmd.Empty
         | Transform f -> { f model with error = None }, Cmd.Empty
         | Navigate url ->
             // if we send a command like OpenPage that sends a Navigate message, we don't want
@@ -110,15 +96,15 @@ module App =
                 |> Array.filter (fun r -> getId r <> id')
 
             let roster' = Array.append [|sheet|] roster'
-            LocalStorage.write roster'
+            LocalStorage.PCs.write roster'
             { model with roster = roster' }, Cmd.Empty
         | ClearRoster ->
             let roster' = Array.empty
-            LocalStorage.write roster'
+            LocalStorage.PCs.write roster'
             { model with roster = roster' }, Cmd.Empty
         | DeleteCharacter id ->
             let roster' = model.roster |> Array.filter (function Detail2e char -> char.id <> Some id | Detail5e char -> char.id <> Some id)
-            LocalStorage.write roster'
+            LocalStorage.PCs.write roster'
             { model with roster = roster' }, Cmd.Empty
         | GoHome ->
             { model with current = Home; error = None }, Navigate "/" |> Cmd.ofMsg
@@ -151,15 +137,19 @@ module App =
         | _ when model.error.IsSome ->
             class' Html.div "errorMsg" [
                 Html.div [Html.text model.error.Value]
-                Html.button [prop.text "Home"; prop.onClick (thunk1 dispatch GoHome)]
+                Html.button [prop.text "OK"; prop.onClick (thunk1 dispatch ClearError)]
+                Html.button [prop.text "Start over"; prop.onClick (thunk1 dispatch GoHome)]
                 ]
         | Page.Generate model ->
             Chargen.View.view model (chargenControl dispatch) (ChargenMsg >> dispatch)
         | Page.Adventure adventure ->
             let control = function
             | Adventure.SaveAndQuit ->
-                adventure.state.mainCharacter |> AddOrUpdateRoster |> dispatch
+                for char in adventure.state.mainCharacter::adventure.state.allies do
+                    char |> AddOrUpdateRoster |> dispatch
                 GoHome |> dispatch
+            | Adventure.Error msg ->
+                Error msg |> dispatch
             UI.Adventure.view adventure control (AdventureMsg >> dispatch)
         | _ ->
             Html.div [

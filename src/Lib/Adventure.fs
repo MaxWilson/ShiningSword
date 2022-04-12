@@ -1,6 +1,8 @@
 module Domain.Adventure
 open Domain.Character
 open Domain.Character.Universal
+open Domain.Ribbit.Operations
+open Domain.Ribbit.Operations.Treasure
 
 type Encounter = {
     description: string
@@ -23,16 +25,29 @@ type AdventureSpec = {
 
 type AdventureState = {
     mainCharacter: CharacterSheet
+    allies: Domain.Character.Universal.CharacterSheet list
     currentEncounter: OngoingEncounter option
     scheduledEncounters: Encounter list
-    ribbit: Ribbit.Types.State
+    ribbit: Ribbit.State
     }
 
+let loadCharacters (characters: CharacterSheet list) (adventureState: AdventureState) =
+    let addCharacter state' = function
+        | GenericCharacterSheet char ->
+            state {
+                let! id = addCharacterToRoster char.name
+                do! hpP.SetM(id, char.hp |> Array.sumBy(fun (lhs, rhs) -> lhs + rhs))
+                do! acP.SetM(id, char.ac)
+                }
+            |> runNoResult state'
+    { adventureState with ribbit = characters |> List.fold addCharacter adventureState.ribbit }
+
 let downtime sheet =
-    { mainCharacter = sheet; currentEncounter = None; scheduledEncounters = []; ribbit = Ribbit.Types.State.fresh }
+    { mainCharacter = sheet; allies = []; currentEncounter = None; scheduledEncounters = []; ribbit = Ribbit.State.fresh }
 
 let embark (spec: AdventureSpec) sheet =
-    { mainCharacter = sheet; currentEncounter = None; scheduledEncounters = spec.encounters; ribbit = Ribbit.Types.State.fresh }
+    { mainCharacter = sheet; allies = spec.allies; currentEncounter = None; scheduledEncounters = spec.encounters; ribbit = Ribbit.State.fresh }
+    |> loadCharacters (sheet::spec.allies)
 
 let finishAdventure (spec: AdventureSpec) state =
     let mainCharacter' =
@@ -70,7 +85,8 @@ let beginEncounter next rest state =
 
 let victory (encounter:OngoingEncounter) state =
     let sheet = state.mainCharacter
-    let xp, treasureDescription, sheet =
+    let divisor = 1 + state.allies.Length
+    let xp, gpReward, treasureDescription, state' =
         match sheet with
         | Detail2e sheet ->
             // XP rewards are different in AD&D vs. 5e
@@ -83,9 +99,11 @@ let victory (encounter:OngoingEncounter) state =
                     let monsterKind = Domain.Ribbit.Rules2e.monsterKinds[monsterKind]
                     monsterKind.lairTreasure@(List.replicate qty (monsterKind.treasureType) |> List.collect id)
                 encounter.monsters |> List.collect getTreasure
-                |> Domain.Ribbit.Operations.treasureValue
-            xpReward, treasureDescription, { sheet with xp = sheet.xp + xpReward * 1<xp>; wealth = sheet.wealth + gpReward } |> Detail2e
+                |> treasureValue
+            let reward (char: CharacterSheet) = char.map2e(fun char -> { char with xp = char.xp + (xpReward/divisor*1<xp>); wealth = char.wealth + (gpReward/divisor) })
+            xpReward, gpReward, treasureDescription, { state with mainCharacter = state.mainCharacter |> reward; allies = state.allies |> List.map reward }
         | Detail5e sheet ->
+            let divisor = 1 + state.allies.Length
             let xpReward =
                 let getReward(monsterKind, qty) =
                     Domain.Ribbit.Rules5e.monsterKinds[monsterKind].xp * qty
@@ -95,9 +113,15 @@ let victory (encounter:OngoingEncounter) state =
                     let monsterKind = Domain.Ribbit.Rules5e.monsterKinds[monsterKind]
                     monsterKind.lairTreasure@(List.replicate qty (monsterKind.treasureType) |> List.collect id)
                 encounter.monsters |> List.collect getTreasure
-                |> Domain.Ribbit.Operations.treasureValue
-            xpReward, treasureDescription, { sheet with xp = sheet.xp + xpReward * 1<xp>; wealth = sheet.wealth + gpReward} |> Detail5e
-    { state with mainCharacter = sheet }, $"You earn {xp} XP! As for material rewards... you find {treasureDescription}."
+                |> treasureValue
+            let reward (char: CharacterSheet) = char.map5e(fun char -> { char with xp = char.xp + (xpReward/divisor*1<xp>); wealth = char.wealth + (gpReward/divisor) })
+            xpReward, gpReward, treasureDescription, { state with mainCharacter = state.mainCharacter |> reward; allies = state.allies |> List.map reward }
+    if divisor = 1 then
+        state', $"You earn {xp} XP! As for material rewards... you find {treasureDescription}."
+    elif gpReward = 0<gp> then
+        state', $"You earn {xp} XP! ({xp/divisor} XP each.) As for material rewards... you find {treasureDescription}."
+    else
+        state', $"You earn {xp} XP! ({xp/divisor} XP each.) As for material rewards... you find {treasureDescription} and split it amongst yourselves ({gpReward/divisor} gp each)."
 
 let easy() =
     [

@@ -1,4 +1,4 @@
-module Domain.Ribbit.Types
+namespace Domain.Ribbit
 
 open Domain.Character
 type Id = int
@@ -18,51 +18,60 @@ and Scope = {
     }
     with static member fresh = { rows = Map.empty; biggestIdSoFar = None }
 
+and Affordance = {
+    name: Name
+    action: Id -> State -> State
+    }
+
 and State = {
     kindsOfMonsters: Map<Name, Id> // used for looking up kinds if necessary
     roster: Map<Name, Id> // actual creatures, by specific name like "Orc #1" or "Ugly Orc"
     categories: Map<Name, (Id*Name) list> // mapping from king like "Orc" to specific name. Used for generating unique specific names.
     scope: Scope
+    affordances: Map<Name, Affordance>
     }
-    with static member fresh = { scope = Scope.fresh; kindsOfMonsters = Map.empty; roster = Map.empty; categories = Map.empty }
+    with static member fresh = { scope = Scope.fresh; kindsOfMonsters = Map.empty; roster = Map.empty; categories = Map.empty; affordances = Map.empty }
 
-let private getFromScope (rowId: Id, propertyName: Name, defaultValue, getter) (scope:Scope) =
-    let rec recur rowId' =
-        match scope.rows with
-        | Lookup rowId' (Lookup propertyName value) -> getter value
-        | Lookup rowId' (Lookup "prototype" (Id id)) when id > 0 -> recur id
-        | _ -> defaultValue rowId scope
-    recur rowId
 
-let getFromState (rowId, propertyName, defaultValue, getter) (state: State) = getFromScope (rowId, propertyName, defaultValue, getter) state.scope
+module Ops =
+    let getFromScope (rowId: Id, propertyName: Name, defaultValue, getter) (scope:Scope) =
+        let rec recur rowId' =
+            match scope.rows with
+            | Lookup rowId' (Lookup propertyName value) -> getter value
+            | Lookup rowId' (Lookup "prototype" (Id id)) when id > 0 -> recur id
+            | _ -> defaultValue rowId scope
+        recur rowId
 
-let private setScope (rowId: Id, propertyName: Name, runtimeValue: RuntimeValue) (scope:Scope) =
-    let setProperty = function
-        | Some row -> Some (row |> Map.add propertyName runtimeValue)
-        | None -> Some (Map.ofList [propertyName, runtimeValue])
-    let data' = scope.rows |> Map.change rowId setProperty
-    { scope with rows = data' }
+    let getFromState (rowId, propertyName, defaultValue, getter) (state: State) = getFromScope (rowId, propertyName, defaultValue, getter) state.scope
 
-let private upsertScope (rowId: Id, propertyName: Name, upsert: RuntimeValue option -> RuntimeValue) (state:State) =
-    let scope = state.scope
-    let setProperty = function
-        | Some row -> Some (row |> Map.change propertyName (upsert >> Some))
-        | None ->
-            let inheritedValue = scope |> getFromScope(rowId, propertyName, (fun _ _ -> None), Some)
-            Some (Map.ofList [propertyName, upsert inheritedValue])
-    let data' = scope.rows |> Map.change rowId setProperty
-    { state with scope = { scope with rows = data' } }
+    let setScope (rowId: Id, propertyName: Name, runtimeValue: RuntimeValue) (scope:Scope) =
+        let setProperty = function
+            | Some row -> Some (row |> Map.add propertyName runtimeValue)
+            | None -> Some (Map.ofList [propertyName, runtimeValue])
+        let data' = scope.rows |> Map.change rowId setProperty
+        { scope with rows = data' }
 
-let updateScope (state: State) (f: Scope -> Scope) =
-    { state with scope = state.scope |> f }
+    let upsertScope (rowId: Id, propertyName: Name, upsert: RuntimeValue option -> RuntimeValue) (state:State) =
+        let scope = state.scope
+        let setProperty = function
+            | Some row -> Some (row |> Map.change propertyName (upsert >> Some))
+            | None ->
+                let inheritedValue = scope |> getFromScope(rowId, propertyName, (fun _ _ -> None), Some)
+                Some (Map.ofList [propertyName, upsert inheritedValue])
+        let data' = scope.rows |> Map.change rowId setProperty
+        { state with scope = { scope with rows = data' } }
 
-let private setState (rowId: Id, propertyName: Name, runtimeValue: RuntimeValue as args) (state:State) =
-    { state with scope = state.scope |> setScope args }
+    let updateScope (state: State) (f: Scope -> Scope) =
+        { state with scope = state.scope |> f }
 
-let hasValue (rowId, propertyName) (state:State) =
-    match state.scope.rows with
-    | Lookup rowId (Lookup propertyName _) -> true
-    | _ -> false
+    let setState (rowId: Id, propertyName: Name, runtimeValue: RuntimeValue as args) (state:State) =
+        { state with scope = state.scope |> setScope args }
+
+    let hasValue (rowId, propertyName) (state:State) =
+        match state.scope.rows with
+        | Lookup rowId (Lookup propertyName _) -> true
+        | _ -> false
+open Ops
 
 type NumberProperty(name, defaultValue) =
     interface Property with
@@ -71,8 +80,9 @@ type NumberProperty(name, defaultValue) =
         member this.HasValue(state, rowId) = hasValue (rowId, name) state
     new(name, defaultValue: int) = NumberProperty(name, fun _ _ -> defaultValue)
     member this.Name = name
-    member this.Set(rowId, value) (state: State)=
+    member this.Set(rowId, value) (state: State) =
         state |> setState (rowId, name, Number value)
+    member this.SetM(rowId, value) (state: State) = (), this.Set(rowId, value) state
     member this.Get(rowId) (state: State) =
         state |> getFromState (rowId, name, defaultValue, function Number n -> n | _ -> defaultValue rowId state.scope)
 
@@ -85,6 +95,7 @@ type BoolProperty(name, defaultValue) =
     member this.Name = name
     member this.Set(rowId, value) (state: State) =
         state |> setState (rowId, name, Bool value)
+    member this.SetM(rowId, value) (state: State) = (), this.Set(rowId, value) state
     member this.Get(rowId) (state: State) =
         state |> getFromState (rowId, name, defaultValue, function Bool b -> b | _ -> defaultValue rowId state.scope)
 
@@ -97,6 +108,7 @@ type RollProperty(name, defaultValue) =
     member this.Name = name
     member this.Set(rowId, value) (state: State) =
         state |> setState (rowId, name, Roll value)
+    member this.SetM(rowId, value) (state: State) = (), this.Set(rowId, value) state
     member this.Get(rowId) (state: State) =
         state |> getFromState (rowId, name, defaultValue, function Roll r -> r | _ -> defaultValue rowId state.scope)
 
@@ -116,6 +128,7 @@ type FlagsProperty<'t>(name, defaultValue) =
                 else set |> Set.filter ((<>) target) |> Flags
             | _ -> (if value then [target] else []) |> Set.ofList |> Flags
             )
+    member this.SetM(rowId, targetFlag, value) (state: State) = (), this.Set(rowId, targetFlag, value) state
     member this.Get(rowId, targetFlag:'t) (state: State) =
         let target = targetFlag.ToString()
         state |> getFromState (rowId, name, defaultValue, function Flags set -> set.Contains target | _ -> defaultValue rowId state.scope)
@@ -129,6 +142,7 @@ type IdProperty(name, defaultValue) =
     member this.Name = name
     member this.Set(rowId, value) (state: State) =
         state |> setState (rowId, name, Id value)
+    member this.SetM(rowId, value) (state: State) = (), this.Set(rowId, value) state
     member this.Get(rowId) (state: State) =
         state |> getFromState (rowId, name, defaultValue, function Id n -> n | _ -> defaultValue rowId state.scope)
 
@@ -141,6 +155,7 @@ type TextProperty(name, defaultValue) =
     member this.Name = name
     member this.Set(rowId, value) (state: State) =
         state |> setState (rowId, name, Text value)
+    member this.SetM(rowId, value) (state: State) = (), this.Set(rowId, value) state
     member this.Get(rowId) (state: State) =
         state |> getFromState (rowId, name, defaultValue, function Text t -> t | _ -> defaultValue rowId state.scope)
 

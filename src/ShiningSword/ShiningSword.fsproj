@@ -6,6 +6,7 @@
         <Compile Include="Scripts\Scratch.fsx" />
         <None Include="sass\main.sass" />
         <None Include="UI\index.html" />
+        <Compile Include="UI\LocalStorage.fs" />
         <Compile Include="UI\DragDrop.fs" />
         <Compile Include="UI\Konva.fs" />
         <Compile Include="UI\Chargen.fs" />

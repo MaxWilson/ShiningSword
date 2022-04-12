@@ -1,5 +1,5 @@
 module Domain.Ribbit.Rules5e
-open Domain.Ribbit.Types
+open Domain.Ribbit
 open Domain.Ribbit.Operations
 open Domain.Character
 open Domain.Character.DND5e

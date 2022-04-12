@@ -189,7 +189,7 @@ html, body
     margin: 2px
     display: grid
     grid-template-columns: [left-edge] 10em 1fr 1fr 1fr 1fr [right-edge]
-    grid-template-rows: [header-start]1.2em 1.2em [header-end middle-start] 1.2em 1.2em [stat-start stat1]1.2em [stat2]1.2em [stat3]1.2em [stat4]1.2em [stat5]1.2em [stat6]1.2em [stat7]auto [statControl] auto [stat-end middle-end choice-start footer-start] auto [choice-end finalize] auto 1fr [footer-end]
+    grid-template-rows: [header-start]1.2em 1.2em [header-end middle-start] 1.2em 1.2em [stat-start stat1]1.2em [stat2]1.2em [stat3]1.2em [stat4]1.2em [stat5]1.2em [stat6]1.2em [stat7]auto [statControl] auto [stat-end middle-end footer-start] auto [finalize] auto 1fr [footer-end]
     gap: 0px 0px
     grid-auto-flow: row
     user-select: none
@@ -235,6 +235,12 @@ html, body
         grid-row: stat5
     .statCha
         grid-row: stat6
+    .summaryTable
+        grid-column: left-edge/right-edge
+        grid-row: footer-start
+        border: 1px solid black
+        td, th
+            border: 1px solid black
     .finalize
         grid-column: left-edge/right-edge
         grid-row: finalize

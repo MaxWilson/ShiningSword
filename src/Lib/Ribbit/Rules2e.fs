@@ -1,5 +1,5 @@
 module Domain.Ribbit.Rules2e
-open Domain.Ribbit.Types
+open Domain.Ribbit
 open Domain.Ribbit.Operations
 open Domain.Character
 open Domain.Character.ADND2nd

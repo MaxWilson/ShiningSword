@@ -359,7 +359,6 @@ module View =
     type Ruleset = TSR | WotC
     type Model = {
         draft: Draft option
-        export: Universal.CharacterSheet option
         method: ChargenMethod
         editMode: TextEditMode
         ruleset: Ruleset
@@ -382,11 +381,9 @@ module View =
         | Toggle5ETrait of head:DND5e.Trait * choiceIx: int * decisionIx: int
         | SetEditMode of TextEditMode
         | SetRuleset of Ruleset
-        | FinalizeCharacterSheet of Universal.CharacterSheet
     let rec init _ =
         {
             draft = None
-            export = None
             method = ChargenMethod.ADND.Head
             editMode = NotEditingText
             ruleset = Ruleset.TSR
@@ -394,7 +391,7 @@ module View =
     and reroll model =
         let traits = if model.ruleset = TSR then Detail2e Map.empty else Detail5e Map.empty
         let char = create traits model.method.info.f
-        { model with draft = Some char; export = None }
+        { model with draft = Some char }
     let update cmd informParent msg model =
         match msg with
         | Reroll ->
@@ -432,8 +429,6 @@ module View =
             let toggle (draft:Draft) =
                 { draft with decisions = draft.decisions.map2e (toggleTrait(rules2e, head, choiceIx, decisionIx)) }
             { model with draft = model.draft |> Option.map toggle }, Cmd.Empty
-        | FinalizeCharacterSheet sheet ->
-            { model with export = Some sheet }, Cmd.Empty
 
     let getPercentile =
         // for a given stat like 18, how many people have a lower stat?
@@ -692,179 +687,171 @@ module View =
         let describe = describe model dispatch
         class' Html.div "charGen" [
             class' Html.div "header" [
-                if model.export.IsNone then
-                    match model.ruleset with
-                    | Ruleset.TSR ->
-                        Html.text "Create a character for Advanced Dungeons and Dragons!"
-                    | Ruleset.WotC ->
-                        Html.text "Create a character for Fifth Edition Dungeons and Dragons!"
-                    for ix, ruleset in [Ruleset.TSR; Ruleset.WotC] |> List.mapi tuple2 do
-                        let name = match ruleset with Ruleset.TSR -> "AD&D" | _ -> "5th Edition"
-                        // there's probably a better way to navigate/set the URL...
-                        Html.input [prop.type'.checkbox; prop.ariaChecked (model.ruleset = ruleset); prop.isChecked (model.ruleset = ruleset); prop.id name; prop.onClick (fun _ -> SetRuleset ruleset |> dispatch); prop.readOnly true]
-                        Html.label [prop.htmlFor name; prop.text name]
+                match model.ruleset with
+                | Ruleset.TSR ->
+                    Html.text "Create a character for Advanced Dungeons and Dragons!"
+                | Ruleset.WotC ->
+                    Html.text "Create a character for Fifth Edition Dungeons and Dragons!"
+                for ix, ruleset in [Ruleset.TSR; Ruleset.WotC] |> List.mapi tuple2 do
+                    let name = match ruleset with Ruleset.TSR -> "AD&D" | _ -> "5th Edition"
+                    // there's probably a better way to navigate/set the URL...
+                    Html.input [prop.type'.checkbox; prop.ariaChecked (model.ruleset = ruleset); prop.isChecked (model.ruleset = ruleset); prop.id name; prop.onClick (fun _ -> SetRuleset ruleset |> dispatch); prop.readOnly true]
+                    Html.label [prop.htmlFor name; prop.text name]
                 class' Html.div "controls" [
                     Html.button [prop.text "Cancel"; prop.onClick(fun _ -> Cancel |> control)]
                     ]
                 ]
-            match model.export with
-            | Some sheet ->
-                yield! viewCharacter sheet
-                class' Html.div "finalize" [
-                    Html.button [prop.text "Begin adventure"; prop.onClick (thunk1 control (BeginAdventuring sheet))]
-                    Html.button [prop.text "Save and quit"; prop.onClick (thunk1 control (SaveAndQuit sheet))]
-                    ]
-            | None ->
-                match model.draft with
-                | Some draft ->
-                    Html.section [prop.className "prettyMiddle"]
-                    class' Html.div "characterHeader" [
-                        class' Html.div "title" [
-                            match model.editMode with
-                            | NotEditingText ->
-                                Html.span [
-                                    prop.text draft.name;
-                                    prop.onClick (thunk1 dispatch (SetEditMode EditingName))
-                                    ]
-                            | EditingName ->
-                                Html.input [
-                                    prop.value draft.name;
-                                    prop.onChange (fun (txt:string) -> SetName txt |> dispatch)
-                                    prop.onKeyDown (fun ev -> if ev.code = "Enter" then SetEditMode NotEditingText |> dispatch); prop.onBlur (fun ev -> SetEditMode NotEditingText |> dispatch)                                    ]
 
-                            if draft.nationalOrigin <> "" then
-                                Html.text $" from {draft.nationalOrigin}"
-                            ]
+            match model.draft with
+            | Some draft ->
+                Html.section [prop.className "prettyMiddle"]
+                class' Html.div "characterHeader" [
+                    class' Html.div "title" [
+                        match model.editMode with
+                        | NotEditingText ->
+                            Html.span [
+                                prop.text draft.name;
+                                prop.onClick (thunk1 dispatch (SetEditMode EditingName))
+                                ]
+                        | EditingName ->
+                            Html.input [
+                                prop.value draft.name;
+                                prop.onChange (fun (txt:string) -> SetName txt |> dispatch)
+                                prop.onKeyDown (fun ev -> if ev.code = "Enter" then SetEditMode NotEditingText |> dispatch); prop.onBlur (fun ev -> SetEditMode NotEditingText |> dispatch)                                    ]
+
+                        if draft.nationalOrigin <> "" then
+                            Html.text $" from {draft.nationalOrigin}"
                         ]
-                    class' Html.div "chooseSex" [
-                        for sex in [Male; Female] do
-                            let id = sex.ToString()
-                            Html.input [prop.type'.radio; prop.ariaChecked (draft.sex = sex); prop.isChecked (draft.sex = sex); prop.id id; prop.onClick (fun _ -> SetSex sex |> dispatch); prop.readOnly true]
-                            Html.label [prop.htmlFor id; prop.text id]
-                        ]
-                    let preracialStatMods =
-                        let allocations = draft.allocations |> Array.choose (function (value, Some stat) -> Some (stat, value) | _ -> None) |> List.ofArray
+                    ]
+                class' Html.div "chooseSex" [
+                    for sex in [Male; Female] do
+                        let id = sex.ToString()
+                        Html.input [prop.type'.radio; prop.ariaChecked (draft.sex = sex); prop.isChecked (draft.sex = sex); prop.id id; prop.onClick (fun _ -> SetSex sex |> dispatch); prop.readOnly true]
+                        Html.label [prop.htmlFor id; prop.text id]
+                    ]
+                let preracialStatMods =
+                    let allocations = draft.allocations |> Array.choose (function (value, Some stat) -> Some (stat, value) | _ -> None) |> List.ofArray
+                    match draft.mode with
+                    | CumulativeFrom(min, _) -> Stat.All |> List.map (fun stat -> stat, min) |> List.append allocations
+                    | _ -> allocations
+                let preracialStatAssignments: Map<Stat, int> = addUpStats preracialStatMods
+                let statsAndTraits =
+                    let addStat n = function
+                        | Some current -> current + n |> Some
+                        | None -> Some n
+                    match draft.decisions with
+                    | Detail5e decisions ->
+                        let preracialTraits = decisions |> collect rules5e [Trait5e.PC] preracialStatAssignments
+                        let racialStatMods = preracialTraits |> List.choose(function Trait5e.StatMod(stat, delta) -> Some (stat, delta) | _ -> None)
+                        let postRacialStatAssignments = racialStatMods |> Seq.fold (fun map (stat, n) -> map |> Map.change stat (addStat n)) preracialStatAssignments
+                        Detail5e {| decisions = decisions; ctx = postRacialStatAssignments; traits = decisions |> collect rules5e [Trait5e.PC] postRacialStatAssignments |}
+                    | Detail2e decisions ->
+                        let preracialTraits = decisions |> collect rules2e [Trait2e.PC] { preracialStats = preracialStatAssignments; postracialStats = Map.empty }
+                        let racialStatMods = preracialTraits |> List.choose(function Trait2e.StatMod(stat, delta) -> Some (stat, delta) | _ -> None)
+                        let postRacialStatAssignments = racialStatMods |> Seq.fold (fun map (stat, n) -> map |> Map.change stat (addStat n)) preracialStatAssignments
+                        let ctx : PreconditionContext2e = { preracialStats = preracialStatAssignments; postracialStats = postRacialStatAssignments }
+                        Detail2e {| decisions = decisions; ctx = ctx; traits = decisions |> collect rules2e [Trait2e.PC] ctx |}
+                for stat in Stat.All do
+                    match statsAndTraits.converge((fun d -> d.ctx.postracialStats),(fun d -> d.ctx)) |> Map.tryFind stat with
+                    | Some v -> describe stat (Some v)
+                    | None ->
+                        describe stat None
+                Html.div [
+                    // try to keep layout height consistent--I'm sure there's a better way
+                    if draft.mode = InOrder then prop.classes ["statRolls";"hide"] else prop.className "statRolls"
+                    prop.children [
                         match draft.mode with
-                        | CumulativeFrom(min, _) -> Stat.All |> List.map (fun stat -> stat, min) |> List.append allocations
-                        | _ -> allocations
-                    let preracialStatAssignments: Map<Stat, int> = addUpStats preracialStatMods
-                    let statsAndTraits =
-                        let addStat n = function
-                            | Some current -> current + n |> Some
-                            | None -> Some n
-                        match draft.decisions with
-                        | Detail5e decisions ->
-                            let preracialTraits = decisions |> collect rules5e [Trait5e.PC] preracialStatAssignments
-                            let racialStatMods = preracialTraits |> List.choose(function Trait5e.StatMod(stat, delta) -> Some (stat, delta) | _ -> None)
-                            let postRacialStatAssignments = racialStatMods |> Seq.fold (fun map (stat, n) -> map |> Map.change stat (addStat n)) preracialStatAssignments
-                            Detail5e {| decisions = decisions; ctx = postRacialStatAssignments; traits = decisions |> collect rules5e [Trait5e.PC] postRacialStatAssignments |}
-                        | Detail2e decisions ->
-                            let preracialTraits = decisions |> collect rules2e [Trait2e.PC] { preracialStats = preracialStatAssignments; postracialStats = Map.empty }
-                            let racialStatMods = preracialTraits |> List.choose(function Trait2e.StatMod(stat, delta) -> Some (stat, delta) | _ -> None)
-                            let postRacialStatAssignments = racialStatMods |> Seq.fold (fun map (stat, n) -> map |> Map.change stat (addStat n)) preracialStatAssignments
-                            let ctx : PreconditionContext2e = { preracialStats = preracialStatAssignments; postracialStats = postRacialStatAssignments }
-                            Detail2e {| decisions = decisions; ctx = ctx; traits = decisions |> collect rules2e [Trait2e.PC] ctx |}
-                    for stat in Stat.All do
-                        match statsAndTraits.converge((fun d -> d.ctx.postracialStats),(fun d -> d.ctx)) |> Map.tryFind stat with
-                        | Some v -> describe stat (Some v)
-                        | None ->
-                            describe stat None
-                    Html.div [
-                        // try to keep layout height consistent--I'm sure there's a better way
-                        if draft.mode = InOrder then prop.classes ["statRolls";"hide"] else prop.className "statRolls"
-                        prop.children [
-                            match draft.mode with
-                            | PointBuy ->
-                                Html.span [prop.text "Points remaining"; prop.className "label"]
-                                let total = draft.allocations |> Array.sumBy (function (n, None) -> n | _ -> 0)
-                                class' Html.span "roll" [Html.div [prop.text (total.ToString()); prop.className "value"]]
-                            | _ ->
-                                Html.span [prop.text "Unassigned (drag and drop)"; prop.className "label"]
-                                for ix, (roll, stat) in draft.allocations |> Array.mapi tuple2 do
-                                    match stat with
-                                    | None ->
-                                        Html.span [
-                                            prop.className "roll"
-                                            prop.children [
-                                                DragDrop.container [
-                                                    ddprop.targetKey "stats"
-                                                    ddprop.onDrop(fun e ->
-                                                        match e.dropData with
-                                                        | Some(:? Stat as stat) ->
-                                                            AssignRoll(ix, stat) |> dispatch
-                                                        | _ -> ())
-                                                    ddprop.children [
-                                                        Html.text roll
-                                                        ]
+                        | PointBuy ->
+                            Html.span [prop.text "Points remaining"; prop.className "label"]
+                            let total = draft.allocations |> Array.sumBy (function (n, None) -> n | _ -> 0)
+                            class' Html.span "roll" [Html.div [prop.text (total.ToString()); prop.className "value"]]
+                        | _ ->
+                            Html.span [prop.text "Unassigned (drag and drop)"; prop.className "label"]
+                            for ix, (roll, stat) in draft.allocations |> Array.mapi tuple2 do
+                                match stat with
+                                | None ->
+                                    Html.span [
+                                        prop.className "roll"
+                                        prop.children [
+                                            DragDrop.container [
+                                                ddprop.targetKey "stats"
+                                                ddprop.onDrop(fun e ->
+                                                    match e.dropData with
+                                                    | Some(:? Stat as stat) ->
+                                                        AssignRoll(ix, stat) |> dispatch
+                                                    | _ -> ())
+                                                ddprop.children [
+                                                    Html.text roll
                                                     ]
                                                 ]
                                             ]
-                                    | Some _ ->
-                                        class' Html.span "roll" [Html.span [prop.text "0"; prop.classes ["hide";"value"]]]
-                            ]
+                                        ]
+                                | Some _ ->
+                                    class' Html.span "roll" [Html.span [prop.text "0"; prop.classes ["hide";"value"]]]
                         ]
-                    class' Html.div "rollingMethods" [
-                        Html.button [
-                            prop.text "Reroll"
-                            prop.onClick (thunk1 dispatch Reroll)
-                            ]
-
-                        let allowedRollingMethods = if model.ruleset = Ruleset.TSR then ChargenMethod.ADND else ChargenMethod.DND5e
-                        for ix, method in allowedRollingMethods |> List.mapi tuple2 do
-                            Html.div [
-                                Html.input [prop.type'.radio; prop.ariaChecked (model.method = method); prop.isChecked (model.method = method); prop.id method.info.name'; prop.onClick (fun _ -> method |> SetMethod |> dispatch); prop.readOnly true]
-                                Html.label [prop.htmlFor method.info.name'; prop.text method.info.name']
-                                ]
+                    ]
+                class' Html.div "rollingMethods" [
+                    Html.button [
+                        prop.text "Reroll"
+                        prop.onClick (thunk1 dispatch Reroll)
                         ]
 
-                    let display (lst: (_ * ReactElement) list) =
-                        let chosen = lst |> List.choose (fun (pri, e) -> if pri = Resolved then Some e else None)
-                        let traits = lst |> List.choose (fun (pri, e) -> if pri = Fixed then Some e else None)
-                        let choice = lst |> List.choose (fun (pri, e) -> if pri = Open then Some e else None)
-                        [
-                            if chosen.Length > 0 then
-                                class' Html.div "chosen" chosen
-                            if traits.Length > 0 then
-                                class' Html.div "traits" traits
-                            for element in choice do
-                                element
+                    let allowedRollingMethods = if model.ruleset = Ruleset.TSR then ChargenMethod.ADND else ChargenMethod.DND5e
+                    for ix, method in allowedRollingMethods |> List.mapi tuple2 do
+                        Html.div [
+                            Html.input [prop.type'.radio; prop.ariaChecked (model.method = method); prop.isChecked (model.method = method); prop.id method.info.name'; prop.onClick (fun _ -> method |> SetMethod |> dispatch); prop.readOnly true]
+                            Html.label [prop.htmlFor method.info.name'; prop.text method.info.name']
                             ]
-                    let makeOrigin s = { ruleSystem = s; nationalOrigin = draft.nationalOrigin; startingLevel = 1; statRollMethod = model.method.info.name' }
-                    match statsAndTraits with
-                    | Detail5e d ->
-                        let traits, ctx, decisions = d.traits, d.ctx, d.decisions
-                        let roots = [Trait5e.PC]
-                        let rules = DND5e.rules
-                        let exceptStatMods = function Trait5e.StatMod _ -> false | _ -> true
-                        let toReact = describeChoiceInReact exceptStatMods dispatch Toggle5ETrait DND5e.describeTrait (traits |> Set.ofSeq, ctx)
-                        let traitsForDisplay = decisions |> summarize toReact rules roots ctx
-                        class' Html.div "chooseTraits" [
-                            yield! (traitsForDisplay |> display)
+                    ]
+
+                let display (lst: (_ * ReactElement) list) =
+                    let chosen = lst |> List.choose (fun (pri, e) -> if pri = Resolved then Some e else None)
+                    let traits = lst |> List.choose (fun (pri, e) -> if pri = Fixed then Some e else None)
+                    let choice = lst |> List.choose (fun (pri, e) -> if pri = Open then Some e else None)
+                    [
+                        if chosen.Length > 0 then
+                            class' Html.div "chosen" chosen
+                        if traits.Length > 0 then
+                            class' Html.div "traits" traits
+                        for element in choice do
+                            element
+                        ]
+                let makeOrigin s = { ruleSystem = s; nationalOrigin = draft.nationalOrigin; startingLevel = 1; statRollMethod = model.method.info.name' }
+                match statsAndTraits with
+                | Detail5e d ->
+                    let traits, ctx, decisions = d.traits, d.ctx, d.decisions
+                    let roots = [Trait5e.PC]
+                    let rules = DND5e.rules
+                    let exceptStatMods = function Trait5e.StatMod _ -> false | _ -> true
+                    let toReact = describeChoiceInReact exceptStatMods dispatch Toggle5ETrait DND5e.describeTrait (traits |> Set.ofSeq, ctx)
+                    let traitsForDisplay = decisions |> summarize toReact rules roots ctx
+                    class' Html.div "chooseTraits" [
+                        yield! (traitsForDisplay |> display)
+                        ]
+                    match draft with
+                    | CharacterSheet5E ctx makeOrigin sheet when (traitsForDisplay |> List.exists(fun (pri, e) -> pri = Open) |> not) ->
+                        class' Html.div "finalize" [
+                            Html.button [prop.text "OK"; prop.onClick (fun _ -> Universal.Detail5e sheet |> BeginAdventuring |> control)]
                             ]
+                    | _ -> ()
+
+                | Detail2e d ->
+                    let traits, ctx, decisions = d.traits, d.ctx, d.decisions
+                    let roots = [Trait2e.PC]
+                    let rules = ADND2nd.rules
+                    let exceptStatMods = function Trait2e.StatMod _ -> false | _ -> true
+                    let toReact = describeChoiceInReact exceptStatMods dispatch ToggleADNDTrait ADND2nd.describeTrait (traits |> Set.ofSeq, ctx)
+                    let traitsForDisplay = decisions |> summarize toReact rules [Trait2e.PC] ctx
+                    class' Html.div "chooseTraits" [
+                        yield! (traitsForDisplay |> display)
+                        ]
+                    if (traitsForDisplay |> List.exists(fun (pri, e) -> pri = Open) |> not) then
                         match draft with
-                        | CharacterSheet5E ctx makeOrigin sheet when (traitsForDisplay |> List.exists(fun (pri, e) -> pri = Open) |> not) ->
+                        | CharacterSheet2E ctx makeOrigin sheet ->
                             class' Html.div "finalize" [
-                                Html.button [prop.text "OK"; prop.onClick (fun _ -> Universal.Detail5e sheet |> FinalizeCharacterSheet |> dispatch)]
+                                Html.button [prop.text "OK"; prop.onClick (fun _ -> Universal.Detail2e sheet |> BeginAdventuring |> control)]
                                 ]
                         | _ -> ()
 
-                    | Detail2e d ->
-                        let traits, ctx, decisions = d.traits, d.ctx, d.decisions
-                        let roots = [Trait2e.PC]
-                        let rules = ADND2nd.rules
-                        let exceptStatMods = function Trait2e.StatMod _ -> false | _ -> true
-                        let toReact = describeChoiceInReact exceptStatMods dispatch ToggleADNDTrait ADND2nd.describeTrait (traits |> Set.ofSeq, ctx)
-                        let traitsForDisplay = decisions |> summarize toReact rules [Trait2e.PC] ctx
-                        class' Html.div "chooseTraits" [
-                            yield! (traitsForDisplay |> display)
-                            ]
-                        if (traitsForDisplay |> List.exists(fun (pri, e) -> pri = Open) |> not) then
-                            match draft with
-                            | CharacterSheet2E ctx makeOrigin sheet ->
-                                class' Html.div "finalize" [
-                                    Html.button [prop.text "OK"; prop.onClick (fun _ -> Universal.Detail2e sheet |> FinalizeCharacterSheet |> dispatch)]
-                                    ]
-                            | _ -> ()
-
-                | None -> ()
+            | None -> ()
             ]

@@ -156,7 +156,7 @@ module ADND2nd =
         preracialStats: Map<Stat, int>
         postracialStats: Map<Stat, int>
         }
-    let precondition pattern (head, options) =
+    let precondition pattern (head, options: Choice<_,_>) =
         head, { options with preconditions = Some(fun (trait1, ctx: (Trait Set * PreconditionContext)) -> pattern (trait1, ctx)) }
     let preracialStatMin (prereqs: (Stat * int) list) (traits: Trait Set, ctx: PreconditionContext) =
         prereqs |> List.every (fun (stat, minimum) -> ctx.preracialStats |> Map.containsKey stat && ctx.preracialStats[stat] >= minimum)
@@ -278,6 +278,8 @@ module ADND2nd =
         | Cleric | Psionicist | Priest | Druid -> if lvl <= 9 then d 8, conBonus else 2, 0
         | Thief | Bard -> if lvl <= 10 then d 6, conBonus else 2, 0
         | Wizard -> if lvl <= 10 then d 4, conBonus else 1, 0
+        // you should never have zero HP at first level or you'd be dead already
+        |> function (hp,bonus) when hp + bonus <= 0 && lvl = 1 -> hp, (-hp + 1) | otherwise -> otherwise
 
     let describeTrait = function
         | StatMod(stat, n) ->
@@ -397,7 +399,7 @@ module DND5e =
     let races = [Human; Elf; Dwarf; Goblin]
     let feats = [GreatWeaponMaster;PolearmMaster;Sharpshooter;CrossbowExpert;Tough;Lucky;Mobile;ModeratelyArmored;HeavyArmorMaster]
     type PreconditionContext = Map<Stat, int>
-    let precondition pattern (head, options) =
+    let precondition pattern (head, options: Choice<_,_>) =
         head, { options with preconditions = Some(fun (trait1, (traits, ctx: PreconditionContext)) -> pattern (trait1, (traits, ctx))) }
     let statMin (prereqs: (Stat * int) list) (_, stats: PreconditionContext) =
         prereqs |> List.every (fun (stat, minimum) -> stats[stat] >= minimum)
@@ -529,8 +531,8 @@ module Universal =
     let rules2e: DerivationRules<Trait2e,PreconditionContext2e> = ADND2nd.rules
     let rules5e: DerivationRules<Trait5e,PreconditionContext5e> = DND5e.rules
     let (|GenericCharacterSheet|) = function
-        | Detail2e (char: ADND2nd.CharacterSheet) -> {| name = char.name; Str = char.Str; Dex = char.Dex; Con = char.Con; Int = char.Int; Wis = char.Wis; Cha = char.Cha; origin = char.origin; sex = char.sex; exceptionalStrength = char.exceptionalStrength |}
-        | Detail5e (char: DND5e.CharacterSheet) -> {| name = char.name; Str = char.Str; Dex = char.Dex; Con = char.Con; Int = char.Int; Wis = char.Wis; Cha = char.Cha; origin = char.origin; sex = char.sex; exceptionalStrength = None |}
+        | Detail2e (char: ADND2nd.CharacterSheet) -> {| name = char.name; Str = char.Str; Dex = char.Dex; Con = char.Con; Int = char.Int; Wis = char.Wis; Cha = char.Cha; origin = char.origin; sex = char.sex; exceptionalStrength = char.exceptionalStrength; hp = char.hp; ac = char.ac |}
+        | Detail5e (char: DND5e.CharacterSheet) -> {| name = char.name; Str = char.Str; Dex = char.Dex; Con = char.Con; Int = char.Int; Wis = char.Wis; Cha = char.Cha; origin = char.origin; sex = char.sex; exceptionalStrength = None; hp = char.hp; ac = char.ac |}
 
 let rec makeName(sex: Sex) =
     let nationOfOrigin = chooseRandom ["Tir na n'Og"; "Abysia"; "Kailasa"; "Ermor"; "Undauntra"; "Arboria"; "Mordor"]
