@@ -96,7 +96,7 @@ let victory (encounter:OngoingEncounter) state =
                     monsterKind.lairTreasure@(List.replicate qty (monsterKind.treasureType) |> List.collect id)
                 encounter.monsters |> List.collect getTreasure
                 |> Domain.Ribbit.Operations.treasureValue
-            xpReward, treasureDescription, { sheet with xp = sheet.xp + xpReward * 1<xp> } |> Detail5e
+            xpReward, treasureDescription, { sheet with xp = sheet.xp + xpReward * 1<xp>; wealth = sheet.wealth + gpReward} |> Detail5e
     { state with mainCharacter = sheet }, $"You earn {xp} XP! As for material rewards... you find {treasureDescription}."
 
 let easy() =
