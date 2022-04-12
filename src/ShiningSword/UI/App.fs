@@ -101,7 +101,7 @@ module App =
                 match getId characterSheet with
                 | Some id -> Some id, characterSheet
                 | None ->
-                    let id' = model.roster |> Array.map (getId >> Option.get) |> Array.fold max 0 |> Some
+                    let id' = model.roster |> Array.map (getId >> Option.get) |> Array.fold max 0 |> (+) 1 |> Some
                     id', characterSheet.map2e(fun c -> { c with id = id' }).map5e(fun c -> { c with id = id' })
 
             // recent updated entries should be at the head of the list, so filter and then re-add at front
