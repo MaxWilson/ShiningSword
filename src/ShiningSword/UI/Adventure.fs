@@ -90,10 +90,10 @@ let view model control dispatch =
                 ribbit.roster |> Map.toList
                 |> List.sortBy(function
                     name, id ->
-                        // friendlies first, then enemies; living before dead; otherwise alphabetical
+                        // friendlies first, then enemies; living before dead; otherwise in order of creation
                         let isFriendly = friendlies |> List.contains name
                         let isAlive = (hpP.Get id ribbit) >= 0
-                        not isFriendly, not isAlive, name)
+                        not isFriendly, not isAlive, id)
             let columns = [
                 {| title = "Name"; render = get personalNameP.Get |}
                 {| title = "HP"; render = get hpP.Get |}
