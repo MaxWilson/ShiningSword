@@ -8,11 +8,16 @@ open Domain.Ribbit
 type Encounter = {
     description: string
     monsters: (Name * RollSpec option) list
+    inLair: bool
     }
+    with
+    static member wandering description monsters = { description = description; monsters = monsters; inLair = false }
+    static member lair description monsters = { description = description; monsters = monsters; inLair = true }
 
 type OngoingEncounter = {
     monsters: (Name * int) list
     outcome: FightResult
+    inLair: bool
     }
 
 type AdventureSpec = {
@@ -95,6 +100,7 @@ let toOngoing (encounter:Encounter) =
         monsters = encounter.monsters
             |> List.map rollQty
         outcome = Ongoing
+        inLair = encounter.inLair
     }
 
 let beginEncounter (next: OngoingEncounter) rest (adventureState: AdventureState) =
@@ -123,7 +129,7 @@ let victory (encounter:OngoingEncounter) state =
             let gpReward, treasureDescription =
                 let getTreasure(monsterKind, qty) =
                     let monsterKind = Domain.Ribbit.Rules2e.monsterKinds[monsterKind]
-                    monsterKind.lairTreasure@(List.replicate qty (monsterKind.treasureType) |> List.collect id)
+                    (if encounter.inLair then monsterKind.lairTreasure else [])@(List.replicate qty (monsterKind.treasureType) |> List.collect id)
                 encounter.monsters |> List.collect getTreasure
                 |> treasureValue
             let reward (char: CharacterSheet) = char.map2e(fun char -> { char with xp = char.xp + (xpReward/divisor*1<xp>); wealth = char.wealth + (gpReward/divisor) })
@@ -137,7 +143,7 @@ let victory (encounter:OngoingEncounter) state =
             let gpReward, treasureDescription =
                 let getTreasure(monsterKind, qty) =
                     let monsterKind = Domain.Ribbit.Rules5e.monsterKinds[monsterKind]
-                    monsterKind.lairTreasure@(List.replicate qty (monsterKind.treasureType) |> List.collect id)
+                    (if encounter.inLair then monsterKind.lairTreasure else [])@(List.replicate qty (monsterKind.treasureType) |> List.collect id)
                 encounter.monsters |> List.collect getTreasure
                 |> treasureValue
             let reward (char: CharacterSheet) = char.map5e(fun char -> { char with xp = char.xp + (xpReward/divisor*1<xp>); wealth = char.wealth + (gpReward/divisor) })
@@ -176,34 +182,26 @@ let easy() =
     AdventureSpec.fresh
         "You hire on as a caravan guard."
         [
-            {
-                description = "One night, kobolds attack! Your fellow guards cravenly flee but you fight bravely."
-                monsters = ["Kobold", Some (RollSpec.create(1,3))]
-                }
+            Encounter.wandering "One night, kobolds attack! Your fellow guards cravenly flee but you fight bravely."
+                ["Kobold", Some (RollSpec.create(1,3))]
             ]
     AdventureSpec.fresh
         "You go to visit your brother."
         [
-            {
-                description = "You are attacked by wolves on the Connecticut turnpike!"
-                monsters = ["Wolf", Some (RollSpec.create(1,2))]
-                }
+            Encounter.wandering "You are attacked by wolves on the Connecticut turnpike!"
+                ["Wolf", Some (RollSpec.create(1,2))]
             ]
     AdventureSpec.fresh
         "You go on a safari hunting antelopes in the Pridelands."
         [
-            {
-                description = "Vicious jackals attack you!"
-                monsters = ["Jackal", Some (RollSpec.create(1,4,1))]
-                }
+            Encounter.wandering "Vicious jackals attack you!"
+                ["Jackal", Some (RollSpec.create(1,4,1))]
             ]
     AdventureSpec.fresh
         "Weird noises are coming from a widow's back yard."
         [
-            {
-                description = "When you enter the yard, rabid porcupines attack!"
-                monsters = ["Porcupine", Some (RollSpec.create(1,2,1))]
-                }
+            Encounter.lair "When you enter the yard, rabid porcupines attack!"
+                ["Porcupine", Some (RollSpec.create(1,2,1))]
             ]
     ]
     |> chooseRandom
@@ -213,50 +211,44 @@ let hard() =
     AdventureSpec.fresh
         "You hire on as a caravan guard."
         [
-            {
-                description = "One night, kobolds attack! Your fellow guards betray you and fight with the kobolds!"
-                monsters = ["Kobold", Some (RollSpec.create(2,6)); "Guard", Some(RollSpec.create(1,4))]
-                }
+            Encounter.wandering "One night, kobolds attack! Your fellow guards betray you and fight with the kobolds!"
+                ["Kobold", Some (RollSpec.create(2,6)); "Guard", Some(RollSpec.create(1,4))]
             ]
     AdventureSpec.fresh
         "You hire on as a caravan guard."
         [
-            {
-                description = "One night, hobgoblins attack! Your fellow guards cravenly flee but you fight bravely."
-                monsters = ["Hobgoblin", Some (RollSpec.create(2,6))]
-                }
+            Encounter.wandering "One night, kobolds attack! Your fellow guards betray you and fight with the kobolds!"
+                ["Kobold", Some (RollSpec.create(2,6)); "Guard", Some(RollSpec.create(1,4))]
+            ]
+    AdventureSpec.fresh
+        "You hire on as a caravan guard."
+        [
+            Encounter.wandering "One night, hobgoblins attack! Your fellow guards cravenly flee but you fight bravely."
+                ["Hobgoblin", Some (RollSpec.create(2,6))]
             ]
     AdventureSpec.fresh
         "You go to visit your brother."
         [
-            {
-                description = "You are attacked by many wolves on the Connecticut turnpike!"
-                monsters = ["Wolf", Some (RollSpec.create(2, 4))]
-                }
+            Encounter.wandering "You are attacked by many wolves on the Connecticut turnpike!"
+                ["Wolf", Some (RollSpec.create(2, 4))]
             ]
     AdventureSpec.fresh
         "You are hungry for honey. You decide to go get some."
         [
-            {
-                description = "Bears don't like it when people steal honey from their trees!"
-                monsters = ["Black Bear", Some (RollSpec.create(1,3))]
-                }
+            Encounter.wandering "Bears don't like it when people steal honey from their trees!"
+                ["Black Bear", Some (RollSpec.create(1,3))]
             ]
     AdventureSpec.fresh
         "You are hungry for honey. You decide to go get some."
         [
-            {
-                description = "Owlbears don't like it when people steal honey from their trees!"
-                monsters = ["Owlbear", None]
-                }
+            Encounter.wandering "Owlbears don't like it when people steal honey from their trees!"
+                ["Owlbear", None]
             ]
     { AdventureSpec.fresh
         "An animal trainer is offering a 1000 gp reward for owlbear eggs."
         [
-            {
-                description = "You find owlbear eggs. Unfortunately the eggs are guarded!"
-                monsters = ["Owlbear", Some (RollSpec.create(1,2))]
-                }
+            Encounter.lair "You find owlbear eggs. Unfortunately the eggs are guarded!"
+                ["Owlbear", Some (RollSpec.create(1,2))]
             ]
         with bonusGP = 1000
         }
@@ -266,31 +258,25 @@ let hard() =
 let deadly() =
     [
     AdventureSpec.fresh
-        "Rumors say the kobolds are growing restless"
+        "Rumors say the kobolds are growing restless."
         [
-            {
-                description = "Kobolds attack you in your home!"
-                monsters = ["Kobold", Some (RollSpec.create(2,4))]
-                }
-            {
-                description = "Kobolds attack the town!"
-                monsters = ["Kobold", None]
-                }
+            Encounter.wandering "Kobolds attack you in your home!"
+                ["Kobold", Some (RollSpec.create(2,4))]
+            Encounter.wandering "Kobolds attack the town!"
+                ["Kobold", None]
+            Encounter.lair "You counterattack the kobold lair! There are many kobolds here."
+                ["Kobold", Some (RollSpec.create(8,10))]
             ]
     AdventureSpec.fresh
         "You climb a giant beanstalk looking for trouble."
         [
-            {
-                description = "The hill giants are not pleased to see you!"
-                monsters = ["Hill Giant", None]
-                }
+            Encounter.lair "The hill giants are not pleased to see you!"
+                ["Hill Giant", None]
             ]
     AdventureSpec.fresh
         "You climb a giant beanstalk looking for trouble."
         [
-            {
-                description = "The frost giants are not pleased to see you!"
-                monsters = ["Frost Giant", None]
-                }
+            Encounter.lair "The frost giants are not pleased to see you!"
+                ["Frost Giant", None]
             ]
     ] |> chooseRandomExponentialDecay 0.5
