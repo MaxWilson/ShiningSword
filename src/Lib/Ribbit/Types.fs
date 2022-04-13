@@ -140,6 +140,7 @@ type FlagsProperty<'t>(name, defaultValue) =
     member this.Check(rowId, targetFlag:'t) (state: State) =
         let target = targetFlag.ToString()
         let check = fun (set: string Set) ->
+            printfn $"Checking: {set} contains {targetFlag}? {set.Contains target}"
             set.Contains target
         state |> getFromState (rowId, name, (fun a b c -> defaultValue a b c |> check), function Flags flags -> check flags | _ -> defaultValue rowId name state.scope |> check)
     member this.CheckM(rowId) (state: State) = this.Check (rowId) state, state

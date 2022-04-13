@@ -44,7 +44,8 @@ let create (monsterKind: MonsterKind) (n: int) =
     let initialize monsterId = state {
         // every monster has individual HD
         do! transform <| fun state ->
-            (hdP.Get monsterId state |> fun hdRoll -> (hpP.Set (monsterId, hdRoll.roll())) state)
+            // always have at least 1 HP
+            (hdP.Get monsterId state |> fun hdRoll -> (hpP.Set (monsterId, hdRoll.roll() |> max 1)) state)
         }
     state {
         let! alreadyLoaded = getF <| fun (state: State) -> state.kindsOfMonsters.ContainsKey monsterKind.name

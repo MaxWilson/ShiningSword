@@ -45,6 +45,7 @@ let create (monsterKind: MonsterKind) (n: int) =
     let initialize monsterId = state {
         // every monster has individual HD
         do! transform <| fun state ->
+            // always have at least 1 HP
             (hdP.Get monsterId state |> fun hdRoll -> (hpP.Set (monsterId, hdRoll.roll())) state)
         }
     state {
@@ -96,16 +97,17 @@ let attack ids id = state {
             | Some targetId ->
                 let! targetName = personalNameP.GetM targetId
                 let! ac = acP.GetM targetId
-                let! packTactics = traitsP.CheckM(id, PackTactics)
-                let! hasLivingBuddy =
-                    getF(fun ribbit ->
+                let! packTacticsApplies = getF(fun ribbit ->
+                    if traitsP.Check(id, PackTactics) ribbit then
                         let myTeam = isFriendlyP.Get id ribbit
-                        ids |> Array.exists (fun otherId -> otherId <> id && isFriendlyP.Get targetId ribbit = myTeam && hpP.Get targetId ribbit > damageTakenP.Get targetId ribbit))
+                        ids |> Array.exists (fun otherId -> otherId <> id && isFriendlyP.Get otherId ribbit = myTeam && hpP.Get otherId ribbit > damageTakenP.Get otherId ribbit)
+                    else false)
                 let hasAdvantage =
-                    packTactics &&
-                        hasLivingBuddy
+                    packTacticsApplies
+                printfn $"{name} has PackTactics? {packTacticsApplies}"
                 let attackRoll = rand 20
                 let secondRoll = rand 20
+                let attackRollDescr n = if hasAdvantage then $"adv({attackRoll},{secondRoll})+{toHit} = {n+toHit}" else $"{attackRoll}+{toHit} = {n+toHit}"
                 match if hasAdvantage then max attackRoll secondRoll else attackRoll with
                 | 20 as n
                 | n when n + toHit >= ac ->
@@ -114,10 +116,9 @@ let attack ids id = state {
                     let dmg = if ham then dmg - StaticBonus 3 else dmg
                     let damage = dmg.roll() |> max 0
                     do! damageTakenP.SetM(targetId, targetDmg + damage)
-                    let attackRollDescr = if hasAdvantage then $"{n}" else $"adv({attackRoll},{secondRoll})"
-                    msgs <- msgs@[$"{name} hits {targetName} for {damage} points of damage! [Attack roll: {attackRollDescr}, Damage: {dmg} = {damage}]"]
+                    msgs <- msgs@[$"{name} hits {targetName} for {damage} points of damage! [Attack roll: {attackRollDescr n}, Damage: {dmg} = {damage}]"]
                 | n ->
-                    msgs <- msgs@[$"{name} misses {targetName}. [Attack roll: {n}]"]
+                    msgs <- msgs@[$"{name} misses {targetName}. [Attack roll: {attackRollDescr n}]"]
             | None -> ()
     return msgs
     }
