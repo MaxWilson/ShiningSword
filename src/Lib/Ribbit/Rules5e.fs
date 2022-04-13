@@ -127,7 +127,7 @@ let attack ids id = state {
 
 let fightLogic = state {
     let! initiativeOrder =
-        getF(fun ribbit -> ribbit.roster |> Map.values |> Array.ofSeq |> Array.map (fun id -> id, rand 20 + initBonusP.Get id ribbit) |> Array.sortBy snd)
+        getF(fun ribbit -> ribbit.roster |> Map.values |> Array.ofSeq |> Array.map (fun id -> id, rand 20 + initBonusP.Get id ribbit) |> Array.sortByDescending snd)
     let ids = initiativeOrder |> Array.map fst
     let mutable msgs = []
     for id, init in initiativeOrder do
