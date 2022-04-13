@@ -177,8 +177,8 @@ let easy() =
         "You hire on as a caravan guard."
         [
             {
-                description = "One night, kobolds attack! Your companions cravenly flee but you fight bravely."
-                monsters = ["Kobold", Some (RollSpec.create(1,6))]
+                description = "One night, kobolds attack! Your fellow guards cravenly flee but you fight bravely."
+                monsters = ["Kobold", Some (RollSpec.create(1,3))]
                 }
             ]
     AdventureSpec.fresh
@@ -186,7 +186,23 @@ let easy() =
         [
             {
                 description = "You are attacked by wolves on the Connecticut turnpike!"
-                monsters = ["Wolf", Some (RollSpec.create(1,6))]
+                monsters = ["Wolf", Some (RollSpec.create(1,2))]
+                }
+            ]
+    AdventureSpec.fresh
+        "You go on a safari hunting antelopes in the Pridelands."
+        [
+            {
+                description = "Vicious jackals attack you!"
+                monsters = ["Jackal", Some (RollSpec.create(1,4,1))]
+                }
+            ]
+    AdventureSpec.fresh
+        "Weird noises are coming from a widow's back yard."
+        [
+            {
+                description = "When you enter the yard, rabid porcupines attack!"
+                monsters = ["Porcupine", Some (RollSpec.create(1,2,1))]
                 }
             ]
     ]
@@ -194,6 +210,30 @@ let easy() =
 
 let hard() =
     [
+    AdventureSpec.fresh
+        "You hire on as a caravan guard."
+        [
+            {
+                description = "One night, kobolds attack! Your fellow guards betray you and fight with the kobolds!"
+                monsters = ["Kobold", Some (RollSpec.create(2,6)); "Guard", Some(RollSpec.create(1,4))]
+                }
+            ]
+    AdventureSpec.fresh
+        "You hire on as a caravan guard."
+        [
+            {
+                description = "One night, hobgoblins attack! Your fellow guards cravenly flee but you fight bravely."
+                monsters = ["Hobgoblin", Some (RollSpec.create(2,6))]
+                }
+            ]
+    AdventureSpec.fresh
+        "You go to visit your brother."
+        [
+            {
+                description = "You are attacked by many wolves on the Connecticut turnpike!"
+                monsters = ["Wolf", Some (RollSpec.create(2, 4))]
+                }
+            ]
     AdventureSpec.fresh
         "You are hungry for honey. You decide to go get some."
         [

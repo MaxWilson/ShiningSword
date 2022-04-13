@@ -65,6 +65,7 @@ let monsterKinds =
     "Wolf", roll 2 6, roll 3 8, 7, 1, +2, [rollb 1 4 +1], [], 120, [], []
     "Kobold", roll 5 4, rollb 1 8 -1, 7, 1, +0, [roll 1 6], [], 7, [J;O], [Q;Q;Q;Q;Q]
     "Goblin", roll 4 6, rollb 1 8 -1, 6, 1, +0, [roll 1 6], [], 15, [K], [C]
+    "Guard", roll 2 10, rollb 1 8 +1, 5, 1, +1, [roll 2 4], [], 35, [J;M;D], [Q;Q;Q;Q;Q]
     "Hobgoblin", roll 2 10, rollb 1 8 +1, 5, 1, +1, [roll 2 4], [], 35, [J;M;D], [Q;Q;Q;Q;Q]
     "Black Bear", roll 1 3, rollb 3 8 +3, 7, 2, +3, [roll 2 3; roll 1 6], [], 175, [], []
     "Owlbear", StaticBonus 1, rollb 5 8 +2, 5, 3, +5, [roll 1 6; roll 1 6; roll 2 6], [], 420, [], [C]
