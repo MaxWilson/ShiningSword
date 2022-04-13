@@ -96,11 +96,11 @@ let attack ids id = state {
                 | 20 as n
                 | n when n + toHit + ac >= 20 ->
                     let! targetDmg = damageTakenP.GetM targetId
-                    let dmg = dmg.roll()
-                    do! damageTakenP.SetM(targetId, targetDmg + dmg)
-                    msgs <- msgs@[$"{name} hits {targetName} for {dmg} points of damage!"]
-                | _ ->
-                    msgs <- msgs@[$"{name} misses {targetName}."]
+                    let damage = dmg.roll()
+                    do! damageTakenP.SetM(targetId, targetDmg + damage)
+                    msgs <- msgs@[$"{name} hits ({n}) {targetName} for {damage} points of damage! [Attack roll: {n}, Damage: {dmg}={damage}]"]
+                | n ->
+                    msgs <- msgs@[$"{name} misses ({n}) {targetName}. [Attack roll: {n}]"]
             | None -> ()
     return msgs
     }

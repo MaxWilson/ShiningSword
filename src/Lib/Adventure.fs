@@ -48,7 +48,7 @@ let loadCharacters (characters: CharacterSheet list) (adventureState: AdventureS
         | Detail5e (char: CharacterSheet5e) ->
             state {
                 let! id = addCharacterToRoster char.name
-                do! hpP.SetM(id, char.hp |> Array.sumBy(fun (lhs, rhs) -> lhs + rhs))
+                do! hpP.SetM(id, char.hp |> Array.sumBy(fun (lhs, rhs) -> lhs + rhs) |> max 1) // all monsters should have at least 1 HP initially or they'd already be dead
                 do! acP.SetM(id, char.ac)
                 do! numberOfAttacksP.SetM(id, 1)
                 do! toHitP.SetM(id, char.toHit)

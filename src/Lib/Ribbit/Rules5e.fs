@@ -104,17 +104,20 @@ let attack ids id = state {
                 let hasAdvantage =
                     packTactics &&
                         hasLivingBuddy
-                let attackRoll = if hasAdvantage then max (rand 20) (rand 20) else rand 20
-                match attackRoll with
+                let attackRoll = rand 20
+                let secondRoll = rand 20
+                match if hasAdvantage then max attackRoll secondRoll else attackRoll with
                 | 20 as n
                 | n when n + toHit >= ac ->
                     let! targetDmg = damageTakenP.GetM targetId
                     let! ham = traitsP.GetM(targetId, HeavyArmorMaster)
-                    let dmg = if ham then max 0 (dmg.roll() - 3) else dmg.roll()
-                    do! damageTakenP.SetM(targetId, targetDmg + dmg)
-                    msgs <- msgs@[$"{name} hits {targetName} for {dmg} points of damage!"]
-                | _ ->
-                    msgs <- msgs@[$"{name} misses {targetName}."]
+                    let dmg = if ham then dmg - StaticBonus 3 else dmg
+                    let damage = dmg.roll() |> max 0
+                    do! damageTakenP.SetM(targetId, targetDmg + damage)
+                    let attackRollDescr = if hasAdvantage then $"{n}" else $"adv({attackRoll},{secondRoll})"
+                    msgs <- msgs@[$"{name} hits ({n}) {targetName} for {damage} points of damage! [Attack roll: {n}, Damage: {dmg}={damage}]"]
+                | n ->
+                    msgs <- msgs@[$"{name} misses ({n}) {targetName}. [Attack roll: {n}]"]
             | None -> ()
     return msgs
     }
