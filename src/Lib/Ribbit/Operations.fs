@@ -3,16 +3,23 @@ open Domain.Ribbit
 open Domain.Character
 
 // todo: make lazy data possible
+let propFail rowId propName (scope:Scope) =
+    let name =
+        match scope.rows with
+        | Lookup rowId (Lookup "PersonalName" (Text personalName)) -> personalName
+        | _ -> $"Unnamed individual (ID = {rowId})"
+    failwith $"{propName} should have been set on {name}"
 let prototypeP = IdProperty("prototype", 0)
-let personalNameP = TextProperty("PersonalName", shouldntHappen) // self-reference may not even be necessary
-let selfP = IdProperty("UniqueId", shouldntHappen) // self-reference may not even be necessary
-let hdP = RollProperty("HitDice", shouldntHappen)
-let hpP = NumberProperty("MaxHP", shouldntHappen)
+let personalNameP = TextProperty("PersonalName", propFail) // self-reference may not even be necessary
+let selfP = IdProperty("UniqueId", propFail) // self-reference may not even be necessary
+let hdP = RollProperty("HitDice", propFail)
+let hpP = NumberProperty("MaxHP", propFail)
 let damageTakenP = NumberProperty("DamageTaken", 0)
-let acP = NumberProperty("AC", shouldntHappen)
-let toHitP = NumberProperty("ToHit", shouldntHappen)
-let attacksP = NumberProperty("Attacks", shouldntHappen)
-let weaponDamageP = RollProperty("WeaponDamage", shouldntHappen)
+let acP = NumberProperty("AC", propFail)
+let toHitP = NumberProperty("ToHit", propFail)
+let numberOfAttacksP = NumberProperty("NumberOfAttacks", 1)
+let weaponDamageP = RollProperty("WeaponDamage", propFail)
+let isFriendlyP = BoolProperty("IsFriendly", false)
 
 let nextId(): StateChange<State, Id> = state {
     let! nextId = getF <| fun state -> (defaultArg state.scope.biggestIdSoFar 0) + 1
@@ -33,6 +40,7 @@ let addCharacterToRoster personalName = state {
     do! transform (fun state -> { state with roster = state.roster |> Map.add personalName monsterId })
     do! personalNameP.SetM(monsterId, personalName)
     do! selfP.SetM(monsterId, monsterId)
+    do! isFriendlyP.SetM(monsterId, true)
     return monsterId
     }
 

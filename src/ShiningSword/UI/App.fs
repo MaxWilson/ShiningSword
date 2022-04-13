@@ -21,7 +21,7 @@ module App =
         | Home
         | Generate of Chargen.View.Model
         | Adventure of Adventure.Model
-    type Model = { current: Page; currentUrl: string option; error: string option; roster: CharacterSheet array }
+    type Model = { current: Page; currentUrl: string option; error: string option; roster: CharacterSheet array; graveyard: CharacterSheet array }
     type Msg =
         | Error of msg: string
         | ClearError
@@ -32,18 +32,16 @@ module App =
         | GoHome
         | Navigate of url: string
         | UpdateUrl of url: string // change URL without adding it to history--use this when a user would be surprised/irritated if "back button" acted as "undo"
-        | AddOrUpdateRoster of CharacterSheet
+        | AddOrUpdateRoster of CharacterSheet * stillAlive: bool
         | ResumePlay of id: int
         | ClearRoster
         | DeleteCharacter of id: int
 
     let init initialCmd =
-        let json = Browser.Dom.window.localStorage["PCs"]
-        let models = LocalStorage.PCs.read()
-        { current = Page.Home; currentUrl = None; error = None; roster = models }, Cmd.batch initialCmd
+        { current = Page.Home; currentUrl = None; error = None; roster = LocalStorage.PCs.read(); graveyard = LocalStorage.Graveyard.read() }, Cmd.batch initialCmd
     let chargenControl dispatch = function
         | Chargen.View.SaveAndQuit character ->
-            dispatch (AddOrUpdateRoster character)
+            dispatch (AddOrUpdateRoster (character, true))
             dispatch GoHome
         | Chargen.View.Cancel -> dispatch GoHome
         | Chargen.View.UpdateUrl suffix ->
@@ -79,25 +77,34 @@ module App =
                 { model with currentUrl = Some url }, Navigation.Navigation.modifyUrl ("#" + url)
             else
                 model, Cmd.Empty
-        | AddOrUpdateRoster characterSheet ->
+        | AddOrUpdateRoster (characterSheet, stillAlive) ->
             // helper method for working with universal sheets
             let getId (sheet1: CharacterSheet) = sheet1.converge((fun c -> c.id), (fun c -> c.id))
-            // assign a unique id if one isn't already there
-            let id', sheet =
-                match getId characterSheet with
-                | Some id -> Some id, characterSheet
-                | None ->
-                    let id' = model.roster |> Array.map (getId >> Option.get) |> Array.fold max 0 |> (+) 1 |> Some
-                    id', characterSheet.map2e(fun c -> { c with id = id' }).map5e(fun c -> { c with id = id' })
+            let delete id' collection = collection |> Array.filter (fun r -> getId r <> id')
+            let addOrUpdate collection =
+                // assign a unique id if one isn't already there
+                let id', sheet =
+                    match getId characterSheet with
+                    | Some id -> Some id, characterSheet
+                    | None ->
+                        let id' = (Array.append model.roster model.graveyard) |> Array.map (getId >> Option.get) |> Array.fold max 0 |> (+) 1 |> Some
+                        id', characterSheet.map2e(fun c -> { c with id = id' }).map5e(fun c -> { c with id = id' })
 
-            // recent updated entries should be at the head of the list, so filter and then re-add at front
-            let roster' =
-                model.roster
-                |> Array.filter (fun r -> getId r <> id')
+                // recent updated entries should be at the head of the list, so filter and then re-add at front
+                Array.append [|sheet|] (delete id' collection)
 
-            let roster' = Array.append [|sheet|] roster'
-            LocalStorage.PCs.write roster'
-            { model with roster = roster' }, Cmd.Empty
+            if stillAlive then
+                let roster' = addOrUpdate model.roster
+                LocalStorage.PCs.write roster'
+                { model with roster = roster' }, Cmd.Empty
+            else
+                let graveyard' = addOrUpdate model.graveyard
+                let id = getId characterSheet
+                let roster' = model.roster |> delete id
+                LocalStorage.PCs.write roster'
+                LocalStorage.Graveyard.write graveyard'
+                { model with roster = roster'; graveyard = graveyard' }, Cmd.Empty
+
         | ClearRoster ->
             let roster' = Array.empty
             LocalStorage.PCs.write roster'
@@ -143,16 +150,23 @@ module App =
         | Page.Generate model ->
             Chargen.View.view model (chargenControl dispatch) (ChargenMsg >> dispatch)
         | Page.Adventure adventure ->
+            let stillAlive (char: CharacterSheet) =
+                let ribbit = adventure.state.ribbit
+                let name = char.converge((fun c -> c.name), (fun c -> c.name))
+                match ribbit.roster |> Map.tryFind name with
+                | Some id ->
+                    (Domain.Ribbit.Operations.hpP.Get id ribbit) > (Domain.Ribbit.Operations.damageTakenP.Get id ribbit)
+                | None -> true // if he's not been in combat yet then he's obviously still alive
             let control = function
             | Adventure.Save ->
                 // avoid saving unless an ID has already been assigned, partly to avoid duplications (because of different Ids)
                 // and partly because the player might not be ready to keep the character.
                 let hasAlreadyBeenSaved (char:CharacterSheet) = char.converge((fun c -> c.id.IsSome), (fun c -> c.id.IsSome))
                 for char in adventure.state.mainCharacter::adventure.state.allies |> List.filter hasAlreadyBeenSaved |> List.rev do
-                    char |> AddOrUpdateRoster |> dispatch
+                    (char, stillAlive char) |> AddOrUpdateRoster |> dispatch
             | Adventure.SaveAndQuit ->
                 for char in adventure.state.mainCharacter::adventure.state.allies |> List.rev do
-                    char |> AddOrUpdateRoster |> dispatch
+                    (char, stillAlive char) |> AddOrUpdateRoster |> dispatch
                 GoHome |> dispatch
             | Adventure.Error msg ->
                 Error msg |> dispatch

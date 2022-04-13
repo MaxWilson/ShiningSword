@@ -32,6 +32,8 @@ and State = {
     }
     with static member fresh = { scope = Scope.fresh; kindsOfMonsters = Map.empty; roster = Map.empty; categories = Map.empty; affordances = Map.empty }
 
+type FightResult = Victory | Defeat | Ongoing
+type RoundResult = { outcome: FightResult; msgs: string list; ribbit: State }
 
 module Ops =
     let getFromScope (rowId: Id, propertyName: Name, defaultValue, getter) (scope:Scope) =
@@ -39,7 +41,7 @@ module Ops =
             match scope.rows with
             | Lookup rowId' (Lookup propertyName value) -> getter value
             | Lookup rowId' (Lookup "prototype" (Id id)) when id > 0 -> recur id
-            | _ -> defaultValue rowId scope
+            | _ -> defaultValue rowId propertyName scope
         recur rowId
 
     let getFromState (rowId, propertyName, defaultValue, getter) (state: State) = getFromScope (rowId, propertyName, defaultValue, getter) state.scope
@@ -56,7 +58,7 @@ module Ops =
         let setProperty = function
             | Some row -> Some (row |> Map.change propertyName (upsert >> Some))
             | None ->
-                let inheritedValue = scope |> getFromScope(rowId, propertyName, (fun _ _ -> None), Some)
+                let inheritedValue = scope |> getFromScope(rowId, propertyName, (fun _ _ _ -> None), Some)
                 Some (Map.ofList [propertyName, upsert inheritedValue])
         let data' = scope.rows |> Map.change rowId setProperty
         { state with scope = { scope with rows = data' } }
@@ -78,47 +80,52 @@ type NumberProperty(name, defaultValue) =
         member this.Name = name
         member this.GetRuntimeValue(state, rowId) = this.Get rowId state |> Number
         member this.HasValue(state, rowId) = hasValue (rowId, name) state
-    new(name, defaultValue: int) = NumberProperty(name, fun _ _ -> defaultValue)
+    new(name, defaultValue: int) = NumberProperty(name, fun _ _ _ -> defaultValue)
     member this.Name = name
     member this.Set(rowId, value) (state: State) =
         state |> setState (rowId, name, Number value)
     member this.SetM(rowId, value) (state: State) = (), this.Set(rowId, value) state
     member this.Get(rowId) (state: State) =
-        state |> getFromState (rowId, name, defaultValue, function Number n -> n | _ -> defaultValue rowId state.scope)
+        state |> getFromState (rowId, name, defaultValue, function Number n -> n | _ -> defaultValue rowId name state.scope)
+    member this.GetM(rowId) (state: State) = this.Get (rowId) state, state
 
 type BoolProperty(name, defaultValue) =
     interface Property with
         member this.Name = name
         member this.GetRuntimeValue(scope, rowId) = this.Get rowId scope |> Bool
         member this.HasValue(scope, rowId) = hasValue (rowId, name) scope
-    new(name, defaultValue: bool) = BoolProperty(name, fun _ _ -> defaultValue)
+    new(name, defaultValue: bool) = BoolProperty(name, fun _ _ _ -> defaultValue)
     member this.Name = name
     member this.Set(rowId, value) (state: State) =
         state |> setState (rowId, name, Bool value)
     member this.SetM(rowId, value) (state: State) = (), this.Set(rowId, value) state
     member this.Get(rowId) (state: State) =
-        state |> getFromState (rowId, name, defaultValue, function Bool b -> b | _ -> defaultValue rowId state.scope)
+        state |> getFromState (rowId, name, defaultValue, function Bool b -> b | _ -> defaultValue rowId name state.scope)
+    member this.GetM(rowId) (state: State) = this.Get (rowId) state, state
 
 type RollProperty(name, defaultValue) =
     interface Property with
         member this.Name = name
         member this.GetRuntimeValue(scope, rowId) = this.Get rowId scope |> Roll
         member this.HasValue(scope, rowId) = hasValue (rowId, name) scope
-    new(name, defaultValue: RollSpec) = RollProperty(name, fun _ _ -> defaultValue)
+    new(name, defaultValue: RollSpec) = RollProperty(name, fun _ _ _ -> defaultValue)
     member this.Name = name
     member this.Set(rowId, value) (state: State) =
         state |> setState (rowId, name, Roll value)
     member this.SetM(rowId, value) (state: State) = (), this.Set(rowId, value) state
     member this.Get(rowId) (state: State) =
-        state |> getFromState (rowId, name, defaultValue, function Roll r -> r | _ -> defaultValue rowId state.scope)
+        state |> getFromState (rowId, name, defaultValue, function Roll r -> r | _ -> defaultValue rowId name state.scope)
+    member this.GetM(rowId) (state: State) = this.Get (rowId) state, state
 
 type FlagsProperty<'t>(name, defaultValue) =
     interface Property with
         member this.Name = name
-        member this.GetRuntimeValue(scope, rowId) = notImpl()
+        member this.GetRuntimeValue(scope, rowId) = failwith "Nobody should be calling FlagsProperty.GetRuntimeValue()"
         member this.HasValue(scope, rowId) = false
-    new(name, defaultValue: bool) = FlagsProperty(name, fun _ _ -> defaultValue)
+    new(name, defaultValue: bool) = FlagsProperty(name, fun _ _ _ -> defaultValue)
     member this.Name = name
+    member this.SetAll(rowId, value) (state: State) =
+        state |> setState (rowId, name, Flags value)
     member this.Set(rowId, targetFlag:'t, value) (state: State) =
         let target = targetFlag.ToString()
         state |> upsertScope (rowId, name, function
@@ -128,36 +135,40 @@ type FlagsProperty<'t>(name, defaultValue) =
                 else set |> Set.filter ((<>) target) |> Flags
             | _ -> (if value then [target] else []) |> Set.ofList |> Flags
             )
+    member this.SetAllM(rowId, value) (state: State) = (), this.SetAll(rowId, value) state
     member this.SetM(rowId, targetFlag, value) (state: State) = (), this.Set(rowId, targetFlag, value) state
     member this.Get(rowId, targetFlag:'t) (state: State) =
         let target = targetFlag.ToString()
-        state |> getFromState (rowId, name, defaultValue, function Flags set -> set.Contains target | _ -> defaultValue rowId state.scope)
+        state |> getFromState (rowId, name, defaultValue, function Flags set -> set.Contains target | _ -> defaultValue rowId name state.scope)
+    member this.GetM(rowId) (state: State) = this.Get (rowId) state, state
 
 type IdProperty(name, defaultValue) =
     interface Property with
         member this.Name = name
         member this.GetRuntimeValue(scope, rowId) = this.Get rowId scope |> Id
         member this.HasValue(scope, rowId) = hasValue (rowId, name) scope
-    new(name, defaultValue: int) = IdProperty(name, fun _ _ -> defaultValue)
+    new(name, defaultValue: int) = IdProperty(name, fun _ _ _ -> defaultValue)
     member this.Name = name
     member this.Set(rowId, value) (state: State) =
         state |> setState (rowId, name, Id value)
     member this.SetM(rowId, value) (state: State) = (), this.Set(rowId, value) state
     member this.Get(rowId) (state: State) =
-        state |> getFromState (rowId, name, defaultValue, function Id n -> n | _ -> defaultValue rowId state.scope)
+        state |> getFromState (rowId, name, defaultValue, function Id n -> n | _ -> defaultValue rowId name state.scope)
+    member this.GetM(rowId) (state: State) = this.Get (rowId) state, state
 
 type TextProperty(name, defaultValue) =
     interface Property with
         member this.Name = name
         member this.GetRuntimeValue(scope, rowId) = this.Get rowId scope |> Text
         member this.HasValue(scope, rowId) = hasValue (rowId, name) scope
-    new(name, defaultValue: string) = TextProperty(name, fun _ _ -> defaultValue)
+    new(name, defaultValue: string) = TextProperty(name, fun _ _ _ -> defaultValue)
     member this.Name = name
     member this.Set(rowId, value) (state: State) =
         state |> setState (rowId, name, Text value)
     member this.SetM(rowId, value) (state: State) = (), this.Set(rowId, value) state
     member this.Get(rowId) (state: State) =
-        state |> getFromState (rowId, name, defaultValue, function Text t -> t | _ -> defaultValue rowId state.scope)
+        state |> getFromState (rowId, name, defaultValue, function Text t -> t | _ -> defaultValue rowId name state.scope)
+    member this.GetM(rowId) (state: State) = this.Get (rowId) state, state
 
 // this doesn't properly belong in ribbit but because treasure is part of the aftermath of the combat,
 // and because it's convenient to put TreasureType in the monster stat blocks, I'll allow it for now

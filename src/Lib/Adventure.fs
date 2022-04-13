@@ -3,6 +3,7 @@ open Domain.Character
 open Domain.Character.Universal
 open Domain.Ribbit.Operations
 open Domain.Ribbit.Operations.Treasure
+open Domain.Ribbit
 
 type Encounter = {
     description: string
@@ -11,7 +12,7 @@ type Encounter = {
 
 type OngoingEncounter = {
     monsters: (Name * int) list
-    isFinished: bool
+    outcome: FightResult
     }
 
 type AdventureSpec = {
@@ -32,14 +33,30 @@ type AdventureState = {
     }
 
 let loadCharacters (characters: CharacterSheet list) (adventureState: AdventureState) =
-    let addCharacter state' = function
-        | GenericCharacterSheet char ->
+    let addCharacter state' ribbit =
+        match ribbit with
+        | Detail2e (char: CharacterSheet2e) ->
             state {
                 let! id = addCharacterToRoster char.name
                 do! hpP.SetM(id, char.hp |> Array.sumBy(fun (lhs, rhs) -> lhs + rhs))
                 do! acP.SetM(id, char.ac)
+                do! numberOfAttacksP.SetM(id, char.attacks)
+                do! toHitP.SetM(id, char.toHitBonus)
+                do! weaponDamageP.SetM(id, char.damage)
+                do! Domain.Ribbit.Rules5e.traitsP.SetAllM(id, char.traits.summary |> Set.map ADND2nd.describeTrait)
                 }
-            |> runNoResult state'
+        | Detail5e (char: CharacterSheet5e) ->
+            state {
+                let! id = addCharacterToRoster char.name
+                do! hpP.SetM(id, char.hp |> Array.sumBy(fun (lhs, rhs) -> lhs + rhs))
+                do! acP.SetM(id, char.ac)
+                do! numberOfAttacksP.SetM(id, 1)
+                do! toHitP.SetM(id, char.toHit)
+                do! weaponDamageP.SetM(id, char.damage)
+                do! Domain.Ribbit.Rules5e.initBonusP.SetM(id, char.Dex |> DND5e.statBonus)
+                do! Domain.Ribbit.Rules5e.traitsP.SetAllM(id, char.traits.summary |> Set.map DND5e.describeTrait)
+                }
+        |> runNoResult state'
     { adventureState with ribbit = characters |> List.fold addCharacter adventureState.ribbit }
 
 let downtime sheet =
@@ -77,7 +94,7 @@ let toOngoing (encounter:Encounter) =
     {
         monsters = encounter.monsters
             |> List.map rollQty
-        isFinished = false
+        outcome = Ongoing
     }
 
 let beginEncounter (next: OngoingEncounter) rest (adventureState: AdventureState) =
@@ -131,6 +148,29 @@ let victory (encounter:OngoingEncounter) state =
         state', $"You earn {xp} XP! ({xp/divisor} XP each.) As for material rewards... you find {treasureDescription}."
     else
         state', $"You earn {xp} XP! ({xp/divisor} XP each.) As for material rewards... you find {treasureDescription} and split it amongst yourselves ({gpReward/divisor} gp each)."
+
+// for 2E this is just "execute everybody's declared actions", for 5E it could be the same or it could be "fight until you get to a PC's turn" depending on the settings
+let fightUntilFixedPoint (adventureState: AdventureState) =
+    let result =
+        if adventureState.mainCharacter.isADND then
+            adventureState.ribbit |> Domain.Ribbit.Rules2e.fightOneRound
+        else
+            adventureState.ribbit |> Domain.Ribbit.Rules5e.fightUntilFixedPoint
+    let adv = {
+        adventureState
+        with
+            currentEncounter = adventureState.currentEncounter |> Option.map (fun e -> { e with outcome = result.outcome })
+            ribbit = result.ribbit
+        }
+    match result.outcome with
+    | Victory ->
+        let adv, msg = victory adv.currentEncounter.Value adv
+        result.outcome, result.msgs@["Victory!!!";msg], adv
+    | Defeat ->
+        let adv, msg = victory adv.currentEncounter.Value adv
+        result.outcome, result.msgs@["You have been defeated!!! The worms now feast on your flesh.";msg], adv
+    | _ ->
+        result.outcome, result.msgs, adv
 
 let easy() =
     [

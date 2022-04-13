@@ -4,7 +4,8 @@ open Domain.Ribbit.Operations
 open Domain.Character
 open Domain.Character.DND5e
 
-let traitsP = FlagsProperty<Trait>("Traits", notImpl)
+let traitsP = FlagsProperty<Trait>("Traits", propFail)
+let initBonusP = NumberProperty("InitiativeBonus", 0)
 
 type MonsterKind = {
     name: string
@@ -29,11 +30,11 @@ type MonsterKind = {
 
 let load (monsterKind:MonsterKind) =
     let initialize kindId = state {
-        do! transform (hdP.Set (kindId, monsterKind.hd))
-        do! transform (acP.Set (kindId, monsterKind.ac))
-        do! transform (toHitP.Set (kindId, monsterKind.toHit))
-        do! transform (attacksP.Set (kindId, monsterKind.attacks))
-        do! transform (weaponDamageP.Set (kindId, monsterKind.weaponDamage))
+        do! hdP.SetM (kindId, monsterKind.hd)
+        do! acP.SetM (kindId, monsterKind.ac)
+        do! toHitP.SetM (kindId, monsterKind.toHit)
+        do! numberOfAttacksP.SetM (kindId, monsterKind.attacks)
+        do! weaponDamageP.SetM (kindId, monsterKind.weaponDamage)
         }
     state {
         do! addKind monsterKind.name initialize
@@ -44,6 +45,7 @@ let create (monsterKind: MonsterKind) (n: int) =
         // every monster has individual HD
         do! transform <| fun state ->
             (hdP.Get monsterId state |> fun hdRoll -> (hpP.Set (monsterId, hdRoll.roll())) state)
+        do! traitsP.SetAllM (monsterId, monsterKind.traits |> List.map DND5e.describeTrait |> Set.ofList)
         }
     state {
         let! alreadyLoaded = getF <| fun (state: State) -> state.kindsOfMonsters.ContainsKey monsterKind.name
@@ -75,3 +77,60 @@ let monsterKinds =
 
 let createByName name n =
     create (monsterKinds[name]) n
+
+
+let attack ids id = state {
+    let! numberOfAttacks = numberOfAttacksP.GetM id
+    let! toHit = toHitP.GetM id
+    let! dmg = weaponDamageP.GetM id
+    let! name = personalNameP.GetM id
+    let mutable msgs = []
+    for ix in 1..numberOfAttacks do
+        let findTarget (ribbit: State) =
+            let myTeam = isFriendlyP.Get id ribbit
+            ids |> Array.tryFind (fun targetId -> isFriendlyP.Get targetId ribbit <> myTeam && hpP.Get targetId ribbit > damageTakenP.Get targetId ribbit)
+        let! targetId = getF findTarget
+        match targetId with
+        | Some targetId ->
+            let! targetName = personalNameP.GetM targetId
+            let! ac = acP.GetM targetId
+            let! packTactics = traitsP.GetM(id, PackTactics)
+            let! hasLivingBuddy =
+                getF(fun ribbit ->
+                    let myTeam = isFriendlyP.Get id ribbit
+                    ids |> Array.exists (fun otherId -> otherId <> id && isFriendlyP.Get targetId ribbit = myTeam && hpP.Get targetId ribbit > damageTakenP.Get targetId ribbit))
+            let hasAdvantage =
+                packTactics &&
+                    hasLivingBuddy
+            let attackRoll = if hasAdvantage then max (rand 20) (rand 20) else rand 20
+            match attackRoll with
+            | 20 as n
+            | n when n + toHit >= ac ->
+                let! targetDmg = damageTakenP.GetM targetId
+                let! ham = traitsP.GetM(targetId, HeavyArmorMaster)
+                let dmg = if ham then max 0 (dmg.roll() - 3) else dmg.roll()
+                do! damageTakenP.SetM(targetId, targetDmg + dmg)
+                msgs <- msgs@[$"{name} hits {targetName} for {dmg} points of damage!"]
+            | _ ->
+                msgs <- msgs@[$"{name} misses {targetName}."]
+        | None -> ()
+    return msgs
+    }
+
+let fightLogic = state {
+    let! initiativeOrder =
+        getF(fun ribbit -> ribbit.roster |> Map.values |> Array.ofSeq |> Array.map (fun id -> id, rand 20 + initBonusP.Get id ribbit) |> Array.sortBy snd)
+    let ids = initiativeOrder |> Array.map fst
+    let mutable msgs = []
+    for id, init in initiativeOrder do
+        let! msgs' = attack ids id
+        msgs <- msgs@msgs'
+
+    let! factions = getF(fun state -> ids |> Array.filter(fun id -> hpP.Get id state > damageTakenP.Get id state) |> Array.groupBy (fun id -> isFriendlyP.Get id state) |> Array.map fst |> Array.sortDescending)
+    let outcome = match factions with [|true|] -> Victory | [|true;false|] -> Ongoing | _ -> Defeat // mutual destruction is still defeat
+    return outcome, msgs
+    }
+
+let fightUntilFixedPoint (ribbit: State) : RoundResult =
+    let (outcome, msg), ribbit = fightLogic ribbit
+    { outcome = outcome ; msgs = msg; ribbit = ribbit }

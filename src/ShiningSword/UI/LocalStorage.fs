@@ -21,3 +21,8 @@ module PCs =
     let key = "PCs"
     let read (): CharacterSheet array = read key Array.empty
     let write (v: CharacterSheet array) = write key v
+
+module Graveyard =
+    let key = "Graveyard"
+    let read (): CharacterSheet array = read key Array.empty
+    let write (v: CharacterSheet array) = write key v

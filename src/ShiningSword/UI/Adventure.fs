@@ -2,14 +2,16 @@ module UI.Adventure
 open Feliz
 open Domain.Adventure
 open Domain.Character.Universal
+open Domain.Ribbit
 open Domain.Ribbit.Operations
 
 type ControlMsg = Save | SaveAndQuit | Error of msg: string
-type Activity = Downtime | AdventureIntro | Fighting | Looting | CompletingAdventure
-type Msg = | Embark of AdventureSpec | Recruit of CharacterSheet | Proceed | Victory
+type Activity = Downtime | AdventureIntro | Fighting | Looting | CompletingAdventure | PushingUpDaisies
+type Msg = | Embark of AdventureSpec | Recruit of CharacterSheet | Proceed
 type Model = {
     activity: Activity
     title: string option
+    log: string list list
     spec: Domain.Adventure.AdventureSpec option // for referencing rewards, etc.
     state: Domain.Adventure.AdventureState
     }
@@ -30,16 +32,22 @@ let recruitCompanions model control dispatch =
 
 let init sheet =
     let state = downtime sheet
-    { activity = Downtime; state = state; title = None; spec = None }
+    { activity = Downtime; state = state; title = None; spec = None; log = [] }
 
 let update msg (model:Model) =
     match msg with
     | Embark spec ->
         let state = embark spec model.state.mainCharacter
-        { state = state; title = spec.description |> Some; spec = Some spec; activity = AdventureIntro }
+        { state = state; title = spec.description |> Some; spec = Some spec; activity = AdventureIntro; log = [] }
     | Recruit companion ->
-        let state' = model.state |> Domain.Adventure.loadCharacters [companion]
+        let state' = model.state |> loadCharacters [companion]
         { model with state = { state' with allies = state'.allies@[companion] } }
+    | Proceed when model.activity = Fighting ->
+        let outcome, msgs, state' = model.state |> fightUntilFixedPoint
+        match { model with state = state'; log = msgs::model.log }, outcome with
+        | model, Victory -> { model with activity = Looting; title = "Victory!!! " + (msgs |> List.last) |> Some }
+        | model, Defeat -> { model with title = Some "You have been defeated!"; activity = PushingUpDaisies }
+        | model, _ -> model
     | Proceed ->
         match model.state.scheduledEncounters with
         | next::rest ->
@@ -49,12 +57,6 @@ let update msg (model:Model) =
         | [] ->
             let msg, state' = model.state |> finishAdventure model.spec.Value
             { model with state = state'; title = Some msg; activity = CompletingAdventure }
-    | Victory ->
-        match model.state.currentEncounter with
-        | Some encounter ->
-            let state', description = victory encounter model.state
-            { model with state = state'; title = Some description; activity = Looting }
-        | None -> shouldntHappen()
 
 let class' element (className: string) (children: _ seq) = element [prop.className className; prop.children children]
 
@@ -80,26 +82,40 @@ let view model control dispatch =
     class' Html.div "adventure" [
         yield! Chargen.View.viewCharacter model.state.mainCharacter
         match model.title with | Some title -> Html.span [prop.text title; prop.className "header"] | _ -> ()
+        match model.log, model.activity with
+        // If you won or lost, you want to see the log of how it happened
+        | recent::_, (Fighting | Looting | PushingUpDaisies) ->
+            class' Html.div "logOutput" [
+                for entry in recent do
+                    Html.div [Html.text entry]
+                ]
+        | _ -> ()
         if model.activity <> Downtime then
             let ribbit = model.state.ribbit
-            let friendlies = (model.state.mainCharacter::model.state.allies) |> List.map (function GenericCharacterSheet sheet -> sheet.name)
-            let isFriendly name =
-                friendlies |> List.contains name
+            let isFriendly id =
+                ribbit |> isFriendlyP.Get(id)
             let get f (_, id) = (f id ribbit).ToString()
+            let getHP (_, id) =
+                let hp = hpP.Get id ribbit
+                let damage = damageTakenP.Get id ribbit
+                if damage = 0 then
+                    $"{hp}"
+                else
+                    $"{(hp-damage)}/{hp}"
             let rosterIds =
                 ribbit.roster |> Map.toList
                 |> List.sortBy(function
                     name, id ->
                         // friendlies first, then enemies; living before dead; otherwise in order of creation
-                        let isFriendly = friendlies |> List.contains name
+                        let isFriendly = isFriendly id
                         let isAlive = (hpP.Get id ribbit) >= 0
                         not isFriendly, not isAlive, id)
             let columns = [
                 {| title = "Name"; render = get personalNameP.Get |}
                 {| title = "AC"; render = get acP.Get |}
-                {| title = "HP"; render = get hpP.Get |}
+                {| title = "HP"; render = getHP |}
                 ]
-            statusSummary rosterIds (fst >> isFriendly) columns dispatch
+            statusSummary rosterIds (snd >> isFriendly) columns dispatch
         class' Html.div "finalize" [
             match model.activity with
             | Downtime ->
@@ -114,7 +130,7 @@ let view model control dispatch =
                 Html.button [prop.text "Recruit companions"; prop.onClick(fun _ -> recruitCompanions model control dispatch)]
             | Fighting ->
                 // later on if there are more choices, this could become a full-fledged Adventuring phase with RP choices
-                Html.button [prop.text "Win!"; prop.onClick(fun _ -> Victory |> dispatch)]
+                Html.button [prop.text "Fight!"; prop.onClick(fun _ -> Proceed |> dispatch)]
             | Looting ->
                 // later on if there are more choices, this could become a full-fledged Adventuring phase with RP choices
                 Html.button [prop.text "Continue onward"; prop.onClick(fun _ -> Proceed |> dispatch)]
@@ -122,6 +138,8 @@ let view model control dispatch =
             | CompletingAdventure ->
                 // later on if there are more choices, this could become a full-fledged Adventuring phase with RP choices
                 Html.button [prop.text "Finish"; prop.onClick(fun _ -> Save |> control; Proceed |> dispatch)]
+            | PushingUpDaisies ->
+                Html.button [prop.text "OK"; prop.onClick (thunk1 control SaveAndQuit)]
             ]
         ]
 

@@ -32,7 +32,7 @@ let load (monsterKind:MonsterKind) =
         do! transform (hdP.Set (kindId, monsterKind.hd))
         do! transform (acP.Set (kindId, monsterKind.ac))
         do! transform (toHitP.Set (kindId, monsterKind.toHit))
-        do! transform (attacksP.Set (kindId, monsterKind.attacks))
+        do! transform (numberOfAttacksP.Set (kindId, monsterKind.attacks))
         do! transform (weaponDamageP.Set (kindId, monsterKind.weaponDamage))
         }
     state {
@@ -74,3 +74,51 @@ let monsterKinds =
 
 let createByName name n =
     create (monsterKinds[name]) n
+
+let attack ids id = state {
+    let! numberOfAttacks = numberOfAttacksP.GetM id
+    let! toHit = toHitP.GetM id
+    let! dmg = weaponDamageP.GetM id
+    let! name = personalNameP.GetM id
+    let mutable msgs = []
+    for ix in 1..numberOfAttacks do
+        let! isAlive = getF(fun state -> hpP.Get id state > damageTakenP.Get id state)
+        if isAlive then
+            let findTarget (ribbit: State) =
+                let myTeam = isFriendlyP.Get id ribbit
+                ids |> Array.tryFind (fun targetId -> isFriendlyP.Get targetId ribbit <> myTeam && hpP.Get targetId ribbit > damageTakenP.Get targetId ribbit)
+            let! targetId = getF findTarget
+            match targetId with
+            | Some targetId ->
+                let! targetName = personalNameP.GetM targetId
+                let! ac = acP.GetM targetId
+                match rand 20 with
+                | 20 as n
+                | n when n + toHit + ac >= 20 ->
+                    let! targetDmg = damageTakenP.GetM targetId
+                    let dmg = dmg.roll()
+                    do! damageTakenP.SetM(targetId, targetDmg + dmg)
+                    msgs <- msgs@[$"{name} hits {targetName} for {dmg} points of damage!"]
+                | _ ->
+                    msgs <- msgs@[$"{name} misses {targetName}."]
+            | None -> ()
+    return msgs
+    }
+
+let fightLogic = state {
+    let! ids = getF(fun state -> state.roster |> Map.values |> Array.ofSeq)
+    let initiativeOrder =
+        ids |> Array.map (fun id -> id, rand 10) |> Array.sortBy snd
+    let mutable msgs = []
+    for id, init in initiativeOrder do
+        let! msgs' = attack ids id
+        msgs <- msgs@msgs'
+
+    let! factions = getF(fun state -> ids |> Array.filter(fun id -> hpP.Get id state > damageTakenP.Get id state) |> Array.groupBy (fun id -> isFriendlyP.Get id state) |> Array.map fst |> Array.sortDescending)
+    let outcome = match factions with [|true|] -> Victory | [|true;false|] -> Ongoing | _ -> Defeat // mutual destruction is still defeat
+    return outcome, msgs
+    }
+
+let fightOneRound (ribbit: State) : RoundResult =
+    let (outcome, msg), ribbit = fightLogic ribbit
+    { outcome = outcome ; msgs = msg; ribbit = ribbit }
