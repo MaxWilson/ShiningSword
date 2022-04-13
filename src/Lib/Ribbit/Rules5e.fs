@@ -115,9 +115,9 @@ let attack ids id = state {
                     let damage = dmg.roll() |> max 0
                     do! damageTakenP.SetM(targetId, targetDmg + damage)
                     let attackRollDescr = if hasAdvantage then $"{n}" else $"adv({attackRoll},{secondRoll})"
-                    msgs <- msgs@[$"{name} hits ({n}) {targetName} for {damage} points of damage! [Attack roll: {n}, Damage: {dmg}={damage}]"]
+                    msgs <- msgs@[$"{name} hits {targetName} for {damage} points of damage! [Attack roll: {attackRollDescr}, Damage: {dmg} = {damage}]"]
                 | n ->
-                    msgs <- msgs@[$"{name} misses ({n}) {targetName}. [Attack roll: {n}]"]
+                    msgs <- msgs@[$"{name} misses {targetName}. [Attack roll: {n}]"]
             | None -> ()
     return msgs
     }

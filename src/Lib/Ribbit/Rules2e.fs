@@ -99,9 +99,9 @@ let attack ids id = state {
                     let! targetDmg = damageTakenP.GetM targetId
                     let damage = dmg.roll()
                     do! damageTakenP.SetM(targetId, targetDmg + damage)
-                    msgs <- msgs@[$"{name} hits ({n}) {targetName} for {damage} points of damage! [Attack roll: {n}, Damage: {dmg}={damage}]"]
+                    msgs <- msgs@[$"{name} hits {targetName} for {damage} points of damage! [Attack roll: {n}, Damage: {dmg} = {damage}]"]
                 | n ->
-                    msgs <- msgs@[$"{name} misses ({n}) {targetName}. [Attack roll: {n}]"]
+                    msgs <- msgs@[$"{name} misses {targetName}. [Attack roll: {n}]"]
             | None -> ()
     return msgs
     }
