@@ -122,7 +122,7 @@ type FlagsProperty<'t>(name, defaultValue) =
         member this.Name = name
         member this.GetRuntimeValue(scope, rowId) = failwith "Nobody should be calling FlagsProperty.GetRuntimeValue()"
         member this.HasValue(scope, rowId) = false
-    new(name, defaultValue: bool) = FlagsProperty(name, fun _ _ _ -> defaultValue)
+    new(name, defaultValue: string Set) = FlagsProperty(name, fun _ _ _ -> defaultValue)
     member this.Name = name
     member this.SetAll(rowId, value) (state: State) =
         state |> setState (rowId, name, Flags value)
@@ -137,10 +137,12 @@ type FlagsProperty<'t>(name, defaultValue) =
             )
     member this.SetAllM(rowId, value) (state: State) = (), this.SetAll(rowId, value) state
     member this.SetM(rowId, targetFlag, value) (state: State) = (), this.Set(rowId, targetFlag, value) state
-    member this.Get(rowId, targetFlag:'t) (state: State) =
+    member this.Check(rowId, targetFlag:'t) (state: State) =
         let target = targetFlag.ToString()
-        state |> getFromState (rowId, name, defaultValue, function Flags set -> set.Contains target | _ -> defaultValue rowId name state.scope)
-    member this.GetM(rowId) (state: State) = this.Get (rowId) state, state
+        let check = fun (set: string Set) ->
+            set.Contains target
+        state |> getFromState (rowId, name, (fun a b c -> defaultValue a b c |> check), function Flags flags -> check flags | _ -> defaultValue rowId name state.scope |> check)
+    member this.CheckM(rowId) (state: State) = this.Check (rowId) state, state
 
 type IdProperty(name, defaultValue) =
     interface Property with

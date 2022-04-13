@@ -43,7 +43,7 @@ let loadCharacters (characters: CharacterSheet list) (adventureState: AdventureS
                 do! numberOfAttacksP.SetM(id, char.attacks)
                 do! toHitP.SetM(id, char.toHitBonus)
                 do! weaponDamageP.SetM(id, char.damage)
-                do! Domain.Ribbit.Rules5e.traitsP.SetAllM(id, char.traits.summary |> Set.map ADND2nd.describeTrait)
+                do! Domain.Ribbit.Rules5e.traitsP.SetAllM(id, char.traits.summary |> Set.map string)
                 }
         | Detail5e (char: CharacterSheet5e) ->
             state {
@@ -54,7 +54,7 @@ let loadCharacters (characters: CharacterSheet list) (adventureState: AdventureS
                 do! toHitP.SetM(id, char.toHit)
                 do! weaponDamageP.SetM(id, char.damage)
                 do! Domain.Ribbit.Rules5e.initBonusP.SetM(id, char.Dex |> DND5e.statBonus)
-                do! Domain.Ribbit.Rules5e.traitsP.SetAllM(id, char.traits.summary |> Set.map DND5e.describeTrait)
+                do! Domain.Ribbit.Rules5e.traitsP.SetAllM(id, char.traits.summary |> Set.map string)
                 }
         |> runNoResult state'
     { adventureState with ribbit = characters |> List.fold addCharacter adventureState.ribbit }

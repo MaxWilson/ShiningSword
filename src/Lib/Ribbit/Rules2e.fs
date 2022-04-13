@@ -34,6 +34,7 @@ let load (monsterKind:MonsterKind) =
         do! transform (toHitP.Set (kindId, monsterKind.toHit))
         do! transform (numberOfAttacksP.Set (kindId, monsterKind.attacks))
         do! transform (weaponDamageP.Set (kindId, monsterKind.weaponDamage))
+        do! traitsP.SetAllM (kindId, monsterKind.traits |> List.map string |> Set.ofList)
         }
     state {
         do! addKind monsterKind.name initialize

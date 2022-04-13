@@ -35,6 +35,7 @@ let load (monsterKind:MonsterKind) =
         do! toHitP.SetM (kindId, monsterKind.toHit)
         do! numberOfAttacksP.SetM (kindId, monsterKind.attacks)
         do! weaponDamageP.SetM (kindId, monsterKind.weaponDamage)
+        do! traitsP.SetAllM (kindId, monsterKind.traits |> List.map string |> Set.ofList)
         }
     state {
         do! addKind monsterKind.name initialize
@@ -45,7 +46,6 @@ let create (monsterKind: MonsterKind) (n: int) =
         // every monster has individual HD
         do! transform <| fun state ->
             (hdP.Get monsterId state |> fun hdRoll -> (hpP.Set (monsterId, hdRoll.roll())) state)
-        do! traitsP.SetAllM (monsterId, monsterKind.traits |> List.map DND5e.describeTrait |> Set.ofList)
         }
     state {
         let! alreadyLoaded = getF <| fun (state: State) -> state.kindsOfMonsters.ContainsKey monsterKind.name
@@ -96,7 +96,7 @@ let attack ids id = state {
             | Some targetId ->
                 let! targetName = personalNameP.GetM targetId
                 let! ac = acP.GetM targetId
-                let! packTactics = traitsP.GetM(id, PackTactics)
+                let! packTactics = traitsP.CheckM(id, PackTactics)
                 let! hasLivingBuddy =
                     getF(fun ribbit ->
                         let myTeam = isFriendlyP.Get id ribbit
@@ -110,7 +110,7 @@ let attack ids id = state {
                 | 20 as n
                 | n when n + toHit >= ac ->
                     let! targetDmg = damageTakenP.GetM targetId
-                    let! ham = traitsP.GetM(targetId, HeavyArmorMaster)
+                    let! ham = traitsP.CheckM(targetId, HeavyArmorMaster)
                     let dmg = if ham then dmg - StaticBonus 3 else dmg
                     let damage = dmg.roll() |> max 0
                     do! damageTakenP.SetM(targetId, targetDmg + damage)
