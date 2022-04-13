@@ -3,7 +3,7 @@ namespace Domain.Ribbit
 open Domain.Character
 type Id = int
 
-type RuntimeValue = Number of int | Id of Id | Text of string | Roll of RollSpec | Flags of string Set| Bool of bool
+type RuntimeValue = Number of int | Id of Id | Text of string | Roll of RollSpec | Rolls of RollSpec list | Flags of string Set| Bool of bool
 type Row = Map<Name, RuntimeValue>
 
 type Property = interface
@@ -115,6 +115,20 @@ type RollProperty(name, defaultValue) =
     member this.SetM(rowId, value) (state: State) = (), this.Set(rowId, value) state
     member this.Get(rowId) (state: State) =
         state |> getFromState (rowId, name, defaultValue, function Roll r -> r | _ -> defaultValue rowId name state.scope)
+    member this.GetM(rowId) (state: State) = this.Get (rowId) state, state
+
+type RollListProperty(name, defaultValue) =
+    interface Property with
+        member this.Name = name
+        member this.GetRuntimeValue(scope, rowId) = this.Get rowId scope |> Rolls
+        member this.HasValue(scope, rowId) = hasValue (rowId, name) scope
+    new(name, defaultValue: RollSpec list) = RollListProperty(name, fun _ _ _ -> defaultValue)
+    member this.Name = name
+    member this.Set(rowId, value) (state: State) =
+        state |> setState (rowId, name, Rolls value)
+    member this.SetM(rowId, value) (state: State) = (), this.Set(rowId, value) state
+    member this.Get(rowId) (state: State) =
+        state |> getFromState (rowId, name, defaultValue, function Rolls r -> r | _ -> defaultValue rowId name state.scope)
     member this.GetM(rowId) (state: State) = this.Get (rowId) state, state
 
 type FlagsProperty<'t>(name, defaultValue) =

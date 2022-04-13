@@ -13,7 +13,7 @@ type MonsterKind = {
     ac: int
     attacks: int
     toHit: int
-    weaponDamage: RollSpec
+    weaponDamage: RollSpec list
     traits: Trait list
     xp: int
     treasureType: TreasureType list
@@ -60,16 +60,16 @@ let monsterKinds =
     [
     let roll n d = RollSpec.create(n,d)
     let rollb n d (b: int) = RollSpec.create(n,d,b)
-    "Jackal", roll 1 6, roll 1 4, 7, 1, +0, roll 1 2, [], 7, [], []
-    "Porcupine", roll 1 2, roll 1 4, 6, 1, +0, roll 1 3, [], 15, [], []
-    "Wolf", roll 2 6, roll 3 8, 7, 1, +2, rollb 1 4 +1, [], 120, [], []
-    "Kobold", roll 5 4, rollb 1 8 -1, 7, 1, +0, roll 1 6, [], 7, [J;O], [Q;Q;Q;Q;Q]
-    "Goblin", roll 4 6, rollb 1 8 -1, 6, 1, +0, roll 1 6, [], 15, [K], [C]
-    "Hobgoblin", roll 2 10, rollb 1 8 +1, 5, 1, +1, roll 2 4, [], 35, [J;M;D], [Q;Q;Q;Q;Q]
-    "Black Bear", roll 1 3, rollb 3 8 +3, 7, 1, +3, roll 2 3 + roll 1 6, [], 175, [], []
-    "Owlbear", StaticBonus 1, rollb 5 8 +2, 5, 1, +5, roll 4 6, [], 420, [], [C]
-    "Hill Giant", roll 1 12, (roll 12 8 + roll 1 2), 3, 1, +11, rollb 2 6 +7, [], 3000, [D], []
-    "Frost Giant", roll 1 8, (roll 15 4 + roll 1 4), 0, 1, +15, rollb 2 8 +9, [], 7000, [E], []
+    "Jackal", roll 1 6, roll 1 4, 7, 1, +0, [roll 1 2], [], 7, [], []
+    "Porcupine", roll 1 2, roll 1 4, 6, 1, +0, [roll 1 3], [], 15, [], []
+    "Wolf", roll 2 6, roll 3 8, 7, 1, +2, [rollb 1 4 +1], [], 120, [], []
+    "Kobold", roll 5 4, rollb 1 8 -1, 7, 1, +0, [roll 1 6], [], 7, [J;O], [Q;Q;Q;Q;Q]
+    "Goblin", roll 4 6, rollb 1 8 -1, 6, 1, +0, [roll 1 6], [], 15, [K], [C]
+    "Hobgoblin", roll 2 10, rollb 1 8 +1, 5, 1, +1, [roll 2 4], [], 35, [J;M;D], [Q;Q;Q;Q;Q]
+    "Black Bear", roll 1 3, rollb 3 8 +3, 7, 2, +3, [roll 2 3; roll 1 6], [], 175, [], []
+    "Owlbear", StaticBonus 1, rollb 5 8 +2, 5, 3, +5, [roll 1 6; roll 1 6; roll 2 6], [], 420, [], [C]
+    "Hill Giant", roll 1 12, (roll 12 8 + roll 1 2), 3, 1, +11, [rollb 2 6 +7], [], 3000, [D], []
+    "Frost Giant", roll 1 8, (roll 15 4 + roll 1 4), 0, 1, +15, [rollb 2 8 +9], [], 7000, [E], []
     ]
     |> List.map (fun args -> MonsterKind.create args |> fun monster -> monster.name, monster)
     |> Map.ofList
@@ -80,7 +80,7 @@ let createByName name n =
 let attack ids id = state {
     let! numberOfAttacks = numberOfAttacksP.GetM id
     let! toHit = toHitP.GetM id
-    let! dmg = weaponDamageP.GetM id
+    let! dmgs = weaponDamageP.GetM id
     let! name = personalNameP.GetM id
     let mutable msgs = []
     for ix in 1..numberOfAttacks do
@@ -98,6 +98,7 @@ let attack ids id = state {
                 | 20 as n
                 | n when n + toHit + ac >= 20 ->
                     let! targetDmg = damageTakenP.GetM targetId
+                    let dmg = dmgs[ix % dmgs.Length]
                     let damage = dmg.roll()
                     do! damageTakenP.SetM(targetId, targetDmg + damage)
                     msgs <- msgs@[$"{name} hits {targetName} for {damage} points of damage! [Attack roll: {n}, Damage: {dmg} = {damage}]"]

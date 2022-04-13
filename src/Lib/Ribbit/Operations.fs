@@ -18,7 +18,7 @@ let damageTakenP = NumberProperty("DamageTaken", 0)
 let acP = NumberProperty("AC", propFail)
 let toHitP = NumberProperty("ToHit", propFail)
 let numberOfAttacksP = NumberProperty("NumberOfAttacks", 1)
-let weaponDamageP = RollProperty("WeaponDamage", propFail)
+let weaponDamageP = RollListProperty("WeaponDamage", propFail)
 let isFriendlyP = BoolProperty("IsFriendly", false)
 
 let nextId(): StateChange<State, Id> = state {

@@ -42,7 +42,7 @@ let loadCharacters (characters: CharacterSheet list) (adventureState: AdventureS
                 do! acP.SetM(id, char.ac)
                 do! numberOfAttacksP.SetM(id, char.attacks)
                 do! toHitP.SetM(id, char.toHitBonus)
-                do! weaponDamageP.SetM(id, char.damage)
+                do! weaponDamageP.SetM(id, [char.damage])
                 do! Domain.Ribbit.Rules5e.traitsP.SetAllM(id, char.traits.summary |> Set.map string)
                 }
         | Detail5e (char: CharacterSheet5e) ->
@@ -52,7 +52,7 @@ let loadCharacters (characters: CharacterSheet list) (adventureState: AdventureS
                 do! acP.SetM(id, char.ac)
                 do! numberOfAttacksP.SetM(id, 1)
                 do! toHitP.SetM(id, char.toHit)
-                do! weaponDamageP.SetM(id, char.damage)
+                do! weaponDamageP.SetM(id, [char.damage])
                 do! Domain.Ribbit.Rules5e.initBonusP.SetM(id, char.Dex |> DND5e.statBonus)
                 do! Domain.Ribbit.Rules5e.traitsP.SetAllM(id, char.traits.summary |> Set.map string)
                 }
