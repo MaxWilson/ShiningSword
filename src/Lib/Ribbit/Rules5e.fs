@@ -89,31 +89,33 @@ let attack ids id = state {
         let findTarget (ribbit: State) =
             let myTeam = isFriendlyP.Get id ribbit
             ids |> Array.tryFind (fun targetId -> isFriendlyP.Get targetId ribbit <> myTeam && hpP.Get targetId ribbit > damageTakenP.Get targetId ribbit)
-        let! targetId = getF findTarget
-        match targetId with
-        | Some targetId ->
-            let! targetName = personalNameP.GetM targetId
-            let! ac = acP.GetM targetId
-            let! packTactics = traitsP.GetM(id, PackTactics)
-            let! hasLivingBuddy =
-                getF(fun ribbit ->
-                    let myTeam = isFriendlyP.Get id ribbit
-                    ids |> Array.exists (fun otherId -> otherId <> id && isFriendlyP.Get targetId ribbit = myTeam && hpP.Get targetId ribbit > damageTakenP.Get targetId ribbit))
-            let hasAdvantage =
-                packTactics &&
-                    hasLivingBuddy
-            let attackRoll = if hasAdvantage then max (rand 20) (rand 20) else rand 20
-            match attackRoll with
-            | 20 as n
-            | n when n + toHit >= ac ->
-                let! targetDmg = damageTakenP.GetM targetId
-                let! ham = traitsP.GetM(targetId, HeavyArmorMaster)
-                let dmg = if ham then max 0 (dmg.roll() - 3) else dmg.roll()
-                do! damageTakenP.SetM(targetId, targetDmg + dmg)
-                msgs <- msgs@[$"{name} hits {targetName} for {dmg} points of damage!"]
-            | _ ->
-                msgs <- msgs@[$"{name} misses {targetName}."]
-        | None -> ()
+        let! isAlive = getF(fun state -> hpP.Get id state > damageTakenP.Get id state)
+        if isAlive then
+            let! targetId = getF findTarget
+            match targetId with
+            | Some targetId ->
+                let! targetName = personalNameP.GetM targetId
+                let! ac = acP.GetM targetId
+                let! packTactics = traitsP.GetM(id, PackTactics)
+                let! hasLivingBuddy =
+                    getF(fun ribbit ->
+                        let myTeam = isFriendlyP.Get id ribbit
+                        ids |> Array.exists (fun otherId -> otherId <> id && isFriendlyP.Get targetId ribbit = myTeam && hpP.Get targetId ribbit > damageTakenP.Get targetId ribbit))
+                let hasAdvantage =
+                    packTactics &&
+                        hasLivingBuddy
+                let attackRoll = if hasAdvantage then max (rand 20) (rand 20) else rand 20
+                match attackRoll with
+                | 20 as n
+                | n when n + toHit >= ac ->
+                    let! targetDmg = damageTakenP.GetM targetId
+                    let! ham = traitsP.GetM(targetId, HeavyArmorMaster)
+                    let dmg = if ham then max 0 (dmg.roll() - 3) else dmg.roll()
+                    do! damageTakenP.SetM(targetId, targetDmg + dmg)
+                    msgs <- msgs@[$"{name} hits {targetName} for {dmg} points of damage!"]
+                | _ ->
+                    msgs <- msgs@[$"{name} misses {targetName}."]
+            | None -> ()
     return msgs
     }
 
