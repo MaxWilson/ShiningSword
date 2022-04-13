@@ -145,7 +145,10 @@ module App =
         | Page.Adventure adventure ->
             let control = function
             | Adventure.Save ->
-                for char in adventure.state.mainCharacter::adventure.state.allies |> List.rev do
+                // avoid saving unless an ID has already been assigned, partly to avoid duplications (because of different Ids)
+                // and partly because the player might not be ready to keep the character.
+                let hasAlreadyBeenSaved (char:CharacterSheet) = char.converge((fun c -> c.id.IsSome), (fun c -> c.id.IsSome))
+                for char in adventure.state.mainCharacter::adventure.state.allies |> List.filter hasAlreadyBeenSaved |> List.rev do
                     char |> AddOrUpdateRoster |> dispatch
             | Adventure.SaveAndQuit ->
                 for char in adventure.state.mainCharacter::adventure.state.allies |> List.rev do
