@@ -150,13 +150,7 @@ module App =
         | Page.Generate model ->
             Chargen.View.view model (chargenControl dispatch) (ChargenMsg >> dispatch)
         | Page.Adventure adventure ->
-            let stillAlive (char: CharacterSheet) =
-                let ribbit = adventure.state.ribbit
-                let name = char.converge((fun c -> c.name), (fun c -> c.name))
-                match ribbit.roster |> Map.tryFind name with
-                | Some id ->
-                    (Domain.Ribbit.Operations.hpP.Get id ribbit) > (Domain.Ribbit.Operations.damageTakenP.Get id ribbit)
-                | None -> true // if he's not been in combat yet then he's obviously still alive
+            let stillAlive = Adventure.stillAlive adventure
             let control = function
             | Adventure.Save ->
                 // avoid saving unless an ID has already been assigned, partly to avoid duplications (because of different Ids)

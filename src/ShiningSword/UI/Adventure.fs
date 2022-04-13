@@ -30,6 +30,15 @@ let recruitCompanions model control dispatch =
     else
         Recruit (candidates |> chooseRandom) |> dispatch
 
+let stillAlive (adventure: Model) (char: CharacterSheet) =
+    let ribbit = adventure.state.ribbit
+    let name = char.converge((fun c -> c.name), (fun c -> c.name))
+    match ribbit.roster |> Map.tryFind name with
+    | Some id ->
+        (Domain.Ribbit.Operations.hpP.Get id ribbit) > (Domain.Ribbit.Operations.damageTakenP.Get id ribbit)
+    | None -> true // if he's not been in combat yet then he's obviously still alive
+
+
 let init sheet =
     let state = downtime sheet
     { activity = Downtime; state = state; title = None; spec = None; log = [] }
@@ -137,7 +146,13 @@ let view model control dispatch =
                 Html.button [prop.text "Call it a day"; prop.onClick(fun _ -> SaveAndQuit |> control)]
             | CompletingAdventure ->
                 // later on if there are more choices, this could become a full-fledged Adventuring phase with RP choices
-                Html.button [prop.text "Finish"; prop.onClick(fun _ -> Save |> control; Proceed |> dispatch)]
+                let finish _ =
+                    if model.state.mainCharacter |> stillAlive model then
+                        Save |> control
+                        Proceed |> dispatch
+                    else
+                        SaveAndQuit |> control
+                Html.button [prop.text "Finish"; prop.onClick(finish)]
             | PushingUpDaisies ->
                 Html.button [prop.text "OK"; prop.onClick (thunk1 control SaveAndQuit)]
             ]
