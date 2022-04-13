@@ -515,6 +515,11 @@ module View =
             prop.className (className: string)
             prop.children (children: _ list)
             ]
+    [<ReactComponent>]
+    let autoFocusInput props =
+        let self = React.useRef None
+        React.useEffectOnce(fun _ -> self.current?focus(); self.current?select())
+        Html.input (prop.ref self::props)
 
     let currentStat model dispatch stat statValue =
         match model.draft with
@@ -714,7 +719,7 @@ module View =
                                 prop.onClick (thunk1 dispatch (SetEditMode EditingName))
                                 ]
                         | EditingName ->
-                            Html.input [
+                            autoFocusInput [
                                 prop.value draft.name;
                                 prop.onChange (fun (txt:string) -> SetName txt |> dispatch)
                                 prop.onKeyDown (fun ev -> if ev.code = "Enter" then SetEditMode NotEditingText |> dispatch); prop.onBlur (fun ev -> SetEditMode NotEditingText |> dispatch)                                    ]
