@@ -167,8 +167,7 @@ let fightUntilFixedPoint (adventureState: AdventureState) =
         let adv, msg = victory adv.currentEncounter.Value adv
         result.outcome, result.msgs@["Victory!!!";msg], adv
     | Defeat ->
-        let adv, msg = victory adv.currentEncounter.Value adv
-        result.outcome, result.msgs@["You have been defeated!!! The worms now feast on your flesh.";msg], adv
+        result.outcome, result.msgs@["You have been defeated!!! The worms now feast on your flesh."], adv
     | _ ->
         result.outcome, result.msgs, adv
 
