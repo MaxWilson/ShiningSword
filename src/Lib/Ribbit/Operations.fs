@@ -2,24 +2,34 @@ module Domain.Ribbit.Operations
 open Domain.Ribbit
 open Domain.Character
 
-// todo: make lazy data possible
-let propFail rowId propName (scope:Scope) =
+let propFail rowId propName (state: State) =
     let name =
-        match scope.rows with
+        match state.scope.rows with
+        | Lookup rowId (Lookup "PersonalName" (Text personalName)) -> personalName
+        | _ -> $"Unnamed individual (ID = {rowId})"
+    failwith $"{propName} should have been set on {name}"
+let request rowId propName (state: State) =
+    let name =
+        match state.scope.rows with
         | Lookup rowId (Lookup "PersonalName" (Text personalName)) -> personalName
         | _ -> $"Unnamed individual (ID = {rowId})"
     failwith $"{propName} should have been set on {name}"
 let prototypeP = IdProperty("prototype", 0)
-let personalNameP = TextProperty("PersonalName", propFail) // self-reference may not even be necessary
-let selfP = IdProperty("UniqueId", propFail) // self-reference may not even be necessary
-let hdP = RollProperty("HitDice", propFail)
-let hpP = NumberProperty("MaxHP", propFail)
+let personalNameP = TextProperty("PersonalName") // self-reference may not even be necessary
+let selfP = IdProperty("UniqueId") // self-reference may not even be necessary
+let hdP = RollProperty("HitDice")
+let hpP = NumberProperty("MaxHP")
 let damageTakenP = NumberProperty("DamageTaken", 0)
-let acP = NumberProperty("AC", propFail)
-let toHitP = NumberProperty("ToHit", propFail)
+let acP = NumberProperty("AC")
+let toHitP = NumberProperty("ToHit")
 let numberOfAttacksP = NumberProperty("NumberOfAttacks", 1)
-let weaponDamageP = RollListProperty("WeaponDamage", propFail)
+let weaponDamageP = RollsProperty("WeaponDamage")
 let isFriendlyP = BoolProperty("IsFriendly", false)
+
+let getValue id (property: Property<'t>) = stateChange {
+    let! value = property.GetM(id)
+    return value
+    }
 
 let nextId(): StateChange<State, Id> = stateChange {
     let! nextId = getF <| fun state -> (defaultArg state.scope.biggestIdSoFar 0) + 1

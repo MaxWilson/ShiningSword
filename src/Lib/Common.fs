@@ -16,8 +16,8 @@ let tuple2 x y = x,y
 let matchfail v = sprintf "No match found for %A. This is a bug." v |> invalidOp
 /// Placeholder while we're doing type-focused development, before implementation
 let notImpl _ = failwith "Not implemented yet. Email Max if you want this feature."
-let shouldntHappen _ =
-    failwith "This shouldn't ever happen. If it does there's a bug."
+let shouldntHappen arg =
+    failwith $"This shouldn't ever happen. If it does there's a bug. Details: {arg}"
 let emptyString = System.String.Empty
 let betweenInclusive a b n = min a b <= n && n <= max a b
 /// invoke f without requiring parens

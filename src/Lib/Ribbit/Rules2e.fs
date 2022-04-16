@@ -4,7 +4,7 @@ open Domain.Ribbit.Operations
 open Domain.Character
 open Domain.Character.ADND2nd
 
-let traitsP = FlagsProperty<Trait>("Traits", notImpl)
+let traitsP = FlagsProperty<Trait>("Traits")
 
 type MonsterKind = {
     name: string
@@ -79,10 +79,10 @@ let createByName name n =
     create (monsterKinds[name]) n
 
 let attack ids id = stateChange {
-    let! numberOfAttacks = numberOfAttacksP.GetM id
-    let! toHit = toHitP.GetM id
-    let! dmgs = weaponDamageP.GetM id
-    let! name = personalNameP.GetM id
+    let! numberOfAttacks = numberOfAttacksP.Get id |> getF
+    let! toHit = toHitP.Get id |> getF
+    let! dmgs = weaponDamageP.Get id |> getF
+    let! name = personalNameP.Get id |> getF
     let mutable msgs = []
     for ix in 1..numberOfAttacks do
         let! isAlive = getF(fun state -> hpP.Get id state > damageTakenP.Get id state)
@@ -93,14 +93,14 @@ let attack ids id = stateChange {
             let! targetId = getF findTarget
             match targetId with
             | Some targetId ->
-                let! targetName = personalNameP.GetM targetId
-                let! ac = acP.GetM targetId
+                let! targetName = personalNameP.Get targetId |> getF
+                let! ac = acP.Get targetId |> getF
                 match rand 20 with
                 | 20 as n
                 | n when n + toHit + ac >= 20 ->
-                    let! targetDmg = damageTakenP.GetM targetId
+                    let! targetDmg = damageTakenP.Get targetId |> getF
                     let dmg = dmgs[ix % dmgs.Length]
-                    let damage = dmg.roll()
+                    let damage = dmg.roll() |> max 0
                     do! damageTakenP.SetM(targetId, targetDmg + damage)
                     msgs <- msgs@[$"{name} hits {targetName} for {damage} points of damage! [Attack roll: {n}, Damage: {dmg} = {damage}]"]
                 | n ->

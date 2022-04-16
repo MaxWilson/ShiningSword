@@ -4,7 +4,7 @@ open Domain.Ribbit.Operations
 open Domain.Character
 open Domain.Character.DND5e
 
-let traitsP = FlagsProperty<Trait>("Traits", propFail)
+let traitsP = FlagsProperty<Trait>("Traits")
 let initBonusP = NumberProperty("InitiativeBonus", 0)
 
 type MonsterKind = {
@@ -81,11 +81,15 @@ let createByName name n =
     create (monsterKinds[name]) n
 
 
+let getOk f state =
+    match getF f state with
+    | Ok (), state -> (), state
+    | _ -> shouldntHappen "Shouldn't call getOk unless underlying property is already set"
 let attack ids id = stateChange {
-    let! numberOfAttacks = numberOfAttacksP.GetM id
-    let! toHit = toHitP.GetM id
-    let! dmgs = weaponDamageP.GetM id
-    let! name = personalNameP.GetM id
+    let! numberOfAttacks = numberOfAttacksP.Get id |> getF
+    let! toHit = toHitP.Get id |> getF
+    let! dmgs = weaponDamageP.Get id |> getF
+    let! name = personalNameP.Get id |> getF
     let mutable msgs = []
     for ix in 1..numberOfAttacks do
         let findTarget (ribbit: State) =
@@ -96,8 +100,8 @@ let attack ids id = stateChange {
             let! targetId = getF findTarget
             match targetId with
             | Some targetId ->
-                let! targetName = personalNameP.GetM targetId
-                let! ac = acP.GetM targetId
+                let! targetName = personalNameP.Get targetId |> getF
+                let! ac = acP.Get targetId |> getF
                 let! packTacticsApplies = getF(fun ribbit ->
                     if traitsP.Check(id, PackTactics) ribbit then
                         let myTeam = isFriendlyP.Get id ribbit
@@ -112,8 +116,8 @@ let attack ids id = stateChange {
                 match if hasAdvantage then max attackRoll secondRoll else attackRoll with
                 | 20 as n
                 | n when n + toHit >= ac ->
-                    let! targetDmg = damageTakenP.GetM targetId
-                    let! ham = traitsP.CheckM(targetId, HeavyArmorMaster)
+                    let! targetDmg = damageTakenP.Get targetId |> getF
+                    let! ham = traitsP.Check(targetId, HeavyArmorMaster) |> getF
                     let dmg = dmgs[ix % dmgs.Length]
                     let dmg = if ham then dmg - StaticBonus 3 else dmg
                     let damage = dmg.roll() |> max 0
