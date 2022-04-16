@@ -32,6 +32,8 @@ and State = {
     }
     with static member fresh = { scope = Scope.fresh; kindsOfMonsters = Map.empty; roster = Map.empty; categories = Map.empty; affordances = Map.empty }
 
+type Request = DataRequest of int * propertyName: Name | BehaviorRequestPlaceholder
+type Expression<'t> = Result<'t, Request>
 type FightResult = Victory | Defeat | Ongoing
 type RoundResult = { outcome: FightResult; msgs: string list; ribbit: State }
 

@@ -28,7 +28,7 @@ type MonsterKind = {
         }
 
 let load (monsterKind:MonsterKind) =
-    let initialize kindId = state {
+    let initialize kindId = stateChange {
         do! transform (hdP.Set (kindId, monsterKind.hd))
         do! transform (acP.Set (kindId, monsterKind.ac))
         do! transform (toHitP.Set (kindId, monsterKind.toHit))
@@ -36,18 +36,18 @@ let load (monsterKind:MonsterKind) =
         do! transform (weaponDamageP.Set (kindId, monsterKind.weaponDamage))
         do! traitsP.SetAllM (kindId, monsterKind.traits |> List.map string |> Set.ofList)
         }
-    state {
+    stateChange {
         do! addKind monsterKind.name initialize
         }
 
 let create (monsterKind: MonsterKind) (n: int) =
-    let initialize monsterId = state {
+    let initialize monsterId = stateChange {
         // every monster has individual HD
         do! transform <| fun state ->
             // always have at least 1 HP
             (hdP.Get monsterId state |> fun hdRoll -> (hpP.Set (monsterId, hdRoll.roll() |> max 1)) state)
         }
-    state {
+    stateChange {
         let! alreadyLoaded = getF <| fun (state: State) -> state.kindsOfMonsters.ContainsKey monsterKind.name
         if alreadyLoaded |> not then
             do! load monsterKind
@@ -78,7 +78,7 @@ let monsterKinds =
 let createByName name n =
     create (monsterKinds[name]) n
 
-let attack ids id = state {
+let attack ids id = stateChange {
     let! numberOfAttacks = numberOfAttacksP.GetM id
     let! toHit = toHitP.GetM id
     let! dmgs = weaponDamageP.GetM id
@@ -109,7 +109,7 @@ let attack ids id = state {
     return msgs
     }
 
-let fightLogic = state {
+let fightLogic = stateChange {
     let! ids = getF(fun state -> state.roster |> Map.values |> Array.ofSeq)
     let initiativeOrder =
         ids |> Array.map (fun id -> id, rand 10) |> Array.sortBy snd

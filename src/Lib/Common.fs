@@ -219,7 +219,7 @@ module StateMonad =
         let arg1, state = f state
         arg1, state
     let set v state = (), v
-    let state = StateBuilder()
+    let stateChange = StateBuilder()
     // run and discard unit result
     let runNoResult state m =
         let (), state' = m state

@@ -41,7 +41,7 @@ let loadCharacters (characters: CharacterSheet list) (adventureState: AdventureS
     let addCharacter state' ribbit =
         match ribbit with
         | Detail2e (char: CharacterSheet2e) ->
-            state {
+            stateChange {
                 let! id = addCharacterToRoster char.name
                 do! hpP.SetM(id, char.hp |> Array.sumBy(fun (lhs, rhs) -> lhs + rhs))
                 do! acP.SetM(id, char.ac)
@@ -51,7 +51,7 @@ let loadCharacters (characters: CharacterSheet list) (adventureState: AdventureS
                 do! Domain.Ribbit.Rules5e.traitsP.SetAllM(id, char.traits.summary |> Set.map string)
                 }
         | Detail5e (char: CharacterSheet5e) ->
-            state {
+            stateChange {
                 let! id = addCharacterToRoster char.name
                 do! hpP.SetM(id, char.hp |> Array.sumBy(fun (lhs, rhs) -> lhs + rhs))
                 do! acP.SetM(id, char.ac)
@@ -105,7 +105,7 @@ let toOngoing (encounter:Encounter) =
 
 let beginEncounter (next: OngoingEncounter) rest (adventureState: AdventureState) =
     let ribbit =
-        state {
+        stateChange {
             for monsterKind, qty in next.monsters do
                 if adventureState.mainCharacter.isADND then
                     do! Domain.Ribbit.Rules2e.createByName monsterKind qty

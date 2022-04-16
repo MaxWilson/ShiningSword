@@ -21,13 +21,13 @@ let numberOfAttacksP = NumberProperty("NumberOfAttacks", 1)
 let weaponDamageP = RollListProperty("WeaponDamage", propFail)
 let isFriendlyP = BoolProperty("IsFriendly", false)
 
-let nextId(): StateChange<State, Id> = state {
+let nextId(): StateChange<State, Id> = stateChange {
     let! nextId = getF <| fun state -> (defaultArg state.scope.biggestIdSoFar 0) + 1
     do! transform <| fun state -> { state with scope = { state.scope with biggestIdSoFar = Some nextId } }
     return nextId
     }
 
-let addKind (name: Name) initialize = state {
+let addKind (name: Name) initialize = stateChange {
     let! nextId = nextId()
     let! state = get()
     do! initialize nextId
@@ -35,7 +35,7 @@ let addKind (name: Name) initialize = state {
     }
 
 // there are enough subtle differences with addMonster that I don't want to refactor these together. Some minor duplication is okay in this case.
-let addCharacterToRoster personalName = state {
+let addCharacterToRoster personalName = stateChange {
     let! monsterId = nextId()
     do! transform (fun state -> { state with roster = state.roster |> Map.add personalName monsterId })
     do! personalNameP.SetM(monsterId, personalName)
@@ -44,7 +44,7 @@ let addCharacterToRoster personalName = state {
     return monsterId
     }
 
-let addMonster (kindOfMonster: Name) initialize = state {
+let addMonster (kindOfMonster: Name) initialize = stateChange {
     let! monsterId = nextId()
     let! kinds, categories = getF (fun st -> st.kindsOfMonsters, st.categories)
     if not <| kinds.ContainsKey kindOfMonster then
