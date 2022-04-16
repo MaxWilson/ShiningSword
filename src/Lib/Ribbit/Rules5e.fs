@@ -92,13 +92,10 @@ let attack ids id = stateChange {
     let! name = personalNameP.Get id |> getF
     let mutable msgs = []
     for ix in 1..numberOfAttacks do
-        let findTarget (ribbit: State) =
-            let myTeam = isFriendlyP.Get id ribbit
-            ids |> Array.tryFind (fun targetId -> isFriendlyP.Get targetId ribbit <> myTeam && hpP.Get targetId ribbit > damageTakenP.Get targetId ribbit)
         let! isAlive = getF(fun state -> hpP.Get id state > damageTakenP.Get id state)
         if isAlive then
-            let! targetId = getF findTarget
-            match targetId with
+            let! target = findTarget ids id // there seems to be a potential Fable bug with match! which can result in a dead target still getting hit (for another "fatal" blow)
+            match target with               // so I'm using regular let! and match instead.
             | Some targetId ->
                 let! targetName = personalNameP.Get targetId |> getF
                 let! ac = acP.Get targetId |> getF

@@ -85,7 +85,7 @@ module Ops =
         let fallback _ _ _ =
             match defaultValue with
             | Some v -> Ok v
-            | None -> BugReport $"row #{id} property {propertyName} was accessed synchronously but was actually missing" |> Error
+            | None -> BugReport $"row #{rowId} property {propertyName} was accessed synchronously but was actually missing" |> Error
         _get (rowId, propertyName, fallback, getter)
 
     let getAsync<'t> (rowId, propertyName, defaultValue: 't option, castRuntimeValue) : Expression<'t> = fun state ->

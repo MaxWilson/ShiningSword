@@ -87,11 +87,8 @@ let attack ids id = stateChange {
     for ix in 1..numberOfAttacks do
         let! isAlive = getF(fun state -> hpP.Get id state > damageTakenP.Get id state)
         if isAlive then
-            let findTarget (ribbit: State) =
-                let myTeam = isFriendlyP.Get id ribbit
-                ids |> Array.tryFind (fun targetId -> isFriendlyP.Get targetId ribbit <> myTeam && hpP.Get targetId ribbit > damageTakenP.Get targetId ribbit)
-            let! targetId = getF findTarget
-            match targetId with
+            let! target = findTarget ids id // there seems to be a potential Fable bug with match! which can result in a dead target still getting hit (for another "fatal" blow)
+            match target with               // so I'm using regular let! and match instead.
             | Some targetId ->
                 let! targetName = personalNameP.Get targetId |> getF
                 let! ac = acP.Get targetId |> getF
@@ -102,7 +99,9 @@ let attack ids id = stateChange {
                     let dmg = dmgs[ix % dmgs.Length]
                     let damage = dmg.roll() |> max 0
                     do! damageTakenP.SetM(targetId, targetDmg + damage)
-                    msgs <- msgs@[$"{name} hits {targetName} for {damage} points of damage! [Attack roll: {n}, Damage: {dmg} = {damage}]"]
+                    let! targetHp = hpP.Get targetId |> getF
+                    let killMsg = if targetDmg + damage >= targetHp then ", a fatal blow" else ""
+                    msgs <- msgs@[$"{name} hits {targetName} for {damage} points of damage{killMsg}! [Attack roll: {n}, Damage: {dmg} = {damage}]"]
                 | n ->
                     msgs <- msgs@[$"{name} misses {targetName}. [Attack roll: {n}]"]
             | None -> ()

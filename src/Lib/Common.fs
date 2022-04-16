@@ -14,10 +14,11 @@ let thunk3 f arg1 arg2 arg3 _ = f arg1 arg2 arg3
 let ignore1 f _ = f()
 let tuple2 x y = x,y
 let matchfail v = sprintf "No match found for %A. This is a bug." v |> invalidOp
+exception BugException of msg: string
 /// Placeholder while we're doing type-focused development, before implementation
 let notImpl _ = failwith "Not implemented yet. Email Max if you want this feature."
 let shouldntHappen arg =
-    failwith $"This shouldn't ever happen. If it does there's a bug. Details: {arg}"
+    $"This shouldn't ever happen. If it does there's a bug. Details: {arg}" |> BugException |> raise
 let emptyString = System.String.Empty
 let betweenInclusive a b n = min a b <= n && n <= max a b
 /// invoke f without requiring parens

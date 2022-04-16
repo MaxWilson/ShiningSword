@@ -25,6 +25,7 @@ let toHitP = NumberProperty("ToHit")
 let numberOfAttacksP = NumberProperty("NumberOfAttacks", 1)
 let weaponDamageP = RollsProperty("WeaponDamage")
 let isFriendlyP = BoolProperty("IsFriendly", false)
+let currentTargetP = IdProperty("CurrentTarget", 0)
 
 let getValue id (property: Property<'t>) = stateChange {
     let! value = property.GetM(id)
@@ -84,6 +85,27 @@ let act affordanceName id state =
     match state.affordances |> Map.tryFind affordanceName with
     | Some affordance -> affordance.action id state
     | None -> shouldntHappen()
+
+
+let findTarget ids id = stateChange {
+    let! currentTarget = currentTargetP.Get id |> getF
+    let! isAlive = getF (fun ribbit -> (currentTarget > 0) && (hpP.Get id ribbit > damageTakenP.Get currentTarget ribbit))
+    if isAlive then
+        return Some currentTarget
+    else
+        let! newTarget = getF (fun ribbit ->
+            let myTeam = isFriendlyP.Get id ribbit
+            let candidates = ids |> Array.filter (fun targetId -> isFriendlyP.Get targetId ribbit <> myTeam && hpP.Get targetId ribbit > damageTakenP.Get targetId ribbit)
+            if candidates.Length > 0 then
+                let choice = candidates |> chooseRandom
+                Some choice
+            else None)
+        match newTarget with
+        | Some newTarget ->
+            do! currentTargetP.SetM (id, newTarget)
+            return Some newTarget
+        | None -> return None
+    }
 
 module Treasure =
 // helper type so I can control the display order instead of being alphabetical
