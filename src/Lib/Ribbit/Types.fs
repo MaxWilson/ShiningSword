@@ -3,13 +3,15 @@ namespace Domain.Ribbit
 open Domain.Character
 type Id = int
 
+type RuntimeType = Number | Id  | Text | Roll | Rolls | Flags | Bool
 type RuntimeValue = Number of int | Id of Id | Text of string | Roll of RollSpec | Rolls of RollSpec list | Flags of string Set| Bool of bool
 type Row = Map<Name, RuntimeValue>
 
-type Property = interface
+type IProperty = interface
     abstract Name: string
     abstract HasValue: State * Id -> bool
     abstract GetRuntimeValue: State * Id -> RuntimeValue
+    abstract Type: RuntimeType
     end
 
 and Scope = {
@@ -36,6 +38,10 @@ type Request = DataRequest of int * propertyName: Name | BehaviorRequestPlacehol
 type Expression<'t> = Result<'t, Request>
 type FightResult = Victory | Defeat | Ongoing
 type RoundResult = { outcome: FightResult; msgs: string list; ribbit: State }
+
+// this doesn't properly belong in ribbit but because treasure is part of the aftermath of the combat,
+// and because it's convenient to put TreasureType in the monster stat blocks, I'll allow it for now
+type TreasureType = A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z
 
 module Ops =
     let getFromScope (rowId: Id, propertyName: Name, defaultValue, getter) (scope:Scope) =
@@ -78,10 +84,11 @@ module Ops =
 open Ops
 
 type NumberProperty(name, defaultValue) =
-    interface Property with
+    interface IProperty with
         member this.Name = name
         member this.GetRuntimeValue(state, rowId) = this.Get rowId state |> Number
         member this.HasValue(state, rowId) = hasValue (rowId, name) state
+        member this.Type = RuntimeType.Number
     new(name, defaultValue: int) = NumberProperty(name, fun _ _ _ -> defaultValue)
     member this.Name = name
     member this.Set(rowId, value) (state: State) =
@@ -92,10 +99,11 @@ type NumberProperty(name, defaultValue) =
     member this.GetM(rowId) (state: State) = this.Get (rowId) state, state
 
 type BoolProperty(name, defaultValue) =
-    interface Property with
+    interface IProperty with
         member this.Name = name
         member this.GetRuntimeValue(scope, rowId) = this.Get rowId scope |> Bool
         member this.HasValue(scope, rowId) = hasValue (rowId, name) scope
+        member this.Type = RuntimeType.Bool
     new(name, defaultValue: bool) = BoolProperty(name, fun _ _ _ -> defaultValue)
     member this.Name = name
     member this.Set(rowId, value) (state: State) =
@@ -106,10 +114,11 @@ type BoolProperty(name, defaultValue) =
     member this.GetM(rowId) (state: State) = this.Get (rowId) state, state
 
 type RollProperty(name, defaultValue) =
-    interface Property with
+    interface IProperty with
         member this.Name = name
         member this.GetRuntimeValue(scope, rowId) = this.Get rowId scope |> Roll
         member this.HasValue(scope, rowId) = hasValue (rowId, name) scope
+        member this.Type = RuntimeType.Roll
     new(name, defaultValue: RollSpec) = RollProperty(name, fun _ _ _ -> defaultValue)
     member this.Name = name
     member this.Set(rowId, value) (state: State) =
@@ -120,10 +129,11 @@ type RollProperty(name, defaultValue) =
     member this.GetM(rowId) (state: State) = this.Get (rowId) state, state
 
 type RollListProperty(name, defaultValue) =
-    interface Property with
+    interface IProperty with
         member this.Name = name
         member this.GetRuntimeValue(scope, rowId) = this.Get rowId scope |> Rolls
         member this.HasValue(scope, rowId) = hasValue (rowId, name) scope
+        member this.Type = RuntimeType.Rolls
     new(name, defaultValue: RollSpec list) = RollListProperty(name, fun _ _ _ -> defaultValue)
     member this.Name = name
     member this.Set(rowId, value) (state: State) =
@@ -134,10 +144,11 @@ type RollListProperty(name, defaultValue) =
     member this.GetM(rowId) (state: State) = this.Get (rowId) state, state
 
 type FlagsProperty<'t>(name, defaultValue) =
-    interface Property with
+    interface IProperty with
         member this.Name = name
         member this.GetRuntimeValue(scope, rowId) = failwith "Nobody should be calling FlagsProperty.GetRuntimeValue()"
         member this.HasValue(scope, rowId) = false
+        member this.Type = RuntimeType.Flags
     new(name, defaultValue: string Set) = FlagsProperty(name, fun _ _ _ -> defaultValue)
     member this.Name = name
     member this.SetAll(rowId, value) (state: State) =
@@ -162,10 +173,11 @@ type FlagsProperty<'t>(name, defaultValue) =
     member this.CheckM(rowId) (state: State) = this.Check (rowId) state, state
 
 type IdProperty(name, defaultValue) =
-    interface Property with
+    interface IProperty with
         member this.Name = name
         member this.GetRuntimeValue(scope, rowId) = this.Get rowId scope |> Id
         member this.HasValue(scope, rowId) = hasValue (rowId, name) scope
+        member this.Type = RuntimeType.Id
     new(name, defaultValue: int) = IdProperty(name, fun _ _ _ -> defaultValue)
     member this.Name = name
     member this.Set(rowId, value) (state: State) =
@@ -176,10 +188,11 @@ type IdProperty(name, defaultValue) =
     member this.GetM(rowId) (state: State) = this.Get (rowId) state, state
 
 type TextProperty(name, defaultValue) =
-    interface Property with
+    interface IProperty with
         member this.Name = name
         member this.GetRuntimeValue(scope, rowId) = this.Get rowId scope |> Text
         member this.HasValue(scope, rowId) = hasValue (rowId, name) scope
+        member this.Type = RuntimeType.Text
     new(name, defaultValue: string) = TextProperty(name, fun _ _ _ -> defaultValue)
     member this.Name = name
     member this.Set(rowId, value) (state: State) =
@@ -188,7 +201,3 @@ type TextProperty(name, defaultValue) =
     member this.Get(rowId) (state: State) =
         state |> getFromState (rowId, name, defaultValue, function Text t -> t | _ -> defaultValue rowId name state.scope)
     member this.GetM(rowId) (state: State) = this.Get (rowId) state, state
-
-// this doesn't properly belong in ribbit but because treasure is part of the aftermath of the combat,
-// and because it's convenient to put TreasureType in the monster stat blocks, I'll allow it for now
-type TreasureType = A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z
