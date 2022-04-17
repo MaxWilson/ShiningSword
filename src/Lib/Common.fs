@@ -105,6 +105,8 @@ module Map =
             m |> Map.add key (f Map.empty)
     let findForce key (m: Map<_,_>) =
         m |> Map.tryFind key |> Option.defaultValue Map.empty
+    let (|Lookup|_|) key map =
+        map |> Map.tryFind key
 
 type IdGenerator = NextId of int
     with
@@ -124,52 +126,11 @@ type Ops with
     static member add(item, data: _ Queue.d) = Queue.append item data
     static member addTo (data:_ Queue.d) = fun item -> Ops.add(item, data)
 
-
-
-// intended to be as fast as a mutable data structure like an array for most purposes
-//   but to have the sharing benefits an immutable structure like a Map as long as it's
-//   used single threaded. Under the hood there's a fast, mutable data reference which
-//   is updated by a string of commands, and surfaced via State references which secretly
-//   contain the string of commands used to create them. As long as the current mutable
-//   data reference shares a "prefix" of commands with whichever State is asking for
-//   the current state, we can just make a quick mutation to the shared mutable state
-//   and return it.
-module Stateful =
-    open Microsoft.FSharp.Core
-
-    type private Seed<'t, 'msg> = Seed of initial: (unit -> 't) * update: ('msg -> 't -> 't)
-    type State<'t, 'msg> =
-        private { seed: Seed<'t, 'msg> ; shared:(('t * 'msg list) ref) ; past: ('msg list) ; queue: ('msg list) }
-        with
-        static member create(initial: (unit -> 't), update: 'msg -> 't -> 't) =
-            let shared = ref (initial(), [])
-            { seed = Seed(initial, update); shared = shared; past = []; queue = [] }
-    let (|Deref|) (cell: _ ref) = cell.Value
-    // returns current state and amortized-updated State reflecting the current state. Also sets shared state = this.
-    let deref = function
-    | { shared = Deref(current, sharedPast); past = past; queue = [] } as this when sharedPast = past ->
-        current, this
-    | { seed = Seed(init, update); shared = Deref(current, sharedPast) as shared; past = past; queue = queue } as this  ->
-        let apply q state =
-            List.foldBack update q state
-        let current', past' =
-            if sharedPast = past then
-                (current |> apply queue), queue@past
-            else
-                // apply it from the beginning
-                let combined = queue@past
-                (init() |> apply combined), combined
-        shared.Value <- (current', past')
-        current', { this with shared = shared; past = past'; queue = [] }
-    let execute msg = function
-    | { queue = queue } as this ->
-        { this with queue = msg::queue }
-
 // Hit tip to https://gist.github.com/jwosty/5338fce8a6691bbd9f6f
 // and to https://github.com/fsprojects/FSharpx.Extras/blob/da43a30aa1b2a08c86444777a5edb03027cf5c1c/src/FSharpx.Extras/ComputationExpressions/State.fs
 // although I had to fix some bugs with the while loop support.
 [<AutoOpen>]
-module StateMonad =
+module StateChangeMonad =
     type StateChange<'state, 'retval> = ('state -> 'retval * 'state)
     open System
     type State<'T, 'State> = 'State -> 'T * 'State
@@ -191,9 +152,11 @@ module StateMonad =
                 f retval, state
                 )
     type StateBuilder() =
+        // this version of state builder: I have concerns about tail calls and stack depth. Maybe we shouldn't build Ribbit on top of the state monad after all...
         let bind k m = fun s -> let (a, s') = m s in (k a) s'
+        let zero = (fun state -> (), state)
         member this.Return x : StateChange<'s, 'a> = (fun state -> x, state)
-        member this.Zero () = this.Return ()
+        member this.Zero () = zero
         member this.ReturnFrom stateful = stateful
         member this.Bind (m, f) = bind f m
         member this.Combine(m1, m2) =
@@ -203,7 +166,7 @@ module StateMonad =
             |> Seq.map f
             |> Seq.reduce (fun x1 x2 -> this.Combine(x1, x2))
         // this form of Delay means "evaluate at runtime, not monad-construction time"
-        member this.Delay f = bind f (this.Return ())
+        member this.Delay (f: unit -> _ -> _) = bind f zero
         member this.While (condition, body: StateChange<'s, unit>) : StateChange<_, _> =
             fun state ->
                 let rec loop state =
@@ -235,5 +198,53 @@ let toState initialState monad =
     let _, finalState = monad initialState
     finalState
 
-let (|Lookup|_|) key map =
-    map |> Map.tryFind key
+// intended to be as fast as a mutable data structure like an array for most purposes
+//   but to have the sharing benefits an immutable structure like a Map as long as it's
+//   used single threaded. Under the hood there's a fast, mutable data reference which
+//   is updated by a string of commands, and surfaced via State references which secretly
+//   contain the string of commands used to create them. As long as the current mutable
+//   data reference shares a "prefix" of commands with whichever State is asking for
+//   the current state, we can just make a quick mutation to the shared mutable state
+//   and return it.
+module Delta =
+    open Microsoft.FSharp.Core
+
+    type private Seed<'t, 'msg> = Seed of initial: (unit -> 't) * update: ('msg -> 't -> 't)
+    type DeltaDrivenState<'t, 'msg> =
+        private { seed: Seed<'t, 'msg> ; shared:(('t * 'msg list) ref) ; past: ('msg list) ; queue: ('msg list) }
+    let create(initial: (unit -> 't), update: 'msg -> 't -> 't) =
+        let shared = ref (initial(), [])
+        { seed = Seed(initial, update); shared = shared; past = []; queue = [] }
+    let (|Deref|) (cell: _ ref) = cell.Value
+    // returns current state and amortized-updated State reflecting the current state. Also sets shared state = this.
+    let derefM : StateChange<DeltaDrivenState<'t, 'msg>, 't> = function
+    | { shared = Deref(current, sharedPast); past = past; queue = [] } as this when sharedPast = past ->
+        current, this
+    | { seed = Seed(init, update); shared = Deref(current, sharedPast) as shared; past = past; queue = queue } as this  ->
+        let apply q state =
+            List.foldBack update q state
+        let current', past' =
+            if sharedPast = past then
+                (current |> apply queue), queue@past
+            else
+                // apply it from the beginning. This could be made more efficient at scale if necessary, by backtracking instead of starting from the beginning.
+                let combined = queue@past
+                (init() |> apply combined), combined
+        shared.Value <- (current', past')
+        current', { this with shared = shared; past = past'; queue = [] }
+    let execute msg = function
+    | { queue = queue } as this ->
+        { this with queue = msg::queue }
+    let executeM msg state = (), execute msg state
+    let getM f state =
+        let inner, state = derefM state
+        f inner, state
+    let transformM f state =
+        let inner, state = derefM state
+        let commands = f inner
+        let state = commands |> List.fold (flip execute) state
+        (), state
+
+module ResizeArray =
+    let (|Lookup|_|) id (rows: _ ResizeArray) =
+        if rows.Count > id then rows[id] |> Some else None
