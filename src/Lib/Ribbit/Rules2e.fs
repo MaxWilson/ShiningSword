@@ -48,7 +48,7 @@ let create (monsterKind: MonsterKind) (n: int) =
             (hdP.Get monsterId state |> fun hdRoll -> (hpP.Set (monsterId, hdRoll.roll() |> max 1)) state)
         }
     stateChange {
-        let! alreadyLoaded = getF <| fun (state: State) -> state.kindsOfMonsters.ContainsKey monsterKind.name
+        let! alreadyLoaded = getF <| fun (state: DeltaState) -> state.kindsOfMonsters.ContainsKey monsterKind.name
         if alreadyLoaded |> not then
             do! load monsterKind
         for ix in 1..n do
@@ -122,6 +122,6 @@ let fightLogic = stateChange {
     return outcome, msgs
     }
 
-let fightOneRound (ribbit: State) : RoundResult =
+let fightOneRound (ribbit: DeltaState) : RoundResult =
     let (outcome, msg), ribbit = fightLogic ribbit
     { outcome = outcome ; msgs = msg; ribbit = ribbit }
