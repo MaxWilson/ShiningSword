@@ -177,14 +177,6 @@ let fightUntilFixedPoint (adventureState: AdventureState) =
     | _ ->
         result.outcome, result.msgs, adv
 
-let montyHaul() =
-    AdventureSpec.fresh
-        "Your DM takes pity on you and gives you a too-easy fight."
-        [
-            Encounter.wandering "Some weak monsters attack you."
-                ["TargetPractice", None]
-            ]
-
 let easy() =
     [
     AdventureSpec.fresh
