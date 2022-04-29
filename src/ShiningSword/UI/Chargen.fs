@@ -37,65 +37,13 @@ module Interaction =
                 ->
                 let traitSetting = decisions |> toSetting Set.ofSeq rules2e [Trait2e.PC] ctx
                 let traits = traitSetting.summary
-                let classes =
+                let classLevels =
                     traits |> Seq.choose (function Trait2e.Level(cl,lvl) -> Some (cl, lvl) | _ -> None)
                     |> Seq.groupBy fst |> Seq.map (fun (cl, lst) -> cl, lst |> Seq.map snd |> Seq.max)
                     |> Array.ofSeq
-                let isWarrior = classes |> Seq.exists (function (ADND2nd.Fighter | ADND2nd.Ranger | ADND2nd.Paladin), _  -> true | _ -> false)
+                let isWarrior = classLevels |> Seq.exists (function (ADND2nd.Fighter | ADND2nd.Ranger | ADND2nd.Paladin), _  -> true | _ -> false)
                 let has = traits.Contains
-                let hdMultiplier = (traits |> Seq.tryPick (function Trait2e.HDMultiplier n -> Some n | _ -> None) |> Option.defaultValue 1)
-                let hp = traits |> Seq.choose (function Trait2e.Level(cl,lvl) -> Some (ADND2nd.hpOf (con, isWarrior, hdMultiplier) lvl cl) | _ -> None)
-                let ac =
-                    classes |> Seq.map (function
-                        | (ADND2nd.Fighter | ADND2nd.Ranger | ADND2nd.Paladin), _ -> 3 // plate mail
-                        | ADND2nd.Cleric, _ -> 3 // chain mail + shield
-                        | ADND2nd.Bard, _ -> 5 // chain mail
-                        | (ADND2nd.Priest | ADND2nd.Druid | ADND2nd.Psionicist), _ -> 4 // hide + shield
-                        | ADND2nd.Thief, _ -> 8 // leather
-                        | ADND2nd.Wizard, _ -> 10 // nothing
-                        )
-                        |> Seq.fold min 10
-                        |> fun ac -> ac - ADND2nd.dexACBonus dex
-                let attacks =
-                    classes |> Seq.map (function
-                    | (ADND2nd.Fighter | ADND2nd.Ranger | ADND2nd.Paladin), lvl ->
-                        if lvl >= 13 then 3 elif lvl >= 7 then 2 else 1
-                    | _ -> 1
-                    )
-                    |> Seq.fold max 1
-                    |> fun n -> if has Trait2e.WeaponSpecialist then n + 1 else n
-                let weapon =
-                    classes |> Seq.map (function
-                    | (ADND2nd.Fighter | ADND2nd.Ranger | ADND2nd.Paladin | ADND2nd.Bard), _ -> {| name = "Greatsword"; isSword = true; damage = RollSpec.create(3, 6);  |}
-                    | (ADND2nd.Cleric | ADND2nd.Priest | ADND2nd.Druid), _ -> {| name = "Morning star"; isSword = true; damage = RollSpec.create(1, 6, 1);  |}
-                    | ADND2nd.Psionicist, _ -> {| name = "Scimitar"; isSword = true; damage = RollSpec.create(1, 8);  |}
-                    | ADND2nd.Thief, _ -> {| name = "Longsword"; isSword = true; damage = RollSpec.create(1, 12);  |}
-                    | ADND2nd.Wizard, _ -> {| name = "Quarterstaff"; isSword = true; damage = RollSpec.create(1, 6);  |}
-                    )
-                    |> Seq.maxBy (fun weapon -> weapon.damage)
-                let toHitBonus =
-                    classes |> Seq.map (function
-                        | (ADND2nd.Fighter | ADND2nd.Ranger | ADND2nd.Paladin), lvl -> lvl - 1
-                        | (ADND2nd.Cleric | ADND2nd.Priest | ADND2nd.Druid), lvl -> 2 * ((lvl+2)/3 - 1)
-                        | (ADND2nd.Psionicist | ADND2nd.Bard | ADND2nd.Thief), lvl -> (lvl+1)/2 - 1
-                        | ADND2nd.Wizard, lvl -> (lvl+2)/3 - 1
-                        )
-                        |> Seq.fold max 0
-                        |> fun bonus -> bonus + (ADND2nd.strBonus (str, draft.exceptionalStrength) |> fst)
-                                              + if has Trait2e.WeaponSpecialist then 1 else 0
-                                              + if weapon.isSword then (traits |> Seq.tryPick(function Trait2e.SwordBowBonus n -> Some n | _ -> None) |> Option.defaultValue 0) else 0
-                let damage =
-                    classes |> Seq.map (function
-                        | (ADND2nd.Fighter | ADND2nd.Ranger | ADND2nd.Paladin | ADND2nd.Bard), _ -> RollSpec.create(3, 6) // greatsword
-                        | (ADND2nd.Cleric | ADND2nd.Priest | ADND2nd.Druid), _ -> RollSpec.create(1, 6, 1) // morning star
-                        | ADND2nd.Psionicist, _ -> RollSpec.create(1, 8) // scimitar
-                        | ADND2nd.Thief, _ -> RollSpec.create(1,12) // longsword
-                        | ADND2nd.Wizard, _ -> RollSpec.create(1,6) // quarterstaff
-                        )
-                        |> Seq.fold max (RollSpec.create(0,0))
-                        |> fun roll -> roll + (ADND2nd.strBonus (str, draft.exceptionalStrength) |> snd)
-                                        + if has Trait2e.WeaponSpecialist then 2 else 0
-                Some {
+                let char: CharacterSheet2e = {
                     id = None
                     name = draft.name
                     origin = makeOrigin "AD&D"
@@ -109,15 +57,18 @@ module Interaction =
                     sex = draft.sex
                     traits = traitSetting
                     originalRolls = draft.originalRolls
-                    hp = hp |> Array.ofSeq
-                    ac = ac
-                    attacks = attacks
-                    toHitBonus = toHitBonus
-                    damage = damage
+                    hp = Array.empty // will be computed
+                    attacks = 1 // computed
+                    toHitBonus = 0 // computed
+                    ac = 0 // computed
+                    damage = StaticBonus 0 // computed
                     xp = 0<xp>
-                    levels = Array.ofSeq classes
+                    levels = classLevels
                     wealth = 0<gp>
                     }
+                char
+                |> ADND2nd.recompute
+                |> Some
             | _ ->
                 None
         | _ -> None
@@ -129,62 +80,35 @@ module Interaction =
                 & Lookup Int int & Lookup Wis wis & Lookup Cha cha
                 ->
                 let traitSetting = decisions |> toSetting Set.ofList rules5e [DND5e.PC] ctx
-                let traits = traitSetting.summary
-                let extraHPPerLevel = traits |> Seq.tryPick(function Trait5e.ExtraHPPerLevel n -> Some n | _ -> None) |> Option.defaultValue 0
-                let hp = traits |> Seq.choose (function Trait5e.Level(cl,lvl) when lvl > 0 -> Some (DND5e.hpOf lvl cl, DND5e.statBonus con + extraHPPerLevel) | _ -> None)
-                let ac, toHit, damage =
-                    let statBonus = DND5e.statBonus
-                    let toHit = statBonus (max str dex) + DND5e.proficiencyBonus traits
-                    let has trait1 = traits |> Set.contains trait1
-                    if has Trait5e.HeavyArmorProficiency && has Trait5e.MartialWeaponProficiency then
-                        // chain mail and greatsword
-                        if str >= dex then 16, toHit, RollSpec.create(2, 6, DND5e.statBonus str)
-                        // chain mail, maybe a shield, and rapier
-                        else (if has Trait5e.ShieldProficiency then 18 else 16), toHit, RollSpec.create(1, 8, DND5e.statBonus dex)
-                    elif has Trait5e.HeavyArmorProficiency && has Trait5e.ShieldProficiency then
-                        18, toHit, RollSpec.create(2, 6, DND5e.statBonus str)
-                    elif has Trait5e.MediumArmorProficiency then
-                        let acBonus = min 2 (statBonus dex)
-                        if dex >= str then
-                            14 + acBonus + (if has Trait5e.ShieldProficiency then +2 else 0), toHit, RollSpec.create(1, (if has Trait5e.MartialWeaponProficiency then 8 else 6), DND5e.statBonus dex)
-                        else
-                            let dmg = if not (has Trait5e.ShieldProficiency) then RollSpec.create(2,6,statBonus str)
-                                        else RollSpec.create(1, (if has Trait5e.MartialWeaponProficiency then 8 else 6), statBonus str)
-                            14 + acBonus + (if has Trait5e.ShieldProficiency then +2 else 0), toHit, dmg
-                    else
-                        let ac = if has Trait5e.LightArmorProficiency then 12 + statBonus dex else 10 + statBonus dex
-                        if dex >= str then
-                            ac, toHit, RollSpec.create(1, (if has Trait5e.MartialWeaponProficiency then 8 else 6), statBonus dex)
-                        else
-                            let dmg = if not (has Trait5e.ShieldProficiency) then RollSpec.create(2,6,statBonus str)
-                                        else RollSpec.create(1, (if has Trait5e.MartialWeaponProficiency then 8 else 6), statBonus str)
-                            ac, toHit, dmg
-
-                Some {
-                    id = None
-                    name = draft.name
-                    origin = makeOrigin "D&D 5th Edition"
-                    Str = str
-                    Dex = dex
-                    Con = con
-                    Int = int
-                    Wis = wis
-                    Cha = cha
-                    sex = draft.sex
-                    traits = traitSetting
-                    originalRolls = draft.originalRolls
-                    xp = 0<xp>
-                    levels = Array.empty
-                    hp = hp |> Array.ofSeq
-                    toHit = toHit
-                    ac = ac
-                    damage = damage
-                    wealth = 0<gp>
-                    }
+                let classLevels = traitSetting.summary |> Seq.choose (function Trait5e.Level(cl,lvl) when lvl > 0 -> Some(cl, lvl) | _ -> None) |> Array.ofSeq
+                let char: CharacterSheet5e =
+                    {
+                        CharacterSheet5e.id = None
+                        name = draft.name
+                        origin = makeOrigin "D&D 5th Edition"
+                        Str = str
+                        Dex = dex
+                        Con = con
+                        Int = int
+                        Wis = wis
+                        Cha = cha
+                        sex = draft.sex
+                        traits = traitSetting
+                        originalRolls = draft.originalRolls
+                        xp = 0<xp>
+                        levels = classLevels
+                        hp = Array.empty // will be computed
+                        toHit = 0 // computed
+                        ac = 0 // computed
+                        damage = StaticBonus 0 // computed
+                        wealth = 0<gp>
+                        }
+                char
+                |> DND5e.recompute
+                |> Some
             | _ ->
                 None
         | _ -> None
-
 
     let d = rand
     let inOrder (draft:Draft) =
@@ -456,7 +380,11 @@ module View =
         | Detail2e (char: CharacterSheet2e) ->
             [
                 let classes' =
-                    char.levels |> Array.map (fun (class', lvl) -> $"{class'} {lvl}") |> String.join "/"
+                    let classes = char.levels |> Array.map fst |> Array.distinct
+                    let getLevel class' =
+                        char.levels |> Array.filter (fst >> (=) class') |> Array.max
+                    let classLevels = classes |> Array.map getLevel
+                    classLevels |> Array.map (fun (class', lvl) -> $"{class'} {lvl}") |> String.join "/"
                 let race = char.traits.summary |> Seq.pick (function (Trait2e.RaceOf _) as race -> Some (ADND2nd.describeTrait race) | _ -> None)
                 match char.origin.nationalOrigin with
                 | "" ->
@@ -481,12 +409,17 @@ module View =
             [
                 let describe = DND5e.describeTrait
                 let race = char.traits.summary |> Seq.find (fun trait1 -> DND5e.races |> List.contains trait1)
-                let class' = char.traits.summary |> Seq.pick (function Level(cl, 0) as trait1 -> Some (describe trait1) | _ -> None)
+                let classes' =
+                    let classes = char.levels |> Array.map fst |> Array.distinct
+                    let getLevel class' =
+                        char.levels |> Array.filter (fst >> (=) class') |> Array.max
+                    let classLevels = classes |> Array.map getLevel
+                    classLevels |> Array.map (fun (class', lvl) -> $"{class'} {lvl}") |> String.join "/"
                 match char.origin.nationalOrigin with
                 | "" ->
-                    line $"{char.sex} {describe race} {class'} "
+                    line $"{char.sex} {describe race} {classes'} "
                 | place ->
-                    line $"{char.sex} {describe race} {class'} from {place}"
+                    line $"{char.sex} {describe race} {classes'} from {place}"
                 line $"{char.origin.ruleSystem}, {char.origin.statRollMethod}, from level {char.origin.startingLevel}"
                 line ""
                 let hpTotal = char.hp |> Array.sumBy(fun (hpRoll,conBonus) -> hpRoll + conBonus)

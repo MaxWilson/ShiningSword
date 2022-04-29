@@ -281,6 +281,165 @@ module ADND2nd =
         // you should never have zero HP at first level or you'd be dead already
         |> function (hp,bonus) when hp + bonus <= 0 && lvl = 1 -> hp, (-hp + 1) | otherwise -> otherwise
 
+    let recompute (char:CharacterSheet) =
+        let traits = char.traits.summary
+        let classes = char.levels
+        let has = traits.Contains
+        let hp =
+            match char.hp with
+            | hp when hp.Length < classes.Length ->
+                let isWarrior = classes |> Seq.exists (function (Fighter | Ranger | Paladin), _  -> true | _ -> false)
+                let hdMultiplier = (traits |> Seq.tryPick (function HDMultiplier n -> Some n | _ -> None) |> Option.defaultValue 1)
+                let additionalHp = classes |> Array.choose (function (cl, lvl) when lvl >= hp.Length -> Some (hpOf (char.Con, isWarrior, hdMultiplier) lvl cl) | _ -> None)
+                Array.append hp additionalHp
+            | hp -> hp
+        let ac =
+            classes |> Seq.map (function
+                | (Fighter | Ranger | Paladin), _ -> 3 // plate mail
+                | Cleric, _ -> 3 // chain mail + shield
+                | Bard, _ -> 5 // chain mail
+                | (Priest | Druid | Psionicist), _ -> 4 // hide + shield
+                | Thief, _ -> 8 // leather
+                | Wizard, _ -> 10 // nothing
+                )
+                |> Seq.fold min 10
+                |> fun ac -> ac - dexACBonus char.Dex
+        let attacks =
+            classes |> Seq.map (function
+            | (Fighter | Ranger | Paladin), lvl ->
+                if lvl >= 13 then 3 elif lvl >= 7 then 2 else 1
+            | _ -> 1
+            )
+            |> Seq.fold max 1
+            |> fun n -> if has WeaponSpecialist then n + 1 else n
+        let weapon =
+            classes |> Seq.map (function
+            | (Fighter | Ranger | Paladin | Bard), _ -> {| name = "Greatsword"; isSword = true; damage = RollSpec.create(3, 6);  |}
+            | (Cleric | Priest | Druid), _ -> {| name = "Morning star"; isSword = true; damage = RollSpec.create(1, 6, 1);  |}
+            | Psionicist, _ -> {| name = "Scimitar"; isSword = true; damage = RollSpec.create(1, 8);  |}
+            | Thief, _ -> {| name = "Longsword"; isSword = true; damage = RollSpec.create(1, 12);  |}
+            | Wizard, _ -> {| name = "Quarterstaff"; isSword = true; damage = RollSpec.create(1, 6);  |}
+            )
+            |> Seq.maxBy (fun weapon -> weapon.damage)
+        let toHitBonus =
+            classes |> Seq.map (function
+                | (Fighter | Ranger | Paladin), lvl -> lvl - 1
+                | (Cleric | Priest | Druid), lvl -> 2 * ((lvl+2)/3 - 1)
+                | (Psionicist | Bard | Thief), lvl -> (lvl+1)/2 - 1
+                | Wizard, lvl -> (lvl+2)/3 - 1
+                )
+                |> Seq.fold max 0
+                |> fun bonus -> bonus + (strBonus (char.Str, char.exceptionalStrength) |> fst)
+                                      + if has WeaponSpecialist then 1 else 0
+                                      + if weapon.isSword then (traits |> Seq.tryPick(function SwordBowBonus n -> Some n | _ -> None) |> Option.defaultValue 0) else 0
+        let damage =
+            classes |> Seq.map (function
+                | (Fighter | Ranger | Paladin | Bard), _ -> RollSpec.create(3, 6) // greatsword
+                | (Cleric | Priest | Druid), _ -> RollSpec.create(1, 6, 1) // morning star
+                | Psionicist, _ -> RollSpec.create(1, 8) // scimitar
+                | Thief, _ -> RollSpec.create(1,12) // longsword
+                | Wizard, _ -> RollSpec.create(1,6) // quarterstaff
+                )
+                |> Seq.fold max (RollSpec.create(0,0))
+                |> fun roll -> roll + (strBonus (char.Str, char.exceptionalStrength) |> snd)
+                                + if has WeaponSpecialist then 2 else 0
+        {
+            char
+            with
+                hp = hp |> Array.ofSeq
+                ac = ac
+                attacks = attacks
+                toHitBonus = toHitBonus
+                damage = damage
+            }
+    let xpRequired = function
+        | Fighter, lvl ->
+            match lvl with
+            | n when n <= 1 -> 0
+            | 2 -> 2000
+            | 3 -> 4000
+            | 4 -> 8000
+            | 5 -> 16000
+            | 6 -> 32000
+            | 7 -> 64000
+            | 8 -> 125000
+            | 9 -> 250000
+            | n -> (n-8)*250000
+        | (Ranger|Paladin), lvl ->
+            match lvl with
+            | n when n <= 1 -> 0
+            | 2 -> 2250
+            | 3 -> 4500
+            | 4 -> 9000
+            | 5 -> 18000
+            | 6 -> 36000
+            | 7 -> 75000
+            | 8 -> 150000
+            | n -> (n-8)*300000
+        | Wizard, lvl ->
+            match lvl with
+            | n when n <= 1 -> 0
+            | 2 -> 2500
+            | 3 -> 5000
+            | 4 -> 10000
+            | 5 -> 20000
+            | 6 -> 40000
+            | 7 -> 60000
+            | 8 -> 90000
+            | 9 -> 135000
+            | 10 -> 250000
+            | n -> (n-10)*375000
+        | (Cleric|Druid|Priest), lvl ->
+            match lvl with
+            | n when n <= 1 -> 0
+            | 2 -> 1500
+            | 3 -> 3000
+            | 4 -> 6000
+            | 5 -> 13000
+            | 6 -> 27500
+            | 7 -> 55000
+            | 8 -> 110000
+            | n -> (n-8)*225000
+        | (Thief|Bard), lvl ->
+            match lvl with
+            | n when n <= 1 -> 0
+            | 2 -> 1250
+            | 3 -> 2500
+            | 4 -> 5000
+            | 5 -> 10000
+            | 6 -> 20000
+            | 7 -> 40000
+            | 8 -> 70000
+            | 9 -> 110000
+            | 10 -> 160000
+            | n -> (n-10)*220000
+        | Psionicist, lvl ->
+            match lvl with
+            | n when n <= 1 -> 0
+            | 2 -> 2200
+            | 3 -> 4400
+            | 4 -> 88000
+            | 5 -> 16500
+            | 6 -> 30000
+            | 7 -> 55000
+            | 8 -> 100000
+            | 9 -> 200000
+            | 10 -> 400000
+            | 11 -> 600000
+            | 12 -> 800000
+            | 13 -> 1000000
+            | 14 -> 1200000
+            | n -> 1200000 + (n-14)*300000
+
+    let levelUp (char: CharacterSheet) =
+        match char.levels |> Array.tryLast with
+        | None -> char
+        | Some (mostRecentClass, level) ->
+            let candidateLevel = mostRecentClass, (level+1)
+            if char.xp >= (xpRequired candidateLevel * 1<xp>) then
+                recompute { char with levels = Array.append char.levels [| candidateLevel |] }
+            else char
+
     let describeTrait = function
         | StatMod(stat, n) ->
             $"%+d{n} {stat}"
@@ -421,6 +580,90 @@ module DND5e =
             |> Seq.sum
             |> fun n -> 1+(n+3)/4
 
+    let recompute (char: CharacterSheet) =
+        let traits = char.traits.summary
+        let str = char.Str
+        let dex = char.Dex
+        let con = char.Con
+        let hp =
+            let classLevels = char.levels
+            match char.hp with
+            | hp when hp.Length < classLevels.Length ->
+                let extraHPPerLevel = traits |> Seq.tryPick(function ExtraHPPerLevel n -> Some n | _ -> None) |> Option.defaultValue 0
+                let hp' = classLevels |> Array.skip hp.Length |> Array.map(function (cl,lvl) -> hpOf lvl cl, statBonus con + extraHPPerLevel)
+                Array.append hp hp'
+            | hp -> hp
+        let ac, toHit, damage =
+            let statBonus = statBonus
+            let toHit = statBonus (max str dex) + proficiencyBonus traits
+            let has trait1 = traits |> Set.contains trait1
+            if has HeavyArmorProficiency && has MartialWeaponProficiency then
+                // chain mail and greatsword
+                if str >= dex then 16, toHit, RollSpec.create(2, 6, statBonus str)
+                // chain mail, maybe a shield, and rapier
+                else (if has ShieldProficiency then 18 else 16), toHit, RollSpec.create(1, 8, statBonus dex)
+            elif has HeavyArmorProficiency && has ShieldProficiency then
+                18, toHit, RollSpec.create(2, 6, statBonus str)
+            elif has MediumArmorProficiency then
+                let acBonus = min 2 (statBonus dex)
+                if dex >= str then
+                    14 + acBonus + (if has ShieldProficiency then +2 else 0), toHit, RollSpec.create(1, (if has MartialWeaponProficiency then 8 else 6), statBonus dex)
+                else
+                    let dmg = if not (has ShieldProficiency) then RollSpec.create(2,6,statBonus str)
+                                else RollSpec.create(1, (if has MartialWeaponProficiency then 8 else 6), statBonus str)
+                    14 + acBonus + (if has ShieldProficiency then +2 else 0), toHit, dmg
+            else
+                let ac = if has LightArmorProficiency then 12 + statBonus dex else 10 + statBonus dex
+                if dex >= str then
+                    ac, toHit, RollSpec.create(1, (if has MartialWeaponProficiency then 8 else 6), statBonus dex)
+                else
+                    let dmg = if not (has ShieldProficiency) then RollSpec.create(2,6,statBonus str)
+                                else RollSpec.create(1, (if has MartialWeaponProficiency then 8 else 6), statBonus str)
+                    ac, toHit, dmg
+        {
+            char
+            with
+                hp = hp |> Array.ofSeq
+                toHit = toHit
+                ac = ac
+                damage = damage
+            }
+
+    let xpChart =
+        [
+            1, 0
+            2, 300
+            3, 900
+            4, 2700
+            5, 6500
+            6, 14000
+            7, 23000
+            8, 34000
+            9, 48000
+            10, 64000
+            11, 85000
+            12, 100000
+            13, 120000
+            14, 140000
+            15, 165000
+            16, 195000
+            17, 225000
+            18, 265000
+            19, 305000
+            20, 355000
+            ]
+        |> Map.ofList
+
+    let levelUp (char: CharacterSheet) =
+        match char.levels |> Array.tryLast with
+        | None -> char
+        | Some (mostRecentClass, level) ->
+            let candidateLevel = (level+1)
+            match xpChart.TryFind candidateLevel with
+            | Some xp when char.xp >= (1<xp> * xp) ->
+                recompute { char with levels = Array.append char.levels [| mostRecentClass, candidateLevel |] }
+            | _ -> char
+
     let rules: DerivationRules<_, PreconditionContext> =
         [
             PC, { fresh [Race; StartingClass] with elideFromDisplayAndSummary = true; autopick = true }
@@ -484,6 +727,7 @@ module DND5e =
             ]
         |> rulesOf
 
+
 module Universal =
     type Detail<'t1, 't2> = Detail2e of 't1 | Detail5e of 't2
         with
@@ -533,6 +777,10 @@ module Universal =
     let (|GenericCharacterSheet|) = function
         | Detail2e (char: ADND2nd.CharacterSheet) -> {| name = char.name; Str = char.Str; Dex = char.Dex; Con = char.Con; Int = char.Int; Wis = char.Wis; Cha = char.Cha; origin = char.origin; sex = char.sex; exceptionalStrength = char.exceptionalStrength; hp = char.hp; ac = char.ac |}
         | Detail5e (char: DND5e.CharacterSheet) -> {| name = char.name; Str = char.Str; Dex = char.Dex; Con = char.Con; Int = char.Int; Wis = char.Wis; Cha = char.Cha; origin = char.origin; sex = char.sex; exceptionalStrength = None; hp = char.hp; ac = char.ac |}
+    let recompute (char: CharacterSheet) =
+        (char.map2e ADND2nd.recompute).map5e DND5e.recompute
+    let levelUp (char: CharacterSheet) =
+        (char.map2e ADND2nd.levelUp).map5e DND5e.levelUp
 
 let rec makeName(sex: Sex) =
     let nationOfOrigin = chooseRandom ["Tir na n'Og"; "Abysia"; "Kailasa"; "Ermor"; "Undauntra"; "Arboria"; "Mordor"]

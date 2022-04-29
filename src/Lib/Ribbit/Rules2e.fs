@@ -60,6 +60,7 @@ let monsterKinds =
     [
     let roll n d = RollSpec.create(n,d)
     let rollb n d (b: int) = RollSpec.create(n,d,b)
+    "TargetPractice", roll 1 3, rollb 1 8 -1, 7, 1, +0, [StaticBonus 1], [], 7000, [J], [O;Q;Q;Q;Q;Q]
     "Jackal", roll 1 6, roll 1 4, 7, 1, +0, [roll 1 2], [], 7, [], []
     "Porcupine", roll 1 2, roll 1 4, 6, 1, +0, [roll 1 3], [], 15, [], []
     "Wolf", roll 2 6, roll 3 8, 7, 1, +2, [rollb 1 4 +1], [], 120, [], []

@@ -131,6 +131,7 @@ let view model control dispatch =
                 Html.button [prop.text "Go on an easy adventure"; prop.onClick(fun _ -> easy() |> Embark |> dispatch)]
                 Html.button [prop.text "Go on a hard adventure"; prop.onClick(fun _ -> hard() |> Embark |> dispatch)]
                 Html.button [prop.text "Go on a deadly adventure"; prop.onClick(fun _ -> deadly() |> Embark |> dispatch)]
+                Html.button [prop.text "DM Pity"; prop.onClick(fun _ -> montyHaul() |> Embark |> dispatch)]
                 Html.button [prop.text "Save and quit"; prop.onClick (thunk1 control SaveAndQuit)]
             | AdventureIntro ->
                 // later on if there are more choices, this could become a full-fledged Adventuring phase with RP choices.

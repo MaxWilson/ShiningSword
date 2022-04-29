@@ -84,7 +84,7 @@ let finishAdventure (spec: AdventureSpec) state =
             $"You gain an extra {spec.bonusGP} gold pieces for completing the adventure!"
         else
             "Congratulations on a successful adventure!"
-    msg, { state with mainCharacter = mainCharacter' }
+    msg, { state with mainCharacter = mainCharacter' |> levelUp; allies = state.allies |> List.map levelUp }
 
 let toOngoing (encounter:Encounter) =
     let rollQty = function
@@ -176,6 +176,14 @@ let fightUntilFixedPoint (adventureState: AdventureState) =
         result.outcome, result.msgs@["You have been defeated!!! The worms now feast on your flesh."], adv
     | _ ->
         result.outcome, result.msgs, adv
+
+let montyHaul() =
+    AdventureSpec.fresh
+        "Your DM takes pity on you and gives you a too-easy fight."
+        [
+            Encounter.wandering "Some weak monsters attack you."
+                ["TargetPractice", None]
+            ]
 
 let easy() =
     [
