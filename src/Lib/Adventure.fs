@@ -106,6 +106,10 @@ let toOngoing (encounter:Encounter) =
 let beginEncounter (next: OngoingEncounter) rest (adventureState: AdventureState) =
     let ribbit =
         stateChange {
+            do! transform (fun state ->
+                // clear enemies from last encounter off the UI because they're all dead
+                let friendlies = state.roster |> Map.filter (fun name id -> isFriendlyP.Get id state)
+                { state with roster = friendlies })
             for monsterKind, qty in next.monsters do
                 if adventureState.mainCharacter.isADND then
                     do! Domain.Ribbit.Rules2e.createByName monsterKind qty
