@@ -290,7 +290,7 @@ module ADND2nd =
             | hp when hp.Length < classes.Length ->
                 let isWarrior = classes |> Seq.exists (function (Fighter | Ranger | Paladin), _  -> true | _ -> false)
                 let hdMultiplier = (traits |> Seq.tryPick (function HDMultiplier n -> Some n | _ -> None) |> Option.defaultValue 1)
-                let additionalHp = classes |> Array.choose (function (cl, lvl) when lvl >= hp.Length -> Some (hpOf (char.Con, isWarrior, hdMultiplier) lvl cl) | _ -> None)
+                let additionalHp = classes |> Array.choose (function (cl, lvl) when lvl > hp.Length -> Some (hpOf (char.Con, isWarrior, hdMultiplier) lvl cl) | _ -> None)
                 Array.append hp additionalHp
             | hp -> hp
         let ac =

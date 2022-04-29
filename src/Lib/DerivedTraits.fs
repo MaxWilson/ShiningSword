@@ -6,6 +6,7 @@
 ///   Summary: from instance, yield a summary of traits
 ///   Setting<Trait>: a list of Traits and how they were derived. DerivationRules must be stored separately, as must the summarization logic.
 module DerivedTraits
+open Common.Map
 
 type Choice<'trait0, 'filterContext when 'trait0: comparison> = {
     options: 'trait0 array;

@@ -12,5 +12,7 @@
 #load @"Lib\Ribbit\Rules5e.fs"
 #load @"Lib\Adventure.fs"
 
+open Domain.Character
+open Domain.Character.ADND2nd
 open Domain.Adventure
 deadly()
