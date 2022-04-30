@@ -6,6 +6,7 @@ open Domain.Character.DND5e
 
 let traitsP = FlagsProperty<Trait>("Traits")
 let initBonusP = NumberProperty("InitiativeBonus", 0)
+let getM = Delta.getM
 
 type MonsterKind = {
     name: string
@@ -42,14 +43,15 @@ let load (monsterKind:MonsterKind) =
         }
 
 let create (monsterKind: MonsterKind) (n: int) =
-    let initialize monsterId = stateChange {
+    let initialize monsterId : StateChange<DeltaRibbit, unit> = stateChange {
         // every monster has individual HD
-        do! transform <| fun state ->
-            // always have at least 1 HP
-            (hdP.Get monsterId state |> fun hdRoll -> (hpP.Set (monsterId, hdRoll.roll())) state)
+        let! ribbit = Delta.derefM
+        let hdRoll = hdP.Get monsterId ribbit
+        // always have at least 1 HP        
+        do! (hpP.SetM (monsterId, hdRoll.roll() |> max 1))
         }
     stateChange {
-        let! alreadyLoaded = getF <| fun (state: State) -> state.kindsOfMonsters.ContainsKey monsterKind.name
+        let! alreadyLoaded = getM(fun ribbit -> ribbit.kindsOfMonsters.ContainsKey monsterKind.name)
         if alreadyLoaded |> not then
             do! load monsterKind
         for ix in 1..n do
@@ -77,7 +79,7 @@ let monsterKinds =
     |> List.map (fun args -> MonsterKind.create args |> fun monster -> monster.name, monster)
     |> Map.ofList
 
-let createByName name n =
+let createByName name n : StateChange<DeltaRibbit, unit> =
     create (monsterKinds[name]) n
 
 
@@ -86,20 +88,20 @@ let getOk f state =
     | Ok (), state -> (), state
     | _ -> shouldntHappen "Shouldn't call getOk unless underlying property is already set"
 let attack ids id = stateChange {
-    let! numberOfAttacks = numberOfAttacksP.Get id |> getF
-    let! toHit = toHitP.Get id |> getF
-    let! dmgs = weaponDamageP.Get id |> getF
-    let! name = personalNameP.Get id |> getF
+    let! numberOfAttacks = numberOfAttacksP.Get id |> getM
+    let! toHit = toHitP.Get id |> getM
+    let! dmgs = weaponDamageP.Get id |> getM
+    let! name = personalNameP.Get id |> getM
     let mutable msgs = []
     for ix in 1..numberOfAttacks do
-        let! isAlive = getF(fun state -> hpP.Get id state > damageTakenP.Get id state)
+        let! isAlive = getM(fun state -> hpP.Get id state > damageTakenP.Get id state)
         if isAlive then
             let! target = findTarget ids id // there seems to be a potential Fable bug with match! which can result in a dead target still getting hit (for another "fatal" blow)
             match target with               // so I'm using regular let! and match instead.
             | Some targetId ->
-                let! targetName = personalNameP.Get targetId |> getF
-                let! ac = acP.Get targetId |> getF
-                let! packTacticsApplies = getF(fun ribbit ->
+                let! targetName = personalNameP.Get targetId |> getM
+                let! ac = acP.Get targetId |> getM
+                let! packTacticsApplies = getM(fun ribbit ->
                     if traitsP.Check(id, PackTactics) ribbit then
                         let myTeam = isFriendlyP.Get id ribbit
                         ids |> Array.exists (fun otherId -> otherId <> id && isFriendlyP.Get otherId ribbit = myTeam && hpP.Get otherId ribbit > damageTakenP.Get otherId ribbit)
@@ -113,16 +115,16 @@ let attack ids id = stateChange {
                 match if hasAdvantage then max attackRoll secondRoll else attackRoll with
                 | 20 as n
                 | n when n + toHit >= ac ->
-                    let! targetDmg = damageTakenP.Get targetId |> getF
-                    let! ham = traitsP.Check(targetId, HeavyArmorMaster) |> getF
+                    let! targetDmg = damageTakenP.Get targetId |> getM
+                    let! ham = traitsP.Check(targetId, HeavyArmorMaster) |> getM
                     let dmg = dmgs[ix % dmgs.Length]
                     let dmg = if ham then dmg - StaticBonus 3 else dmg
                     let damage = dmg.roll() |> max 0
                     do! damageTakenP.SetM(targetId, targetDmg + damage)
-                    let! targetHp = hpP.Get targetId |> getF
+                    let! targetHp = hpP.Get targetId |> getM
                     let isFatal = targetDmg + damage >= targetHp
                     let killMsg = if isFatal then ", a fatal blow" else ""
-                    let! isFriendly = isFriendlyP.Get id |> getF
+                    let! isFriendly = isFriendlyP.Get id |> getM
                     msgs <- msgs@[LogEntry.create($"{name} hits {targetName} for {damage} points of damage! [Attack roll: {attackRollDescr n}, Damage: {dmg} = {damage}]", isFatal, if isFriendly then Good else Bad)]
                 | n ->
                     msgs <- msgs@[LogEntry.create $"{name} misses {targetName}. [Attack roll: {attackRollDescr n}]"]
@@ -132,18 +134,18 @@ let attack ids id = stateChange {
 
 let fightLogic = stateChange {
     let! initiativeOrder =
-        getF(fun ribbit -> ribbit.roster |> Map.values |> Array.ofSeq |> Array.map (fun id -> id, rand 20 + initBonusP.Get id ribbit) |> Array.sortByDescending snd)
+        getM(fun ribbit -> ribbit.roster |> Map.values |> Array.ofSeq |> Array.map (fun id -> id, rand 20 + initBonusP.Get id ribbit) |> Array.sortByDescending snd)
     let ids = initiativeOrder |> Array.map fst
     let mutable msgs = []
     for id, init in initiativeOrder do
         let! msgs' = attack ids id
         msgs <- msgs@msgs'
 
-    let! factions = getF(fun state -> ids |> Array.filter(fun id -> hpP.Get id state > damageTakenP.Get id state) |> Array.groupBy (fun id -> isFriendlyP.Get id state) |> Array.map fst |> Array.sortDescending)
+    let! factions = getM(fun state -> ids |> Array.filter(fun id -> hpP.Get id state > damageTakenP.Get id state) |> Array.groupBy (fun id -> isFriendlyP.Get id state) |> Array.map fst |> Array.sortDescending)
     let outcome = match factions with [|true|] -> Victory | [|true;false|] -> Ongoing | _ -> Defeat // mutual destruction is still defeat
     return outcome, msgs
     }
 
-let fightUntilFixedPoint (ribbit: State) : RoundResult =
+let fightUntilFixedPoint (ribbit: DeltaRibbit) : RoundResult =
     let (outcome, msg), ribbit = fightLogic ribbit
     { outcome = outcome ; msgs = msg; ribbit = ribbit }

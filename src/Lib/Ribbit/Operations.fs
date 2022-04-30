@@ -1,17 +1,18 @@
 module Domain.Ribbit.Operations
 open Domain.Ribbit
 open Domain.Character
+open Domain.Ribbit.Ops
 
-let propFail rowId propName (state: State) =
+let propFail rowId propName (ribbit: Ribbit) =
     let name =
-        match state.scope.rows with
-        | Lookup rowId (Lookup "PersonalName" (Text personalName)) -> personalName
+        match ribbit.scope.rows with
+        | ResizeArray.Lookup rowId (Map.Lookup "PersonalName" (Text personalName)) -> personalName
         | _ -> $"Unnamed individual (ID = {rowId})"
     failwith $"{propName} should have been set on {name}"
-let request rowId propName (state: State) =
+let request rowId propName (ribbit: Ribbit) =
     let name =
-        match state.scope.rows with
-        | Lookup rowId (Lookup "PersonalName" (Text personalName)) -> personalName
+        match ribbit.scope.rows with
+        | ResizeArray.Lookup rowId (Map.Lookup "PersonalName" (Text personalName)) -> personalName
         | _ -> $"Unnamed individual (ID = {rowId})"
     failwith $"{propName} should have been set on {name}"
 let prototypeP = IdProperty("prototype", 0)
@@ -28,13 +29,14 @@ let isFriendlyP = BoolProperty("IsFriendly", false)
 let currentTargetP = IdProperty("CurrentTarget", 0)
 
 let getValue id (property: Property<'t>) = stateChange {
-    let! value = property.GetM(id)
+    let! value = property.GetM(id) |> withEvaluation
     return value
     }
 
-let nextId(): StateChange<State, Id> = stateChange {
-    let! nextId = getF <| fun state -> (defaultArg state.scope.biggestIdSoFar 0) + 1
-    do! transform <| fun state -> { state with scope = { state.scope with biggestIdSoFar = Some nextId } }
+let nextId(): StateChange<DeltaRibbit, Id> = stateChange {
+    let! ribbit = Delta.derefM
+    let nextId = (defaultArg ribbit.scope.biggestIdSoFar 0) + 1
+    do! (Delta.executeM (ReserveId nextId))
     return nextId
     }
 
@@ -42,22 +44,23 @@ let addKind (name: Name) initialize = stateChange {
     let! nextId = nextId()
     let! state = get()
     do! initialize nextId
-    do! transform <| fun (state:State) -> { state with kindsOfMonsters = state.kindsOfMonsters |> Map.add name nextId }
+    do! AssociateMonsterKind(name, nextId) |> Delta.executeM
     }
 
 // there are enough subtle differences with addMonster that I don't want to refactor these together. Some minor duplication is okay in this case.
 let addCharacterToRoster personalName = stateChange {
     let! monsterId = nextId()
-    do! transform (fun state -> { state with roster = state.roster |> Map.add personalName monsterId })
+    do! AssociateIndividual(personalName, monsterId, None) |> Delta.executeM
     do! personalNameP.SetM(monsterId, personalName)
     do! selfP.SetM(monsterId, monsterId)
     do! isFriendlyP.SetM(monsterId, true)
     return monsterId
     }
 
-let addMonster (kindOfMonster: Name) initialize = stateChange {
+let addMonster (kindOfMonster: Name) initialize: StateChange<_,_> = stateChange {
     let! monsterId = nextId()
-    let! kinds, categories = getF (fun st -> st.kindsOfMonsters, st.categories)
+    let! ribbit = Delta.derefM
+    let kinds, categories = ribbit.kindsOfMonsters, ribbit.categories
     if not <| kinds.ContainsKey kindOfMonster then
         shouldntHappen()
     do! transform (prototypeP.Set(monsterId, kinds[kindOfMonster]))
@@ -65,35 +68,26 @@ let addMonster (kindOfMonster: Name) initialize = stateChange {
         // todo, make these personal names more interesting, like "fat troll" vs. "white-spotted troll"
         let candidateName = $"{kindOfMonster} #{ix}"
         match categories |> Map.tryFind kindOfMonster with
-        | None -> candidateName, categories |> Map.add kindOfMonster [monsterId, candidateName]
+        | None -> candidateName
         | Some existing ->
             if existing |> List.exists (snd >> (=) candidateName) then
                 makeUnique (ix+1)
-            else candidateName, categories |> Map.add kindOfMonster ((monsterId, candidateName)::existing)
-    let personalName, categories' = makeUnique 1
-    do! transform (fun state -> { state with categories = categories'; roster = state.roster |> Map.add personalName monsterId })
+            else candidateName
+    let personalName = makeUnique 1
+    do! AssociateIndividual(personalName, monsterId, Some(kindOfMonster)) |> Delta.executeM
     do! personalNameP.SetM(monsterId, personalName)
     do! selfP.SetM(monsterId, monsterId)
     do! initialize monsterId
     return personalName
     }
 
-let defineAffordance name action (state:State) =
-    { state with affordances = state.affordances |> Map.add name { name = name; action = action } }
-
-let act affordanceName id state =
-    match state.affordances |> Map.tryFind affordanceName with
-    | Some affordance -> affordance.action id state
-    | None -> shouldntHappen()
-
-
-let findTarget ids id = stateChange {
-    let! currentTarget = currentTargetP.Get id |> getF
-    let! isAlive = getF (fun ribbit -> (currentTarget > 0) && (hpP.Get currentTarget ribbit > damageTakenP.Get currentTarget ribbit))
+let findTarget ids id : StateChange<DeltaRibbit, Id option> = stateChange {
+    let! currentTarget = Delta.getM (currentTargetP.Get id)
+    let! isAlive = Delta.getM (fun ribbit -> (currentTarget > 0) && (hpP.Get currentTarget ribbit > damageTakenP.Get currentTarget ribbit))
     if isAlive then
         return Some currentTarget
     else
-        let! newTarget = getF (fun ribbit ->
+        let! newTarget = Delta.getM (fun ribbit ->
             let myTeam = isFriendlyP.Get id ribbit
             let candidates = ids |> Array.filter (fun targetId -> isFriendlyP.Get targetId ribbit <> myTeam && hpP.Get targetId ribbit > damageTakenP.Get targetId ribbit)
             if candidates.Length > 0 then

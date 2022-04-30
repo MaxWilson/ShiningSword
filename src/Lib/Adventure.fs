@@ -34,7 +34,7 @@ type AdventureState = {
     allies: Domain.Character.Universal.CharacterSheet list
     currentEncounter: OngoingEncounter option
     scheduledEncounters: Encounter list
-    ribbit: Ribbit.State
+    ribbit: Ribbit.DeltaRibbit
     }
 
 let loadCharacters (characters: CharacterSheet list) (adventureState: AdventureState) =
@@ -65,10 +65,10 @@ let loadCharacters (characters: CharacterSheet list) (adventureState: AdventureS
     { adventureState with ribbit = characters |> List.fold addCharacter adventureState.ribbit }
 
 let downtime sheet =
-    { mainCharacter = sheet; allies = []; currentEncounter = None; scheduledEncounters = []; ribbit = Ribbit.State.fresh }
+    { mainCharacter = sheet; allies = []; currentEncounter = None; scheduledEncounters = []; ribbit = Ops.freshState() }
 
 let embark (spec: AdventureSpec) sheet =
-    { mainCharacter = sheet; allies = spec.allies; currentEncounter = None; scheduledEncounters = spec.encounters; ribbit = Ribbit.State.fresh }
+    { mainCharacter = sheet; allies = spec.allies; currentEncounter = None; scheduledEncounters = spec.encounters; ribbit = Ops.freshState() }
     |> loadCharacters (sheet::spec.allies)
 
 let finishAdventure (spec: AdventureSpec) state =
@@ -106,10 +106,10 @@ let toOngoing (encounter:Encounter) =
 let beginEncounter (next: OngoingEncounter) rest (adventureState: AdventureState) =
     let ribbit =
         stateChange {
-            do! transform (fun state ->
-                // clear enemies from last encounter off the UI because they're all dead
-                let friendlies = state.roster |> Map.filter (fun name id -> isFriendlyP.Get id state)
-                { state with roster = friendlies })
+            let! ribbit = Delta.derefM
+            let friendlies = ribbit.roster |> Map.filter (fun name id -> isFriendlyP.Get id ribbit)
+            // clear enemies from last encounter off the UI because they're all dead
+            do! SetRoster friendlies |> Delta.executeM
             for monsterKind, qty in next.monsters do
                 if adventureState.mainCharacter.isADND then
                     do! Domain.Ribbit.Rules2e.createByName monsterKind qty

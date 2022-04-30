@@ -5,6 +5,7 @@ open Domain.Character
 open Domain.Character.ADND2nd
 
 let traitsP = FlagsProperty<Trait>("Traits")
+let getM = Delta.getM
 
 type MonsterKind = {
     name: string
@@ -41,14 +42,15 @@ let load (monsterKind:MonsterKind) =
         }
 
 let create (monsterKind: MonsterKind) (n: int) =
-    let initialize monsterId = stateChange {
+    let initialize monsterId : StateChange<DeltaRibbit, unit> = stateChange {
         // every monster has individual HD
-        do! transform <| fun state ->
-            // always have at least 1 HP
-            (hdP.Get monsterId state |> fun hdRoll -> (hpP.Set (monsterId, hdRoll.roll() |> max 1)) state)
+        let! ribbit = Delta.derefM
+        let hdRoll = hdP.Get monsterId ribbit
+        // always have at least 1 HP        
+        do! (hpP.SetM (monsterId, hdRoll.roll() |> max 1))
         }
     stateChange {
-        let! alreadyLoaded = getF <| fun (state: State) -> state.kindsOfMonsters.ContainsKey monsterKind.name
+        let! alreadyLoaded = getM(fun ribbit -> ribbit.kindsOfMonsters.ContainsKey monsterKind.name)
         if alreadyLoaded |> not then
             do! load monsterKind
         for ix in 1..n do
@@ -75,34 +77,34 @@ let monsterKinds =
     |> List.map (fun args -> MonsterKind.create args |> fun monster -> monster.name, monster)
     |> Map.ofList
 
-let createByName name n =
+let createByName name n : StateChange<DeltaRibbit, unit> =
     create (monsterKinds[name]) n
 
-let attack ids id = stateChange {
-    let! numberOfAttacks = numberOfAttacksP.Get id |> getF
-    let! toHit = toHitP.Get id |> getF
-    let! dmgs = weaponDamageP.Get id |> getF
-    let! name = personalNameP.Get id |> getF
+let attack ids id : StateChange<DeltaRibbit, _> = stateChange {
+    let! numberOfAttacks = numberOfAttacksP.Get id |> getM
+    let! toHit = toHitP.Get id |> getM
+    let! dmgs = weaponDamageP.Get id |> getM
+    let! name = personalNameP.Get id |> getM
     let mutable msgs = []
     for ix in 1..numberOfAttacks do
-        let! isAlive = getF(fun state -> hpP.Get id state > damageTakenP.Get id state)
+        let! isAlive = getM(fun state -> hpP.Get id state > damageTakenP.Get id state)
         if isAlive then
             let! target = findTarget ids id // there seems to be a potential Fable bug with match! which can result in a dead target still getting hit (for another "fatal" blow)
             match target with               // so I'm using regular let! and match instead.
             | Some targetId ->
-                let! targetName = personalNameP.Get targetId |> getF
-                let! ac = acP.Get targetId |> getF
+                let! targetName = personalNameP.Get targetId |> getM
+                let! ac = acP.Get targetId |> getM
                 match rand 20 with
                 | 20 as n
                 | n when n + toHit + ac >= 20 ->
-                    let! targetDmg = damageTakenP.Get targetId |> getF
+                    let! targetDmg = damageTakenP.Get targetId |> getM
                     let dmg = dmgs[ix % dmgs.Length]
                     let damage = dmg.roll() |> max 0
                     do! damageTakenP.SetM(targetId, targetDmg + damage)
-                    let! targetHp = hpP.Get targetId |> getF
+                    let! targetHp = hpP.Get targetId |> getM
                     let isFatal = targetDmg + damage >= targetHp
                     let killMsg = if isFatal then ", a fatal blow" else ""
-                    let! isFriendly = isFriendlyP.Get id |> getF
+                    let! isFriendly = isFriendlyP.Get id |> getM
                     msgs <- msgs@[LogEntry.create($"{name} hits {targetName} for {damage} points of damage{killMsg}! [Attack roll: {n}, Damage: {dmg} = {damage}]", isFatal, if isFriendly then Good else Bad)]
                 | n ->
                     msgs <- msgs@[LogEntry.create $"{name} misses {targetName}. [Attack roll: {n}]"]
@@ -111,7 +113,7 @@ let attack ids id = stateChange {
     }
 
 let fightLogic = stateChange {
-    let! ids = getF(fun state -> state.roster |> Map.values |> Array.ofSeq)
+    let! ids = getM(fun state -> state.roster |> Map.values |> Array.ofSeq)
     let initiativeOrder =
         ids |> Array.map (fun id -> id, rand 10) |> Array.sortBy snd
     let mutable msgs = []
@@ -119,11 +121,11 @@ let fightLogic = stateChange {
         let! msgs' = attack ids id
         msgs <- msgs@msgs'
 
-    let! factions = getF(fun state -> ids |> Array.filter(fun id -> hpP.Get id state > damageTakenP.Get id state) |> Array.groupBy (fun id -> isFriendlyP.Get id state) |> Array.map fst |> Array.sortDescending)
+    let! factions = getM(fun state -> ids |> Array.filter(fun id -> hpP.Get id state > damageTakenP.Get id state) |> Array.groupBy (fun id -> isFriendlyP.Get id state) |> Array.map fst |> Array.sortDescending)
     let outcome = match factions with [|true|] -> Victory | [|true;false|] -> Ongoing | _ -> Defeat // mutual destruction is still defeat
     return outcome, msgs
     }
 
-let fightOneRound (ribbit: State) : RoundResult =
+let fightOneRound (ribbit: DeltaRibbit) : RoundResult =
     let (outcome, msg), ribbit = fightLogic ribbit
     { outcome = outcome ; msgs = msg; ribbit = ribbit }
