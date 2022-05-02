@@ -11,7 +11,7 @@ type Msg = | Embark of AdventureSpec | Recruit of CharacterSheet | Proceed
 type Model = {
     activity: Activity
     title: string option
-    log: string list list
+    log: LogEntry list list
     spec: Domain.Adventure.AdventureSpec option // for referencing rewards, etc.
     state: Domain.Adventure.AdventureState
     }
@@ -54,7 +54,7 @@ let update msg (model:Model) =
     | Proceed when model.activity = Fighting ->
         let outcome, msgs, state' = model.state |> fightUntilFixedPoint
         match { model with state = state'; log = msgs::model.log }, outcome with
-        | model, Victory -> { model with activity = Looting; title = "Victory!!! " + (msgs |> List.last) |> Some }
+        | model, Victory -> { model with activity = Looting; title = "Victory!!! " + (msgs |> List.last).msg |> Some }
         | model, Defeat -> { model with title = Some "You have been defeated!"; activity = PushingUpDaisies }
         | model, _ -> model
     | Proceed ->
@@ -96,7 +96,14 @@ let view model control dispatch =
         | recent::_, (Fighting | Looting | PushingUpDaisies) ->
             class' Html.div "logOutput" [
                 for entry in recent do
-                    Html.div [Html.text entry]
+                    let className =
+                        match entry.category, entry.important with
+                        | Good, true -> "veryGood"
+                        | Good, false -> "good"
+                        | Bad, false -> "bad"
+                        | Bad, true -> "veryBad"
+                        | _ -> "neutral"
+                    class' Html.div className [Html.text entry.msg]
                 ]
         | _ -> ()
         if model.activity <> Downtime then
@@ -125,36 +132,52 @@ let view model control dispatch =
                 {| title = "HP"; render = getHP |}
                 ]
             statusSummary rosterIds (snd >> isFriendly) columns dispatch
-        class' Html.div "finalize" [
-            match model.activity with
-            | Downtime ->
+        let finalSection elements = class' Html.div "finalize" elements
+        let choicebuttons elements = [
+            if Browser.Dom.window.innerWidth < 800 then
+                class' Html.div "beforeSummary" elements // redundant pre-summary section on mobile for better UX--not a perfect solution but better than needing scrolling
+            finalSection elements
+            ]
+        match model.activity with
+        | Downtime ->
+            finalSection [
                 Html.button [prop.text "Go on an easy adventure"; prop.onClick(fun _ -> easy() |> Embark |> dispatch)]
                 Html.button [prop.text "Go on a hard adventure"; prop.onClick(fun _ -> hard() |> Embark |> dispatch)]
                 Html.button [prop.text "Go on a deadly adventure"; prop.onClick(fun _ -> deadly() |> Embark |> dispatch)]
                 Html.button [prop.text "Save and quit"; prop.onClick (thunk1 control SaveAndQuit)]
-            | AdventureIntro ->
-                // later on if there are more choices, this could become a full-fledged Adventuring phase with RP choices.
-                // This might also be where you recruit companions.
+                ]
+        | AdventureIntro ->
+            // later on if there are more choices, this could become a full-fledged Adventuring phase with RP choices.
+            // This might also be where you recruit companions.
+            yield! choicebuttons [
                 Html.button [prop.text "Proceed"; prop.onClick(fun _ -> Proceed |> dispatch)]
                 Html.button [prop.text "Recruit companions"; prop.onClick(fun _ -> recruitCompanions model control dispatch)]
-            | Fighting ->
-                // later on if there are more choices, this could become a full-fledged Adventuring phase with RP choices
+                ]
+        | Fighting ->
+            // later on if there are more choices, this could become a full-fledged Adventuring phase with RP choices
+            yield! choicebuttons [
                 Html.button [prop.text "Fight!"; prop.onClick(fun _ -> Proceed |> dispatch)]
-            | Looting ->
-                // later on if there are more choices, this could become a full-fledged Adventuring phase with RP choices
+                ]
+        | Looting ->
+            // later on if there are more choices, this could become a full-fledged Adventuring phase with RP choices
+            yield! choicebuttons [
                 Html.button [prop.text "Continue onward"; prop.onClick(fun _ -> Proceed |> dispatch)]
                 Html.button [prop.text "Call it a day"; prop.onClick(fun _ -> SaveAndQuit |> control)]
-            | CompletingAdventure ->
-                // later on if there are more choices, this could become a full-fledged Adventuring phase with RP choices
-                let finish _ =
-                    if model.state.mainCharacter |> stillAlive model then
-                        Save |> control
-                        Proceed |> dispatch
-                    else
-                        SaveAndQuit |> control
+                ]
+        | CompletingAdventure ->
+            // later on if there are more choices, this could become a full-fledged Adventuring phase with RP choices
+            let finish _ =
+                if model.state.mainCharacter |> stillAlive model then
+                    Save |> control
+                    Proceed |> dispatch
+                else
+                    SaveAndQuit |> control
+            yield! choicebuttons [
                 Html.button [prop.text "Finish"; prop.onClick(finish)]
-            | PushingUpDaisies ->
+                ]
+        | PushingUpDaisies ->
+            yield! choicebuttons [
                 Html.button [prop.text "OK"; prop.onClick (thunk1 control SaveAndQuit)]
-            ]
+                ]
         ]
 

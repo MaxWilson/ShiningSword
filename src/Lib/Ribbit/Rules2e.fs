@@ -100,10 +100,12 @@ let attack ids id = stateChange {
                     let damage = dmg.roll() |> max 0
                     do! damageTakenP.SetM(targetId, targetDmg + damage)
                     let! targetHp = hpP.Get targetId |> getF
-                    let killMsg = if targetDmg + damage >= targetHp then ", a fatal blow" else ""
-                    msgs <- msgs@[$"{name} hits {targetName} for {damage} points of damage{killMsg}! [Attack roll: {n}, Damage: {dmg} = {damage}]"]
+                    let isFatal = targetDmg + damage >= targetHp
+                    let killMsg = if isFatal then ", a fatal blow" else ""
+                    let! isFriendly = isFriendlyP.Get id |> getF
+                    msgs <- msgs@[LogEntry.create($"{name} hits {targetName} for {damage} points of damage{killMsg}! [Attack roll: {n}, Damage: {dmg} = {damage}]", isFatal, if isFriendly then Good else Bad)]
                 | n ->
-                    msgs <- msgs@[$"{name} misses {targetName}. [Attack roll: {n}]"]
+                    msgs <- msgs@[LogEntry.create $"{name} misses {targetName}. [Attack roll: {n}]"]
             | None -> ()
     return msgs
     }

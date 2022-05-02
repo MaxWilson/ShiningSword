@@ -6,6 +6,11 @@ type Id = int
 type RuntimeType = Number | Id  | Text | Roll | Rolls | Flags | Bool
 type RuntimeValue = Number of int | Id of Id | Text of string | Roll of RollSpec | Rolls of RollSpec list | Flags of string Set| Bool of bool
 type Row = Map<Name, RuntimeValue>
+type LogCategory = Good | Bad | Neither
+type LogEntry = { msg: string; important: bool; category: LogCategory }
+    with
+    static member create msg = { msg = msg; important = false; category = Neither }
+    static member create(msg, important, category) = { msg = msg; important = important; category = category }
 
 type RibbitError = DataRequest of int * propertyName: Name | BugReport of msg: string
 
@@ -59,7 +64,7 @@ and State = {
         }
 
 type FightResult = Victory | Defeat | Ongoing
-type RoundResult = { outcome: FightResult; msgs: string list; ribbit: State }
+type RoundResult = { outcome: FightResult; msgs: LogEntry list; ribbit: State }
 
 // this doesn't properly belong in ribbit but because treasure is part of the aftermath of the combat,
 // and because it's convenient to put TreasureType in the monster stat blocks, I'll allow it for now

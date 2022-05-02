@@ -158,6 +158,7 @@ let victory (encounter:OngoingEncounter) state =
         state', $"You earn {xp} XP! ({xp/divisor} XP each.) As for material rewards... you find {treasureDescription}."
     else
         state', $"You earn {xp} XP! ({xp/divisor} XP each.) As for material rewards... you find {treasureDescription} and split it amongst yourselves ({gpReward/divisor} gp each)."
+    |> fun (state, msg) -> state, LogEntry.create(msg, true, Good)
 
 // for 2E this is just "execute everybody's declared actions", for 5E it could be the same or it could be "fight until you get to a PC's turn" depending on the settings
 let fightUntilFixedPoint (adventureState: AdventureState) =
@@ -175,9 +176,9 @@ let fightUntilFixedPoint (adventureState: AdventureState) =
     match result.outcome with
     | Victory ->
         let adv, msg = victory adv.currentEncounter.Value adv
-        result.outcome, result.msgs@["Victory!!!";msg], adv
+        result.outcome, result.msgs@[LogEntry.create("Victory!!!", true, Good);msg], adv
     | Defeat ->
-        result.outcome, result.msgs@["You have been defeated!!! The worms now feast on your flesh."], adv
+        result.outcome, result.msgs@[LogEntry.create("You have been defeated!!! The worms now feast on your flesh.", true, Bad)], adv
     | _ ->
         result.outcome, result.msgs, adv
 
@@ -215,8 +216,8 @@ let hard() =
     AdventureSpec.fresh
         "You hire on as a caravan guard."
         [
-            Encounter.wandering "One night, kobolds attack! Your fellow guards betray you and fight with the kobolds!"
-                ["Kobold", Some (RollSpec.create(2,6)); "Guard", Some(RollSpec.create(1,4))]
+            Encounter.wandering "One night, kobolds attack! Your fellow guards cravenly flee but you fight bravely!"
+                ["Kobold", Some (RollSpec.create(2,6))]
             ]
     AdventureSpec.fresh
         "You hire on as a caravan guard."
@@ -229,6 +230,12 @@ let hard() =
         [
             Encounter.wandering "One night, hobgoblins attack! Your fellow guards cravenly flee but you fight bravely."
                 ["Hobgoblin", Some (RollSpec.create(2,6))]
+            ]
+    AdventureSpec.fresh
+        "You hire on as a caravan guard."
+        [
+            Encounter.wandering "As you near Venture Pass, hill giants attack! Your fellow guards cravenly flee but you steel your nerves and fight."
+                ["Hill Giant", Some (RollSpec.create(1,2))]
             ]
     AdventureSpec.fresh
         "You go to visit your brother."
