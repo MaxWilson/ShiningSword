@@ -89,7 +89,7 @@ let act affordanceName id state =
 
 let findTarget ids id = stateChange {
     let! currentTarget = currentTargetP.Get id |> getF
-    let! isAlive = getF (fun ribbit -> (currentTarget > 0) && (hpP.Get id ribbit > damageTakenP.Get currentTarget ribbit))
+    let! isAlive = getF (fun ribbit -> (currentTarget > 0) && (hpP.Get currentTarget ribbit > damageTakenP.Get currentTarget ribbit))
     if isAlive then
         return Some currentTarget
     else
