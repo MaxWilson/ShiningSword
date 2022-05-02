@@ -272,7 +272,7 @@ module ADND2nd =
             elif con < 21 then max 2 (rand dieSize)
             elif con < 23 then max 3 (rand dieSize)
             else max 4 (rand dieSize)
-        let d n = if hdMultiplier = 1 then rand n else List.init hdMultiplier (thunk1 rand n) |> List.sum
+        let d n = if hdMultiplier = 1 then rand n else List.init hdMultiplier (thunk1 hpRoll n) |> List.sum
         match class' with
         | Fighter | Paladin | Ranger -> if lvl <= 9 then d 10, conBonus else 3, 0
         | Cleric | Psionicist | Priest | Druid -> if lvl <= 9 then d 8, conBonus else 2, 0
