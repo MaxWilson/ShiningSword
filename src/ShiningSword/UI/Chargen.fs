@@ -653,7 +653,7 @@ module View =
                                 ]
                         | EditingName ->
                             autoFocusInput [
-                                prop.value draft.name;
+                                prop.valueOrDefault draft.name;
                                 prop.onChange (fun (txt:string) -> SetName txt |> dispatch)
                                 prop.onKeyDown (fun ev -> if ev.code = "Enter" then SetEditMode NotEditingText |> dispatch); prop.onBlur (fun ev -> SetEditMode NotEditingText |> dispatch)                                    ]
 
