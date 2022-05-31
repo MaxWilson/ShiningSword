@@ -30,14 +30,12 @@ let recruitCompanions model control dispatch =
     else
         Recruit (candidates |> chooseRandom) |> dispatch
 
-let stillAlive (adventure: Model) (char: CharacterSheet) =
-    let ribbit = adventure.state.ribbit
+let stillAlive (ribbit: Ribbit) (char: CharacterSheet) =
     let name = char.converge((fun c -> c.name), (fun c -> c.name))
     match ribbit.roster |> Map.tryFind name with
     | Some id ->
         (Domain.Ribbit.Operations.hpP.Get id ribbit) > (Domain.Ribbit.Operations.damageTakenP.Get id ribbit)
-    | None -> true // if he's not been in combat yet then he's obviously still alive
-
+    | None -> true // if he's not been in combat yet then he's obviously still alive    
 
 let init sheet =
     let state = downtime sheet

@@ -185,10 +185,11 @@ module StateChangeMonad =
     let set v state = (), v
     let stateChange = StateBuilder()
     // run and discard unit result
-    let runNoResult state m =
-        let (), state' = m state
+    let runNoResult state stateChangeMonad =
+        let (), state' = stateChangeMonad state
         // discard result
         state'
+    let run state stateChangeMonad = stateChangeMonad state
 
 let withState initialState monad =
     let result, _ = monad initialState
