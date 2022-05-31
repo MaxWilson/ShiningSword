@@ -208,17 +208,47 @@ let toState initialState monad =
 //   the current state, we can just make a quick mutation to the shared mutable state
 //   and return it.
 module Delta =
+    type private Seed<'t, 'msg> = Seed of initial: (unit -> 't) * update: ('msg -> 't -> 't)
+    type DeltaDrivenState<'t, 'msg> =
+        private { seed: Seed<'t, 'msg> ; current:'t ; past: ('msg list) ; queue: ('msg list) }
+    let create(initial: (unit -> 't), update: 'msg -> 't -> 't) =
+        { seed = Seed(initial, update); current = initial(); past = []; queue = [] }
+    let (|Deref|) (cell: _ ref) = cell.Value
+    // returns current state and amortized-updated State reflecting the current state. Also sets shared state = this.
+    let derefM : StateChange<DeltaDrivenState<'t, 'msg>, 't> = function
+    | { current = current; past = past; queue = [] } as this ->
+        current, this
+    | { seed = Seed(init, update); current = current; past = past; queue = queue } as this  ->
+        let apply q state =
+            List.foldBack update q state
+        let current', past' =
+            (current |> apply queue), queue@past
+        current', { this with current = current'; past = past'; queue = [] }
+    let execute msg = function
+    | { queue = queue } as this ->
+        { this with queue = msg::queue }
+    let executeM msg state = (), execute msg state
+    let getM f state =
+        let inner, state = derefM state
+        f inner, state
+    let transformM f state =
+        let inner, state = derefM state
+        let commands = f inner
+        let state = commands |> List.fold (flip execute) state
+        (), state
+
+module SharedDelta =
     open Microsoft.FSharp.Core
 
     type private Seed<'t, 'msg> = Seed of initial: (unit -> 't) * update: ('msg -> 't -> 't)
-    type DeltaDrivenState<'t, 'msg> =
+    type SharedDeltaDrivenState<'t, 'msg> =
         private { seed: Seed<'t, 'msg> ; shared:(('t * 'msg list) ref) ; past: ('msg list) ; queue: ('msg list) }
     let create(initial: (unit -> 't), update: 'msg -> 't -> 't) =
         let shared = ref (initial(), [])
         { seed = Seed(initial, update); shared = shared; past = []; queue = [] }
     let (|Deref|) (cell: _ ref) = cell.Value
     // returns current state and amortized-updated State reflecting the current state. Also sets shared state = this.
-    let derefM : StateChange<DeltaDrivenState<'t, 'msg>, 't> = function
+    let derefM : StateChange<SharedDeltaDrivenState<'t, 'msg>, 't> = function
     | { shared = Deref(current, sharedPast); past = past; queue = [] } as this when sharedPast = past ->
         current, this
     | { seed = Seed(init, update); shared = Deref(current, sharedPast) as shared; past = past; queue = queue } as this  ->
@@ -234,7 +264,7 @@ module Delta =
         shared.Value <- (current', past')
         current', { this with shared = shared; past = past'; queue = [] }
     let execute msg = function
-    | { queue = queue } as this ->
+    | { SharedDeltaDrivenState.queue = queue } as this ->
         { this with queue = msg::queue }
     let executeM msg state = (), execute msg state
     let getM f state =
