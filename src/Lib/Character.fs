@@ -753,6 +753,10 @@ module Universal =
             match this with
             | Detail2e data -> f2e data
             | Detail5e data -> f5e data
+        member this.raw =
+            match this with
+            | Detail2e data -> Detail2e()
+            | Detail5e data -> Detail5e()
 
     let (|IsADND|_|) = function
     | Detail2e x -> Some x

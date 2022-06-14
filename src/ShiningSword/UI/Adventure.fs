@@ -141,7 +141,8 @@ let view model control dispatch =
         match model.activity with
         | Downtime ->
             finalSection [
-                Html.button [prop.text "Go on an easy adventure"; prop.onClick(fun _ -> easy() |> Embark |> dispatch)]
+                let ruleSet = model.state.mainCharacter.raw
+                Html.button [prop.text "Go on an easy adventure"; prop.onClick(fun _ -> easy ruleSet |> Embark |> dispatch)]
                 Html.button [prop.text "Go on a hard adventure"; prop.onClick(fun _ -> hard() |> Embark |> dispatch)]
                 Html.button [prop.text "Go on a deadly adventure"; prop.onClick(fun _ -> deadly() |> Embark |> dispatch)]
                 Html.button [prop.text "Save and quit"; prop.onClick (thunk1 control SaveAndQuit)]

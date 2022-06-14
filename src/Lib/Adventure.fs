@@ -182,7 +182,7 @@ let fightUntilFixedPoint (adventureState: AdventureState) =
     | _ ->
         result.outcome, result.msgs, adv
 
-let easy() =
+let easy ruleSet =
     [
     AdventureSpec.fresh
         "You hire on as a caravan guard."
@@ -211,7 +211,7 @@ let easy() =
     ]
     |> chooseRandom
 
-let hard() =
+let hard ruleSet =
     [
     AdventureSpec.fresh
         "You hire on as a caravan guard."
@@ -266,28 +266,38 @@ let hard() =
     ]
     |> chooseRandom
 
-let deadly() =
+let deadly ruleSet =
     [
     AdventureSpec.fresh
-        "Rumors say the kobolds are growing restless."
+        "You climb a giant beanstalk looking for trouble."
         [
-            Encounter.wandering "Kobolds attack you in your home!"
-                ["Kobold", Some (RollSpec.create(2,4))]
-            Encounter.wandering "Kobolds attack the town!"
-                ["Kobold", None]
-            Encounter.lair "You counterattack the kobold lair! There are many kobolds here."
-                ["Kobold", Some (RollSpec.create(8,10))]
+            Encounter.lair "The hill giants are not pleased to see you!"
+                ["Hill Giant", Some (RollSpec.create(1,6))]
             ]
     AdventureSpec.fresh
         "You climb a giant beanstalk looking for trouble."
         [
             Encounter.lair "The hill giants are not pleased to see you!"
-                ["Hill Giant", None]
+                ["Hill Giant", Some (RollSpec.create(2,6))]
             ]
     AdventureSpec.fresh
         "You climb a giant beanstalk looking for trouble."
         [
             Encounter.lair "The frost giants are not pleased to see you!"
-                ["Frost Giant", None]
+                ["Frost Giant", Some (RollSpec.create(2,4))]
             ]
-    ] |> chooseRandomExponentialDecay 0.5
+    AdventureSpec.fresh
+        "You climb a giant beanstalk looking for trouble."
+        [
+            Encounter.lair "The frost giants are not pleased to see you!"
+                ["Frost Giant", Some (RollSpec.create(2,8))]
+            ]
+    AdventureSpec.fresh
+        "You climb a giant beanstalk looking for trouble. You have a bad feeling about this beanstalk."
+        [
+            Encounter.lair "The giants are not pleased to see you!"
+                ["Frost Giant", Some (RollSpec.create(2,8))]
+            Encounter.lair "The hill giants are not pleased to see you!"
+                ["Hill Giant", Some (RollSpec.create(2,6))]
+            ]
+    ] |> chooseRandomExponentialDecay 0.3
