@@ -32,8 +32,8 @@ module Interaction =
         match draft.decisions with
         | Universal.IsADND(decisions) ->
             match ctx.postracialStats with
-            | Lookup Str str & Lookup Dex dex & Lookup Con con
-                & Lookup Int int & Lookup Wis wis & Lookup Cha cha
+            | Map.Lookup Str str & Map.Lookup Dex dex & Map.Lookup Con con
+                & Map.Lookup Int int & Map.Lookup Wis wis & Map.Lookup Cha cha
                 ->
                 let traitSetting = decisions |> toSetting Set.ofSeq rules2e [Trait2e.PC] ctx
                 let traits = traitSetting.summary
@@ -76,8 +76,8 @@ module Interaction =
         match draft.decisions with
         | Universal.Is5e(decisions) ->
             match ctx with
-            | Lookup Str str & Lookup Dex dex & Lookup Con con
-                & Lookup Int int & Lookup Wis wis & Lookup Cha cha
+            | Map.Lookup Str str & Map.Lookup Dex dex & Map.Lookup Con con
+                & Map.Lookup Int int & Map.Lookup Wis wis & Map.Lookup Cha cha
                 ->
                 let traitSetting = decisions |> toSetting Set.ofList rules5e [DND5e.PC] ctx
                 let classLevels = traitSetting.summary |> Seq.choose (function Trait5e.Level(cl,lvl) when lvl > 0 -> Some(cl, lvl) | _ -> None) |> Array.ofSeq
