@@ -174,8 +174,10 @@ module Ops =
         | RegisterRequest request -> notImpl()
         | Set(PropertyAddress(rowId, propertyName), value) ->
             let count = ribbit.scope.rows.Count
-            let row' = ribbit.scope.rows[rowId] |> Map.add propertyName value
-            let rows = ribbit.scope.rows |> Map.add rowId row'
+            let rows = ribbit.scope.rows |> Map.change rowId (function
+                | Some row -> row |> Map.add propertyName value |> Some
+                | None -> Map.ofList [propertyName, value] |> Some
+                )
             { ribbit with scope = { ribbit.scope with rows = rows } }
         | Set(address, value) -> notImpl()
         | SetRoster(roster) -> { ribbit with roster = roster }

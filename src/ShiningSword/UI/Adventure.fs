@@ -16,11 +16,14 @@ type Model = {
     state: Domain.Adventure.AdventureState
     }
 
-let recruitCompanions model control dispatch =
+let getPotentialCompanions model =
     let getId = function Detail2e (char: CharacterSheet2e) -> char.id | Detail5e (char: CharacterSheet5e) -> char.id
     let isADND = model.state.mainCharacter.isADND
     let ineligibleIds = (model.state.mainCharacter::model.state.allies) |> List.map getId
-    let candidates = LocalStorage.PCs.read() |> Array.filter (fun r -> r.isADND = isADND && not (ineligibleIds |> List.contains (getId r)))
+    LocalStorage.PCs.read() |> Seq.filter(fun r -> r.isADND = isADND && not (ineligibleIds |> List.contains (getId r)))
+
+let recruitCompanions model control dispatch =
+    let candidates = getPotentialCompanions model |> Array.ofSeq
     if candidates.Length = 0 then
         if model.state.allies.IsEmpty then
             "No companions are available at this time. (Try creating more characters first.)"
@@ -60,7 +63,7 @@ let update msg (model:Model) =
         | next::rest ->
             { model with state = model.state |> beginEncounter (next |> toOngoing) rest; title = Some next.description; activity = Fighting }
         | [] when model.activity = CompletingAdventure ->
-            { model with state = downtime model.state.mainCharacter ; title = None; activity = Downtime }
+            { model with state = downtime model.state.mainCharacter |> clearEnemies ; title = None; activity = Downtime }
         | [] ->
             let msg, state' = model.state |> finishAdventure model.spec.Value
             { model with state = state'; title = Some msg; activity = CompletingAdventure }
@@ -68,7 +71,7 @@ let update msg (model:Model) =
 let class' element (className: string) (children: _ seq) = element [prop.className className; prop.children children]
 
 // Bard's Tale-like summary of all friendlies and hostiles currently extant
-let statusSummary (creatures: 'creature list) isFriendly (columns: {| title: string; render: 'creature -> string |} list) dispatch =
+let statusSummary (creatures: 'creature list) isFriendly isDead (columns: {| title: string; render: 'creature -> string |} list) dispatch =
     class' Html.table "summaryTable" [
         Html.thead [
             Html.tr [
@@ -78,9 +81,14 @@ let statusSummary (creatures: 'creature list) isFriendly (columns: {| title: str
             ]
         Html.tbody [
             for creature in creatures do
-                class' Html.tr (if isFriendly creature then "friendly" else "enemy") [
-                    for column in columns do
-                        Html.td (column.render creature)
+                Html.tr [
+                    prop.className [
+                        if isFriendly creature then "friendly" else "enemy"
+                        if isDead creature then "dead"]
+                    prop.children [
+                        for column in columns do
+                            Html.td (column.render creature)
+                        ]
                     ]
             ]
         ]
@@ -124,17 +132,21 @@ let view model control dispatch =
                         let isFriendly = isFriendly id
                         let isAlive = (hpP.Get id ribbit) >= 0
                         not isFriendly, not isAlive, id)
+            let isDead (_,id) =
+                let hp = hpP.Get id ribbit
+                let damage = damageTakenP.Get id ribbit
+                damage >= hp
             let columns = [
                 {| title = "Name"; render = get personalNameP.Get |}
                 {| title = "AC"; render = get acP.Get |}
                 {| title = "HP"; render = getHP |}
                 ]
-            statusSummary rosterIds (snd >> isFriendly) columns dispatch
+            statusSummary rosterIds (snd >> isFriendly) isDead columns dispatch
         let finalSection elements = class' Html.div "finalize" elements
         let choicebuttons elements = [
-            if Browser.Dom.window.innerWidth < 800 then
-                class' Html.div "beforeSummary" elements // redundant pre-summary section on mobile for better UX--not a perfect solution but better than needing scrolling
-            finalSection elements
+            class' Html.div "beforeSummary" elements
+            if ((match model.log with head::_ -> head.Length | _ -> 0) + model.state.allies.Length >= 10) || Browser.Dom.window.innerWidth < 800 then
+                finalSection elements // redundant post-summary section on mobile (or with long log) for better UX--not a perfect solution but better than needing scrolling
             ]
         match model.activity with
         | Downtime ->
@@ -150,7 +162,7 @@ let view model control dispatch =
             // This might also be where you recruit companions.
             yield! choicebuttons [
                 Html.button [prop.text "Proceed"; prop.onClick(fun _ -> Proceed |> dispatch)]
-                Html.button [prop.text "Recruit companions"; prop.onClick(fun _ -> recruitCompanions model control dispatch)]
+                Html.button [prop.text "Recruit companions"; prop.onClick(fun _ -> recruitCompanions model control dispatch); if (getPotentialCompanions model |> Seq.isEmpty) then prop.style [style.opacity 0.5]]
                 ]
         | Fighting ->
             // later on if there are more choices, this could become a full-fledged Adventuring phase with RP choices

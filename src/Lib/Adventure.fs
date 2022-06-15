@@ -71,6 +71,17 @@ let embark (spec: AdventureSpec) sheet =
     { mainCharacter = sheet; allies = spec.allies; currentEncounter = None; scheduledEncounters = spec.encounters; ribbit = Ops.freshState() }
     |> loadCharacters (sheet::spec.allies)
 
+let clearEnemies adventureState =
+    let ribbit =
+        stateChange {
+            let! ribbit = Delta.derefM
+            let friendlies = ribbit.roster |> Map.filter (fun name id -> isFriendlyP.Get id ribbit)
+            // clear enemies from last encounter off the UI because they're all dead
+            do! SetRoster friendlies |> Delta.executeM
+            }
+        |> runNoResult adventureState.ribbit
+    { adventureState with ribbit = ribbit }
+
 let finishAdventure (spec: AdventureSpec) state =
     let mainCharacter' =
         state.mainCharacter.map2e(fun char -> { char with xp = char.xp + 1<xp>*spec.bonusXP; wealth = char.wealth + 1<gp>*spec.bonusGP })
@@ -84,7 +95,7 @@ let finishAdventure (spec: AdventureSpec) state =
             $"You gain an extra {spec.bonusGP} gold pieces for completing the adventure!"
         else
             "Congratulations on a successful adventure!"
-    msg, { state with mainCharacter = mainCharacter' |> levelUp; allies = state.allies |> List.map levelUp }
+    msg, { (state |> clearEnemies) with mainCharacter = mainCharacter' |> levelUp; allies = state.allies |> List.map levelUp }
 
 let toOngoing (encounter:Encounter) =
     let rollQty = function
@@ -107,9 +118,6 @@ let beginEncounter (next: OngoingEncounter) rest (adventureState: AdventureState
     let ribbit =
         stateChange {
             let! ribbit = Delta.derefM
-            let friendlies = ribbit.roster |> Map.filter (fun name id -> isFriendlyP.Get id ribbit)
-            // clear enemies from last encounter off the UI because they're all dead
-            do! SetRoster friendlies |> Delta.executeM
             for monsterKind, qty in next.monsters do
                 if adventureState.mainCharacter.isADND then
                     do! Domain.Ribbit.Rules2e.createByName monsterKind qty
@@ -117,7 +125,7 @@ let beginEncounter (next: OngoingEncounter) rest (adventureState: AdventureState
                     do! Domain.Ribbit.Rules5e.createByName monsterKind qty
             }
         |> runNoResult adventureState.ribbit
-    { adventureState with scheduledEncounters = rest; currentEncounter = Some next; ribbit = ribbit }
+    { (adventureState |> clearEnemies) with scheduledEncounters = rest; currentEncounter = Some next; ribbit = ribbit }
 
 let victory (encounter:OngoingEncounter) state =
     let sheet = state.mainCharacter
@@ -296,8 +304,7 @@ let deadly ruleSet =
         "You climb a giant beanstalk looking for trouble. You have a bad feeling about this beanstalk."
         [
             Encounter.lair "The giants are not pleased to see you!"
-                ["Frost Giant", Some (RollSpec.create(2,8))]
-            Encounter.lair "The hill giants are not pleased to see you!"
-                ["Hill Giant", Some (RollSpec.create(2,6))]
+                ["Frost Giant", Some (RollSpec.create(2,8))
+                 "Hill Giant", Some (RollSpec.create(2,6))]
             ]
     ] |> chooseRandomExponentialDecay 0.3
