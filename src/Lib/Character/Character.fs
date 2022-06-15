@@ -1,4 +1,5 @@
-module Domain.Character
+[<AutoOpen>]
+module Domain.Character.Core
 
 open DerivedTraits
 
