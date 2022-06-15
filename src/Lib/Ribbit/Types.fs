@@ -19,7 +19,6 @@ type RibbitMsg =
     | AssociateMonsterKind of monsterKind:Name * Id
     | AssociateIndividual of personalName:Name * id: Id * monsterKind: Name option
     | RegisterRequest of RibbitRequest
-    | AllocateRow of rowId: Id
     | Set of Address * value: RuntimeValue
     | SetRoster of Map<Name, Id>
 type RibbitError = Awaiting of RibbitRequest | BugReport of msg: string
@@ -65,10 +64,10 @@ and PropertiesByType = {
     with static member fresh = { number = Map.empty; id = Map.empty; roll = Map.empty; rolls = Map.empty; flags = Map.empty; bool = Map.empty }
 
 and Scope = {
-    rows: ResizeArray<Row>
+    rows: Map<Id, Row>
     biggestIdSoFar: Id option
     }
-    with static member fresh = { rows = ResizeArray(); biggestIdSoFar = None }
+    with static member fresh = { rows = Map.empty; biggestIdSoFar = None }
 
 and Affordance = {
     name: Name
@@ -116,8 +115,8 @@ module Ops =
     let private _get (rowId: Id, propertyName: Name, fallback, getter) (ribbit: Ribbit) =
         let rec recur rowId' =
             match ribbit.scope.rows with
-            | ResizeArray.Lookup rowId' (Map.Lookup propertyName value) -> getter value
-            | ResizeArray.Lookup rowId' (Map.Lookup "prototype" (Id id)) when id > 0 -> recur id
+            | Map.Lookup rowId' (Map.Lookup propertyName value) -> getter value
+            | Map.Lookup rowId' (Map.Lookup "prototype" (Id id)) when id > 0 -> recur id
             | _ -> fallback()
         recur rowId
 
@@ -153,7 +152,7 @@ module Ops =
 
     let hasValue (rowId, propertyName) (ribbit: Ribbit) =
         match ribbit.scope.rows with
-        | ResizeArray.Lookup rowId (Map.Lookup propertyName _) -> true
+        | Map.Lookup rowId (Map.Lookup propertyName _) -> true
         | _ -> false
 
     let update msg (ribbit: Ribbit) =
@@ -173,16 +172,11 @@ module Ops =
                     { ribbit with categories = ribbit.categories |> Map.add monsterKind ((id, personalName)::existing) }
             | None -> ribbit
         | RegisterRequest request -> notImpl()
-        | AllocateRow(rowId) ->
-            if rowId >= ribbit.scope.rows.Capacity then
-                ribbit.scope.rows.Capacity <- rowId + 1
-            ribbit
         | Set(PropertyAddress(rowId, propertyName), value) ->
             let count = ribbit.scope.rows.Count
-            if rowId >= count then
-                ribbit.scope.rows.AddRange([for _ in count..rowId -> Map.empty])
-            ribbit.scope.rows[rowId] <- ribbit.scope.rows[rowId] |> Map.add propertyName value
-            ribbit
+            let row' = ribbit.scope.rows[rowId] |> Map.add propertyName value
+            let rows = ribbit.scope.rows |> Map.add rowId row'
+            { ribbit with scope = { ribbit.scope with rows = rows } }
         | Set(address, value) -> notImpl()
         | SetRoster(roster) -> { ribbit with roster = roster }
 

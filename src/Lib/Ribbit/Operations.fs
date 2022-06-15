@@ -6,13 +6,13 @@ open Domain.Ribbit.Ops
 let propFail rowId propName (ribbit: Ribbit) =
     let name =
         match ribbit.scope.rows with
-        | ResizeArray.Lookup rowId (Map.Lookup "PersonalName" (Text personalName)) -> personalName
+        | Map.Lookup rowId (Map.Lookup "PersonalName" (Text personalName)) -> personalName
         | _ -> $"Unnamed individual (ID = {rowId})"
     failwith $"{propName} should have been set on {name}"
 let request rowId propName (ribbit: Ribbit) =
     let name =
         match ribbit.scope.rows with
-        | ResizeArray.Lookup rowId (Map.Lookup "PersonalName" (Text personalName)) -> personalName
+        | Map.Lookup rowId (Map.Lookup "PersonalName" (Text personalName)) -> personalName
         | _ -> $"Unnamed individual (ID = {rowId})"
     failwith $"{propName} should have been set on {name}"
 let prototypeP = IdProperty("prototype", 0)
