@@ -20,6 +20,7 @@ let notImpl _ = failwith "Not implemented yet. Email Max if you want this featur
 let shouldntHappen arg =
     $"This shouldn't ever happen. If it does there's a bug. Details: {arg}" |> BugException |> raise
 let emptyString = System.String.Empty
+let toString x = x.ToString()
 let betweenInclusive a b n = min a b <= n && n <= max a b
 /// invoke f without requiring parens
 let inv f = f()
