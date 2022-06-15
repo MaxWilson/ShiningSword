@@ -681,9 +681,10 @@ module DND5e =
                 | ModeratelyArmored, ctx -> hasTrait LightArmorProficiency ctx
                 | _ -> true)
             Elf ==> [HighElf; WoodElf; DrowElf]
-            confer HighElf [BonusWizardCantrip]
-            confer WoodElf [MaskOfTheWild; Faster 5]
-            confer DrowElf [ImprovedDarkvision; SunlightSensitivity]
+            confer Elf [StatMod (Dex, +2)]
+            confer HighElf [BonusWizardCantrip; StatMod (Int, +1)]
+            confer WoodElf [MaskOfTheWild; Faster 5; StatMod (Wis, +1)]
+            confer DrowElf [ImprovedDarkvision; SunlightSensitivity; StatMod (Cha, +1)]
             BonusWizardCantrip ==> [Cantrip "Fire Bolt"; Cantrip "Minor Illusion"; Cantrip "Blade Ward"; Cantrip "Toll the Dead"]
             confer Dwarf [StatMod (Con, 2); Faster -5]
             Dwarf ==> [HillDwarf; MountainDwarf]
