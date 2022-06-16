@@ -19,8 +19,17 @@ let inline write (key: string) value =
 
 module PCs =
     let key = "PCs"
-    let read (): CharacterSheet array = read key Array.empty
-    let write (v: CharacterSheet array) = write key v
+    let mutable cachedRead = None
+    let read (): CharacterSheet array =
+        match cachedRead with
+        | Some cached -> cached
+        | None ->
+            let read = read key Array.empty
+            cachedRead <- Some read
+            read
+    let write (v: CharacterSheet array) =
+        write key v
+        cachedRead <- None
 
 module Graveyard =
     let key = "Graveyard"
