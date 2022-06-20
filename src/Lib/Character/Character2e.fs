@@ -362,6 +362,16 @@ let levelUp (char: CharacterSheet) =
             recompute { char with levels = Array.append char.levels [| candidateLevel |] }
         else char
 
+// XP needed before next levelup
+let xpNeeded (char: CharacterSheet) =
+    match char.levels |> Array.tryLast with
+    | None -> 0<xp>
+    | Some (mostRecentClass, level) ->
+        let candidateLevel = mostRecentClass, (level+1)
+        match (xpRequired candidateLevel * 1<xp>) - char.xp with
+        | lack when lack > 0<xp> -> lack
+        | _ -> 0<xp>
+
 let describeTrait = function
     | StatMod(stat, n) ->
         $"%+d{n} {stat}"

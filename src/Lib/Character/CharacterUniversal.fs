@@ -58,6 +58,8 @@ let recompute (char: CharacterSheet) =
     (char.map2e ADND2nd.recompute).map5e DND5e.recompute
 let levelUp (char: CharacterSheet) =
     (char.map2e ADND2nd.levelUp).map5e DND5e.levelUp
+let xpNeeded (char: CharacterSheet) =
+    char.converge (ADND2nd.xpNeeded, DND5e.xpNeeded)
 
 let rec makeName(sex: Sex) =
     let nationOfOrigin = chooseRandom ["Tir na n'Og"; "Abysia"; "Kailasa"; "Ermor"; "Undauntra"; "Arboria"; "Mordor"]

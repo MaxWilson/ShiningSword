@@ -1,4 +1,4 @@
-module Domain.Character.DND5e 
+module Domain.Character.DND5e
 
 open DerivedTraits
 
@@ -201,6 +201,17 @@ let levelUp (char: CharacterSheet) =
         | Some xp when char.xp >= (1<xp> * xp) ->
             recompute { char with levels = Array.append char.levels [| mostRecentClass, candidateLevel |] }
         | _ -> char
+
+// XP needed before level up
+let xpNeeded (char: CharacterSheet) =
+    match char.levels |> Array.tryLast with
+    | None -> 0<xp>
+    | Some (mostRecentClass, level) ->
+        let candidateLevel = (level+1)
+        match xpChart.TryFind candidateLevel with
+        | Some xp when char.xp < (1<xp> * xp) ->
+            ((1<xp> * xp) - char.xp)
+        | _ -> 0<xp>
 
 let rules: DerivationRules<_, PreconditionContext> =
     [
