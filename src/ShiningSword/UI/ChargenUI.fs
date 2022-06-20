@@ -451,7 +451,10 @@ module View =
     [<ReactComponent>]
     let autoFocusInput props =
         let self = React.useRef None
-        React.useEffectOnce(fun _ -> self.current?focus(); self.current?select())
+        React.useEffectOnce(fun _ ->
+            if self.current.IsSome then
+                self.current?focus()
+                self.current?select())
         Html.input (prop.ref self::props)
 
     let currentStat model dispatch stat statValue =
