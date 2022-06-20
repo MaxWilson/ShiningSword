@@ -82,5 +82,5 @@ let rec makeName(sex: Sex) =
             let suffixes = ["Defender of Humanity"; "Last of the Dwarflords"; "the Accursed"; "Esquire"; "the Undying"]
             $"{name}, {chooseRandom suffixes}".Trim()
         let allThree = (prefix >> lastName >> title)
-        nationOfOrigin, chooseRandomExponentialDecay 0.4 [lastName; (lastName >> title); prefix; allThree] firstName
+        nationOfOrigin, chooseRandomExponentialDecay 0.4 Seq.head [lastName; (lastName >> title); prefix; allThree] firstName
 

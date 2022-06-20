@@ -31,7 +31,7 @@ let recruitCompanions model control dispatch =
             "No more companions are available at this time. (Try creating more characters first.)"
         |> Error |> control
     else
-        Recruit (candidates.[0]) |> dispatch
+        Recruit (candidates |> chooseRandomExponentialDecay 0.2 chooseRandom) |> dispatch
 
 let stillAlive (ribbit: Ribbit) (char: CharacterSheet) =
     let name = char.converge((fun c -> c.name), (fun c -> c.name))

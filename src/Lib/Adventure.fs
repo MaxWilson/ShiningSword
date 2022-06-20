@@ -307,4 +307,4 @@ let deadly ruleSet =
                 ["Frost Giant", Some (RollSpec.create(2,8))
                  "Hill Giant", Some (RollSpec.create(2,6))]
             ]
-    ] |> chooseRandomExponentialDecay 0.3
+    ] |> chooseRandomExponentialDecay 0.3 Seq.head
