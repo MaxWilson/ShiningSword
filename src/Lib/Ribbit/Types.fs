@@ -37,9 +37,6 @@ type Property<'t>(name, runtimeType) =
 and [<AbstractClass>]
     Expression<'t>() =
     abstract Eval: EvaluationContext -> 't RValue // expressions CANNOT modify state or the evaluation context variables, they can only succeed or fail.
-and Statements = Sequence of Statement list | While of Expression<bool> * Statements
-and Statement = Assign of Address * Expression<RuntimeValue> | Jump of int
-and CompiledStatements = Statement array
 and ExecutionContext = {
     locals: Row // e.g. arguments to the event within which the expression is embedded
     instructionPointer: int
@@ -88,6 +85,11 @@ and Ribbit = {
         affordances = Map.empty; properties = PropertiesByType.fresh; openRequests = []
         }
 and DeltaRibbit = Delta.DeltaDrivenState<Ribbit, RibbitMsg>
+and Statements = Sequence of Statement list | While of Expression<bool> * Statements
+and CompiledStatements = Statement array
+and Statement =
+    | Assign of Address * Expression<RuntimeValue>
+    | Jump of int
 
 type FightResult = Victory | Defeat | Ongoing
 type RoundResult = { outcome: FightResult; msgs: LogEntry list; ribbit: DeltaRibbit }
@@ -325,6 +327,15 @@ type PropertyExpression<'t>(rowId: Expression<Id>, prop: Property<'t>) =
     inherit Expression<'t>()
     override this.Eval (ctx: EvaluationContext) =
         rowId.Eval ctx |> Result.bind (fun rowId -> prop.GetM rowId ctx)
+
+type LocalExpression<'t>(paramName: string, prop: Property<'t>) =
+    inherit Expression<'t>()
+    override this.Eval (ctx: EvaluationContext) =
+        match ctx.locals |> Map.tryFind paramName with
+        | Some v -> Ok v
+        | _ ->
+            let req = DataRequest(LocalAddress(), )
+            Error (Awaiting req)
 
 type UpcastExpression<'t>(inner: Expression<'t>, upcast': 't -> RuntimeValue) =
     inherit Expression<RuntimeValue>()
