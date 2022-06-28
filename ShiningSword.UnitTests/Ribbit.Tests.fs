@@ -27,6 +27,14 @@ let trimFront (input: string) =
         let prefixN = lines.[0] |> countWhitespace
         lines |> Array.map (skipWhitespace prefixN) |> fun x -> System.String.Join(newLine, x).TrimEnd()
 
+let basicAttack = testCase "Basic attack definition can be parsed" <| fun _ ->
+    let ribbitDef = """
+        define attack as
+            costs 1 attack
+            set attackRoll = roll 1d20
+    """
+    ()
+
 [<Tests>]
 let tests = testList "ribbit.scenario" [
 
