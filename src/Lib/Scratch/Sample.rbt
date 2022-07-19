@@ -1,0 +1,57 @@
+action is a resource
+round is a resource:
+    1 round gives 1 action, 1 bonus action, 1 reaction, N movement for N = self.movement
+attacks is a resource:
+    1 attacks for 1 action
+    2 attacks for 1 action if you have Extra Attack
+    3 attacks for 1 action if you have Extra Attack 2
+    4 attacks for 1 action if you have Extra Attack 3
+    if you have Crossbow Expert and have attacked this round, 1 attack with hand crossbow for 1 bonus action
+
+[I/me] takeDamage amount event:
+    me.damageTaken <- me.damageTaken + amount
+    log "{I} takes {inflicted} HP of damage!"
+    return amount
+
+before [I/me] takeDamage amount if me.Raging:
+    amount <- amount / 2
+
+critDamage dmg event:
+    return dmg + noMods dmg
+
+after [I/me] critDamage dmg if me.BrutalCritical:
+    // triple crit damage if BrutalCritical
+    return returnValue + (noMods dmg)
+
+[I/me] crit [enemy] [with weapon] event:
+    let dmg = roll (weapon.damage for me) for "damage"
+    let dmg = trigger critDamage dmg
+    let inflicted = trigger enemy takeDamage dmg
+    log "{I} crits {enemy} for {inflicted} HP!"
+
+[I/me] hit [enemy] [with weapon] event:
+    let dmg = roll (weapon.damage for me) for "damage"
+    let inflicted = trigger enemy takeDamage dmg
+    log "{I} hits {enemy} for {inflicted} HP!"
+
+[I/me] miss [enemy] [with weapon] event:
+    log "{I} misses {enemy}!"
+
+[I/me] attack [enemy] [with weapon] affordance:
+    costs me 1 attacks
+    let toHit = (weapon.toHit for me)
+    let attackRoll = roll d20 with bonus toHit for "attack enemy"
+    if attackRoll >= (me.critRange | 20) then
+        trigger crit
+    elif attackRoll + toHit >= enemy.AC then
+        trigger hit
+    else
+        trigger miss
+
+opportunity attack event:
+    costs 1 reaction when enemy is about to move out of reach
+    attack enemy, costs 1 reaction instead of 1 attack
+
+attack behavior:
+    find nearest living target unless already have one
+    attack target until dead

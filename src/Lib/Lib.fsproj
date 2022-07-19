@@ -14,8 +14,9 @@
     <None Include="Scratch\HOASExpressions.fsx" />
     <None Include="Scratch\GameLoop.fsx" />
     <None Include="Scratch\RibbitFromScratch.fsx" />
-    <None Include="Scratch\RibberFromScratch2.fsx" />
-    <None Include="Scratch\RibberFromScratch3.fsx" />
+    <None Include="Scratch\RibbitFromScratch2.fsx" />
+    <None Include="Scratch\RibbitFromScratch3.fsx" />
+    <None Include="Scratch\Sample.rbt" />
     <Compile Include="Optics.fs" />
     <Compile Include="Common.fs" />
     <Compile Include="Parsing.fs" />
