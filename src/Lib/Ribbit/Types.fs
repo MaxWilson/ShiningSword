@@ -328,14 +328,15 @@ type PropertyExpression<'t>(rowId: Expression<Id>, prop: Property<'t>) =
     override this.Eval (ctx: EvaluationContext) =
         rowId.Eval ctx |> Result.bind (fun rowId -> prop.GetM rowId ctx)
 
-type LocalExpression<'t>(paramName: string, prop: Property<'t>) =
-    inherit Expression<'t>()
-    override this.Eval (ctx: EvaluationContext) =
-        match ctx.locals |> Map.tryFind paramName with
-        | Some v -> Ok v
-        | _ ->
-            let req = DataRequest(LocalAddress(), )
-            Error (Awaiting req)
+//type LocalExpression<'t>(paramName: string, prop: Property<'t>) =
+//    inherit Expression<'t>()
+//    override this.Eval (ctx: EvaluationContext) =
+//        match ctx.locals |> Map.tryFind paramName with
+//        | Some v -> Ok v
+//        | _ ->
+//            notImpl()
+            //let req = DataRequest(LocalAddress(), )
+            //Error (Awaiting req)
 
 type UpcastExpression<'t>(inner: Expression<'t>, upcast': 't -> RuntimeValue) =
     inherit Expression<RuntimeValue>()
