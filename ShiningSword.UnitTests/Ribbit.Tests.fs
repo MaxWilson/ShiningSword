@@ -12,6 +12,10 @@ open Domain.Ribbit
 let define (rules: string) (ribbit:Ribbit) = notImpl ribbit
 let execute (commands: string) (ribbit:Ribbit) = notImpl ribbit
 let withRolls rollPlugin (ribbit:Ribbit) = notImpl ribbit
+let addCreatures team creatureList src (ribbit:Ribbit) = notImpl ribbit
+type Unknown() =
+    do
+        notImpl()
 
 let trimFront (input: string) =
     let newLine = "\n" // can't use System.Environment.Newline for F# compile-time strings, which are just \n apparently
@@ -115,24 +119,29 @@ let tests = testList "ribbit.scenario" [
             find nearest living target unless already have one
             attack target until dead
 
+        monster Orc: AC 13, HP 2d8+6, attack with greataxe at +5 for d12+3 slashing, attack with javelin at +5 for d6+3 piercing from 30/120, bonus action Dash towards hostile
+        monster Efreeti: plural Efreet, Large Elemental, AC 17, HP 16d10+112, Speed 40/fly 60,
+            Attack with scimitar at +10 for 2d6+6 slashing and 2d6 fire,
+            Attack with Hurl Flame at +7 for 5d6 fire damage from 120,
+            Multiattack: 2x scimitar or 2x Hurl Flame.
         """
         let maxRolls = notImpl()
-        let withCreatures = notImpl()
-        let fiveOrcsVsElemonk9 = notImpl()
-        let getFriendly = notImpl()
+        let getIdByName = notImpl()
         let hpRemaining: NumberProperty = notImpl()
         let isOkay: BoolProperty = notImpl()
         let expectedHP: int = notImpl()
+        let mockRoster = notImpl()
         let ribbit =
             Ribbit.fresh |> define rules
             |> withRolls maxRolls
-            |> withCreatures fiveOrcsVsElemonk9
+            |> addCreatures 2 ["Orc", 5] None
+            |> addCreatures 1 ["Elemonk", 1] (Some mockRoster)
             |> execute "run round"
-        let monkId = ribbit |> getFriendly "Elemonk"
+        let monkId = ribbit |> getIdByName "Elemonk"
         test<@ (hpRemaining.Get monkId ribbit) = expectedHP @>
         test<@ isOkay.Get monkId ribbit @>
         for i, remainingHP in [1,0;2,3;3,15;4,15;5,15] do
-            let orcId = ribbit |> getFriendly $"Orc #{i}"
+            let orcId = ribbit |> getIdByName $"Orc #{i}"
             test<@ (hpRemaining.Get orcId ribbit) = remainingHP @>
             test<@ isOkay.Get orcId ribbit = (remainingHP > 0) @>
     ]
