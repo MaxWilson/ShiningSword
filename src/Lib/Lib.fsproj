@@ -22,7 +22,10 @@
     <Compile Include="Parsing.fs" />
     <Compile Include="DerivedTraits.fs" />
     <Compile Include="Onomastikon.fs" />
-    <Compile Include="Character.fs" />
+    <Compile Include="Character\Character.fs" />
+    <Compile Include="Character\Character2e.fs" />
+    <Compile Include="Character\Character5e.fs" />
+    <Compile Include="Character\CharacterUniversal.fs" />
     <Compile Include="Ribbit\Types.fs" />
     <Compile Include="Ribbit\Operations.fs" />
     <Compile Include="Ribbit\Rules2e.fs" />

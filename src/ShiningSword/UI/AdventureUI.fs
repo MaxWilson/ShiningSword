@@ -1,13 +1,14 @@
 module UI.Adventure
 open Feliz
 open Domain.Adventure
+open Domain.Character.Core
 open Domain.Character.Universal
 open Domain.Ribbit
 open Domain.Ribbit.Operations
 
 type ControlMsg = Save | SaveAndQuit | Error of msg: string
 type Activity = Downtime | AdventureIntro | Fighting | Looting | CompletingAdventure | PushingUpDaisies
-type Msg = | Embark of AdventureSpec | Recruit of CharacterSheet | Proceed
+type Msg = | Embark of AdventureSpec | Recruit of CharacterSheet | Training | Proceed
 type Model = {
     activity: Activity
     title: string option
@@ -31,7 +32,7 @@ let recruitCompanions model control dispatch =
             "No more companions are available at this time. (Try creating more characters first.)"
         |> Error |> control
     else
-        Recruit (candidates |> chooseRandom) |> dispatch
+        Recruit (candidates |> chooseRandomExponentialDecay 0.2 chooseRandom) |> dispatch
 
 let stillAlive (ribbit: Ribbit) (char: CharacterSheet) =
     let name = char.converge((fun c -> c.name), (fun c -> c.name))
@@ -46,6 +47,19 @@ let init sheet =
 
 let update msg (model:Model) =
     match msg with
+    | Training ->
+        let char = model.state.mainCharacter
+        let xpGap = char |> xpNeeded
+        // spend as much gold on training as possible, up to what is needed
+        let char' =
+            char.map2e(fun c ->
+                let spend = min (int xpGap) (int c.wealth)
+                { c with wealth = c.wealth - (1<gp> * spend); xp = c.xp + (1<xp>*spend) })
+                .map5e(fun c ->
+                    let spend = min (int xpGap) (int c.wealth)
+                    { c with wealth = c.wealth - (1<gp> * spend); xp = c.xp + (1<xp>*spend) })
+            |> levelUp
+        { model with state = { model.state with mainCharacter = char' } }
     | Embark spec ->
         let state = embark spec model.state.mainCharacter
         { state = state; title = spec.description |> Some; spec = Some spec; activity = AdventureIntro; log = [] }
@@ -156,6 +170,7 @@ let view model control dispatch =
                 Html.button [prop.text "Go on an easy adventure"; prop.onClick(fun _ -> easy ruleSet |> Embark |> dispatch)]
                 Html.button [prop.text "Go on a hard adventure"; prop.onClick(fun _ -> hard() |> Embark |> dispatch)]
                 Html.button [prop.text "Go on a deadly adventure"; prop.onClick(fun _ -> deadly() |> Embark |> dispatch)]
+                Html.button [prop.text "Train for experience"; prop.onClick(fun _ -> Training |> dispatch)]
                 Html.button [prop.text "Save and quit"; prop.onClick (thunk1 control SaveAndQuit)]
                 ]
         | AdventureIntro ->

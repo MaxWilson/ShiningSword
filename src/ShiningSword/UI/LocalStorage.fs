@@ -17,12 +17,30 @@ let inline read (key: string) fallback =
 let inline write (key: string) value =
     Browser.Dom.window.localStorage[key] <- Encode.Auto.toString<'t>(0, value)
 
+module Cache =
+    let create<'t>() =
+        let mutable cache = None
+        let read onCacheMiss arg =
+            match cache with
+            | Some v -> v
+            | None -> onCacheMiss arg
+        let invalidate() =
+            cache <- None
+        read, invalidate
+
+open Cache
+
 module PCs =
     let key = "PCs"
-    let read (): CharacterSheet array = read key Array.empty
-    let write (v: CharacterSheet array) = write key v
+    let cacheRead, cacheInvalidate = Cache.create()
+    let read (): CharacterSheet array =
+        cacheRead (fun _ -> read key Array.empty) ()
+    let write (v: CharacterSheet array) =
+        write key v
+        cacheInvalidate()
 
 module Graveyard =
     let key = "Graveyard"
-    let read (): CharacterSheet array = read key Array.empty
-    let write (v: CharacterSheet array) = write key v
+    let cacheRead, cacheInvalidate = Cache.create()
+    let read (): CharacterSheet array = cacheRead (fun _ -> read key Array.empty) ()
+    let write (v: CharacterSheet array) = cacheInvalidate(); write key v
