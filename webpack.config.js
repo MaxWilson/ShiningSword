@@ -19,7 +19,9 @@ var CONFIG = {
     // The tags to include the generated JS and CSS will be automatically injected in the HTML template
     // See https://github.com/jantimon/html-webpack-plugin
     indexHtmlTemplate: "./src/ShiningSword/UI/index.html",
+    devHtmlTemplate: "./src/ShiningSword/UI/dev.html",
     fsharpEntry: "./src/ShiningSword/UI/App.fs.js",
+    fsharpDevEntry: "./src/ShiningSword/Dev/App.fs.js",
     outputDir: "./dist",
     assetsDir: "./src/ShiningSword/public",
     devServerPort: 8080,
@@ -47,7 +49,14 @@ console.log("Bundling for " + (isProduction ? "production" : "development") + ".
 var commonPlugins = [
     new HtmlWebpackPlugin({
         filename: 'index.html',
+        chunks: ['app'],
         template: resolve(CONFIG.indexHtmlTemplate)
+    }),
+    
+    new HtmlWebpackPlugin({
+        filename: 'dev.html',
+        chunks: ['dev'],
+        template: resolve(CONFIG.devHtmlTemplate)
     }),
 
     new Dotenv({
@@ -61,7 +70,8 @@ module.exports = {
     // In development, bundle styles together with the code so they can also
     // trigger hot reloads. In production, put them in a separate CSS file.
     entry: {
-        app: [resolve(CONFIG.fsharpEntry)]
+        app: [resolve(CONFIG.fsharpEntry)],
+        dev: [resolve(CONFIG.fsharpDevEntry)]
     },
     // Add a hash to the output file name in production
     // to prevent browser caching if code changes
