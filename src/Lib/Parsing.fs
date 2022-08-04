@@ -158,6 +158,15 @@ let (|Chars|_|) alphabet ((ctx, ix): ParseInput) =
     | endpos when endpos > ix -> Some(ctx.input.Substring(ix, endpos - ix), (ctx, endpos))
     | _ -> None
 
+let (|CharsWhile|_|) predicate alphabet ((ctx, ix): ParseInput) =
+    let rec seek biggestValid i =
+        if i < ctx.input.Length && Set.contains ctx.input.[i] alphabet && predicate ctx.externalContext (ctx.input.Substring(ix, i - ix)) then
+            seek (Some i) (i+1)
+        else biggestValid
+    match seek None ix with
+    | Some endpos when endpos > ix -> Some(ctx.input.Substring(ix, endpos - ix), (ctx, endpos))
+    | _ -> None
+
 let readBetween (start: ParseInput) (finish: ParseInput) = // assumes that start and finish are both part of the same parse
     let (ctx, ix) = start
     let endIx = finish |> snd
