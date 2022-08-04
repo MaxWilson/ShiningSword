@@ -13,6 +13,21 @@ open Fable.Core
 
 importSideEffects "../sass/main.sass"
 
+let helpText = """
+    Example commands:
+    define Beholder
+    add Beholder
+    Beholder hp 180, xp 10000
+    add Bob, Lara, Harry
+    Harry hits Beholder #1 for 80
+    Beholder #1 hits Lara for 30
+    Beholder #1 hits Bob for 60
+    clear dead
+    Lara declares Kill beholder
+    roll init
+    next init
+    """
+
 module DataTypes =
     type Name = Name of string
     type XP = XP of int
@@ -149,8 +164,8 @@ module Game =
 #nowarn "40" // we're not going anything crazy with recursion like calling a pass-in method as part of a ctor. Just regular pattenr-matching.
 
 module UI =
-    type d = { input: string; game: Game.d; errors: string list }
-    let fresh = { input = ""; game = Game.fresh; errors = [] }
+    type d = { input: string; game: Game.d; errors: string list; showHelp: bool }
+    let fresh = { input = ""; game = Game.fresh; errors = []; showHelp = false }
     let nameChars = alphanumeric + whitespace + Set ['#']
     let (|NewName|_|) = function
         | OWS(Chars nameChars (name, ctx)) -> Some(DataTypes.Name (name.Trim()), ctx)
@@ -252,6 +267,7 @@ module App =
         | ReviseInput of msg: string
         | SubmitInput
         | ExecuteCommand of Game.Command
+        | ToggleHelp of bool
 
     let init initialCmd = UI.fresh
 
@@ -260,64 +276,78 @@ module App =
         | ReviseInput input -> { model with input = input }
         | SubmitInput -> model |> UI.executeInputIfPossible
         | ExecuteCommand cmd -> UI.executeIfPossible model cmd
+        | ToggleHelp showHelp -> { model with showHelp = showHelp }
 
     open Feliz.Router
     let view (model: Model) dispatch =
         let class' (className: string) ctor (children: ReactElement list) =
             ctor [prop.className className; prop.children children]
         class' "dev" Html.div [
-            Html.table [
-                Html.thead [
-                    Html.tr [Html.th [prop.text "Name"]; Html.th [prop.text "Declaration"]; Html.th [prop.text "Initiative"]; Html.th [prop.text "Notes"]; Html.th [prop.text "XP earned"]; Html.th [prop.text "HP"]]
+            if model.showHelp then
+                Html.div [
+                    for line in helpText.Split("\n") do
+                        Html.div line
+                    Html.button [prop.text "OK"; prop.onClick(fun _ -> dispatch (ToggleHelp false))]
                     ]
-                Html.tbody [
-                    for name in model.game.roster do
-                        Html.tr [
-                            let creature = model.game.stats[name]
-                            Html.td [prop.text (match name with Name name -> $"{name}")]
-                            Html.td [prop.text "Declaration TODO"]
-                            Html.td [prop.text "Initiative TODO"]
-                            Html.td [prop.text "Notes TODO"]
-                            Html.td [prop.text creature.xpEarned]
-                            Html.td [prop.text creature.HP]
-                            ]
+            else
+                class' "header" Html.div [
+                    Html.a [prop.text "Help"; prop.onClick (fun _ -> dispatch (ToggleHelp (not model.showHelp)))]
+                    ]
+
+                Html.table [
+                    Html.thead [
+                        Html.tr [Html.th [prop.text "Name"]; Html.th [prop.text "Declaration"]; Html.th [prop.text "Initiative"]; Html.th [prop.text "Notes"]; Html.th [prop.text "XP earned"]; Html.th [prop.text "HP"]]
                         ]
-                    ]
-            class' "inputPanel" Html.div [
-                Html.input [
-                    prop.autoFocus true
-                    prop.valueOrDefault model.input;
-                    prop.onKeyPress (fun e ->
-                        if e.key = "Enter" then
-                            e.preventDefault()
-                            dispatch SubmitInput
-                        );
-                    prop.onChange (fun (e: string) ->
-                        ReviseInput e |> dispatch)
-                    ]
-                Html.button [prop.text "OK"; prop.onClick (fun _ -> dispatch SubmitInput)]
-                ]
-            Html.div [
-                for err in model.errors do
-                    Html.div err
-                ]
-            class' "bestiary" Html.table [
-                Html.thead [
-                    Html.tr [Html.th [prop.text "Type"]; Html.th [prop.text "HP"]; Html.th [prop.text "XP reward"]]
-                    ]
-                Html.tbody [
-                    for KeyValue(name, type1) in model.game.bestiary do
-                        Html.tr [
-                            Html.td [prop.text (match name with Name name -> name)]
-                            Html.td [
-                                Html.input [prop.valueOrDefault (match type1.hp with Some (HP v) -> v.ToString() | None -> ""); prop.onChange (fun (txt:string) -> match System.Int32.TryParse(txt) with true, hp -> dispatch (Game.DeclareHP(name, HP hp) |> ExecuteCommand))]
-                                ]
-                            Html.td [
-                                Html.input [prop.valueOrDefault (match type1.xp with Some (XP v) -> v.ToString() | None -> ""); prop.onChange (fun (txt:string) -> match System.Int32.TryParse(txt) with true, xp -> dispatch (Game.DeclareXP(name, XP xp) |> ExecuteCommand))]
+                    Html.tbody [
+                        for name in model.game.roster do
+                            Html.tr [
+                                let creature = model.game.stats[name]
+                                Html.td [prop.text (match name with Name name -> $"{name}")]
+                                Html.td [prop.text "Declaration TODO"]
+                                Html.td [prop.text "Initiative TODO"]
+                                Html.td [prop.text "Notes TODO"]
+                                Html.td [prop.text creature.xpEarned]
+                                Html.td [prop.text creature.HP]
                                 ]
                             ]
                         ]
+                class' "inputPanel" Html.div [
+                    Html.div [prop.text "Your wish is my command"; prop.className "inputHeader"]
+                    Html.input [
+                        prop.placeholder "Enter a command, e.g. define Beholder"
+                        prop.autoFocus true
+                        prop.valueOrDefault model.input;
+                        prop.onKeyPress (fun e ->
+                            if e.key = "Enter" then
+                                e.preventDefault()
+                                dispatch SubmitInput
+                            );
+                        prop.onChange (fun (e: string) ->
+                            ReviseInput e |> dispatch)
+                        ]
+                    Html.button [prop.text "OK"; prop.onClick (fun _ -> dispatch SubmitInput)]
                     ]
+                Html.div [
+                    for err in model.errors do
+                        Html.div err
+                    ]
+                class' "bestiary" Html.table [
+                    Html.thead [
+                        Html.tr [Html.th [prop.text "Type"]; Html.th [prop.text "HP"]; Html.th [prop.text "XP reward"]]
+                        ]
+                    Html.tbody [
+                        for KeyValue(name, type1) in model.game.bestiary do
+                            Html.tr [
+                                Html.td [prop.text (match name with Name name -> name)]
+                                Html.td [
+                                    Html.input [prop.valueOrDefault (match type1.hp with Some (HP v) -> v.ToString() | None -> ""); prop.onChange (fun (txt:string) -> match System.Int32.TryParse(txt) with true, hp -> dispatch (Game.DeclareHP(name, HP hp) |> ExecuteCommand))]
+                                    ]
+                                Html.td [
+                                    Html.input [prop.valueOrDefault (match type1.xp with Some (XP v) -> v.ToString() | None -> ""); prop.onChange (fun (txt:string) -> match System.Int32.TryParse(txt) with true, xp -> dispatch (Game.DeclareXP(name, XP xp) |> ExecuteCommand))]
+                                    ]
+                                ]
+                            ]
+                        ]
             ]
 
 open App
