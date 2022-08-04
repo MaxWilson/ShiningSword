@@ -146,12 +146,18 @@ module Game =
         static member getHP name (model:d) = model.stats[Name name].HP
         static member getXPEarned name (model:d) = model.stats[Name name].xpEarned
 
+#nowarn "40" // we're not going anything crazy with recursion like calling a pass-in method as part of a ctor. Just regular pattenr-matching.
+
 module UI =
     type d = { input: string; game: Game.d; errors: string list }
     let fresh = { input = ""; game = Game.fresh; errors = [] }
     let nameChars = alphanumeric + whitespace + Set ['#']
     let (|NewName|_|) = function
-        | Chars nameChars (name, ctx) -> Some(DataTypes.Name (name.Trim()), ctx)
+        | OWS(Chars nameChars (name, ctx)) -> Some(DataTypes.Name (name.Trim()), ctx)
+        | _ -> None
+    let rec (|NewNames|_|) = pack <| function
+        | NewName(name, OWSStr "," (NewNames(rest, ctx))) -> Some(name::rest, ctx)
+        | NewName(name, ctx) -> Some([name], ctx)
         | _ -> None
     let (|GameContext|_|) = ExternalContextOf<Game.d>
     let isPotentialNamePrefix (names: obj) (substring: string) =
@@ -163,13 +169,23 @@ module UI =
     let (|Name|_|) = function
         | OWS(GameContext(game) & (args, ix)) ->
             let substring = args.input.Substring(ix)
-            let candidates = game.bestiary.Keys |> Seq.append game.roster |> Seq.distinct |> Seq.sortByDescending (fun (Name n) -> n.Length)
+            let candidates = game.bestiary.Keys |> Seq.append game.roster |> Seq.distinct |> Seq.sortByDescending (fun (DataTypes.Name n) -> n.Length)
             // allow leaving off # sign
-            match candidates |> Seq.tryFind(fun (Name name) -> substring.StartsWith name || substring.StartsWith (name.Replace("#", ""))) with
-            | Some (Name n as name) ->
+            match candidates |> Seq.tryFind(fun (DataTypes.Name name) -> substring.StartsWith name || substring.StartsWith (name.Replace("#", ""))) with
+            | Some (DataTypes.Name n as name) ->
                 let l = if substring.StartsWith (n.Replace("#", "")) then (n.Replace("#", "").Length) else n.Length
                 Some(name, (args, ix+l))
             | None -> None
+        | _ -> None
+    let (|Declaration|_|) = function
+        | OWSStr "xp" (Int (amt, ctx)) ->
+            Some((fun name -> Game.DeclareXP(name, XP amt)), ctx)
+        | OWSStr "hp" (Int (amt, ctx)) ->
+            Some((fun name -> Game.DeclareHP(name, HP amt)), ctx)
+        | _ -> None
+    let rec (|Declarations|_|) = pack <| function
+        | Declaration(f, OWSStr "," (Declarations(rest, ctx))) -> Some(f::rest, ctx)
+        | Declaration(f, ctx) -> Some([f], ctx)
         | _ -> None
     let (|Command|_|) = function
         | Str "clear dead" ctx ->
@@ -178,26 +194,41 @@ module UI =
             Some(Game.Add(name), ctx)
         | Str "define" (NewName(name, ctx)) ->
             Some(Game.Define(name), ctx)
-        | Name(name, (OWSStr "xp" (Int (amt, ctx)))) ->
-            Some(Game.DeclareXP(name, XP amt), ctx)
-        | Name(name, (OWSStr "hp" (Int (amt, ctx)))) ->
-            Some(Game.DeclareHP(name, HP amt), ctx)
+        | Name(name, Declaration (f, ctx)) ->
+            Some(f name, ctx)
         | Name(src, (OWSStr "hits" (Name(target, OWSStr "for" (Int(amt, ctx)))))) ->
             Some(Game.InflictDamage(src, target, HP amt), ctx)
         | _ -> None
+    let (|Commands|_|) = pack <| function
+        | Str "add" (NewNames(names, ctx)) ->
+            Some(names |> List.map Game.Add, ctx)
+        | Str "define" (NewNames(names, ctx)) ->
+            Some(names |> List.map Game.Define, ctx)
+        | Name(name, Declarations (fs, ctx)) ->
+            Some(fs |> List.map(fun f -> f name), ctx)
+        | Command(cmd, ctx) -> Some([cmd], ctx)
+        | _ -> None
+    let executeIfPossible ui cmd =
+        try
+            { ui with input = ""; game = ui.game |> Game.update cmd; errors = [] }
+        with err ->
+            { ui with input = ""; errors = (err.ToString())::ui.errors }
     let executeInputIfPossible (ui: d) =
         match ParseArgs.Init(ui.input, ui.game) with
+        | Commands (cmds, End) ->
+            cmds |> List.fold executeIfPossible ui
         | Command (cmd, End) ->
-            try
-                { ui with input = ""; game = ui.game |> Game.update cmd; errors = [] }
-            with err ->
-                { ui with input = ""; errors = (err.ToString())::ui.errors }
+            executeIfPossible ui cmd
         | _ -> ui
     let testbed() =
         let exec str game =
             match ParseArgs.Init(str, game) with
-            | Command(cmd, End) -> Game.update cmd game
+            | Commands(cmds, End) -> cmds |> List.fold (flip Game.update) game
         let mutable g = Game.fresh
+        match ParseArgs.Init("Beholder hp 180, xp 10000", g) with
+        | Commands(cmds, End) -> cmds
+        iter &g (exec "define Beholder, Ogre")
+        iter &g (exec "Beholder hp 180, xp 10000")
         iter &g (exec "define Giant")
         iter &g (exec "Giant hp 80")
         iter &g (exec "Giant xp 2900")
@@ -220,6 +251,7 @@ module App =
     type Msg =
         | ReviseInput of msg: string
         | SubmitInput
+        | ExecuteCommand of Game.Command
 
     let init initialCmd = UI.fresh
 
@@ -227,27 +259,33 @@ module App =
         match msg with
         | ReviseInput input -> { model with input = input }
         | SubmitInput -> model |> UI.executeInputIfPossible
+        | ExecuteCommand cmd -> UI.executeIfPossible model cmd
 
     open Feliz.Router
     let view (model: Model) dispatch =
-        Html.div [
+        let class' (className: string) ctor (children: ReactElement list) =
+            ctor [prop.className className; prop.children children]
+        class' "dev" Html.div [
             Html.table [
                 Html.thead [
-                    Html.tr [Html.th [prop.text "Name"]; Html.th [prop.text "Type"]; Html.th [prop.text "XP earned"]; Html.th [prop.text "HP"]]
+                    Html.tr [Html.th [prop.text "Name"]; Html.th [prop.text "Declaration"]; Html.th [prop.text "Initiative"]; Html.th [prop.text "Notes"]; Html.th [prop.text "XP earned"]; Html.th [prop.text "HP"]]
                     ]
                 Html.tbody [
                     for name in model.game.roster do
                         Html.tr [
                             let creature = model.game.stats[name]
                             Html.td [prop.text (match name with Name name -> $"{name}")]
-                            Html.td [prop.text (match creature.templateType with Some (Name v) -> v | None -> "")]
+                            Html.td [prop.text "Declaration TODO"]
+                            Html.td [prop.text "Initiative TODO"]
+                            Html.td [prop.text "Notes TODO"]
                             Html.td [prop.text creature.xpEarned]
                             Html.td [prop.text creature.HP]
                             ]
                         ]
                     ]
-            Html.div [
+            class' "inputPanel" Html.div [
                 Html.input [
+                    prop.autoFocus true
                     prop.valueOrDefault model.input;
                     prop.onKeyPress (fun e ->
                         if e.key = "Enter" then
@@ -263,7 +301,7 @@ module App =
                 for err in model.errors do
                     Html.div err
                 ]
-            Html.table [
+            class' "bestiary" Html.table [
                 Html.thead [
                     Html.tr [Html.th [prop.text "Type"]; Html.th [prop.text "HP"]; Html.th [prop.text "XP reward"]]
                     ]
@@ -271,8 +309,12 @@ module App =
                     for KeyValue(name, type1) in model.game.bestiary do
                         Html.tr [
                             Html.td [prop.text (match name with Name name -> name)]
-                            Html.td [prop.text (match type1.hp with Some v -> v.ToString() | None -> "")]
-                            Html.td [prop.text (match type1.xp with Some v -> v.ToString() | None -> "")]
+                            Html.td [
+                                Html.input [prop.valueOrDefault (match type1.hp with Some (HP v) -> v.ToString() | None -> ""); prop.onChange (fun (txt:string) -> match System.Int32.TryParse(txt) with true, hp -> dispatch (Game.DeclareHP(name, HP hp) |> ExecuteCommand))]
+                                ]
+                            Html.td [
+                                Html.input [prop.valueOrDefault (match type1.xp with Some (XP v) -> v.ToString() | None -> ""); prop.onChange (fun (txt:string) -> match System.Int32.TryParse(txt) with true, xp -> dispatch (Game.DeclareXP(name, XP xp) |> ExecuteCommand))]
+                                ]
                             ]
                         ]
                     ]
@@ -283,5 +325,5 @@ open Elmish
 open Elmish.Navigation
 
 Program.mkSimple init update view
-|> Program.withReactBatched "feliz-app"
+|> Program.withReactBatched "feliz-dev"
 |> Program.run
