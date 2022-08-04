@@ -46,6 +46,7 @@ module Game =
         | DeclareHP of Name * HP
         | Add of Name
         | InflictDamage of src:Name * target:Name * hp:HP
+        | ClearDeadCreatures
 
     type d = {
         roster: Name list
@@ -123,6 +124,17 @@ module Game =
                 failwith $"{src} does not exist!"
             | _, None ->
                 failwith $"{target} does not exist!"
+        | ClearDeadCreatures ->
+            let roster' =
+                model.roster
+                |> List.filter (fun name ->
+                    let creature = model.stats[name]
+                    if creature.templateType.IsNone then
+                        true // never clear PCs
+                    else
+                        creature.HP > 0 // clear dead monsters
+                    )
+            { model with roster = roster'; stats = model.stats |> Map.filter (fun name _ -> roster' |> List.contains name) }
 
     type FSX =
         // FSX-oriented script commands
@@ -141,17 +153,27 @@ module UI =
     let (|NewName|_|) = function
         | Chars nameChars (name, ctx) -> Some(DataTypes.Name (name.Trim()), ctx)
         | _ -> None
+    let (|GameContext|_|) = ExternalContextOf<Game.d>
     let isPotentialNamePrefix (names: obj) (substring: string) =
         match names |> unbox<obj option> with
         | Some externalContext ->
             let game = externalContext |> unbox<Game.d>
             game.roster |> Seq.append game.bestiary.Keys |> Seq.exists(fun (DataTypes.Name name) -> name.StartsWith substring)
         | _ -> false
-
     let (|Name|_|) = function
-        | OWS(CharsWhile isPotentialNamePrefix nameChars (name, ctx)) -> Some(DataTypes.Name (name.Trim()), ctx)
+        | OWS(GameContext(game) & (args, ix)) ->
+            let substring = args.input.Substring(ix)
+            let candidates = game.bestiary.Keys |> Seq.append game.roster |> Seq.distinct |> Seq.sortByDescending (fun (Name n) -> n.Length)
+            // allow leaving off # sign
+            match candidates |> Seq.tryFind(fun (Name name) -> substring.StartsWith name || substring.StartsWith (name.Replace("#", ""))) with
+            | Some (Name n as name) ->
+                let l = if substring.StartsWith (n.Replace("#", "")) then (n.Replace("#", "").Length) else n.Length
+                Some(name, (args, ix+l))
+            | None -> None
         | _ -> None
     let (|Command|_|) = function
+        | Str "clear dead" ctx ->
+            Some(Game.ClearDeadCreatures, ctx)
         | Str "add" (NewName(name, ctx)) ->
             Some(Game.Add(name), ctx)
         | Str "define" (NewName(name, ctx)) ->
@@ -178,7 +200,17 @@ module UI =
         let mutable g = Game.fresh
         iter &g (exec "define Giant")
         iter &g (exec "Giant hp 80")
-        iter &g (exec "add Giant") // working fine in FSX, why not in Fable?
+        iter &g (exec "Giant xp 2900")
+        iter &g (exec "add Giant")
+        iter &g (exec "add Bob")
+        iter &g (exec "Bob hp 50")
+        iter &g (exec "Bob hits Giant 1 for 30")
+        g.stats[Name "Giant #1"].HP
+        iter &g (exec "Bob hits Giant 1 for 30")
+        g.stats[Name "Giant #1"].HP
+        iter &g (exec "Bob hits Giant 1 for 30")
+        g.stats[Name "Giant #1"].HP
+        iter &g (exec "clear dead")
 
 module App =
     open Game
