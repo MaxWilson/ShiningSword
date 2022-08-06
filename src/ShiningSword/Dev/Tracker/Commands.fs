@@ -46,6 +46,10 @@ let (|Name|_|) = function
             Some(name, (args, ix+l))
         | None -> None
     | _ -> None
+let rec (|Names|_|) = pack <| function
+| Name(name, Str "," (Names(rest, ctx))) -> Some(name::rest, ctx)
+| Name(name, ctx) -> Some([name], ctx)
+| _ -> None
 let (|Declaration|_|) = function
     | OWSStr "xp" (Int (amt, ctx)) ->
         Some((fun name -> Game.DeclareXP(name, XP amt)), ctx)
@@ -61,6 +65,10 @@ let (|Command|_|) = function
         Some(Game.ClearDeadCreatures, ctx)
     | Str "add" (NewName(name, ctx)) ->
         Some(Game.Add(name), ctx)
+    | Str "remove" (Names(names, ctx)) ->
+        Some(Game.Remove names, ctx)
+    | Str "rename" (Name(name, NewName(newName, ctx))) ->
+        Some(Game.Rename (name, newName), ctx)
     | Str "define" (NewName(name, ctx)) ->
         Some(Game.Define(name), ctx)
     | Name(name, Declaration (f, ctx)) ->

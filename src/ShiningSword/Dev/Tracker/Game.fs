@@ -1,16 +1,6 @@
 [<AutoOpen>]
 module Dev.App.Tracker.Game
 
-open Fable.Core.JsInterop
-open Elmish
-open Elmish.React
-open Feliz
-open Packrat
-
-// make sure errors are not silent: show them as Alerts (ugly but better than nothing for now)
-open Fable.Core.JsInterop
-open Fable.Core
-
 let helpText = """
     Example commands:
     define Beholder
@@ -60,6 +50,8 @@ module Game =
         | Add of Name
         | InflictDamage of src:Name * target:Name * hp:HP
         | ClearDeadCreatures
+        | Remove of Name list
+        | Rename of Name * newName:Name
 
     type d = {
         roster: Name list
@@ -148,6 +140,19 @@ module Game =
                         creature.HP > 0 // clear dead monsters
                     )
             { model with roster = roster'; stats = model.stats |> Map.filter (fun name _ -> roster' |> List.contains name) }
+        | Remove names ->
+            let roster' = model.roster |> List.filter (not << flip List.contains names)
+            { model with
+                roster = roster'
+                bestiary = model.bestiary |> Map.filter (fun name _ -> names |> List.contains name |> not)
+                stats = model.stats |> Map.filter (fun name cr -> roster' |> List.contains name && (match cr.templateType with Some type1 -> names |> List.contains type1 |> not | None -> true)) }
+        | Rename(name, newName) ->
+            let roster' = model.roster |> List.map(function name' when name' = name -> newName | unchanged -> unchanged)
+            { model with
+                roster = roster'
+                stats = model.stats |> Seq.map (function KeyValue(name', stats) when name' = name -> (newName, { stats with name = newName }) | KeyValue unchanged -> unchanged)
+                    |> Map.ofSeq
+                }
 
     type FSX =
         // FSX-oriented script commands
