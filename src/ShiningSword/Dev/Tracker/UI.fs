@@ -40,11 +40,14 @@ let init initialCmd =
     // start off with some data to make hot-reloading less onerous
     |> executeInputIfPossible "add Loiosh, Boort, Hershel, Severiana"
     |> executeInputIfPossible "define Fire Giant, Giant Crocodile, Mangler, Grue"
-    |> executeInputIfPossible "Fire Giant hp 162, xp 5000"
+    |> executeInputIfPossible "Fire Giant hp 162, xp 5000, init -1"
     |> executeInputIfPossible "Giant Crocodile hp 85, xp 1800"
     |> executeInputIfPossible "Mangler hp 71, xp 1800"
     |> executeInputIfPossible "Grue hp 17, xp 50"
+    |> executeInputIfPossible "Boort hp 50, init +4"
+    |> executeInputIfPossible "Severiana hp 44, init +1"
     |> executeInputIfPossible "add Fire Giant, Giant Crocodile"
+    |> executeInputIfPossible "Boort will wildshape and attack Fire Giant"
 #endif
 
 let update msg (model: Model.d) =
@@ -72,7 +75,7 @@ let view (model: Model.d) dispatch =
 
             Html.table [
                 Html.thead [
-                    Html.tr [Html.th [prop.text "Name"]; Html.th [prop.text "Type"]; Html.th [prop.text "Declaration"]; Html.th [prop.text "Notes"]; Html.th [prop.text "XP earned"]; Html.th [prop.text "HP"]]
+                    Html.tr [Html.th [prop.text "Name"]; Html.th [prop.text "Type"]; Html.th [prop.text "Actions"]; Html.th [prop.text "Notes"]; Html.th [prop.text "XP earned"]; Html.th [prop.text "HP"]]
                     ]
                 Html.tbody [
                     for name in model.game.roster do
@@ -80,7 +83,25 @@ let view (model: Model.d) dispatch =
                             let creature = model.game.stats[name]
                             Html.td [prop.text (match name with Name name -> $"{name}")]
                             Html.td [prop.text (sprintf "(%s)" <| match creature.templateType with Some (Name v) -> v | None -> "PC")]
-                            Html.td [prop.text "Declaration TODO"]
+                            let action =
+                                let initMod =
+                                    match creature.initiativeMod with
+                                    | Some v -> Some v
+                                    | None ->
+                                        creature.templateType
+                                        |> Option.bind (fun t -> model.game.bestiary |> Map.tryFind t)
+                                        |> Option.bind (fun def -> def.initiativeMod)
+                                    |> Option.map (fun v -> $"%+i{v}")    
+                                match name, creature.actionDeclaration, initMod with
+                                | (Name name), Some (Game.Action action), Some initMod ->
+                                    $"{name} will {action} ({initMod})"
+                                | (Name name), Some (Game.Action action), None ->
+                                    $"{name} will {action}"
+                                | (Name name), None, Some initMod ->
+                                    $"({initMod})"
+                                | (Name name), None, None ->
+                                    $""
+                            Html.td [prop.text action]
                             Html.td [prop.text "Notes TODO"]
                             Html.td [prop.text $"{creature.xpEarned} XP earned"]
                             Html.td [prop.text $"{creature.HP} HP"]

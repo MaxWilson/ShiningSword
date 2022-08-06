@@ -21,6 +21,15 @@ next init
 #nowarn "40" // we're not going anything crazy with recursion like calling a pass-in method as part of a ctor. Just regular pattenr-matching.
 
 let nameChars = alphanumeric + whitespace + Set ['#']
+let numericWithPlusOrMinus = Set<_>(['0'..'9']@['+';'-'])
+
+let (|IntMod|_|) = pack <| function
+| OWS(Chars numericWithPlusOrMinus (v, OWS(rest))) ->
+    match System.Int32.TryParse(v) with
+    | true, v -> Some(v, rest)
+    | _ -> None
+| _ -> None
+
 let (|NewName|_|) = function
     | OWS(Chars nameChars (name, ctx)) -> Some(DataTypes.Name (name.Trim()), ctx)
     | _ -> None
@@ -55,6 +64,10 @@ let (|Declaration|_|) = function
         Some((fun name -> Game.DeclareXP(name, XP amt)), ctx)
     | OWSStr "hp" (Int (amt, ctx)) ->
         Some((fun name -> Game.DeclareHP(name, HP amt)), ctx)
+    | OWSStr "init" (IntMod (amt, ctx)) ->
+        Some((fun name -> Game.DeclareInitiativeMod(name, amt)), ctx)
+    | OWSStr "will" (OWS(Any (action, ctx))) ->
+        Some((fun name -> Game.DeclareAction(name, Game.Action action)), ctx)
     | _ -> None
 let rec (|Declarations|_|) = pack <| function
     | Declaration(f, OWSStr "," (Declarations(rest, ctx))) -> Some(f::rest, ctx)

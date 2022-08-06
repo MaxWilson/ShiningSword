@@ -26,8 +26,9 @@ module Bestiary =
     type Definition = {
         xp: XP option
         hp: HP option
+        initiativeMod: int option
         }
-        with static member fresh = { xp = None; hp = None }
+        with static member fresh = { xp = None; hp = None; initiativeMod = None }
     type d = Map<Name, Definition>
     let fresh = Map.empty
     let define name (bestiary: d) =
@@ -36,15 +37,19 @@ module Bestiary =
         bestiary |> Map.change name (fun e -> Some { (match e with Some d -> d | None -> Definition.fresh) with xp = Some value })
     let declareHP name value (bestiary: d) =
         bestiary |> Map.change name (fun e -> Some { (match e with Some d -> d | None -> Definition.fresh) with hp = Some value })
+    let declareInit name value (bestiary: d) =
+        bestiary |> Map.change name (fun e -> Some { (match e with Some d -> d | None -> Definition.fresh) with initiativeMod = Some value })
 
 module Game =
     type Action = Action of string
     type WoundLog = { victims: Map<Name, int>; woundedBy: Map<Name, int> }
         with static member fresh = { victims = Map.empty; woundedBy = Map.empty }
-    type Creature = { name: Name; templateType: Name option; actionDeclaration: Action option; xpEarned: int; HP: int; woundLog: WoundLog }
-        with static member fresh name templateType = { name = name; templateType = templateType; actionDeclaration = None; xpEarned = 0; HP = 0; woundLog = WoundLog.fresh }
+    type Creature = { name: Name; templateType: Name option; actionDeclaration: Action option; initiativeMod: int option; xpEarned: int; HP: int; woundLog: WoundLog }
+        with static member fresh name templateType = { name = name; templateType = templateType; actionDeclaration = None; initiativeMod = None; xpEarned = 0; HP = 0; woundLog = WoundLog.fresh }
     type Command =
         | Define of Name
+        | DeclareAction of Name * Action
+        | DeclareInitiativeMod of Name * int
         | DeclareXP of Name * XP
         | DeclareHP of Name * HP
         | Add of Name
@@ -63,6 +68,20 @@ module Game =
         match msg with
         | Define name ->
             { model with bestiary = model.bestiary |> Bestiary.define name }
+        | DeclareAction (name, action) ->
+            let declare name model =
+                { model with stats = model.stats |> Map.add name { model.stats[name] with actionDeclaration = Some action }}
+            match model.stats |> Map.tryFind name with
+            | Some creature -> declare name model
+            | None ->
+                let names = model.stats.Values |> Seq.choose (fun c -> if c.templateType = Some name then Some c.name else None)
+                names |> Seq.fold (flip declare) model
+        | DeclareInitiativeMod (name, initiativeMod) ->
+            match model.stats |> Map.tryFind name with
+            | Some creature ->
+                { model with stats = model.stats |> Map.add name { creature with initiativeMod = Some initiativeMod }}
+            | None ->
+                { model with bestiary = model.bestiary |> Bestiary.declareInit name initiativeMod }
         | DeclareXP (name, (XP v as xp)) ->
             match model.stats |> Map.tryFind name with
             | Some creature ->
