@@ -1,0 +1,160 @@
+[<AutoOpen>]
+module Dev.App.Tracker.Game
+
+open Fable.Core.JsInterop
+open Elmish
+open Elmish.React
+open Feliz
+open Packrat
+
+// make sure errors are not silent: show them as Alerts (ugly but better than nothing for now)
+open Fable.Core.JsInterop
+open Fable.Core
+
+let helpText = """
+    Example commands:
+    define Beholder
+    add Beholder
+    Beholder hp 180, xp 10000
+    add Bob, Lara, Harry
+    Harry hits Beholder #1 for 80
+    Beholder #1 hits Lara for 30
+    Beholder #1 hits Bob for 60
+    clear dead
+    Lara declares Kill beholder
+    roll init
+    next init
+    """
+
+[<AutoOpen>]
+module DataTypes =
+    type Name = Name of string
+    type XP = XP of int
+    type HP = HP of int
+
+module Bestiary =
+    type Definition = {
+        xp: XP option
+        hp: HP option
+        }
+        with static member fresh = { xp = None; hp = None }
+    type d = Map<Name, Definition>
+    let fresh = Map.empty
+    let define name (bestiary: d) =
+        bestiary |> Map.add name Definition.fresh
+    let declareXP name value (bestiary: d) =
+        bestiary |> Map.change name (fun e -> Some { (match e with Some d -> d | None -> Definition.fresh) with xp = Some value })
+    let declareHP name value (bestiary: d) =
+        bestiary |> Map.change name (fun e -> Some { (match e with Some d -> d | None -> Definition.fresh) with hp = Some value })
+
+module Game =
+    type Action = Action of string
+    type WoundLog = { victims: Map<Name, int>; woundedBy: Map<Name, int> }
+        with static member fresh = { victims = Map.empty; woundedBy = Map.empty }
+    type Creature = { name: Name; templateType: Name option; actionDeclaration: Action option; xpEarned: int; HP: int; woundLog: WoundLog }
+        with static member fresh name templateType = { name = name; templateType = templateType; actionDeclaration = None; xpEarned = 0; HP = 0; woundLog = WoundLog.fresh }
+    type Command =
+        | Define of Name
+        | DeclareXP of Name * XP
+        | DeclareHP of Name * HP
+        | Add of Name
+        | InflictDamage of src:Name * target:Name * hp:HP
+        | ClearDeadCreatures
+
+    type d = {
+        roster: Name list
+        stats: Map<Name, Creature>
+        bestiary: Bestiary.d
+        }
+    let fresh = { roster = []; stats = Map.empty; bestiary = Bestiary.fresh }
+    let update msg model =
+        match msg with
+        | Define name ->
+            { model with bestiary = model.bestiary |> Bestiary.define name }
+        | DeclareXP (name, (XP v as xp)) ->
+            match model.stats |> Map.tryFind name with
+            | Some creature ->
+                { model with stats = model.stats |> Map.add name { creature with xpEarned = v }}
+            | None ->
+                { model with bestiary = model.bestiary |> Bestiary.declareXP name xp }
+        | DeclareHP (name, (HP v as hp)) ->
+            match model.stats |> Map.tryFind name with
+            | Some creature ->
+                { model with stats = model.stats |> Map.add name { creature with HP = v }}
+            | None ->
+                { model with bestiary = model.bestiary |> Bestiary.declareHP name hp }
+        | Add (Name nameStr as name) ->
+            match model.bestiary |> Map.tryFind name with
+            | None ->
+                { model with
+                    roster = model.roster@[name]
+                    stats = model.stats |> Map.add name (Creature.fresh name None) }
+            | Some def ->
+                match def.hp with
+                | None ->
+                    failwith $"{nameStr} must declare HP first"
+                | Some (HP hp) ->
+                    let individualName = Seq.unfold (fun i -> Some(Name $"{nameStr} #{i}", i+1)) 1 |> Seq.find (fun name' -> model.stats.ContainsKey name' |> not)
+                    { model with
+                        roster = model.roster@[individualName]
+                        stats = model.stats |> Map.add individualName { Creature.fresh individualName (Some name) with HP = hp } }
+        | InflictDamage(src, target, HP hpLoss) ->
+            match model.stats |> Map.tryFind src, model.stats |> Map.tryFind target with
+            | Some src, Some target ->
+                let hp = target.HP
+                let hp' = hp - hpLoss
+                let isKill = hp > 0 && hp' <= 0
+                // we don't let monster damage go negative, but we let hero damage go negative just in case their HP were never recorded
+                let hpLoss = if isKill then hp elif (hp <= 0 && target.templateType.IsSome) then 0 else hpLoss
+                let recordInteraction (name: Name) amount = Map.change name (function None -> Some amount | Some v -> Some (v+amount))
+                let target' = { target with HP = target.HP - hpLoss; woundLog = { target.woundLog with woundedBy = target.woundLog.woundedBy |> recordInteraction src.name hpLoss } }
+                let src' = { src with woundLog = { src.woundLog with victims = src.woundLog.victims |> recordInteraction target.name hpLoss } }
+                let model' = { model with stats = model.stats |> Map.add src.name src' |> Map.add target.name target' }
+                if isKill = false then
+                    model'
+                else
+                    let woundLog = target'.woundLog
+                    let awards =
+                        [
+                            let denominator = (woundLog.victims.Values |> Seq.sum) + (woundLog.woundedBy.Values |> Seq.sum)
+                            let xpTotal =
+                                match target'.templateType with
+                                | Some monsterKind ->
+                                    match model.bestiary[monsterKind].xp with Some (XP xp) -> xp | None -> 0
+                                | None -> 0
+                            for name in (woundLog.victims.Keys |> Seq.append woundLog.woundedBy.Keys |> Seq.distinct) do
+                                let numerator =
+                                    (woundLog.victims |> Map.tryFind name |> Option.defaultValue 0)
+                                        + (woundLog.woundedBy |> Map.tryFind name |> Option.defaultValue 0)
+                                let award = (numerator * xpTotal)/denominator
+                                name, award
+                        ]
+                    let allocateXP (roster: Map<Name, Creature>) = function
+                        | name, award ->
+                            roster |> Map.change name (function None -> None | Some c -> Some { c with xpEarned = c.xpEarned + award })
+                    { model' with stats = awards |> List.fold allocateXP model'.stats }
+            | None, _ ->
+                failwith $"{src} does not exist!"
+            | _, None ->
+                failwith $"{target} does not exist!"
+        | ClearDeadCreatures ->
+            let roster' =
+                model.roster
+                |> List.filter (fun name ->
+                    let creature = model.stats[name]
+                    if creature.templateType.IsNone then
+                        true // never clear PCs
+                    else
+                        creature.HP > 0 // clear dead monsters
+                    )
+            { model with roster = roster'; stats = model.stats |> Map.filter (fun name _ -> roster' |> List.contains name) }
+
+    type FSX =
+        // FSX-oriented script commands
+        static member define name = update (Define (Name name))
+        static member declareHP name hp = update (DeclareHP (Name name, HP hp))
+        static member declareXP name xp = update (DeclareXP (Name name, XP xp))
+        static member add name = update (Add (Name name))
+        static member damage src target hp = update (InflictDamage (Name src, Name target, HP hp))
+        static member getHP name (model:d) = model.stats[Name name].HP
+        static member getXPEarned name (model:d) = model.stats[Name name].xpEarned
