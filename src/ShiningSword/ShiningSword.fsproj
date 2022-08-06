@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <TargetFramework>net6.0</TargetFramework>
     </PropertyGroup>
@@ -7,6 +7,9 @@
         <None Include="sass\main.sass" />
         <None Include="UI\index.html" />
         <None Include="UI\dev.html" />
+        <Compile Include="Dev\Chat\Model.fs" />
+        <Compile Include="Dev\Chat\View.fs" />
+        <Compile Include="Dev\Chat\Chat.fs" />
         <Compile Include="Dev\Tracker\Game.fs" />
         <Compile Include="Dev\Tracker\Commands.fs" />
         <Compile Include="Dev\Tracker\UI.fs" />
