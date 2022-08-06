@@ -98,6 +98,7 @@ let (|Commands|_|) = pack <| function
         Some(fs |> List.map(fun f -> f name), ctx)
     | Command(cmd, ctx) -> Some([cmd], ctx)
     | _ -> None
+#if INTERACTIVE
 let testbed() =
     let exec str game =
         match ParseArgs.Init(str, game) with
@@ -120,3 +121,4 @@ let testbed() =
     iter &g (exec "Bob hits Giant 1 for 30")
     g.stats[DataTypes.Name "Giant #1"].HP
     iter &g (exec "clear dead")
+#endif

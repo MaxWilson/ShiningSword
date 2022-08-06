@@ -62,8 +62,9 @@ module Game =
         roster: Name list
         stats: Map<Name, Creature>
         bestiary: Bestiary.d
+        initRolls: Map<Name, int>
         }
-    let fresh = { roster = []; stats = Map.empty; bestiary = Bestiary.fresh }
+    let fresh = { roster = []; stats = Map.empty; bestiary = Bestiary.fresh; initRolls = Map.empty }
     let update msg model =
         match msg with
         | Define name ->

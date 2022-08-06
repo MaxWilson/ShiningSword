@@ -9,6 +9,7 @@
         <None Include="UI\dev.html" />
         <Compile Include="Dev\Tracker\Game.fs" />
         <Compile Include="Dev\Tracker\Commands.fs" />
+        <Compile Include="Dev\Tracker\UI.Components.fs" />
         <Compile Include="Dev\Tracker\UI.fs" />
         <Compile Include="Dev\Tracker\Tracker.fs" />
         <Compile Include="UI\LocalStorage.fs" />
