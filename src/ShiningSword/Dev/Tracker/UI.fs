@@ -97,8 +97,11 @@ let view (model: Model.d) dispatch =
                             $"({initMod})"
                         | None, None ->
                             $""
-                    Html.td [prop.text action; prop.onDoubleClick (fun _ -> setCommand $"{name} will ")]
-                    textCell "Notes TODO"
+                    let clickableText (txt: string) msg =
+                        Html.td [prop.text txt; prop.onDoubleClick (fun _ -> setCommand msg)]
+
+                    clickableText action $"{name} will "
+                    clickableText (System.String.Join(";", creature.notes)) $"{name}: "
                     textCell $"{creature.xpEarned} XP earned"
                     textCell $"{creature.HP} HP"
                     ]
@@ -124,6 +127,11 @@ let view (model: Model.d) dispatch =
                         // maybe in future there will be a better way to complete commands than setting focus (e.g. click name, click "attack", click target name)
                         // but maybe not, and for now filling in e.g. "Fire Giant #1 will " at least saves typing and mistakes (such as forgetting the #1).
                         e?focus()
+                    )
+                prop.onKeyDown (fun e ->
+                    if e.key = "Escape" then // KeyPress doesn't fire for Escape
+                        e.preventDefault()
+                        dispatch (ReviseInput "")
                     )
                 prop.onKeyPress (fun e ->
                     if e.key = "Enter" then

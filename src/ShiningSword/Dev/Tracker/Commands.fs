@@ -24,11 +24,11 @@ let nameChars = alphanumeric + whitespace + Set ['#']
 let numericWithPlusOrMinus = Set<_>(['0'..'9']@['+';'-'])
 
 let (|IntMod|_|) = pack <| function
-| OWS(Chars numericWithPlusOrMinus (v, OWS(rest))) ->
-    match System.Int32.TryParse(v) with
-    | true, v -> Some(v, rest)
+    | OWS(Chars numericWithPlusOrMinus (v, OWS(rest))) ->
+        match System.Int32.TryParse(v) with
+        | true, v -> Some(v, rest)
+        | _ -> None
     | _ -> None
-| _ -> None
 
 let (|NewName|_|) = function
     | OWS(Chars nameChars (name, ctx)) -> Some(DataTypes.Name (name.Trim()), ctx)
@@ -56,9 +56,9 @@ let (|Name|_|) = function
         | None -> None
     | _ -> None
 let rec (|Names|_|) = pack <| function
-| Name(name, Str "," (Names(rest, ctx))) -> Some(name::rest, ctx)
-| Name(name, ctx) -> Some([name], ctx)
-| _ -> None
+    | Name(name, Str "," (Names(rest, ctx))) -> Some(name::rest, ctx)
+    | Name(name, ctx) -> Some([name], ctx)
+    | _ -> None
 let (|Declaration|_|) = function
     | OWSStr "xp" (Int (amt, ctx)) ->
         Some((fun name -> Game.DeclareXP(name, XP amt)), ctx)
@@ -84,6 +84,10 @@ let (|Command|_|) = function
         Some(Game.Rename (name, newName), ctx)
     | Str "define" (NewName(name, ctx)) ->
         Some(Game.Define(name), ctx)
+    | Str "clear" (Name(name, OWSStr "notes" ctx)) ->
+        Some(Game.SetNotes(name, []), ctx)
+    | Name(name, Str ":" (Any (note, ctx))) ->
+        Some(Game.AddNotes(name, [note]), ctx)
     | Name(name, Declaration (f, ctx)) ->
         Some(f name, ctx)
     | Name(src, (OWSStr "hits" (Name(target, OWSStr "for" (Int(amt, ctx)))))) ->

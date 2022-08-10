@@ -32,6 +32,6 @@
     <Compile Include="Ribbit\Rules2e.fs" />
     <Compile Include="Ribbit\Rules5e.fs" />
     <Compile Include="Adventure.fs" />
-    <PackageReference Include="FSharp.Core" Version="5.0.0" />
+    <PackageReference Update="FSharp.Core" Version="5.0.0" />
   </ItemGroup>
 </Project>

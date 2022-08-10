@@ -44,12 +44,14 @@ module Game =
     type Action = Action of string
     type WoundLog = { victims: Map<Name, int>; woundedBy: Map<Name, int> }
         with static member fresh = { victims = Map.empty; woundedBy = Map.empty }
-    type Creature = { name: Name; templateType: Name option; actionDeclaration: Action option; initiativeMod: int option; xpEarned: int; HP: int; woundLog: WoundLog }
-        with static member fresh name templateType = { name = name; templateType = templateType; actionDeclaration = None; initiativeMod = None; xpEarned = 0; HP = 0; woundLog = WoundLog.fresh }
+    type Creature = { name: Name; templateType: Name option; actionDeclaration: Action option; initiativeMod: int option; xpEarned: int; HP: int; woundLog: WoundLog; notes: string list }
+        with static member fresh name templateType = { name = name; templateType = templateType; actionDeclaration = None; initiativeMod = None; xpEarned = 0; HP = 0; woundLog = WoundLog.fresh; notes = [] }
     type Command =
         | Define of Name
         | DeclareAction of Name * Action
         | DeclareInitiativeMod of Name * int
+        | AddNotes of Name * string list
+        | SetNotes of Name * string list
         | DeclareXP of Name * XP
         | DeclareHP of Name * HP
         | Add of Name
@@ -173,6 +175,18 @@ module Game =
                 stats = model.stats |> Seq.map (function KeyValue(name', stats) when name' = name -> (newName, { stats with name = newName }) | KeyValue unchanged -> unchanged)
                     |> Map.ofSeq
                 }
+        | SetNotes(name, notes) ->
+            match model.stats |> Map.tryFind name with
+            | Some creature ->
+                { model with stats = model.stats |> Map.add name { creature with notes = notes }}
+            | None ->
+                notImpl()
+        | AddNotes(name, notes) ->
+            match model.stats |> Map.tryFind name with
+            | Some creature ->
+                { model with stats = model.stats |> Map.add name { creature with notes = notes@creature.notes }}
+            | None ->
+                notImpl()
 
     type FSX =
         // FSX-oriented script commands
