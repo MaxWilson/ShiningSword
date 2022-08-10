@@ -15,7 +15,7 @@ let class' (className: string) ctor (children: ReactElement list) =
 
 type StringWithLinebreaks = string // a string where newline should mean <br> or similar
 let withHelp showHelp (helpText: StringWithLinebreaks) sendToggleMessage otherwise =
-    [
+    React.fragment [
         if showHelp then
             Html.div [
                 for line in helpText.Split("\n") do

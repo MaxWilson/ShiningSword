@@ -169,12 +169,11 @@ let view (model: Model.d) dispatch =
                     ]
                 ]
             ]
-    let ui =
-        [
+    class' "dev" Html.div [
+        withHelp model.showHelp helpText (ToggleHelp >> dispatch) [
             table
             inputPanel
             errors
             bestiary
             ]
-        |> withHelp model.showHelp helpText (ToggleHelp >> dispatch)
-    class' "dev" Html.div ui
+        ]
