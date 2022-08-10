@@ -67,14 +67,17 @@ let update msg (model: Model.d) =
     | ToggleHelp showHelp -> { model with showHelp = showHelp }
 
 open UI.Components
+
 let view (model: Model.d) dispatch =
+    let setCommand txt =
+        (ReviseInput txt) |> dispatch
     let table = Html.table [
         textHeaders ["Name"; "Type"; "Actions"; "Notes"; "XP earned"; "HP"]
         Html.tbody [
-            for name in model.game.roster do
+            for (Name name) as name' in model.game.roster do
                 Html.tr [
-                    let creature = model.game.stats[name]
-                    textCell (match name with Name name -> $"{name}")
+                    let creature = model.game.stats[name']
+                    textCell $"{name}"
                     textCell (sprintf "(%s)" <| match creature.templateType with Some (Name v) -> v | None -> "PC")
                     let action =
                         let initMod =
@@ -85,16 +88,16 @@ let view (model: Model.d) dispatch =
                                 |> Option.bind (fun t -> model.game.bestiary |> Map.tryFind t)
                                 |> Option.bind (fun def -> def.initiativeMod)
                             |> Option.map (fun v -> $"%+i{v}")
-                        match name, creature.actionDeclaration, initMod with
-                        | (Name name), Some (Game.Action action), Some initMod ->
+                        match creature.actionDeclaration, initMod with
+                        | Some (Game.Action action), Some initMod ->
                             $"{name} will {action} ({initMod})"
-                        | (Name name), Some (Game.Action action), None ->
+                        | Some (Game.Action action), None ->
                             $"{name} will {action}"
-                        | (Name name), None, Some initMod ->
+                        | None, Some initMod ->
                             $"({initMod})"
-                        | (Name name), None, None ->
+                        | None, None ->
                             $""
-                    textCell action
+                    Html.td [prop.text action; prop.onDoubleClick (fun _ -> setCommand $"{name} will ")]
                     textCell "Notes TODO"
                     textCell $"{creature.xpEarned} XP earned"
                     textCell $"{creature.HP} HP"
@@ -112,7 +115,16 @@ let view (model: Model.d) dispatch =
             Html.input [
                 prop.placeholder "Enter a command, e.g. define Beholder"
                 prop.autoFocus true
-                prop.valueOrDefault model.input;
+                prop.ref(fun e ->
+                    let value = model.input
+                    if e |> isNull |> not && !!e?value <> !!value then
+                        // Feliz valueOrDefault logic: set the underlying HTML element's value. Note that !! in Fable just means unbox, not deref.
+                        // We use this in lieu of setting value directly in order to avoid a weird race condition: https://github.com/Zaid-Ajaj/Feliz/issues/320
+                        e?value <- !!value
+                        // maybe in future there will be a better way to complete commands than setting focus (e.g. click name, click "attack", click target name)
+                        // but maybe not, and for now filling in e.g. "Fire Giant #1 will " at least saves typing and mistakes (such as forgetting the #1).
+                        e?focus()
+                    )
                 prop.onKeyPress (fun e ->
                     if e.key = "Enter" then
                         e.preventDefault()
