@@ -52,6 +52,7 @@ module Game =
         | Define of Name
         | DeclareAction of Name * Action
         | DeclareInitiativeMod of Name * int
+        | DeclareCurrentInitiative of Name * int
         | AddNotes of Name * string list
         | SetNotes of Name * string list
         | DeclareXP of Name * XP
@@ -87,6 +88,8 @@ module Game =
                 { model with stats = model.stats |> Map.add name { creature with initiativeMod = Some initiativeMod }}
             | None ->
                 { model with bestiary = model.bestiary |> Bestiary.declareInit name initiativeMod }
+        | DeclareCurrentInitiative (name, actualInit) ->
+            { model with initRolls = model.initRolls |> Map.add name actualInit }
         | DeclareXP (name, (XP v as xp)) ->
             match model.stats |> Map.tryFind name with
             | Some creature ->

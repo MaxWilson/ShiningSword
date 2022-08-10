@@ -65,11 +65,14 @@ let advance model =
             [
             for name in model.game.roster do
                 let init =
-                    match model.game.stats |> Map.tryFind name with
-                        | Some creature -> creature.initiativeMod
-                        | None -> None
-                    |> Option.defaultValue 0
-                    |> (fun initMod -> rand 20 + initMod)
+                    match model.game.initRolls |> Map.tryFind name with
+                    | Some v -> v
+                    | None ->
+                        match model.game.stats |> Map.tryFind name with
+                            | Some creature -> creature.initiativeMod
+                            | None -> None
+                        |> Option.defaultValue 0
+                        |> (fun initMod -> rand 20 + initMod)
                 name, init
                 ]
             |> Map.ofList
