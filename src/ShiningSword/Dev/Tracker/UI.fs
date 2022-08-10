@@ -9,12 +9,18 @@ open Feliz
 open Fable.Core.JsInterop
 open Fable.Core
 
+type Msg =
+    | ReviseInput of msg: string
+    | SubmitInput
+    | ExecuteCommand of Game.Command
+    | ToggleHelp of bool
+
 module Model =
     open Packrat
     open Commands
     type GameMode = Declaring | Executing of Name list
-    type d = { input: string; game: Game.d; errors: string list; showHelp: bool; mode: GameMode; initRolls: Map<Name, int> }
-    let fresh = { input = ""; game = Game.fresh; errors = []; showHelp = false; mode = Declaring; initRolls = Map.empty }
+    type d = { input: string; game: Game.d; errors: string list; showHelp: bool; mode: GameMode }
+    let fresh = { input = ""; game = Game.fresh; errors = []; showHelp = false; mode = Declaring }
     let executeIfPossible ui cmd =
         try
             { ui with input = ""; game = ui.game |> Game.update cmd; errors = [] }
@@ -27,14 +33,8 @@ module Model =
         | Command (cmd, End) ->
             executeIfPossible ui cmd
         | _ -> ui
+
 open Model
-
-type Msg =
-    | ReviseInput of msg: string
-    | SubmitInput
-    | ExecuteCommand of Game.Command
-    | ToggleHelp of bool
-
 let init initialCmd =
     Model.fresh
 #if DEBUG
@@ -49,19 +49,48 @@ let init initialCmd =
     |> executeInputIfPossible "Severiana hp 44, init +1"
     |> executeInputIfPossible "add Fire Giant, Giant Crocodile"
     |> executeInputIfPossible "Boort will wildshape and attack Fire Giant"
+    |> executeInputIfPossible "Loiosh will attack Fire Giant 1"
+    |> executeInputIfPossible "Hershel will disarm Fire Giant 1 and run off with his weapon, action surging if necessary"
+    |> executeInputIfPossible "Severiana will Fireball"
+    |> executeInputIfPossible "Fire Giant #1 will attack Severiana"
+    |> executeInputIfPossible "Giant Crocodile #1 will Dodge and shadow Hershel"
+    |> executeInputIfPossible "Severiana hits Fire Giant 1 for 33, Giant Crocodile for 16"
 #endif
+
+// move to the next character or phase
+let advance model =
+    match model.mode with
+    | Declaring ->
+        let initiatives =
+            [
+            for name in model.game.roster do
+                let init =
+                    match model.game.stats |> Map.tryFind name with
+                        | Some creature -> creature.initiativeMod
+                        | None -> None
+                    |> Option.defaultValue 0
+                    |> (fun initMod -> rand 20 + initMod)
+                name, init
+                ]
+            |> Map.ofList
+        let initiative name =
+            initiatives[name]
+        { model with
+            game = { model.game with initRolls = initiatives }
+            mode =
+                model.game.roster
+                |> List.filter (fun name -> model.game.stats[name].actionDeclaration.IsSome)
+                |> List.sortByDescending initiative
+                |> Executing
+            }
+    | Executing [] -> { model with mode = Declaring; game = { model.game with initRolls = Map.empty } }
+    | Executing (_::rest) -> { model with mode = Executing rest }
 
 let update msg (model: Model.d) =
     match msg with
     | ReviseInput input -> { model with input = input }
     | SubmitInput when model.input = "ok" ->
-        let mode =
-            match model.mode with
-            | Declaring ->
-                model.game.roster |> Executing
-            | Executing [] -> Declaring
-            | Executing (_::rest) -> Executing rest
-        { model with mode = mode; input = "" }
+        { model with input = "" } |> advance
     | SubmitInput -> model |> Model.executeInputIfPossible model.input
     | ExecuteCommand cmd -> Model.executeIfPossible model cmd
     | ToggleHelp showHelp -> { model with showHelp = showHelp }
@@ -75,7 +104,8 @@ let view (model: Model.d) dispatch =
         textHeaders ["Name"; "Type"; "Actions"; "Notes"; "XP earned"; "HP"]
         Html.tbody [
             for (Name name) as name' in model.game.roster do
-                Html.tr [
+                let isSelected = match model.mode with Executing (h::_) when h = name' -> true | _ -> false
+                class' (if isSelected then "currentTurn" else "") Html.tr [
                     let creature = model.game.stats[name']
                     textCell $"{name}"
                     textCell (sprintf "(%s)" <| match creature.templateType with Some (Name v) -> v | None -> "PC")
@@ -88,15 +118,23 @@ let view (model: Model.d) dispatch =
                                 |> Option.bind (fun t -> model.game.bestiary |> Map.tryFind t)
                                 |> Option.bind (fun def -> def.initiativeMod)
                             |> Option.map (fun v -> $"%+i{v}")
-                        match creature.actionDeclaration, initMod with
-                        | Some (Game.Action action), Some initMod ->
-                            $"{name} will {action} ({initMod})"
-                        | Some (Game.Action action), None ->
-                            $"{name} will {action}"
-                        | None, Some initMod ->
+                        let verb =
+                            let willAct = match model.mode with | Declaring -> true | Executing haventActed -> haventActed |> List.contains name'
+                            if willAct then "will" else "did"
+                        match creature.actionDeclaration, (model.game.initRolls |> Map.tryFind name'), initMod with
+                        | Some (Game.Action action), Some init, Some initMod ->
+                            $"{init}: {name} {verb} {action} ({initMod})"
+                        | Some (Game.Action action), Some init, None ->
+                            $"{init}: {name} {verb} {action}"
+                        | Some (Game.Action action), None, Some initMod ->
+                            $"{name} {verb} {action} ({initMod})"
+                        | Some (Game.Action action), None, None ->
+                            $"{name} {verb} {action}"
+                        | None, _, Some initMod when model.mode = Declaring ->
                             $"({initMod})"
-                        | None, None ->
+                        | None, _, None when model.mode = Declaring ->
                             $""
+                        | _ -> $"{name} does nothing"
                     let clickableText (txt: string) msg =
                         Html.td [prop.text txt; prop.onDoubleClick (fun _ -> setCommand msg)]
 

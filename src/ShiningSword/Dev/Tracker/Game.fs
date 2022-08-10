@@ -11,9 +11,11 @@ let helpText = """
     Beholder #1 hits Lara for 30
     Beholder #1 hits Bob for 60
     clear dead
-    Lara declares Kill beholder
-    roll init
-    next init
+    Lara will kill Beholder #1
+    Beholder #1 will Dodge
+    rename Beholder #1 Stinky Beholder
+    Beholder #1 hits Harry for 18, Lara for 27
+    ok
     """
 
 [<AutoOpen>]

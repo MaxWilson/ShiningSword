@@ -44,7 +44,7 @@ let isPotentialNamePrefix (names: obj) (substring: string) =
         let game = externalContext |> unbox<Game.d>
         game.roster |> Seq.append game.bestiary.Keys |> Seq.exists(fun (DataTypes.Name name) -> name.StartsWith substring)
     | _ -> false
-let (|Name|_|) = function
+let (|Name|_|) = pack <| function
     | OWS(GameContext(game) & (args, ix)) ->
         let substring = args.input.Substring(ix)
         let candidates = game.bestiary.Keys |> Seq.append game.roster |> Seq.distinct |> Seq.sortByDescending (fun (DataTypes.Name n) -> n.Length)
@@ -73,6 +73,14 @@ let rec (|Declarations|_|) = pack <| function
     | Declaration(f, OWSStr "," (Declarations(rest, ctx))) -> Some(f::rest, ctx)
     | Declaration(f, ctx) -> Some([f], ctx)
     | _ -> None
+let rec (|TakeDamage|_|) = pack <| function
+    | (Name(target, OWSStr "for" (Int(amt, ctx)))) ->
+        Some((fun src -> Game.InflictDamage(src, target, HP amt)), ctx)
+    | _ -> None
+let rec (|TakeDamages|_|) = pack <| function
+    | TakeDamage(f, OWSStr "," (TakeDamages(rest, ctx))) -> Some(f::rest, ctx)
+    | TakeDamage(f, ctx) -> Some([f], ctx)
+    | _ -> None
 let (|Command|_|) = function
     | Str "clear dead" ctx ->
         Some(Game.ClearDeadCreatures, ctx)
@@ -99,6 +107,8 @@ let (|Commands|_|) = pack <| function
     | Str "define" (NewNames(names, ctx)) ->
         Some(names |> List.map Game.Define, ctx)
     | Name(name, Declarations (fs, ctx)) ->
+        Some(fs |> List.map(fun f -> f name), ctx)
+    | Name(name, OWSStr "hits" (TakeDamages (fs, ctx))) ->
         Some(fs |> List.map(fun f -> f name), ctx)
     | Command(cmd, ctx) -> Some([cmd], ctx)
     | _ -> None
