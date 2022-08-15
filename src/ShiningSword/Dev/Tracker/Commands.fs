@@ -42,12 +42,12 @@ let isPotentialNamePrefix (names: obj) (substring: string) =
     match names |> unbox<obj option> with
     | Some externalContext ->
         let game = externalContext |> unbox<Game.d>
-        game.roster |> Seq.append game.bestiary.Keys |> Seq.exists(fun (DataTypes.Name name) -> name.StartsWith substring)
+        game.roster |> Seq.append (game.bestiary |> Map.keys) |> Seq.exists(fun (DataTypes.Name name) -> name.StartsWith substring)
     | _ -> false
 let (|Name|_|) = pack <| function
     | OWS(GameContext(game) & (args, ix)) ->
         let substring = args.input.Substring(ix)
-        let candidates = game.bestiary.Keys |> Seq.append game.roster |> Seq.distinct |> Seq.sortByDescending (fun (DataTypes.Name n) -> n.Length)
+        let candidates = game.bestiary |> Map.keys |> Seq.append game.roster |> Seq.distinct |> Seq.sortByDescending (fun (DataTypes.Name n) -> n.Length)
         // allow leaving off # sign
         match candidates |> Seq.tryFind(fun (DataTypes.Name name) -> substring.StartsWith name || substring.StartsWith (name.Replace("#", ""))) with
         | Some (DataTypes.Name n as name) ->

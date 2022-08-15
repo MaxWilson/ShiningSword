@@ -80,7 +80,7 @@ module Game =
             match model.stats |> Map.tryFind name with
             | Some creature -> declare name model
             | None ->
-                let names = model.stats.Values |> Seq.choose (fun c -> if c.templateType = Some name then Some c.name else None)
+                let names = model.stats |> Map.values |> Seq.choose (fun c -> if c.templateType = Some name then Some c.name else None)
                 names |> Seq.fold (flip declare) model
         | DeclareInitiativeMod (name, initiativeMod) ->
             match model.stats |> Map.tryFind name with
@@ -135,13 +135,13 @@ module Game =
                     let woundLog = target'.woundLog
                     let awards =
                         [
-                            let denominator = (woundLog.victims.Values |> Seq.sum) + (woundLog.woundedBy.Values |> Seq.sum)
+                            let denominator = (woundLog.victims |> Map.values |> Seq.sum) + (woundLog.woundedBy |> Map.values |> Seq.sum)
                             let xpTotal =
                                 match target'.templateType with
                                 | Some monsterKind ->
                                     match model.bestiary[monsterKind].xp with Some (XP xp) -> xp | None -> 0
                                 | None -> 0
-                            for name in (woundLog.victims.Keys |> Seq.append woundLog.woundedBy.Keys |> Seq.distinct) do
+                            for name in (woundLog.victims |> Map.keys |> Seq.append (woundLog.woundedBy |> Map.keys) |> Seq.distinct) do
                                 let numerator =
                                     (woundLog.victims |> Map.tryFind name |> Option.defaultValue 0)
                                         + (woundLog.woundedBy |> Map.tryFind name |> Option.defaultValue 0)
