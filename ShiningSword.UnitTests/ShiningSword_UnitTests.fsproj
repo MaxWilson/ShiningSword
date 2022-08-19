@@ -12,19 +12,19 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\src\Lib\Lib.fsproj" />
-    <PackageReference Include="Microsoft.NETCore.Platforms">
+    <PackageReference Update="Microsoft.NETCore.Platforms">
         <Version>5.0.2</Version>
     </PackageReference>
-    <PackageReference Include="Expecto.FsCheck">
+    <PackageReference Update="Expecto.FsCheck">
         <Version>9.0.4</Version>
     </PackageReference>
-    <PackageReference Include="Microsoft.NET.Test.Sdk">
+    <PackageReference Update="Microsoft.NET.Test.Sdk">
         <Version>16.11</Version>
     </PackageReference>
-    <PackageReference Include="Unquote">
+    <PackageReference Update="Unquote">
         <Version>6.1</Version>
     </PackageReference>
-    <PackageReference Include="YoloDev.Expecto.TestSdk">
+    <PackageReference Update="YoloDev.Expecto.TestSdk">
         <Version>0.12.9</Version>
     </PackageReference>
     <PackageReference Update="FSharp.Core" Version="5.0.0" />
