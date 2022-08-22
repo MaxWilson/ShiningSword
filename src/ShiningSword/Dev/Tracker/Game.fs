@@ -43,6 +43,8 @@ module Bestiary =
         bestiary |> Map.change name (fun e -> Some { (match e with Some d -> d | None -> Definition.fresh) with initiativeMod = Some value })
 
 module Game =
+    open Domain.Ribbit
+
     type Action = Action of string
     type WoundLog = { victims: Map<Name, int>; woundedBy: Map<Name, int> }
         with static member fresh = { victims = Map.empty; woundedBy = Map.empty }
@@ -66,10 +68,11 @@ module Game =
     type d = {
         roster: Name list
         stats: Map<Name, Creature>
+        ribbit: Ribbit
         bestiary: Bestiary.d
         initRolls: Map<Name, int>
         }
-    let fresh = { roster = []; stats = Map.empty; bestiary = Bestiary.fresh; initRolls = Map.empty }
+    let fresh = { roster = []; stats = Map.empty; bestiary = Bestiary.fresh; initRolls = Map.empty; ribbit = Ribbit.Fresh }
     let update msg model =
         match msg with
         | Define name ->

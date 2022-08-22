@@ -27,6 +27,7 @@
     <PackageReference Update="YoloDev.Expecto.TestSdk">
         <Version>0.12.9</Version>
     </PackageReference>
-    <PackageReference Update="FSharp.Core" Version="5.0.0" />
+    <PackageReference Remove="FSharp.Core" Version="5.0.0" />
+    <PackageReference Include="FSharp.Core" Version="5.0.0" />
   </ItemGroup>
 </Project>

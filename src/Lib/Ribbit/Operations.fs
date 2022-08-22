@@ -3,13 +3,13 @@ open Domain.Ribbit
 open Domain.Character
 open Domain.Ribbit.Ops
 
-let propFail rowId propName (ribbit: Ribbit) =
+let propFail rowId propName (ribbit: RibbitData) =
     let name =
         match ribbit.scope.rows with
         | Map.Lookup rowId (Map.Lookup "PersonalName" (Text personalName)) -> personalName
         | _ -> $"Unnamed individual (ID = {rowId})"
     failwith $"{propName} should have been set on {name}"
-let request rowId propName (ribbit: Ribbit) =
+let request rowId propName (ribbit: RibbitData) =
     let name =
         match ribbit.scope.rows with
         | Map.Lookup rowId (Map.Lookup "PersonalName" (Text personalName)) -> personalName
@@ -71,10 +71,10 @@ let getValue id (property: Property<'t>) = stateChange {
     return value
     }
 
-let nextId(): StateChange<DeltaRibbit, Id> = stateChange {
-    let! ribbit = Delta.derefM
+let nextId(): StateChange<Ribbit, Id> = stateChange {
+    let! ribbit = Ribbit.DataM
     let nextId = (defaultArg ribbit.scope.biggestIdSoFar 0) + 1
-    do! (Delta.executeM (ReserveId nextId))
+    do! (Ribbit.ExecuteM (ReserveId nextId))
     return nextId
     }
 
@@ -82,13 +82,13 @@ let addKind (name: Name) initialize = stateChange {
     let! nextId = nextId()
     let! state = get()
     do! initialize nextId
-    do! AssociateMonsterKind(name, nextId) |> Delta.executeM
+    do! AssociateMonsterKind(name, nextId) |> Ribbit.ExecuteM
     }
 
 // there are enough subtle differences with addMonster that I don't want to refactor these together. Some minor duplication is okay in this case.
 let addCharacterToRoster personalName = stateChange {
     let! monsterId = nextId()
-    do! AssociateIndividual(personalName, monsterId, None) |> Delta.executeM
+    do! AssociateIndividual(personalName, monsterId, None) |> Ribbit.UpdateM
     do! personalNameP.SetM(monsterId, personalName)
     do! selfP.SetM(monsterId, monsterId)
     do! isFriendlyP.SetM(monsterId, true)
@@ -97,7 +97,7 @@ let addCharacterToRoster personalName = stateChange {
 
 let addMonster (kindOfMonster: Name) initialize: StateChange<_,_> = stateChange {
     let! monsterId = nextId()
-    let! ribbit = Delta.derefM
+    let! ribbit = Ribbit.DataM
     let kinds, categories = ribbit.kindsOfMonsters, ribbit.categories
     if not <| kinds.ContainsKey kindOfMonster then
         shouldntHappen()
@@ -112,20 +112,20 @@ let addMonster (kindOfMonster: Name) initialize: StateChange<_,_> = stateChange 
                 makeUnique (ix+1)
             else candidateName
     let personalName = makeUnique 1
-    do! AssociateIndividual(personalName, monsterId, Some(kindOfMonster)) |> Delta.executeM
+    do! AssociateIndividual(personalName, monsterId, Some(kindOfMonster)) |> Ribbit.UpdateM
     do! personalNameP.SetM(monsterId, personalName)
     do! selfP.SetM(monsterId, monsterId)
     do! initialize monsterId
     return personalName
     }
 
-let findTarget ids id : StateChange<DeltaRibbit, Id option> = stateChange {
-    let! currentTarget = Delta.getM (currentTargetP.Get id)
-    let! isAlive = Delta.getM (fun ribbit -> (currentTarget > 0) && (hpP.Get currentTarget ribbit > damageTakenP.Get currentTarget ribbit))
+let findTarget ids id : StateChange<Ribbit, Id option> = stateChange {
+    let! currentTarget = Ribbit.GetM (currentTargetP.Get id)
+    let! isAlive = Ribbit.GetM (fun ribbit -> (currentTarget > 0) && (hpP.Get currentTarget ribbit > damageTakenP.Get currentTarget ribbit))
     if isAlive then
         return Some currentTarget
     else
-        let! newTarget = Delta.getM (fun ribbit ->
+        let! newTarget = Ribbit.GetM (fun ribbit ->
             let myTeam = isFriendlyP.Get id ribbit
             let candidates = ids |> Array.filter (fun targetId -> isFriendlyP.Get targetId ribbit <> myTeam && hpP.Get targetId ribbit > damageTakenP.Get targetId ribbit)
             if candidates.Length > 0 then

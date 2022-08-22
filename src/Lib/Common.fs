@@ -211,29 +211,19 @@ let toState initialState monad =
 module Delta =
     type private Seed<'t, 'msg> = Seed of initial: (unit -> 't) * update: ('msg -> 't -> 't)
     type DeltaDrivenState<'t, 'msg> =
-        private { seed: Seed<'t, 'msg> ; current:'t ; past: ('msg list) ; queue: ('msg list) }
+        private { seed: Seed<'t, 'msg> ; current:'t ; past: ('msg list) }
     let create(initial: (unit -> 't), update: 'msg -> 't -> 't) =
-        { seed = Seed(initial, update); current = initial(); past = []; queue = [] }
-    let (|Deref|) (cell: _ ref) = cell.Value
-    // returns current state and amortized-updated State reflecting the current state. Also sets shared state = this.
-    let derefM : StateChange<DeltaDrivenState<'t, 'msg>, 't> = function
-    | { current = current; past = past; queue = [] } as this ->
-        current, this
-    | { seed = Seed(init, update); current = current; past = past; queue = queue } as this  ->
-        let apply q state =
-            List.foldBack update q state
-        let current', past' =
-            (current |> apply queue), queue@past
-        current', { this with current = current'; past = past'; queue = [] }
+        { seed = Seed(initial, update); current = initial(); past = [] }
+    let deref this = this.current
     let execute msg = function
-    | { queue = queue } as this ->
-        { this with queue = msg::queue }
+        | { seed = Seed(_, update); past = past } as this ->
+            { this with past = msg::past; current = this.current |> update msg }
     let executeM msg state = (), execute msg state
     let getM f state =
-        let inner, state = derefM state
+        let inner = state.current
         f inner, state
     let transformM f state =
-        let inner, state = derefM state
+        let inner = state.current
         let commands = f inner
         let state = commands |> List.fold (flip execute) state
         (), state

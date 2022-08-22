@@ -9,10 +9,10 @@ open FsCheck
 open Swensen.Unquote
 open Domain.Ribbit
 
-let define (rules: string) (ribbit:Ribbit) = notImpl ribbit
-let execute (commands: string) (ribbit:Ribbit) = notImpl ribbit
-let withRolls rollPlugin (ribbit:Ribbit) = notImpl ribbit
-let addCreatures team creatureList src (ribbit:Ribbit) = notImpl ribbit
+let define (rules: string) (ribbit:RibbitData) = notImpl ribbit
+let execute (commands: string) (ribbit:RibbitData) = notImpl ribbit
+let withRolls rollPlugin (ribbit:RibbitData) = notImpl ribbit
+let addCreatures team creatureList src (ribbit:RibbitData) = notImpl ribbit
 type Unknown() =
     do
         notImpl()
@@ -132,7 +132,7 @@ let tests = testList "ribbit.scenario" [
         let expectedHP: int = notImpl()
         let mockRoster = notImpl()
         let ribbit =
-            Ribbit.fresh |> define rules
+            RibbitData.fresh |> define rules
             |> withRolls maxRolls
             |> addCreatures 2 ["Orc", 5] None
             |> addCreatures 1 ["Elemonk", 1] (Some mockRoster)

@@ -34,7 +34,7 @@ let recruitCompanions model control dispatch =
     else
         Recruit (candidates |> chooseRandomExponentialDecay 0.2 chooseRandom) |> dispatch
 
-let stillAlive (ribbit: Ribbit) (char: CharacterSheet) =
+let stillAlive (ribbit: RibbitData) (char: CharacterSheet) =
     let name = char.converge((fun c -> c.name), (fun c -> c.name))
     match ribbit.roster |> Map.tryFind name with
     | Some id ->
@@ -127,7 +127,7 @@ let view model control dispatch =
                 ]
         | _ -> ()
         if model.activity <> Downtime then
-            let ribbit = model.state.ribbit |> Delta.derefM |> fst
+            let ribbit = model.state.ribbit.data
             let isFriendly id =
                 ribbit |> isFriendlyP.Get(id)
             let get f (_, id) = (f id ribbit).ToString()
@@ -194,7 +194,7 @@ let view model control dispatch =
         | CompletingAdventure ->
             // later on if there are more choices, this could become a full-fledged Adventuring phase with RP choices
             let finish _ =
-                if model.state.mainCharacter |> stillAlive (model.state.ribbit |> Delta.derefM |> fst) then
+                if model.state.mainCharacter |> stillAlive (model.state.ribbit.data) then
                     Save |> control
                     Proceed |> dispatch
                 else

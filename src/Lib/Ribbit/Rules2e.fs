@@ -5,7 +5,7 @@ open Domain.Character
 open Domain.Character.ADND2nd
 
 let traitsP = FlagsProperty<Trait>("Traits")
-let getM = Delta.getM
+let getM = Ribbit.GetM
 
 type MonsterKind = {
     name: string
@@ -28,7 +28,7 @@ type MonsterKind = {
         xp = xp; treasureType = treasureType; lairTreasure = lairTreasure
         }
 
-let load (monsterKind:MonsterKind) =
+let load (monsterKind:MonsterKind) : StateChange<Ribbit, unit> =
     let initialize kindId = stateChange {
         do! transform (hdP.Set (kindId, monsterKind.hd))
         do! transform (acP.Set (kindId, monsterKind.ac))
@@ -41,16 +41,16 @@ let load (monsterKind:MonsterKind) =
         do! addKind monsterKind.name initialize
         }
 
-let create (monsterKind: MonsterKind) (n: int) =
-    let initialize monsterId : StateChange<DeltaRibbit, unit> = stateChange {
+let create (monsterKind: MonsterKind) (n: int) : StateChange<Ribbit, unit> =
+    let initialize monsterId : StateChange<Ribbit, unit> = stateChange {
         // every monster has individual HD
-        let! ribbit = Delta.derefM
+        let! ribbit = Ribbit.DataM
         let hdRoll = hdP.Get monsterId ribbit
         // always have at least 1 HP        
         do! (hpP.SetM (monsterId, hdRoll.roll() |> max 1))
         }
     stateChange {
-        let! alreadyLoaded = getM(fun ribbit -> ribbit.kindsOfMonsters.ContainsKey monsterKind.name)
+        let! alreadyLoaded = Ribbit.GetM(fun ribbit -> ribbit.kindsOfMonsters.ContainsKey monsterKind.name)
         if alreadyLoaded |> not then
             do! load monsterKind
         for ix in 1..n do
@@ -77,10 +77,10 @@ let monsterKinds =
     |> List.map (fun args -> MonsterKind.create args |> fun monster -> monster.name, monster)
     |> Map.ofList
 
-let createByName name n : StateChange<DeltaRibbit, unit> =
+let createByName name n : StateChange<Ribbit, unit> =
     create (monsterKinds[name]) n
 
-let attack ids id : StateChange<DeltaRibbit, _> = stateChange {
+let attack ids id : StateChange<Ribbit, _> = stateChange {
     let! numberOfAttacks = numberOfAttacksP.Get id |> getM
     let! toHit = toHitP.Get id |> getM
     let! dmgs = weaponDamageP.Get id |> getM
@@ -126,6 +126,6 @@ let fightLogic = stateChange {
     return outcome, msgs
     }
 
-let fightOneRound (ribbit: DeltaRibbit) : RoundResult =
+let fightOneRound (ribbit: Ribbit) : RoundResult =
     let (outcome, msg), ribbit = fightLogic ribbit
     { outcome = outcome ; msgs = msg; ribbit = ribbit }

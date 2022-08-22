@@ -150,7 +150,7 @@ module App =
         | Page.Generate model ->
             Chargen.View.view model (chargenControl dispatch) (ChargenMsg >> dispatch)
         | Page.Adventure adventure ->
-            let stillAlive = Adventure.stillAlive (adventure.state.ribbit |> Delta.derefM |> fst)
+            let stillAlive = Adventure.stillAlive (adventure.state.ribbit.data)
             let control = function
             | Adventure.Save ->
                 // avoid saving unless an ID has already been assigned, partly to avoid duplications (because of different Ids)

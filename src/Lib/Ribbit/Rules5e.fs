@@ -6,7 +6,7 @@ open Domain.Character.DND5e
 
 let traitsP = FlagsProperty<Trait>("Traits")
 let initBonusP = NumberProperty("InitiativeBonus", 0)
-let getM = Delta.getM
+let getM = Ribbit.GetM
 
 type MonsterKind = {
     name: string
@@ -43,9 +43,9 @@ let load (monsterKind:MonsterKind) =
         }
 
 let create (monsterKind: MonsterKind) (n: int) =
-    let initialize monsterId : StateChange<DeltaRibbit, unit> = stateChange {
+    let initialize monsterId : StateChange<Ribbit, unit> = stateChange {
         // every monster has individual HD
-        let! ribbit = Delta.derefM
+        let! ribbit = Ribbit.DataM
         let hdRoll = hdP.Get monsterId ribbit
         // always have at least 1 HP        
         do! (hpP.SetM (monsterId, hdRoll.roll() |> max 1))
@@ -79,7 +79,7 @@ let monsterKinds =
     |> List.map (fun args -> MonsterKind.create args |> fun monster -> monster.name, monster)
     |> Map.ofList
 
-let createByName name n : StateChange<DeltaRibbit, unit> =
+let createByName name n : StateChange<Ribbit, unit> =
     create (monsterKinds[name]) n
 
 
@@ -146,6 +146,6 @@ let fightLogic = stateChange {
     return outcome, msgs
     }
 
-let fightUntilFixedPoint (ribbit: DeltaRibbit) : RoundResult =
+let fightUntilFixedPoint (ribbit: Ribbit) : RoundResult =
     let (outcome, msg), ribbit = fightLogic ribbit
     { outcome = outcome ; msgs = msg; ribbit = ribbit }

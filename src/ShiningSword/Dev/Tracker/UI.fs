@@ -54,7 +54,7 @@ let init initialCmd =
     |> executeInputIfPossible "Severiana will Fireball"
     |> executeInputIfPossible "Fire Giant #1 will attack Severiana"
     |> executeInputIfPossible "Giant Crocodile #1 will Dodge and shadow Hershel"
-    |> executeInputIfPossible "Severiana hits Fire Giant 1 for 33, Giant Crocodile for 16"
+    |> executeInputIfPossible "Severiana hits Fire Giant 1 for 33, Giant Crocodile 1 for 16"
 #endif
 
 // move to the next character or phase

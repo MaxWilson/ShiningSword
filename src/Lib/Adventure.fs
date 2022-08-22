@@ -34,7 +34,7 @@ type AdventureState = {
     allies: Domain.Character.Universal.CharacterSheet list
     currentEncounter: OngoingEncounter option
     scheduledEncounters: Encounter list
-    ribbit: Ribbit.DeltaRibbit
+    ribbit: Ribbit.Ribbit
     }
 
 let loadCharacters (characters: CharacterSheet list) (adventureState: AdventureState) =
@@ -65,21 +65,21 @@ let loadCharacters (characters: CharacterSheet list) (adventureState: AdventureS
     { adventureState with ribbit = characters |> List.fold addCharacter adventureState.ribbit }
 
 let downtime sheet =
-    { mainCharacter = sheet; allies = []; currentEncounter = None; scheduledEncounters = []; ribbit = Ops.freshState() }
+    { mainCharacter = sheet; allies = []; currentEncounter = None; scheduledEncounters = []; ribbit = Ribbit.Fresh }
 
 let embark (spec: AdventureSpec) sheet =
-    { mainCharacter = sheet; allies = spec.allies; currentEncounter = None; scheduledEncounters = spec.encounters; ribbit = Ops.freshState() }
+    { mainCharacter = sheet; allies = spec.allies; currentEncounter = None; scheduledEncounters = spec.encounters; ribbit = Ribbit.Fresh }
     |> loadCharacters (sheet::spec.allies)
 
 let clearEnemies adventureState =
     let ribbit =
         stateChange {
-            let! ribbit = Delta.derefM
+            let! ribbit = Ribbit.GetM id
             let friendlies = ribbit.roster |> Map.filter (fun name id -> isFriendlyP.Get id ribbit)
             // clear enemies from last encounter off the UI because they're all dead
-            do! SetRoster friendlies |> Delta.executeM
+            do! SetRoster friendlies |> Ribbit.ExecuteM
             }
-        |> runNoResult adventureState.ribbit
+        |> adventureState.ribbit.transform
     { adventureState with ribbit = ribbit }
 
 let finishAdventure (spec: AdventureSpec) state =
@@ -117,14 +117,14 @@ let toOngoing (encounter:Encounter) =
 let beginEncounter (next: OngoingEncounter) rest (adventureState: AdventureState) =
     let ribbit =
         stateChange {
-            let! ribbit = Delta.derefM
+            let! ribbit = Ribbit.DataM
             for monsterKind, qty in next.monsters do
                 if adventureState.mainCharacter.isADND then
                     do! Domain.Ribbit.Rules2e.createByName monsterKind qty
                 else
                     do! Domain.Ribbit.Rules5e.createByName monsterKind qty
             }
-        |> runNoResult adventureState.ribbit
+        |> adventureState.ribbit.transform
     { (adventureState |> clearEnemies) with scheduledEncounters = rest; currentEncounter = Some next; ribbit = ribbit }
 
 let victory (encounter:OngoingEncounter) state =
