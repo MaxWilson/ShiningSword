@@ -50,6 +50,14 @@ module Game =
         with static member fresh = { victims = Map.empty; woundedBy = Map.empty }
     type Creature = { name: Name; templateType: Name option; actionDeclaration: Action option; initiativeMod: int option; xpEarned: int; HP: int; woundLog: WoundLog; notes: string list }
         with static member fresh name templateType = { name = name; templateType = templateType; actionDeclaration = None; initiativeMod = None; xpEarned = 0; HP = 0; woundLog = WoundLog.fresh; notes = [] }
+    module Properties =
+        let initiativeMod (c: Creature) = c.initiativeMod
+        let templateType (c: Creature) = c.templateType
+        let actionDeclaration (c: Creature) = c.actionDeclaration
+        let notes (c: Creature) = c.notes
+        let hp (c: Creature) = c.HP
+        let xpEarned (c: Creature) = c.xpEarned
+
     type Command =
         | Define of Name
         | DeclareAction of Name * Action
@@ -99,13 +107,19 @@ module Game =
                 { model with stats = model.stats |> Map.add name { creature with xpEarned = v }}
             | None ->
                 { model with bestiary = model.bestiary |> Bestiary.declareXP name xp }
-        | DeclareHP (name, (HP v as hp)) ->
+        | DeclareHP (Name(nameStr) as name, (HP v as hp)) ->
+            let model =
+                match model.ribbit.data.roster |> Map.tryFind nameStr with
+                | Some id ->
+                    { model with ribbit = model.ribbit.update (Set(PropertyAddress(id, Operations.hpP.Name), Number v)) }
+                | None -> model
             match model.stats |> Map.tryFind name with
             | Some creature ->
                 { model with stats = model.stats |> Map.add name { creature with HP = v }}
             | None ->
                 { model with bestiary = model.bestiary |> Bestiary.declareHP name hp }
         | Add (Name nameStr as name) ->
+            let model = { model with ribbit = model.ribbit.transform (Operations.addCharacterToRoster nameStr) }
             match model.bestiary |> Map.tryFind name with
             | None ->
                 { model with
@@ -205,3 +219,5 @@ module Game =
         static member damage src target hp = update (InflictDamage (Name src, Name target, HP hp))
         static member getHP name (model:d) = model.stats[Name name].HP
         static member getXPEarned name (model:d) = model.stats[Name name].xpEarned
+
+

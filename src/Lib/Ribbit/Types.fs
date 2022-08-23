@@ -202,6 +202,7 @@ open Ops
 type Ribbit with
     static member Update msg (Ribbit ribbit) =
         Delta.execute msg ribbit |> Ribbit
+    member this.update msg = Ribbit.Update msg this
     static member UpdateM msg (Ribbit ribbit) =
         (), Delta.execute msg ribbit |> Ribbit
     static member GetM f (ribbit: Ribbit) =

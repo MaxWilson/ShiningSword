@@ -100,31 +100,48 @@ let update msg (model: Model.d) =
 
 open UI.Components
 
+module Getters =
+    let getAllNames (model:Model.d) =
+        model.game.roster
+    let get name getter (model:Model.d) = model.game.stats[name] |> getter
+    let tryGetRibbit name (prop: Domain.Ribbit.Property<_>) (model:Model.d) =
+        let data = model.game.ribbit.data
+        match data.roster |> Map.tryFind name with
+        | Some id ->
+            if Domain.Ribbit.Ops.hasValue (id, prop.Name) data then
+                prop.Get id data |> Some
+            else
+                None
+        | None -> None
+open Getters
+open Game.Properties
+
 let view (model: Model.d) dispatch =
     let setCommand txt =
         (ReviseInput txt) |> dispatch
     let table = Html.table [
         textHeaders ["Name"; "Type"; "Actions"; "Notes"; "XP earned"; "HP"]
         Html.tbody [
-            for (Name name) as name' in model.game.roster do
+            for (Name name) as name' in getAllNames model do
                 let isSelected = match model.mode with Executing (h::_) when h = name' -> true | _ -> false
                 class' (if isSelected then "currentTurn" else "") Html.tr [
-                    let creature = model.game.stats[name']
+                    let get f = model |> get name' f
+                    let type1 = get templateType
                     textCell $"{name}"
-                    textCell (sprintf "(%s)" <| match creature.templateType with Some (Name v) -> v | None -> "PC")
+                    textCell (sprintf "(%s)" <| match get templateType with Some (Name v) -> v | None -> "PC")
                     let action =
                         let initMod =
-                            match creature.initiativeMod with
+                            match get initiativeMod with
                             | Some v -> Some v
                             | None ->
-                                creature.templateType
+                                get templateType
                                 |> Option.bind (fun t -> model.game.bestiary |> Map.tryFind t)
                                 |> Option.bind (fun def -> def.initiativeMod)
                             |> Option.map (fun v -> $"%+i{v}")
                         let verb =
                             let willAct = match model.mode with | Declaring -> true | Executing haventActed -> haventActed |> List.contains name'
                             if willAct then "will" else "did"
-                        match creature.actionDeclaration, (model.game.initRolls |> Map.tryFind name'), initMod with
+                        match get actionDeclaration, (model.game.initRolls |> Map.tryFind name'), initMod with
                         | Some (Game.Action action), Some init, Some initMod ->
                             $"{init}: {name} {verb} {action} ({initMod})"
                         | Some (Game.Action action), Some init, None ->
@@ -138,13 +155,14 @@ let view (model: Model.d) dispatch =
                         | None, _, None when model.mode = Declaring ->
                             $""
                         | _ -> $"{name} does nothing"
+
                     let clickableText (txt: string) msg =
                         Html.td [prop.text txt; prop.onDoubleClick (fun _ -> setCommand msg)]
 
                     clickableText action $"{name} will "
-                    clickableText (System.String.Join(";", creature.notes)) $"{name}: "
-                    textCell $"{creature.xpEarned} XP earned"
-                    textCell $"{creature.HP} HP"
+                    clickableText (System.String.Join(";", get notes)) $"{name}: "
+                    textCell $"{get xpEarned} XP earned"
+                    textCell $"{ tryGetRibbit name Domain.Ribbit.Operations.hpP model |> Option.defaultWith (thunk1 get hp) } HP"
                     ]
                 ]
             ]

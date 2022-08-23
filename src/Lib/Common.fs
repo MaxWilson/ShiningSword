@@ -187,7 +187,7 @@ module StateChangeMonad =
     let stateChange = StateBuilder()
     // run and discard unit result
     let runNoResult state stateChangeMonad =
-        let (), state' = stateChangeMonad state
+        let _, state' = stateChangeMonad state
         // discard result
         state'
     let run state stateChangeMonad = stateChangeMonad state
