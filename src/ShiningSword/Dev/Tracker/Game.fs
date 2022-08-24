@@ -152,17 +152,18 @@ module Game =
             match model.stats |> Map.tryFind src, model.stats |> Map.tryFind target with
             | Some src, Some target ->
                 let hp = Getters.tryGetRibbit target.name.extract Domain.Ribbit.Operations.hpP model |> Option.defaultValue 0
-                let hp' = hp - hpLoss
-                let isKill = hp > 0 && hp' <= 0
-                // we don't let monster damage go negative, but we let hero damage go negative just in case their HP were never recorded
-                let hpLoss = if isKill then hp elif (hp <= 0 && target.templateType.IsSome) then 0 else hpLoss
+                let damageTaken = Getters.tryGetRibbit target.name.extract Domain.Ribbit.Operations.damageTakenP model |> Option.defaultValue 0
+                // we don't give credit for overkill damage, for XP purposes, unless it's overkill damage against a PC (who might not have even had their HP recorded yet)
+                let damageCredit = hpLoss |> (if target.templateType.IsSome then min (hp - damageTaken |> max 0) else id)
                 let recordInteraction (name: Name) amount = Map.change name (function None -> Some amount | Some v -> Some (v+amount))
                 let target' = { target with woundLog = { target.woundLog with woundedBy = target.woundLog.woundedBy |> recordInteraction src.name hpLoss } }
                 let src' = { src with woundLog = { src.woundLog with victims = src.woundLog.victims |> recordInteraction target.name hpLoss } }
-                let model = { model with ribbit = model.ribbit.update (Set(PropertyAddress(model.ribbit.data.roster[target.name.extract], Operations.hpP.Name), Number hp')) }
-                let model' = { model with stats = model.stats |> Map.add src.name src' |> Map.add target.name target' }
+                let model' = { model with
+                                ribbit = model.ribbit.update (Set(PropertyAddress(model.ribbit.data.roster[target.name.extract], Operations.damageTakenP.Name), Number (damageTaken + hpLoss)))
+                                stats = model.stats |> Map.add src.name src' |> Map.add target.name target' }
+                let isKill = damageTaken >= hp
                 if isKill = false then
-                    model'
+                    model' // no need to update XP if no kill was achieved
                 else
                     let woundLog = target'.woundLog
                     let awards =

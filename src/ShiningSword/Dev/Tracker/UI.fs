@@ -44,7 +44,6 @@ let init initialCmd =
     |> executeInputIfPossible "Fire Giant hp 162, xp 5000, init -1"
     |> executeInputIfPossible "Giant Crocodile hp 85, xp 1800"
     |> executeInputIfPossible "Mangler hp 71, xp 1800"
-    |> executeInputIfPossible "Grue hp 17, xp 50"
     |> executeInputIfPossible "Boort hp 50, init +4"
     |> executeInputIfPossible "Severiana hp 44, init +1"
     |> executeInputIfPossible "add Fire Giant, Giant Crocodile"
@@ -58,6 +57,7 @@ let init initialCmd =
     |> executeInputIfPossible "add Grue, Grue, Grue, Grue"
     |> executeInputIfPossible "Grue #1 hp 23"
     |> executeInputIfPossible "Boort hits Grue 1 for 10, Grue 2 for 10, Grue 3 for 5"
+    |> executeInputIfPossible "Grue hp 17, xp 50"
 
 #endif
 
@@ -160,7 +160,10 @@ let view (model: Model.d) dispatch =
                     clickableText action $"{name} will "
                     clickableText (System.String.Join(";", get notes)) $"{name}: "
                     textCell $"{get xpEarned} XP earned"
-                    textCell $"{ tryGetRibbit name Domain.Ribbit.Operations.hpP model } HP"
+                    let remainingHP =
+                        match tryGetRibbit name Domain.Ribbit.Operations.hpP model, tryGetRibbit name Domain.Ribbit.Operations.damageTakenP model with
+                        | hp, dmg -> (defaultArg hp 0) - (defaultArg dmg 0)
+                    textCell $"{ remainingHP } HP"
                     ]
                 ]
             ]
