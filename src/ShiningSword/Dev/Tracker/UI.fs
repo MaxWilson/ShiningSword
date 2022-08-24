@@ -172,9 +172,11 @@ let view (model: Model.d) dispatch =
                     clickableText (System.String.Join(";", get notes)) $"{name}: "
                     textCell $"{get xpEarned} XP earned"
                     let remainingHP =
-                        match tryGetRibbit name Domain.Ribbit.Operations.hpP model, tryGetRibbit name Domain.Ribbit.Operations.damageTakenP model with
-                        | hp, dmg -> (defaultArg hp 0) - (defaultArg dmg 0)
-                    textCell $"{ remainingHP } HP"
+                        match tryGetRibbit name Domain.Ribbit.Operations.hpP model |> Option.defaultValue 0, tryGetRibbit name Domain.Ribbit.Operations.damageTakenP model  |> Option.defaultValue 0 with
+                        | hp, dmg when dmg = 0 -> $"{hp} HP"
+                        | hp, dmg when dmg > hp -> $"{hp - dmg}/{hp} HP (dead)"
+                        | hp, dmg -> $"{hp - dmg}/{hp} HP"
+                    textCell remainingHP
                     ]
                 ]
             ]
