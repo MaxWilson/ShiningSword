@@ -10,8 +10,7 @@ add Beholder
 Beholder hp 180, xp 10000
 add Bob, Lara, Harry
 Harry hits Beholder #1 for 80
-Beholder #1 hits Lara for 30
-Beholder #1 hits Bob for 60
+Beholder #1 hits Bob for 60, Harry for 30, Lara for 30
 clear dead
 Lara declares Kill beholder
 roll init

@@ -15,7 +15,7 @@ let request rowId propName (ribbit: RibbitData) =
         | Map.Lookup rowId (Map.Lookup "PersonalName" (Text personalName)) -> personalName
         | _ -> $"Unnamed individual (ID = {rowId})"
     failwith $"{propName} should have been set on {name}"
-let prototypeP = IdProperty("prototype", 0)
+let prototypeP = IdProperty("prototype", 0) // for Javascript-style prototype inheritance
 let personalNameP = TextProperty("PersonalName") // self-reference may not even be necessary
 let selfP = IdProperty("UniqueId") // self-reference may not even be necessary
 let hdP = RollProperty("HitDice")

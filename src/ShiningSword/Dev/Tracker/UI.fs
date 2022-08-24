@@ -55,6 +55,10 @@ let init initialCmd =
     |> executeInputIfPossible "Fire Giant #1 will attack Severiana"
     |> executeInputIfPossible "Giant Crocodile #1 will Dodge and shadow Hershel"
     |> executeInputIfPossible "Severiana hits Fire Giant 1 for 33, Giant Crocodile 1 for 16"
+    |> executeInputIfPossible "add Grue, Grue, Grue, Grue"
+    |> executeInputIfPossible "Grue #1 hp 23"
+    |> executeInputIfPossible "Boort hits Grue 1 for 10, Grue 2 for 10, Grue 3 for 5"
+
 #endif
 
 // move to the next character or phase
@@ -105,14 +109,8 @@ module Getters =
         model.game.roster
     let get name getter (model:Model.d) = model.game.stats[name] |> getter
     let tryGetRibbit name (prop: Domain.Ribbit.Property<_>) (model:Model.d) =
-        let data = model.game.ribbit.data
-        match data.roster |> Map.tryFind name with
-        | Some id ->
-            if Domain.Ribbit.Ops.hasValue (id, prop.Name) data then
-                prop.Get id data |> Some
-            else
-                None
-        | None -> None
+        model.game |> Game.Getters.tryGetRibbit name prop
+
 open Getters
 open Game.Properties
 
@@ -162,7 +160,7 @@ let view (model: Model.d) dispatch =
                     clickableText action $"{name} will "
                     clickableText (System.String.Join(";", get notes)) $"{name}: "
                     textCell $"{get xpEarned} XP earned"
-                    textCell $"{ tryGetRibbit name Domain.Ribbit.Operations.hpP model |> Option.defaultWith (thunk1 get hp) } HP"
+                    textCell $"{ tryGetRibbit name Domain.Ribbit.Operations.hpP model } HP"
                     ]
                 ]
             ]
@@ -222,7 +220,8 @@ let view (model: Model.d) dispatch =
                         prop.children [
                             textCell (match name with Name name -> name)
                             let onNumber ctor valueCtor value = ctor(name, valueCtor value) |> ExecuteCommand |> dispatch
-                            editableNumberCell (match type1.hp with Some (HP v) -> v.ToString() | None -> "") (onNumber Game.DeclareHP HP)
+                            let hp = tryGetRibbit name.extract Domain.Ribbit.Operations.hpP model |> Option.map toString |> Option.defaultValue ""
+                            editableNumberCell hp (onNumber Game.DeclareHP HP)
                             editableNumberCell (match type1.xp with Some (XP v) -> v.ToString() | None -> "") (onNumber Game.DeclareXP XP)
                             ]
                     ]

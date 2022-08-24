@@ -20,25 +20,22 @@ let helpText = """
 
 [<AutoOpen>]
 module DataTypes =
-    type Name = Name of string
-    type XP = XP of int
-    type HP = HP of int
+    type Name = Name of string with member this.extract = match this with (Name name) -> name
+    type XP = XP of int with member this.extract = match this with (XP xp) -> xp
+    type HP = HP of int with member this.extract = match this with (HP hp) -> hp
 
 module Bestiary =
     type Definition = {
         xp: XP option
-        hp: HP option
         initiativeMod: int option
         }
-        with static member fresh = { xp = None; hp = None; initiativeMod = None }
+        with static member fresh = { xp = None; initiativeMod = None }
     type d = Map<Name, Definition>
     let fresh = Map.empty
     let define name (bestiary: d) =
         bestiary |> Map.add name Definition.fresh
     let declareXP name value (bestiary: d) =
         bestiary |> Map.change name (fun e -> Some { (match e with Some d -> d | None -> Definition.fresh) with xp = Some value })
-    let declareHP name value (bestiary: d) =
-        bestiary |> Map.change name (fun e -> Some { (match e with Some d -> d | None -> Definition.fresh) with hp = Some value })
     let declareInit name value (bestiary: d) =
         bestiary |> Map.change name (fun e -> Some { (match e with Some d -> d | None -> Definition.fresh) with initiativeMod = Some value })
 
@@ -48,14 +45,13 @@ module Game =
     type Action = Action of string
     type WoundLog = { victims: Map<Name, int>; woundedBy: Map<Name, int> }
         with static member fresh = { victims = Map.empty; woundedBy = Map.empty }
-    type Creature = { name: Name; templateType: Name option; actionDeclaration: Action option; initiativeMod: int option; xpEarned: int; HP: int; woundLog: WoundLog; notes: string list }
-        with static member fresh name templateType = { name = name; templateType = templateType; actionDeclaration = None; initiativeMod = None; xpEarned = 0; HP = 0; woundLog = WoundLog.fresh; notes = [] }
+    type Creature = { name: Name; templateType: Name option; actionDeclaration: Action option; initiativeMod: int option; xpEarned: int; woundLog: WoundLog; notes: string list }
+        with static member fresh name templateType = { name = name; templateType = templateType; actionDeclaration = None; initiativeMod = None; xpEarned = 0; woundLog = WoundLog.fresh; notes = [] }
     module Properties =
         let initiativeMod (c: Creature) = c.initiativeMod
         let templateType (c: Creature) = c.templateType
         let actionDeclaration (c: Creature) = c.actionDeclaration
         let notes (c: Creature) = c.notes
-        let hp (c: Creature) = c.HP
         let xpEarned (c: Creature) = c.xpEarned
 
     type Command =
@@ -81,9 +77,28 @@ module Game =
         initRolls: Map<Name, int>
         }
     let fresh = { roster = []; stats = Map.empty; bestiary = Bestiary.fresh; initRolls = Map.empty; ribbit = Ribbit.Fresh }
-    let update msg model =
+
+    module Getters =
+        let tryGetRibbit name (prop: Domain.Ribbit.Property<_>) (game:d) =
+            let data = game.ribbit.data
+            match data.roster |> Map.tryFind name |> Option.orElse (data.kindsOfMonsters |> Map.tryFind name) with
+            | Some id ->
+                let rec recur id =
+                    if Domain.Ribbit.Ops.hasValue (id, prop.Name) data then
+                        prop.Get id data |> Some
+                    else
+                        // attempt ad hoc inheritance; TODO, build this into ribbit
+                        let parentId = Domain.Ribbit.Operations.prototypeP.Get id data
+                        if parentId > 0 then recur parentId
+                        else None
+                recur id
+            | None -> None
+
+    let update msg (model:d) =
         match msg with
         | Define name ->
+            let model =
+                { model with ribbit = model.ribbit.transform (stateChange { do! Domain.Ribbit.Operations.addKind name.extract (fun _ rbt -> (), rbt) }) }
             { model with bestiary = model.bestiary |> Bestiary.define name }
         | DeclareAction (name, action) ->
             let declare name model =
@@ -108,43 +123,43 @@ module Game =
             | None ->
                 { model with bestiary = model.bestiary |> Bestiary.declareXP name xp }
         | DeclareHP (Name(nameStr) as name, (HP v as hp)) ->
-            let model =
-                match model.ribbit.data.roster |> Map.tryFind nameStr with
-                | Some id ->
-                    { model with ribbit = model.ribbit.update (Set(PropertyAddress(id, Operations.hpP.Name), Number v)) }
-                | None -> model
-            match model.stats |> Map.tryFind name with
-            | Some creature ->
-                { model with stats = model.stats |> Map.add name { creature with HP = v }}
-            | None ->
-                { model with bestiary = model.bestiary |> Bestiary.declareHP name hp }
-        | Add (Name nameStr as name) ->
-            let model = { model with ribbit = model.ribbit.transform (Operations.addCharacterToRoster nameStr) }
+            match model.ribbit.data.roster |> Map.tryFind nameStr |> Option.orElse (model.ribbit.data.kindsOfMonsters |> Map.tryFind nameStr) with
+            | Some id ->
+                { model with ribbit = model.ribbit.update (Set(PropertyAddress(id, Operations.hpP.Name), Number v)) }
+            | None -> shouldntHappen()
+        | Add (name) ->
+            let add =
+                stateChange {
+                    let name = name.extract
+                    let! isMonsterKind = Ribbit.GetM(fun d -> d.kindsOfMonsters.ContainsKey name)
+                    do! if isMonsterKind then Operations.addMonster name (fun _ r -> (), r) >> ignoreM
+                        else Operations.addCharacterToRoster name >> ignoreM
+                    }
+
+            let model = { model with ribbit = model.ribbit.transform add }
             match model.bestiary |> Map.tryFind name with
             | None ->
                 { model with
                     roster = model.roster@[name]
                     stats = model.stats |> Map.add name (Creature.fresh name None) }
             | Some def ->
-                match def.hp with
-                | None ->
-                    failwith $"{nameStr} must declare HP first"
-                | Some (HP hp) ->
-                    let individualName = Seq.unfold (fun i -> Some(Name $"{nameStr} #{i}", i+1)) 1 |> Seq.find (fun name' -> model.stats.ContainsKey name' |> not)
-                    { model with
-                        roster = model.roster@[individualName]
-                        stats = model.stats |> Map.add individualName { Creature.fresh individualName (Some name) with HP = hp } }
+                let nameStr = name.extract
+                let individualName = Seq.unfold (fun i -> Some(Name $"{nameStr} #{i}", i+1)) 1 |> Seq.find (fun name' -> model.stats.ContainsKey name' |> not)
+                { model with
+                    roster = model.roster@[individualName]
+                    stats = model.stats |> Map.add individualName (Creature.fresh individualName (Some name)) }
         | InflictDamage(src, target, HP hpLoss) ->
             match model.stats |> Map.tryFind src, model.stats |> Map.tryFind target with
             | Some src, Some target ->
-                let hp = target.HP
+                let hp = Getters.tryGetRibbit target.name.extract Domain.Ribbit.Operations.hpP model |> Option.defaultValue 0
                 let hp' = hp - hpLoss
                 let isKill = hp > 0 && hp' <= 0
                 // we don't let monster damage go negative, but we let hero damage go negative just in case their HP were never recorded
                 let hpLoss = if isKill then hp elif (hp <= 0 && target.templateType.IsSome) then 0 else hpLoss
                 let recordInteraction (name: Name) amount = Map.change name (function None -> Some amount | Some v -> Some (v+amount))
-                let target' = { target with HP = target.HP - hpLoss; woundLog = { target.woundLog with woundedBy = target.woundLog.woundedBy |> recordInteraction src.name hpLoss } }
+                let target' = { target with woundLog = { target.woundLog with woundedBy = target.woundLog.woundedBy |> recordInteraction src.name hpLoss } }
                 let src' = { src with woundLog = { src.woundLog with victims = src.woundLog.victims |> recordInteraction target.name hpLoss } }
+                let model = { model with ribbit = model.ribbit.update (Set(PropertyAddress(model.ribbit.data.roster[target.name.extract], Operations.hpP.Name), Number hp')) }
                 let model' = { model with stats = model.stats |> Map.add src.name src' |> Map.add target.name target' }
                 if isKill = false then
                     model'
@@ -181,7 +196,9 @@ module Game =
                     if creature.templateType.IsNone then
                         true // never clear PCs
                     else
-                        creature.HP > 0 // clear dead monsters
+                        match Getters.tryGetRibbit name.extract Domain.Ribbit.Operations.hpP model with
+                        | Some v -> v >= 0 // clear unambiguously-dead monsters
+                        | _ -> false // if HP hasn't been set yet it can't be dead
                     )
             { model with roster = roster'; stats = model.stats |> Map.filter (fun name _ -> roster' |> List.contains name) }
         | Remove names ->
@@ -217,7 +234,6 @@ module Game =
         static member declareXP name xp = update (DeclareXP (Name name, XP xp))
         static member add name = update (Add (Name name))
         static member damage src target hp = update (InflictDamage (Name src, Name target, HP hp))
-        static member getHP name (model:d) = model.stats[Name name].HP
         static member getXPEarned name (model:d) = model.stats[Name name].xpEarned
 
 
