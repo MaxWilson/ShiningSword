@@ -14,13 +14,15 @@ type Msg =
     | SubmitInput
     | ExecuteCommand of Game.Command
     | ToggleHelp of bool
+    | ToggleBestiary of bool
+    | ToggleLog of bool
 
 module Model =
     open Packrat
     open Commands
     type GameMode = Declaring | Executing of Name list
-    type d = { input: string; game: Game.d; errors: string list; showHelp: bool; mode: GameMode }
-    let fresh = { input = ""; game = Game.fresh; errors = []; showHelp = false; mode = Declaring }
+    type d = { input: string; game: Game.d; errors: string list; log: string list; showHelp: bool; showBestiary: bool; showLog: bool; mode: GameMode }
+    let fresh = { input = ""; game = Game.fresh; errors = []; log = []; showHelp = false; showBestiary = true; showLog = false; mode = Declaring }
     let executeIfPossible ui cmd =
         try
             { ui with input = ""; game = ui.game |> Game.update cmd; errors = [] }
@@ -29,7 +31,12 @@ module Model =
     let executeInputIfPossible input (ui: d) =
         match ParseArgs.Init(input, ui.game) with
         | Commands (cmds, End) ->
-            cmds |> List.fold executeIfPossible ui
+            let ui = cmds |> List.fold executeIfPossible ui
+            let hadSuccessfulExecution = ui.errors.Length < cmds.Length
+            if hadSuccessfulExecution then
+                { ui with log = ui.log@[input] }
+            else
+                ui
         | Command (cmd, End) ->
             executeIfPossible ui cmd
         | _ -> ui
@@ -58,6 +65,8 @@ let init initialCmd =
     |> executeInputIfPossible "Grue #1 hp 23"
     |> executeInputIfPossible "Boort hits Grue 1 for 10, Grue 2 for 10, Grue 3 for 5"
     |> executeInputIfPossible "Grue hp 17, xp 50"
+    |> executeInputIfPossible "Grue 1 hp 14"
+    |> executeInputIfPossible "Grue 2 maxhp 18, xp 50"
 
 #endif
 
@@ -101,6 +110,8 @@ let update msg (model: Model.d) =
     | SubmitInput -> model |> Model.executeInputIfPossible model.input
     | ExecuteCommand cmd -> Model.executeIfPossible model cmd
     | ToggleHelp showHelp -> { model with showHelp = showHelp }
+    | ToggleBestiary showBestiary -> { model with showBestiary = showBestiary }
+    | ToggleLog showLog -> { model with showLog = showLog }
 
 open UI.Components
 
@@ -122,7 +133,7 @@ let view (model: Model.d) dispatch =
         Html.tbody [
             for (Name name) as name' in getAllNames model do
                 let isSelected = match model.mode with Executing (h::_) when h = name' -> true | _ -> false
-                class' (if isSelected then "currentTurn" else "") Html.tr [
+                class' Html.tr (if isSelected then "currentTurn" else "") [
                     let get f = model |> get name' f
                     let type1 = get templateType
                     textCell $"{name}"
@@ -168,7 +179,7 @@ let view (model: Model.d) dispatch =
                 ]
             ]
     let inputPanel =
-        class' "inputPanel" Html.div [
+        class' Html.div "inputPanel" [
             let label =
                 match model.mode with
                 | Declaring -> "Declaring"
@@ -209,32 +220,47 @@ let view (model: Model.d) dispatch =
                 Html.div err
             ]
     let bestiary =
-        class' "bestiary" Html.table [
-            Html.thead [
-                Html.tr [Html.th [prop.text "Type"]; Html.th [prop.text "HP"]; Html.th [prop.text "XP reward"]]
-                ]
-            Html.tbody [
-                for KeyValue(name, type1) in model.game.bestiary do
-                    Html.tr [
-                        match model.mode with
-                        | Executing (h::_) when h = name ->
-                            prop.className "currentTurn"
-                        | _ -> ()
-                        prop.children [
-                            textCell (match name with Name name -> name)
-                            let onNumber ctor valueCtor value = ctor(name, valueCtor value) |> ExecuteCommand |> dispatch
-                            let hp = tryGetRibbit name.extract Domain.Ribbit.Operations.hpP model |> Option.map toString |> Option.defaultValue ""
-                            editableNumberCell hp (onNumber Game.DeclareHP HP)
-                            editableNumberCell (match type1.xp with Some (XP v) -> v.ToString() | None -> "") (onNumber Game.DeclareXP XP)
-                            ]
+        CollapsibleSection.create ("bestiary", model.showBestiary, ToggleBestiary >> dispatch) <| fun () ->
+            class' Html.table "bestiary" [
+                Html.thead [
+                    Html.tr [Html.th [prop.text "Type"]; Html.th [prop.text "HP"]; Html.th [prop.text "XP reward"]]
+                    ]
+                Html.tbody [
+                    for KeyValue(name, type1) in model.game.bestiary do
+                        Html.tr [
+                            match model.mode with
+                            | Executing (h::_) when h = name ->
+                                prop.className "currentTurn"
+                            | _ -> ()
+                            prop.children [
+                                textCell (match name with Name name -> name)
+                                let onNumber ctor valueCtor value = ctor(name, valueCtor value) |> ExecuteCommand |> dispatch
+                                let hp = tryGetRibbit name.extract Domain.Ribbit.Operations.hpP model |> Option.map toString |> Option.defaultValue ""
+                                editableNumberCell hp (onNumber Game.DeclareHP HP)
+                                editableNumberCell (match type1.xp with Some (XP v) -> v.ToString() | None -> "") (onNumber Game.DeclareXP XP)
+                                ]
+                        ]
                     ]
                 ]
-            ]
-    class' "dev" Html.div [
+    let log =
+        CollapsibleSection.create("log", model.showLog, ToggleLog >> dispatch) <| fun () ->
+            Html.div [
+                let title (txt: string) = Html.div [prop.className "title"; prop.text txt]
+                if model.log.Length = 0 then
+                    title "Nothing has happened yet"
+                else
+                    title "What has happened so far:"
+                    Html.ul [
+                        for logEntry in model.log do
+                            Html.li logEntry
+                        ]
+                ]
+    class' Html.div "dev" [
         withHelp model.showHelp helpText (ToggleHelp >> dispatch) [
             table
             inputPanel
             errors
-            bestiary
+            CollapsibleSection.render bestiary
+            CollapsibleSection.render log
             ]
         ]

@@ -63,6 +63,7 @@ module Game =
         | SetNotes of Name * string list
         | DeclareXP of Name * XP
         | DeclareHP of Name * HP
+        | DeclareMaxHP of Name * HP
         | Add of Name
         | InflictDamage of src:Name * target:Name * hp:HP
         | ClearDeadCreatures
@@ -122,10 +123,20 @@ module Game =
                 { model with stats = model.stats |> Map.add name { creature with xpEarned = v }}
             | None ->
                 { model with bestiary = model.bestiary |> Bestiary.declareXP name xp }
-        | DeclareHP (Name(nameStr) as name, (HP v as hp)) ->
+        | DeclareMaxHP (Name(nameStr) as name, (HP v as hp)) ->
             match model.ribbit.data.roster |> Map.tryFind nameStr |> Option.orElse (model.ribbit.data.kindsOfMonsters |> Map.tryFind nameStr) with
             | Some id ->
                 { model with ribbit = model.ribbit.update (Set(PropertyAddress(id, Operations.hpP.Name), Number v)) }
+            | None -> shouldntHappen()
+        | DeclareHP (Name(nameStr) as name, (HP v as hp)) ->
+            match model.ribbit.data.roster |> Map.tryFind nameStr |> Option.orElse (model.ribbit.data.kindsOfMonsters |> Map.tryFind nameStr) with
+            | Some id ->
+                match Getters.tryGetRibbit nameStr Operations.damageTakenP model with
+                | Some damageTaken ->
+                    let hp' = v + damageTaken
+                    { model with ribbit = model.ribbit.update (Set(PropertyAddress(id, Operations.hpP.Name), Number hp')) }
+                | None ->
+                    { model with ribbit = model.ribbit.update (Set(PropertyAddress(id, Operations.hpP.Name), Number v)) }
             | None -> shouldntHappen()
         | Add (name) ->
             let add =
