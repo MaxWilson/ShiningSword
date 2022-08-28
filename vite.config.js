@@ -6,6 +6,7 @@ import { viteCommonjs } from '@originjs/vite-plugin-commonjs';
 import mkcert from 'vite-plugin-mkcert'
 import react from '@vitejs/plugin-react';
 import fs from 'fs';
+import htmlTemplate from 'vite-plugin-html-template'
 
 var CONFIG = {
     // The tags to include the generated JS and CSS will be automatically injected in the HTML template
@@ -32,6 +33,22 @@ function resolve(filePath) {
     return path.isAbsolute(filePath) ? filePath : path.join(__dirname, filePath);
 }
 
+let htmlPlugin = htmlTemplate({
+  pages: {
+    index: {
+      filename: 'index.html',
+      chunks: ['app'],
+      template: "./src/ShiningSword/UI/dev.html" //CONFIG.indexHtmlTemplate
+    },
+    dev: {
+      filename: 'dev.html',
+      chunks: ['dev'],
+      template: CONFIG.devHtmlTemplate
+      },
+    },
+    
+  })
+
 export default defineConfig({
   resolve: {
     alias: [
@@ -57,6 +74,7 @@ export default defineConfig({
   plugins: [
     viteCommonjs(),
     envCompatible(),
+    react(),
     createHtmlPlugin({
       minify: 'auto',
       inject: {
@@ -90,9 +108,5 @@ export default defineConfig({
       }
     },
     base: path.resolve(__dirname, 'src/ShiningSword/public'),
-    plugins: [ react() ]
-  },
-  define: {
-   
   }
 })
