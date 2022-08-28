@@ -34,7 +34,7 @@ type AdventureState = {
     allies: Domain.Character.Universal.CharacterSheet list
     currentEncounter: OngoingEncounter option
     scheduledEncounters: Encounter list
-    ribbit: Ribbit.Ribbit
+    ribbit: Ribbit
     }
 
 let loadCharacters (characters: CharacterSheet list) (adventureState: AdventureState) =

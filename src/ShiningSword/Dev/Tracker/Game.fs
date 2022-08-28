@@ -80,12 +80,12 @@ module Game =
     let fresh = { roster = []; stats = Map.empty; bestiary = Bestiary.fresh; initRolls = Map.empty; ribbit = Ribbit.Fresh }
 
     module Getters =
-        let tryGetRibbit name (prop: Domain.Ribbit.Property<_>) (game:d) =
+        let tryGetRibbit name (prop: Property<_>) (game:d) =
             let data = game.ribbit.data
             match data.roster |> Map.tryFind name |> Option.orElse (data.kindsOfMonsters |> Map.tryFind name) with
             | Some id ->
                 let rec recur id =
-                    if Domain.Ribbit.Ops.hasValue (id, prop.Name) data then
+                    if hasValue (id, prop.Name) data then
                         prop.Get id data |> Some
                     else
                         // attempt ad hoc inheritance; TODO, build this into ribbit

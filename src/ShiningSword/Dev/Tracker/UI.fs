@@ -116,10 +116,12 @@ let update msg (model: Model.d) =
 open UI.Components
 
 module Getters =
+    open Domain.Ribbit
+
     let getAllNames (model:Model.d) =
         model.game.roster
     let get name getter (model:Model.d) = model.game.stats[name] |> getter
-    let tryGetRibbit name (prop: Domain.Ribbit.Property<_>) (model:Model.d) =
+    let tryGetRibbit name (prop: Property<_>) (model:Model.d) =
         model.game |> Game.Getters.tryGetRibbit name prop
 
 open Getters

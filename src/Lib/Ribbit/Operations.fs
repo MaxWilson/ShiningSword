@@ -1,7 +1,6 @@
 module Domain.Ribbit.Operations
 open Domain.Ribbit
 open Domain.Character
-open Domain.Ribbit.Ops
 
 let propFail rowId propName (ribbit: RibbitData) =
     let name =
