@@ -11,8 +11,8 @@ type LogEntry = { msg: string; important: bool; category: LogCategory }
     with
     static member create msg = { msg = msg; important = false; category = Neither }
     static member create(msg, important, category) = { msg = msg; important = important; category = category }
-
 type RibbitRequest = DataRequest of Id * propertyName: Name
+type RibbitError = Awaiting of RibbitRequest | BugReport of msg: string
 type Address = LocalAddress of variableName: Name | PropertyAddress of Id * propertyName: Name
 type RibbitMsg =
     | ReserveId of Id
@@ -21,57 +21,17 @@ type RibbitMsg =
     | RegisterRequest of RibbitRequest
     | Set of Address * value: RuntimeValue
     | SetRoster of Map<Name, Id>
-type RibbitError = Awaiting of RibbitRequest | BugReport of msg: string
 
 type Property(name: Name, runtimeType: RuntimeType) =
     member this.Name = name
     member this.Type = runtimeType
 
-[<AbstractClass>]
-type Property<'t>(name, runtimeType) =
-    inherit Property(name, runtimeType)
-    abstract Get: Id -> RibbitData -> 't
-    abstract GetM: Id -> Evaluation<'t>
-    abstract Set: Id *'t -> Ribbit -> Ribbit
-    abstract SetM: Id * 't -> StateChange<Ribbit, unit>
-and [<AbstractClass>]
-    Expression<'t>() =
-    abstract Eval: EvaluationContext -> 't RValue // expressions CANNOT modify state or the evaluation context variables, they can only succeed or fail.
-and ExecutionContext = {
-    locals: Row // e.g. arguments to the event within which the expression is embedded
-    instructionPointer: int
-    state: Ribbit
-}
-and EvaluationContext = {
-    locals: Row // e.g. arguments to the event within which the expression is embedded
-    ribbit: RibbitData
-}
-and RValue<'t> = Result<'t, RibbitError>
-and Evaluation<'t> = EvaluationContext -> RValue<'t> // In this context, rvalue = something that can be bound to a let! variable. The Evaluation is the thing that we might be able to use to create the RValue, or else a RibbitError like Awaiting DataRequest
-and Execution = StateChange<ExecutionContext, RValue<unit>>
-
-and PropertiesByType = {
-    number: Map<Name, Property<int>>
-    id: Map<Name, Property<Id>>
-    roll: Map<Name, Property<RollSpec>>
-    rolls: Map<Name, Property<RollSpec list>>
-    flags: Map<Name, Property<string Set>>
-    bool: Map<Name, Property<bool>>
-    }
-    with static member fresh = { number = Map.empty; id = Map.empty; roll = Map.empty; rolls = Map.empty; flags = Map.empty; bool = Map.empty }
-
-and Scope = {
+type Scope = {
     rows: Map<Id, Row>
     biggestIdSoFar: Id option
     }
     with static member fresh = { rows = Map.empty; biggestIdSoFar = None }
-
-and Affordance = {
-    name: Name
-    action: Id -> Ribbit -> Ribbit
-    }
-
-and RibbitData = {
+type RibbitData = {
     properties: PropertiesByType // used primarily in parsing and serialization scenarios. Otherwise use props directly via object references.
     kindsOfMonsters: Map<Name, Id> // used for looking up kinds if necessary
     roster: Map<Name, Id> // actual creatures, by specific name like "Orc #1" or "Ugly Orc"
@@ -84,6 +44,11 @@ and RibbitData = {
     static member fresh = { scope = Scope.fresh; kindsOfMonsters = Map.empty; roster = Map.empty; categories = Map.empty;
         affordances = Map.empty; properties = PropertiesByType.fresh; openRequests = []
         }
+and Affordance = {
+    name: Name
+    action: Id -> Ribbit -> Ribbit
+    }
+
 and RibbitUnwrapped = Delta.DeltaDrivenState<RibbitData, RibbitMsg>
 and Ribbit = Ribbit of RibbitUnwrapped
     with
@@ -97,6 +62,38 @@ and Ribbit = Ribbit of RibbitUnwrapped
     member this.transform stateChange = (stateChange |> runNoResult this)
     member this.transformM stateChange = (), match this with Ribbit(data) -> (stateChange |> runNoResult data |> Ribbit)
     member this.transformM stateChange = (), (stateChange |> runNoResult this |> Ribbit)
+and ExecutionContext = {
+    locals: Row // e.g. arguments to the event within which the expression is embedded
+    instructionPointer: int
+    state: Ribbit
+}
+and EvaluationContext = {
+    locals: Row // e.g. arguments to the event within which the expression is embedded
+    ribbit: RibbitData
+}
+and [<AbstractClass>]
+    Property<'t>(name, runtimeType) =
+    inherit Property(name, runtimeType)
+    abstract Get: Id -> RibbitData -> 't
+    abstract GetM: Id -> Evaluation<'t>
+    abstract Set: Id *'t -> Ribbit -> Ribbit
+    abstract SetM: Id * 't -> StateChange<Ribbit, unit>
+and [<AbstractClass>]
+    Expression<'t>() =
+    abstract Eval: EvaluationContext -> 't RValue // expressions CANNOT modify state or the evaluation context variables, they can only succeed or fail.
+and RValue<'t> = Result<'t, RibbitError>
+and Evaluation<'t> = EvaluationContext -> RValue<'t> // In this context, rvalue = something that can be bound to a let! variable. The Evaluation is the thing that we might be able to use to create the RValue, or else a RibbitError like Awaiting DataRequest
+and Execution = StateChange<ExecutionContext, RValue<unit>>
+
+and PropertiesByType = {
+    number: Map<Name, Property<int>>
+    id: Map<Name, Property<Id>>
+    roll: Map<Name, Property<RollSpec>>
+    rolls: Map<Name, Property<RollSpec list>>
+    flags: Map<Name, Property<string Set>>
+    bool: Map<Name, Property<bool>>
+    }
+    with static member fresh = { number = Map.empty; id = Map.empty; roll = Map.empty; rolls = Map.empty; flags = Map.empty; bool = Map.empty }
     
 and Statements = Sequence of Statement list | While of Expression<bool> * Statements
 and CompiledStatements = Statement array
