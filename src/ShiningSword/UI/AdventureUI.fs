@@ -35,9 +35,9 @@ let recruitCompanions model control dispatch =
     else
         Recruit (candidates |> chooseRandomExponentialDecay 0.2 chooseRandom) |> dispatch
 
-let stillAlive (ribbit: RibbitData) (char: CharacterSheet) =
+let stillAlive (ribbit: Ribbit) (char: CharacterSheet) =
     let name = char.converge((fun c -> c.name), (fun c -> c.name))
-    match ribbit.roster |> Map.tryFind name with
+    match ribbit.data.roster |> Map.tryFind name with
     | Some id ->
         (Domain.Ribbit.Operations.hpP.Get id ribbit) > (Domain.Ribbit.Operations.damageTakenP.Get id ribbit)
     | None -> true // if he's not been in combat yet then he's obviously still alive
@@ -128,7 +128,7 @@ let view model control dispatch =
                 ]
         | _ -> ()
         if model.activity <> Downtime then
-            let ribbit = model.state.ribbit.data
+            let ribbit = model.state.ribbit
             let isFriendly id =
                 ribbit |> isFriendlyP.Get(id)
             let get f (_, id) = (f id ribbit).ToString()
@@ -140,7 +140,7 @@ let view model control dispatch =
                 else
                     $"{(hp-damage)}/{hp}"
             let rosterIds =
-                ribbit.roster |> Map.toList
+                ribbit.data.roster |> Map.toList
                 |> List.sortBy(function
                     name, id ->
                         // friendlies first, then enemies; living before dead; otherwise in order of creation
@@ -195,7 +195,7 @@ let view model control dispatch =
         | CompletingAdventure ->
             // later on if there are more choices, this could become a full-fledged Adventuring phase with RP choices
             let finish _ =
-                if model.state.mainCharacter |> stillAlive (model.state.ribbit.data) then
+                if model.state.mainCharacter |> stillAlive (model.state.ribbit) then
                     Save |> control
                     Proceed |> dispatch
                 else

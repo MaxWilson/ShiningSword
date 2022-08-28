@@ -21,7 +21,7 @@ var CONFIG = {
     indexHtmlTemplate: "./src/ShiningSword/UI/index.html",
     devHtmlTemplate: "./src/ShiningSword/UI/dev.html",
     fsharpEntry: "./src/ShiningSword/UI/App.fs.js",
-    fsharpDevEntry: "./src/ShiningSword/Dev/App.fs.js",
+    fsharpDevEntry: "./src/ShiningSword/Dev/Main.fs.js",
     outputDir: "./dist",
     assetsDir: "./src/ShiningSword/public",
     devServerPort: 8080,

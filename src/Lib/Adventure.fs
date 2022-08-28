@@ -77,7 +77,7 @@ let clearEnemies adventureState =
     let ribbit =
         stateChange {
             let! ribbit = Ribbit.GetM id
-            let friendlies = ribbit.roster |> Map.filter (fun name id -> isFriendlyP.Get id ribbit)
+            let friendlies = ribbit.data.roster |> Map.filter (fun name id -> isFriendlyP.Get id ribbit)
             // clear enemies from last encounter off the UI because they're all dead
             do! SetRoster friendlies |> Ribbit.ExecuteM
             }

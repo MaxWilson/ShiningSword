@@ -31,7 +31,8 @@
     <Compile Include="Domain\Character\Character2e.fs" />
     <Compile Include="Domain\Character\Character5e.fs" />
     <Compile Include="Domain\Character\CharacterUniversal.fs" />
-    <Compile Include="Domain\Ribbit\Types.fs" />
+    <Compile Include="Domain\Ribbit\DataStore.fs" />
+    <Compile Include="Domain\Ribbit\Core.fs" />
     <Compile Include="Domain\Ribbit\Operations.fs" />
     <Compile Include="Domain\Ribbit\Rules2e.fs" />
     <Compile Include="Domain\Ribbit\Rules5e.fs" />

@@ -67,7 +67,7 @@ module Operations =
     //        return msgs
     //        }
 
-    let getValue id (property: Property<'t>) = stateChange {
+    let getValue id (property: Property<'t, Ribbit>) = stateChange {
         let! value = property.GetM(id) |> withEvaluation
         return value
         }

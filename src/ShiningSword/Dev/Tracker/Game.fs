@@ -80,16 +80,16 @@ module Game =
     let fresh = { roster = []; stats = Map.empty; bestiary = Bestiary.fresh; initRolls = Map.empty; ribbit = Ribbit.Fresh }
 
     module Getters =
-        let tryGetRibbit name (prop: Property<_>) (game:d) =
+        let tryGetRibbit name (prop: Property<_,Ribbit>) (game:d) =
             let data = game.ribbit.data
             match data.roster |> Map.tryFind name |> Option.orElse (data.kindsOfMonsters |> Map.tryFind name) with
             | Some id ->
                 let rec recur id =
                     if hasValue (id, prop.Name) data then
-                        prop.Get id data |> Some
+                        prop.Get id game.ribbit |> Some
                     else
                         // attempt ad hoc inheritance; TODO, build this into ribbit
-                        let parentId = Domain.Ribbit.Operations.prototypeP.Get id data
+                        let parentId = Domain.Ribbit.Operations.prototypeP.Get id game.ribbit
                         if parentId > 0 then recur parentId
                         else None
                 recur id
@@ -142,7 +142,7 @@ module Game =
             let add =
                 stateChange {
                     let name = name.extract
-                    let! isMonsterKind = Ribbit.GetM(fun d -> d.kindsOfMonsters.ContainsKey name)
+                    let! isMonsterKind = Ribbit.GetM(fun d -> d.data.kindsOfMonsters.ContainsKey name)
                     do! if isMonsterKind then Operations.addMonster name (fun _ r -> (), r) >> ignoreM
                         else Operations.addCharacterToRoster name >> ignoreM
                     }

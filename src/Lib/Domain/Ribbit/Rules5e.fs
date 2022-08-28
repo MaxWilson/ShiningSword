@@ -46,13 +46,12 @@ let load (monsterKind:MonsterKind) =
 let create (monsterKind: MonsterKind) (n: int) =
     let initialize monsterId : StateChange<Ribbit, unit> = stateChange {
         // every monster has individual HD
-        let! ribbit = Ribbit.DataM
-        let hdRoll = hdP.Get monsterId ribbit
+        let! hdRoll = getF (hdP.Get monsterId)
         // always have at least 1 HP        
         do! (hpP.SetM (monsterId, hdRoll.roll() |> max 1))
         }
     stateChange {
-        let! alreadyLoaded = getM(fun ribbit -> ribbit.kindsOfMonsters.ContainsKey monsterKind.name)
+        let! alreadyLoaded = getM(fun ribbit -> ribbit.data.kindsOfMonsters.ContainsKey monsterKind.name)
         if alreadyLoaded |> not then
             do! load monsterKind
         for ix in 1..n do
@@ -135,7 +134,7 @@ let attack ids id = stateChange {
 
 let fightLogic = stateChange {
     let! initiativeOrder =
-        getM(fun ribbit -> ribbit.roster |> Map.values |> Array.ofSeq |> Array.map (fun id -> id, rand 20 + initBonusP.Get id ribbit) |> Array.sortByDescending snd)
+        getM(fun ribbit -> ribbit.data.roster |> Map.values |> Array.ofSeq |> Array.map (fun id -> id, rand 20 + initBonusP.Get id ribbit) |> Array.sortByDescending snd)
     let ids = initiativeOrder |> Array.map fst
     let mutable msgs = []
     for id, init in initiativeOrder do

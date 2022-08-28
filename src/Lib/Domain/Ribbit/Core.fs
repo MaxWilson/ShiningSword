@@ -6,20 +6,7 @@ open Domain.Character
 open Delta
 
 [<AutoOpen>]
-module rec Core =
-    type Id = int
-
-    type RuntimeType = Number | Id  | Text | Roll | Rolls | Flags | Bool
-    type RuntimeValue = Number of int | Id of Id | Text of string | Roll of RollSpec | Rolls of RollSpec list | Flags of string Set| Bool of bool
-    type Row = Map<Name, RuntimeValue>
-    type LogCategory = Good | Bad | Neither
-    type LogEntry = { msg: string; important: bool; category: LogCategory }
-        with
-        static member create msg = { msg = msg; important = false; category = Neither }
-        static member create(msg, important, category) = { msg = msg; important = important; category = category }
-    type RibbitRequest = DataRequest of Id * propertyName: Name
-    type RibbitError = Awaiting of RibbitRequest | BugReport of msg: string
-    type Address = LocalAddress of variableName: Name | PropertyAddress of Id * propertyName: Name
+module Core =
     type RibbitMsg =
         | ReserveId of Id
         | AssociateMonsterKind of monsterKind:Name * Id
@@ -28,32 +15,33 @@ module rec Core =
         | Set of Address * value: RuntimeValue
         | SetRoster of Map<Name, Id>
 
-    type Property(name: Name, runtimeType: RuntimeType) =
-        member this.Name = name
-        member this.Type = runtimeType
+    /// Ribbit operations that are about more than just data, such as logging and storing rosters
+    [<AutoOpen>]
+    module Composition =
+        type LogCategory = Good | Bad | Neither
+        type LogEntry = { msg: string; important: bool; category: LogCategory }
+            with
+            static member create msg = { msg = msg; important = false; category = Neither }
+            static member create(msg, important, category) = { msg = msg; important = important; category = category }
 
-    type Scope = {
-        rows: Map<Id, Row>
-        biggestIdSoFar: Id option
+    type 'Ribbit Affordance = {
+        name: Name
+        action: 'Ribbit Execution
         }
-        with static member fresh = { rows = Map.empty; biggestIdSoFar = None }
+            
     type RibbitData = {
         properties: PropertiesByType // used primarily in parsing and serialization scenarios. Otherwise use props directly via object references.
         kindsOfMonsters: Map<Name, Id> // used for looking up kinds if necessary
         roster: Map<Name, Id> // actual creatures, by specific name like "Orc #1" or "Ugly Orc"
         categories: Map<Name, (Id*Name) list> // mapping from king like "Orc" to specific name. Used for generating unique specific names.
         scope: Scope
-        affordances: Map<Name, Affordance>
+        affordances: Map<Name, Ribbit Affordance>
         openRequests: RibbitError list // probably also need some way of knowing what to restart after a request is filled
         }
         with
         static member fresh = { scope = Scope.fresh; kindsOfMonsters = Map.empty; roster = Map.empty; categories = Map.empty;
             affordances = Map.empty; properties = PropertiesByType.fresh; openRequests = []
             }
-    type Affordance = {
-        name: Name
-        action: Id -> Ribbit -> Ribbit
-        }
 
     and RibbitUnwrapped = Delta.DeltaDrivenState<RibbitData, RibbitMsg>
     and Ribbit = Ribbit of RibbitUnwrapped
@@ -62,44 +50,30 @@ module rec Core =
         static member DataM this = match this with Ribbit(data) -> data |> Delta.deref, this
         static member OfMonad (v, ribbit) = v, Ribbit(ribbit)
         static member ExecuteM msg this : unit * Ribbit = match this with Ribbit(data) -> data |> Delta.executeM msg |> Ribbit.OfMonad
+        static member Update msg (Ribbit ribbit) = Delta.execute msg ribbit |> Ribbit
+        member this.update msg = Ribbit.Update msg this
+        static member UpdateM msg (Ribbit ribbit) = (), Delta.execute msg ribbit |> Ribbit
+        static member GetM f (ribbit: Ribbit) = f ribbit, ribbit
         member this.delta = match this with Ribbit(data) -> data
         member this.data = match this with Ribbit(data) -> data |> Delta.deref
         member this.transform f = match this with Ribbit(data) -> Ribbit (f data)
         member this.transform stateChange = (stateChange |> runNoResult this)
         member this.transformM stateChange = (), match this with Ribbit(data) -> (stateChange |> runNoResult data |> Ribbit)
         member this.transformM stateChange = (), (stateChange |> runNoResult this |> Ribbit)
-    and ExecutionContext = {
-        locals: Row // e.g. arguments to the event within which the expression is embedded
-        instructionPointer: int
-        state: Ribbit
-    }
-    and EvaluationContext = {
-        locals: Row // e.g. arguments to the event within which the expression is embedded
-        ribbit: RibbitData
-    }
-    and [<AbstractClass>]
-        Property<'t>(name, runtimeType) =
-        inherit Property(name, runtimeType)
-        abstract Get: Id -> RibbitData -> 't
-        abstract GetM: Id -> Evaluation<'t>
-        abstract Set: Id *'t -> Ribbit -> Ribbit
-        abstract SetM: Id * 't -> StateChange<Ribbit, unit>
-    and [<AbstractClass>]
-        Expression<'t>() =
-        abstract Eval: EvaluationContext -> 't RValue // expressions CANNOT modify state or the evaluation context variables, they can only succeed or fail.
-    and RValue<'t> = Result<'t, RibbitError>
-    and Evaluation<'t> = EvaluationContext -> RValue<'t> // In this context, rvalue = something that can be bound to a let! variable. The Evaluation is the thing that we might be able to use to create the RValue, or else a RibbitError like Awaiting DataRequest
-    and Execution = StateChange<ExecutionContext, RValue<unit>>
-
     and PropertiesByType = {
-        number: Map<Name, Property<int>>
-        id: Map<Name, Property<Id>>
-        roll: Map<Name, Property<RollSpec>>
-        rolls: Map<Name, Property<RollSpec list>>
-        flags: Map<Name, Property<string Set>>
-        bool: Map<Name, Property<bool>>
+        number: Map<Name, Property<int, Ribbit>>
+        id: Map<Name, Property<Id, Ribbit>>
+        roll: Map<Name, Property<RollSpec, Ribbit>>
+        rolls: Map<Name, Property<RollSpec list, Ribbit>>
+        flags: Map<Name, Property<string Set, Ribbit>>
+        bool: Map<Name, Property<bool, Ribbit>>
         }
         with static member fresh = { number = Map.empty; id = Map.empty; roll = Map.empty; rolls = Map.empty; flags = Map.empty; bool = Map.empty }
+
+
+    and [<AbstractClass>]
+        Expression<'t>() =
+        abstract Eval: 'Ribbit EvaluationContext -> 't RValue // expressions CANNOT modify state or the evaluation context variables, they can only succeed or fail.
     
     and Statements = Sequence of Statement list | While of Expression<bool> * Statements
     and CompiledStatements = Statement array
@@ -110,10 +84,10 @@ module rec Core =
     type FightResult = Victory | Defeat | Ongoing
     type RoundResult = { outcome: FightResult; msgs: LogEntry list; ribbit: Ribbit }
 
-    let getRibbit (ctx: EvaluationContext) = ctx.ribbit
+    let getRibbit (ctx: Ribbit EvaluationContext) = ctx.ribbit
 
-    let withEvaluation (f: _ Evaluation) (ctx:ExecutionContext) =
-        let ribbit = ctx.state.data
+    let withEvaluation (f: Evaluation<_,_>) (ctx: Ribbit ExecutionContext) =
+        let ribbit = ctx.state
         (f { ribbit = ribbit; locals = ctx.locals }), ctx
 
     let castFailure (runtimeType: RuntimeType) id propName (v: RuntimeValue) =
@@ -123,9 +97,9 @@ module rec Core =
     // receive a value.
     let registerRequest request = fun state -> (), state |> Delta.execute (RegisterRequest request)
 
-    let private _get (rowId: Id, propertyName: Name, fallback, getter) (ribbit: RibbitData) =
+    let private _get (rowId: Id, propertyName: Name, fallback, getter) (ribbit: Ribbit) =
         let rec recur rowId' =
-            match ribbit.scope.rows with
+            match ribbit.data.scope.rows with
             | Map.Lookup rowId' (Map.Lookup propertyName value) -> getter value
             | Map.Lookup rowId' (Map.Lookup "prototype" (Id id)) when id > 0 -> recur id
             | _ -> fallback()
@@ -138,7 +112,7 @@ module rec Core =
             | None -> BugReport $"row #{rowId} property {propertyName} was accessed synchronously but was actually missing" |> Error
         _get (rowId, propertyName, fallback, getter)
 
-    let getAsync<'t> (rowId, propertyName, defaultValue: 't option, castRuntimeValue) (ribbit: RibbitData) =
+    let getAsync<'t> (rowId, propertyName, defaultValue: 't option, castRuntimeValue) (ribbit: Ribbit) =
         let fallback() =
             // first check if there's a default
             match defaultValue with
@@ -151,14 +125,8 @@ module rec Core =
 
     // this doesn't smell quite right--why does it need to be specially synchronous? Used only for FlagsProperty. TODO: decide if upsert should be an expression instead
     let upsertScope (rowId: Id, propertyName: Name, defaultValue: RuntimeValue, upsert: RuntimeValue option -> RuntimeValue) : StateChange<Ribbit,unit> = stateChange {
-        let! ribbit = Ribbit.DataM
-        let scope = ribbit.scope
-        let currentValue = ribbit |> _get (rowId, propertyName, thunk None, Some)
+        let! currentValue = Ribbit.GetM (_get (rowId, propertyName, thunk None, Some))
         do! Set(PropertyAddress (rowId, propertyName), upsert currentValue) |> Ribbit.ExecuteM
-        }
-
-    let setState (rowId: Id, propertyName: Name, runtimeValue: RuntimeValue as args) = stateChange {
-        do! Set(PropertyAddress(rowId, propertyName), runtimeValue) |> Ribbit.ExecuteM
         }
 
     let hasValue (rowId, propertyName) (ribbit: RibbitData) =
@@ -194,21 +162,13 @@ module rec Core =
         | SetRoster(roster) -> { ribbit with roster = roster }
 
     type Ribbit with
-        static member Update msg (Ribbit ribbit) =
-            Delta.execute msg ribbit |> Ribbit
-        member this.update msg = Ribbit.Update msg this
-        static member UpdateM msg (Ribbit ribbit) =
-            (), Delta.execute msg ribbit |> Ribbit
-        static member GetM f (ribbit: Ribbit) =
-            f ribbit.data, ribbit
         static member Fresh = Delta.create((fun () -> RibbitData.fresh), update) |> Ribbit
 
 type NumberProperty(name, defaultValue: _ option) =
-    inherit Property<int>(name, RuntimeType.Number)
+    inherit Property<int, Ribbit>(name, RuntimeType.Number)
     override this.Set(rowId, value) (state: Ribbit) =
-        state |> setState (rowId, name, Number value) |> snd
-    override this.SetM(rowId, value) = setState (rowId, name, Number value)
-    override this.Get(rowId) (ribbit: RibbitData) =
+        state |> (Set(PropertyAddress(rowId, name), Number value) |> Ribbit.Update)
+    override this.Get(rowId) (ribbit: Ribbit) =
         match ribbit |> getSynchronously (rowId, name, defaultValue, function Number n -> Ok n | v -> castFailure RuntimeType.Number rowId name v) with
         | Ok value -> value
         | Error (BugReport msg) -> failwith msg // shouldn't use synchronous Get on a property that's lazy
@@ -219,11 +179,10 @@ type NumberProperty(name, defaultValue: _ option) =
     new(name) = NumberProperty(name, None)
 
 type BoolProperty(name, defaultValue: _ option) =
-    inherit Property<bool>(name, RuntimeType.Bool)
+    inherit Property<bool, Ribbit>(name, RuntimeType.Bool)
     override this.Set(rowId, value) (state: Ribbit) =
-        state |> setState (rowId, name, Bool value) |> snd
-    override this.SetM(rowId, value) = setState (rowId, name, Bool value)
-    override this.Get(rowId) (ribbit: RibbitData) =
+        state |> (Set(PropertyAddress(rowId, name), Bool value) |> Ribbit.Update)
+    override this.Get(rowId) (ribbit: Ribbit) =
         match ribbit |> getSynchronously (rowId, name, defaultValue, function Bool b -> Ok b | v -> castFailure RuntimeType.Number rowId name v) with
         | Ok value -> value
         | Error (BugReport msg) -> failwith msg // shouldn't use synchronous Get on a property that's lazy
@@ -234,11 +193,10 @@ type BoolProperty(name, defaultValue: _ option) =
     new(name) = BoolProperty(name, None)
 
 type RollProperty(name, defaultValue) =
-    inherit Property<RollSpec>(name, RuntimeType.Roll)
+    inherit Property<RollSpec, Ribbit>(name, RuntimeType.Roll)
     override this.Set(rowId, value) (state: Ribbit) =
-        state |> setState (rowId, name, Roll value) |> snd
-    override this.SetM(rowId, value) = setState (rowId, name, Roll value)
-    override this.Get(rowId) (ribbit: RibbitData) =
+        state |> (Set(PropertyAddress(rowId, name), Roll value) |> Ribbit.Update)
+    override this.Get(rowId) (ribbit: Ribbit) =
         match ribbit |> getSynchronously (rowId, name, defaultValue, function Roll r -> Ok r | v -> castFailure RuntimeType.Number rowId name v) with
         | Ok value -> value
         | Error (BugReport msg) -> failwith msg // shouldn't use synchronous Get on a property that's lazy
@@ -249,11 +207,10 @@ type RollProperty(name, defaultValue) =
     new(name) = RollProperty(name, None)
 
 type RollsProperty(name, defaultValue) =
-    inherit Property<RollSpec list>(name, RuntimeType.Rolls)
+    inherit Property<RollSpec list, Ribbit>(name, RuntimeType.Rolls)
     override this.Set(rowId, value) (state: Ribbit) =
-        state |> setState (rowId, name, Rolls value) |> snd
-    override this.SetM(rowId, value) = setState (rowId, name, Rolls value)
-    override this.Get(rowId) (ribbit: RibbitData) =
+        state |> (Set(PropertyAddress(rowId, name), Rolls value) |> Ribbit.Update)
+    override this.Get(rowId) (ribbit: Ribbit) =
         match ribbit |> getSynchronously (rowId, name, defaultValue, function Rolls rs -> Ok rs | v -> castFailure RuntimeType.Number rowId name v) with
         | Ok value -> value
         | Error (BugReport msg) -> failwith msg // shouldn't use synchronous Get on a property that's lazy
@@ -264,18 +221,17 @@ type RollsProperty(name, defaultValue) =
     new(name) = RollsProperty(name, None)
 
 type FlagsProperty<'t>(name, defaultValue: string Set) =
-    inherit Property<string Set>(name, RuntimeType.Flags)
+    inherit Property<string Set, Ribbit>(name, RuntimeType.Flags)
     override this.Set(rowId, value) (state: Ribbit) =
-        state |> setState (rowId, name, Flags value) |> snd
-    override this.SetM(rowId, value) = setState (rowId, name, Flags value)
-    override this.Get(rowId) (ribbit: RibbitData) =
+        state |> (Set(PropertyAddress(rowId, name), Flags value) |> Ribbit.Update)
+    override this.Get(rowId) (ribbit: Ribbit) =
         match ribbit |> getSynchronously (rowId, name, Some defaultValue, function Flags f -> Ok f | _ -> Ok defaultValue) with
         | Ok value -> value
         | Error (BugReport msg) -> failwith msg // shouldn't use synchronous Get on a property that's lazy
         | Error _ -> shouldntHappen() // shouldn't use synchronous Get on a property that's lazy
     override this.GetM(rowId) =
         getRibbit >> getAsync (rowId, name, Some defaultValue, function Flags b -> Ok b | v -> castFailure RuntimeType.Flags rowId name v)
-    member this.SetAll(rowId, value) = (this :> Property<string Set>).Set(rowId, value)
+    member this.SetAll(rowId, value) = (this :> Property<string Set, Ribbit>).Set(rowId, value)
     member this.SetFlag(rowId, targetFlag:'t, value) (state: Ribbit) =
         let target = targetFlag.ToString()
         state |> upsertScope (rowId, name, Flags defaultValue, function
@@ -287,14 +243,14 @@ type FlagsProperty<'t>(name, defaultValue: string Set) =
             )
     member this.SetAllM(rowId, value) (state: Ribbit) = (), this.SetAll(rowId, value) state
     member this.SetFlagM(rowId, targetFlag, value) (state: Ribbit) = (), this.SetFlag(rowId, targetFlag, value) state
-    member this.Check(rowId, targetFlag:'t) (ribbit: RibbitData) =
+    member this.Check(rowId, targetFlag:'t) (ribbit: Ribbit) =
         let target = targetFlag.ToString()
         let check = fun (set: string Set) ->
             set.Contains target
         match ribbit |> getSynchronously (rowId, name, (Some false), function Flags flags -> check flags |> Ok | v -> castFailure RuntimeType.Flags rowId name v) with
         | Ok v -> v
         | Error err -> shouldntHappen err
-    member this.CheckM(rowId, targetFlag) (ribbit: RibbitData) =
+    member this.CheckM(rowId, targetFlag) (ribbit: Ribbit) =
         let target = targetFlag.ToString()
         let check = fun (set: string Set) ->
             set.Contains target
@@ -302,11 +258,10 @@ type FlagsProperty<'t>(name, defaultValue: string Set) =
     new(name) = FlagsProperty(name, Set.empty)
 
 type IdProperty(name, defaultValue) =
-    inherit Property<Id>(name, RuntimeType.Id)
+    inherit Property<Id, Ribbit>(name, RuntimeType.Id)
     override this.Set(rowId, value) (state: Ribbit) =
-        state |> setState (rowId, name, Id value) |> snd
-    override this.SetM(rowId, value) = setState (rowId, name, Id value)
-    override this.Get(rowId) (ribbit: RibbitData) =
+        state |> (Set(PropertyAddress(rowId, name), Id value) |> Ribbit.Update)
+    override this.Get(rowId) (ribbit: Ribbit) =
         match ribbit |> getSynchronously (rowId, name, defaultValue, function Id id -> Ok id | v -> castFailure RuntimeType.Number rowId name v) with
         | Ok value -> value
         | Error (BugReport msg) -> failwith msg // shouldn't use synchronous Get on a property that's lazy
@@ -317,11 +272,10 @@ type IdProperty(name, defaultValue) =
     new(name) = IdProperty(name, None)
 
 type TextProperty(name, defaultValue) =
-    inherit Property<string>(name, RuntimeType.Text)
+    inherit Property<string, Ribbit>(name, RuntimeType.Text)
     override this.Set(rowId, value) (state: Ribbit) =
-        state |> setState (rowId, name, Text value) |> snd
-    override this.SetM(rowId, value) = setState (rowId, name, Text value)
-    override this.Get(rowId) (ribbit: RibbitData) =
+        state |> (Set(PropertyAddress(rowId, name), Text value) |> Ribbit.Update)
+    override this.Get(rowId) (ribbit: Ribbit) =
         match ribbit |> getSynchronously (rowId, name, defaultValue, function Text t -> Ok t | v -> castFailure RuntimeType.Number rowId name v) with
         | Ok value -> value
         | Error (BugReport msg) -> failwith msg // shouldn't use synchronous Get on a property that's lazy
@@ -331,17 +285,17 @@ type TextProperty(name, defaultValue) =
     new(name, defaultValue: string) = TextProperty(name, Some defaultValue)
     new(name) = TextProperty(name, None)
 
-type BinaryExpression<'t, 'lhs, 'rhs>(lhs: 'lhs Expression, rhs: 'rhs Expression, f: 'lhs -> 'rhs -> Result<'t, RibbitError>) =
-    inherit Expression<'t>()
-    override this.Eval (ctx: EvaluationContext) =
-        lhs.Eval ctx |> Result.bind (fun lhs ->
-            rhs.Eval ctx |> Result.bind (fun rhs ->
-                f lhs rhs))
+//type BinaryExpression<'t, 'lhs, 'rhs>(lhs: 'lhs Expression, rhs: 'rhs Expression, f: 'lhs -> 'rhs -> Result<'t, RibbitError>) =
+//    inherit Expression<'t>()
+//    override this.Eval (ctx: Ribbit EvaluationContext) =
+//        lhs.Eval ctx |> Result.bind (fun lhs ->
+//            rhs.Eval ctx |> Result.bind (fun rhs ->
+//                f lhs rhs))
 
-type PropertyExpression<'t>(rowId: Expression<Id>, prop: Property<'t>) =
-    inherit Expression<'t>()
-    override this.Eval (ctx: EvaluationContext) =
-        rowId.Eval ctx |> Result.bind (fun rowId -> prop.GetM rowId ctx)
+//type PropertyExpression<'t>(rowId: Expression<Id>, prop: Property<'t>) =
+//    inherit Expression<'t>()
+//    override this.Eval (ctx: Ribbit EvaluationContext) =
+//        rowId.Eval ctx |> Result.bind (fun rowId -> prop.GetM rowId ctx)
 
 //type LocalExpression<'t>(paramName: string, prop: Property<'t>) =
 //    inherit Expression<'t>()
@@ -353,11 +307,11 @@ type PropertyExpression<'t>(rowId: Expression<Id>, prop: Property<'t>) =
             //let req = DataRequest(LocalAddress(), )
             //Error (Awaiting req)
 
-type UpcastExpression<'t>(inner: Expression<'t>, upcast': 't -> RuntimeValue) =
-    inherit Expression<RuntimeValue>()
-    override this.Eval (ctx: EvaluationContext) =
-        inner.Eval ctx |> Result.map (fun inner -> upcast' inner)
+//type UpcastExpression<'t>(inner: Expression<'t>, upcast': 't -> RuntimeValue) =
+//    inherit Expression<RuntimeValue>()
+//    override this.Eval (ctx: Ribbit EvaluationContext) =
+//        inner.Eval ctx |> Result.map (fun inner -> upcast' inner)
 
-module Ops2 =
-    let numberAssignment (name: Name, expr: int Expression) =
-        Assign(LocalAddress name, UpcastExpression(expr, Number))
+//module Ops2 =
+//    let numberAssignment (name: Name, expr: int Expression) =
+//        Assign(LocalAddress name, UpcastExpression(expr, Number))

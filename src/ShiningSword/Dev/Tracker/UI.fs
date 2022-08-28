@@ -122,7 +122,7 @@ module Getters =
     let getAllNames (model:Model.d) =
         model.game.roster
     let get name getter (model:Model.d) = model.game.stats[name] |> getter
-    let tryGetRibbit name (prop: Property<_>) (model:Model.d) =
+    let tryGetRibbit name (prop: Property<_, Ribbit>) (model:Model.d) =
         model.game |> Game.Getters.tryGetRibbit name prop
 
 open Getters
