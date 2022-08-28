@@ -19,19 +19,22 @@
     <None Include="Scratch\RibbitFromScratch2.fsx" />
     <None Include="Scratch\RibbitFromScratch3.fsx" />
     <None Include="Scratch\Sample.rbt" />
-    <Compile Include="Optics.fs" />
-    <Compile Include="Common.fs" />
-    <Compile Include="Parsing.fs" />
-    <Compile Include="DerivedTraits.fs" />
-    <Compile Include="Onomastikon.fs" />
-    <Compile Include="Character\Character.fs" />
-    <Compile Include="Character\Character2e.fs" />
-    <Compile Include="Character\Character5e.fs" />
-    <Compile Include="Character\CharacterUniversal.fs" />
-    <Compile Include="Ribbit\Types.fs" />
-    <Compile Include="Ribbit\Operations.fs" />
-    <Compile Include="Ribbit\Rules2e.fs" />
-    <Compile Include="Ribbit\Rules5e.fs" />
+    <Compile Include="Core\Optics.fs" />
+    <Compile Include="Core\Common.fs" />
+    <Compile Include="Core\Parsing.fs" />
+    <Compile Include="Core\DerivedTraits.fs" />
+    <Compile Include="Domain\Onomastikon.fs" />
+    <Compile Include="Domain\Metrics.fs" />
+    <Compile Include="Domain\Random.fs" />
+    <Compile Include="Domain\Treasure.fs" />
+    <Compile Include="Domain\Character\Character.fs" />
+    <Compile Include="Domain\Character\Character2e.fs" />
+    <Compile Include="Domain\Character\Character5e.fs" />
+    <Compile Include="Domain\Character\CharacterUniversal.fs" />
+    <Compile Include="Domain\Ribbit\Types.fs" />
+    <Compile Include="Domain\Ribbit\Operations.fs" />
+    <Compile Include="Domain\Ribbit\Rules2e.fs" />
+    <Compile Include="Domain\Ribbit\Rules5e.fs" />
     <Compile Include="Adventure.fs" />
     <PackageReference Remove="FSharp.Core" Version="5.0.0" />
     <PackageReference Include="FSharp.Core" Version="5.0.0" />

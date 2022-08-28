@@ -5,7 +5,7 @@
 ///   DerivationInstance: set of choices already made or in the process of being made, against a specific set of DerivationRules
 ///   Summary: from instance, yield a summary of traits
 ///   Setting<Trait>: a list of Traits and how they were derived. DerivationRules must be stored separately, as must the summarization logic.
-module DerivedTraits
+module Core.DerivedTraits
 open Common.Map
 
 type Choice<'trait0, 'filterContext when 'trait0: comparison> = {

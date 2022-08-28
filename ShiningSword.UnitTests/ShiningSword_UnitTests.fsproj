@@ -1,8 +1,7 @@
-<?xml version="1.0" encoding="utf-8"?>
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net5.0</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
     <GenerateProgramFile>false</GenerateProgramFile>
   </PropertyGroup>
   <ItemGroup>
@@ -11,23 +10,13 @@
     <Compile Include="Main.fs" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Expecto" Version="9.0.4" />
+    <PackageReference Include="Expecto.FsCheck" Version="9.0.4" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.3.0" />
+    <PackageReference Include="Unquote" Version="6.1.0" />
+    <PackageReference Include="YoloDev.Expecto.TestSdk" Version="0.13.3" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\src\Lib\Lib.fsproj" />
-    <PackageReference Update="Microsoft.NETCore.Platforms">
-        <Version>5.0.2</Version>
-    </PackageReference>
-    <PackageReference Update="Expecto.FsCheck">
-        <Version>9.0.4</Version>
-    </PackageReference>
-    <PackageReference Update="Microsoft.NET.Test.Sdk">
-        <Version>16.11</Version>
-    </PackageReference>
-    <PackageReference Update="Unquote">
-        <Version>6.1</Version>
-    </PackageReference>
-    <PackageReference Update="YoloDev.Expecto.TestSdk">
-        <Version>0.12.9</Version>
-    </PackageReference>
-    <PackageReference Remove="FSharp.Core" Version="5.0.0" />
-    <PackageReference Include="FSharp.Core" Version="5.0.0" />
   </ItemGroup>
 </Project>

@@ -1,5 +1,6 @@
-module Dev.App.Tracker.UI
-
+[<AutoOpen>]
+module Dev.Tracker.UI.Core
+open Dev.Tracker
 open Game.DataTypes
 open Fable.Core.JsInterop
 open Elmish

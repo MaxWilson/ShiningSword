@@ -1,5 +1,6 @@
 module UI.Adventure
 open Feliz
+open Domain.Metrics
 open Domain.Adventure
 open Domain.Character.Core
 open Domain.Character.Universal

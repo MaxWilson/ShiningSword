@@ -1,5 +1,7 @@
 module Domain.Character.ADND2nd
-open DerivedTraits
+open Core.DerivedTraits
+open Domain.Metrics
+open Domain.Random
 
 type WorshipFocus =
     | Oghma

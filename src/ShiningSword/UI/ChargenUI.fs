@@ -3,8 +3,10 @@ namespace UI.Chargen
 // module for doing stuff that isn't part of the target domain but isn't just ViewModel boilerplate either
 //    Effectively, this for for treating user interaction as a domain of its own.
 module Interaction =
+    open Core.DerivedTraits
     open Domain
-    open DerivedTraits
+    open Domain.Metrics
+    open Domain.Random
     open Domain.Character
     open Domain.Character.Universal
 
@@ -251,7 +253,7 @@ module View =
     open DND5e
     open Feliz
     open Feliz.UseElmish
-    open DerivedTraits
+    open Core.DerivedTraits
     open Domain.Character.Universal
 
     type ChargenMethod =
@@ -544,7 +546,7 @@ module View =
             ]
 
     type ChoiceStatus = Fixed | Open | Resolved
-    let describeChoiceInReact plainTraitFilter dispatch msg describe preconditionContext (head, choiceIx, choice: DerivedTraits.Choice<_,_>, decision: _ array) =
+    let describeChoiceInReact plainTraitFilter dispatch msg describe preconditionContext (head, choiceIx, choice: Core.DerivedTraits.Choice<_,_>, decision: _ array) =
         let toString x = x.ToString()
         if choice.options.Length = decision.Length then
             React.fragment [

@@ -1,6 +1,6 @@
 module Domain.Character.Universal 
 
-open DerivedTraits
+open Core.DerivedTraits
 
 type Detail<'t1, 't2> = Detail2e of 't1 | Detail5e of 't2
     with

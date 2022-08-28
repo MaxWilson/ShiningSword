@@ -1,8 +1,7 @@
-
-
 // This script is purely for messing around with graph visualization.
 #I __SOURCE_DIRECTORY__
 #I ".."
+#I "../Core"
 #load @"Optics.fs"
 #load @"Common.fs"
 

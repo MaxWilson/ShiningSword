@@ -1,6 +1,7 @@
 module Domain.Ribbit.Rules5e
 open Domain.Ribbit
-open Domain.Ribbit.Operations
+open Domain.Treasure
+open Domain.Random
 open Domain.Character
 open Domain.Character.DND5e
 

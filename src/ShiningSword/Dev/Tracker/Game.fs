@@ -1,5 +1,5 @@
 [<AutoOpen>]
-module Dev.App.Tracker.Game
+module Dev.Tracker.Game
 
 let helpText = """
     Example commands:

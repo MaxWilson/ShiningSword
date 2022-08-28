@@ -1,5 +1,7 @@
 namespace Domain.Ribbit
 
+open Domain
+open Domain.Random
 open Domain.Character
 open Delta
 
@@ -107,10 +109,6 @@ module rec Core =
 
     type FightResult = Victory | Defeat | Ongoing
     type RoundResult = { outcome: FightResult; msgs: LogEntry list; ribbit: Ribbit }
-
-    // this doesn't properly belong in ribbit but because treasure is part of the aftermath of the combat,
-    // and because it's convenient to put TreasureType in the monster stat blocks, I'll allow it for now
-    type TreasureType = A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z
 
     let getRibbit (ctx: EvaluationContext) = ctx.ribbit
 

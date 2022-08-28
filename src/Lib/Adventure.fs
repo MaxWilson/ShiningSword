@@ -1,8 +1,10 @@
 module Domain.Adventure
+open Domain.Metrics
+open Domain.Random
 open Domain.Character
 open Domain.Character.Universal
 open Domain.Ribbit.Operations
-open Domain.Ribbit.Operations.Treasure
+open Domain.Treasure
 open Domain.Ribbit
 
 type Encounter = {

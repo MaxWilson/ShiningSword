@@ -1,8 +1,8 @@
-module Dev.App.Tracker
+module Dev.Tracker.App
 
 open Elmish
 open Elmish.React
-open Dev.App.Tracker.UI
+open Dev.Tracker.UI
 
 let start() =
     Program.mkSimple init update view

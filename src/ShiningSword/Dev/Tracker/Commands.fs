@@ -1,6 +1,6 @@
-module Dev.App.Tracker.Commands
+module Dev.Tracker.Commands
 
-open Dev.App.Tracker.Game
+open Dev.Tracker.Game
 open Packrat
 
 let helpText = """

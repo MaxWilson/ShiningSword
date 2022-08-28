@@ -1,6 +1,7 @@
 module Domain.Character.DND5e
-
-open DerivedTraits
+open Core.DerivedTraits
+open Domain.Metrics
+open Domain.Random
 
 type CharacterClass = Artificer | Bard | Barbarian | Cleric | Druid | Fighter | Monk | Paladin | Ranger | Rogue | Sorcerer | Warlock | Wizard
     with static member All = [Artificer; Bard; Barbarian; Cleric; Druid; Fighter; Monk; Paladin; Ranger; Rogue; Sorcerer; Warlock; Wizard]

@@ -1,6 +1,6 @@
-module Dev.App.Tracker.UI.Components
+module Dev.Tracker.UI.Components
 
-open Dev.App.Tracker
+open Dev.Tracker
 open Game.DataTypes
 open Fable.Core.JsInterop
 open Elmish

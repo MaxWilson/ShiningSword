@@ -2,6 +2,7 @@
 //#I __SOURCE_DIRECTORY__
 #I "."
 #I ".."
+#I "../Core"
 #load @"Optics.fs"
 #load @"Common.fs"
 

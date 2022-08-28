@@ -1,7 +1,7 @@
-module Dev.App
+module Dev.Main
 
 open Fable.Core.JsInterop
 
 importSideEffects "../sass/main.sass"
 
-Dev.App.Tracker.start()
+Dev.Tracker.App.start()
