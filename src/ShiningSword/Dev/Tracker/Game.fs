@@ -117,11 +117,22 @@ module Game =
                 { model with stats = model.stats |> Map.add name { creature with xpEarned = v }}
             | None ->
                 { model with bestiary = model.bestiary |> Bestiary.declareXP name xp }
-        | DeclareMaxHP (Name(nameStr) as name, (HP v as hp)) ->
+        | DeclareMaxHP (Name(nameStr) as name, (HP maxHP as hp)) ->
             match model.ribbit.data.roster |> Map.tryFind nameStr |> Option.orElse (model.ribbit.data.kindsOfMonsters |> Map.tryFind nameStr) with
             | Some id ->
-                { model with ribbit = model.ribbit.update (Set(PropertyAddress(id, Operations.hpP.Name), Number v)) }
-            | None -> shouldntHappen()
+                // adjust damageTaken if necessary so that remaining HP remain constant unless they exceed maximum
+                match Getters.tryGetRibbit nameStr Operations.damageTakenP model, Getters.tryGetRibbit nameStr Operations.hpP model with
+                | Some damageTaken, Some hp ->
+                    let remainingHP = hp - damageTaken
+                    let damageTaken' = maxHP - remainingHP |> max 0
+                    let r =
+                        model.ribbit
+                        |> Ribbit.Update (Set(PropertyAddress(id, Operations.damageTakenP.Name), Number damageTaken'))
+                        |> Ribbit.Update (Set(PropertyAddress(id, Operations.hpP.Name), Number maxHP))
+                    { model with ribbit = r }
+                | _ ->
+                    { model with ribbit = model.ribbit.update (Set(PropertyAddress(id, Operations.hpP.Name), Number maxHP)) }
+            | _ -> shouldntHappen()
         | DeclareHP (Name(nameStr) as name, (HP v as hp)) ->
             match model.ribbit.data.roster |> Map.tryFind nameStr |> Option.orElse (model.ribbit.data.kindsOfMonsters |> Map.tryFind nameStr) with
             | Some id ->
