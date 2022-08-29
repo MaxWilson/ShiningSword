@@ -84,15 +84,9 @@ module Game =
             let data = game.ribbit.data
             match data.roster |> Map.tryFind name |> Option.orElse (data.kindsOfMonsters |> Map.tryFind name) with
             | Some id ->
-                let rec recur id =
-                    if hasValue (id, prop.Name) data then
-                        prop.Get id game.ribbit |> Some
-                    else
-                        // attempt ad hoc inheritance; TODO, build this into ribbit
-                        let parentId = Domain.Ribbit.Operations.prototypeP.Get id game.ribbit
-                        if parentId > 0 then recur parentId
-                        else None
-                recur id
+                match prop.GetM id (EvaluationContext.Create game.ribbit) with
+                | Ok v -> Some v
+                | _ -> None
             | None -> None
 
     let update msg (model:d) =

@@ -30,7 +30,9 @@ type 'Ribbit EvaluationContext = {
     locals: Row // e.g. arguments to the event within which the expression is embedded
     ribbit: 'Ribbit
     }
-    with static member Create(state) = { locals = Map.empty; ribbit = state }
+
+module EvaluationContext =
+    let Create(state) = { locals = Map.empty; ribbit = state }
 
 type RValue<'t> = Result<'t, RibbitError>
 type Evaluation<'t, 'ribbit> = 'ribbit EvaluationContext -> RValue<'t> // In this context, rvalue = something that can be bound to a let! variable. The Evaluation is the thing that we might be able to use to create the RValue, or else a RibbitError like Awaiting DataRequest
