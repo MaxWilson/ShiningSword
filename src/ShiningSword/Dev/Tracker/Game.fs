@@ -1,5 +1,6 @@
 [<AutoOpen>]
 module Dev.Tracker.Game
+open Domain.Ribbit
 
 let helpText = """
     Example commands:
@@ -20,24 +21,9 @@ let helpText = """
 
 [<AutoOpen>]
 module DataTypes =
-    type Name = Name of string with member this.extract = match this with (Name name) -> name
-    type XP = XP of int with member this.extract = match this with (XP xp) -> xp
-    type HP = HP of int with member this.extract = match this with (HP hp) -> hp
-
-module Bestiary =
-    type Definition = {
-        xp: XP option
-        initiativeMod: int option
-        }
-        with static member fresh = { xp = None; initiativeMod = None }
-    type d = Map<Name, Definition>
-    let fresh = Map.empty
-    let define name (bestiary: d) =
-        bestiary |> Map.add name Definition.fresh
-    let declareXP name value (bestiary: d) =
-        bestiary |> Map.change name (fun e -> Some { (match e with Some d -> d | None -> Definition.fresh) with xp = Some value })
-    let declareInit name value (bestiary: d) =
-        bestiary |> Map.change name (fun e -> Some { (match e with Some d -> d | None -> Definition.fresh) with initiativeMod = Some value })
+    type Name = string
+    type XP = int
+    type HP = int
 
 module Game =
     open Domain.Ribbit
@@ -70,39 +56,29 @@ module Game =
         | Remove of Name list
         | Rename of Name * newName:Name
 
-    type d = {
-        roster: Name list
-        stats: Map<Name, Creature>
-        ribbit: Ribbit
-        bestiary: Bestiary.d
-        initRolls: Map<Name, int>
-        }
-    let fresh = { roster = []; stats = Map.empty; bestiary = Bestiary.fresh; initRolls = Map.empty; ribbit = Ribbit.Fresh }
+    type d = Ribbit
+    let fresh = Ribbit.Fresh
 
     module Getters =
         let tryGetRibbit name (prop: Property<_,Ribbit>) (game:d) =
-            let data = game.ribbit.data
+            let data = game.data
             match data.roster |> Map.tryFind name |> Option.orElse (data.kindsOfMonsters |> Map.tryFind name) with
             | Some id ->
-                match prop.GetM id (EvaluationContext.Create game.ribbit) with
+                match prop.GetM id (EvaluationContext.Create game) with
                 | Ok v -> Some v
                 | _ -> None
             | None -> None
 
     let update msg (model:d) =
+        let inline updateByName nameStr (property:Property<_,_>) value (model:d) =
+            match model.data.roster |> Map.tryFind nameStr |> Option.orElse (model.data.kindsOfMonsters |> Map.tryFind nameStr) with
+            | Some id -> model |> property.Set(id, value)
+            | None -> shouldntHappen()
         match msg with
         | Define name ->
-            let model =
-                { model with ribbit = model.ribbit.transform (stateChange { do! Domain.Ribbit.Operations.addKind name.extract (fun _ rbt -> (), rbt) }) }
-            { model with bestiary = model.bestiary |> Bestiary.define name }
-        | DeclareAction (name, action) ->
-            let declare name model =
-                { model with stats = model.stats |> Map.add name { model.stats[name] with actionDeclaration = Some action }}
-            match model.stats |> Map.tryFind name with
-            | Some creature -> declare name model
-            | None ->
-                let names = model.stats |> Map.values |> Seq.choose (fun c -> if c.templateType = Some name then Some c.name else None)
-                names |> Seq.fold (flip declare) model
+            model.transform(stateChange { do! Domain.Ribbit.Operations.addKind name (fun _ rbt -> (), rbt) })
+        | DeclareAction (name, Action action) ->
+            model |> updateByName name Operations.actionDeclarationTextP action
         | DeclareInitiativeMod (name, initiativeMod) ->
             match model.stats |> Map.tryFind name with
             | Some creature ->
@@ -117,54 +93,34 @@ module Game =
                 { model with stats = model.stats |> Map.add name { creature with xpEarned = v }}
             | None ->
                 { model with bestiary = model.bestiary |> Bestiary.declareXP name xp }
-        | DeclareMaxHP (Name(nameStr) as name, (HP maxHP as hp)) ->
-            match model.ribbit.data.roster |> Map.tryFind nameStr |> Option.orElse (model.ribbit.data.kindsOfMonsters |> Map.tryFind nameStr) with
-            | Some id ->
-                // adjust damageTaken if necessary so that remaining HP remain constant unless they exceed maximum
-                match Getters.tryGetRibbit nameStr Operations.damageTakenP model, Getters.tryGetRibbit nameStr Operations.hpP model with
-                | Some damageTaken, Some hp ->
-                    let remainingHP = hp - damageTaken
-                    let damageTaken' = maxHP - remainingHP |> max 0
-                    let r =
-                        model.ribbit
-                        |> Ribbit.Update (Set(PropertyAddress(id, Operations.damageTakenP.Name), Number damageTaken'))
-                        |> Ribbit.Update (Set(PropertyAddress(id, Operations.hpP.Name), Number maxHP))
-                    { model with ribbit = r }
-                | _ ->
-                    { model with ribbit = model.ribbit.update (Set(PropertyAddress(id, Operations.hpP.Name), Number maxHP)) }
-            | _ -> shouldntHappen()
-        | DeclareHP (Name(nameStr) as name, (HP v as hp)) ->
-            match model.ribbit.data.roster |> Map.tryFind nameStr |> Option.orElse (model.ribbit.data.kindsOfMonsters |> Map.tryFind nameStr) with
-            | Some id ->
-                match Getters.tryGetRibbit nameStr Operations.damageTakenP model with
-                | Some damageTaken ->
-                    let hp' = v + damageTaken
-                    { model with ribbit = model.ribbit.update (Set(PropertyAddress(id, Operations.hpP.Name), Number hp')) }
-                | None ->
-                    { model with ribbit = model.ribbit.update (Set(PropertyAddress(id, Operations.hpP.Name), Number v)) }
-            | None -> shouldntHappen()
+        | DeclareMaxHP (name, (HP maxHP as hp)) ->
+            // adjust damageTaken if necessary so that remaining HP remain constant unless they exceed maximum
+            match Getters.tryGetRibbit name Operations.damageTakenP model, Getters.tryGetRibbit name Operations.hpP model with
+            | Some damageTaken, Some hp ->
+                let remainingHP = hp - damageTaken
+                let damageTaken' = maxHP - remainingHP |> max 0
+                model
+                |> updateByName name damageTakenP damageTaken'
+                |> updateByName name hpP maxHP
+            | _ ->
+                model |> updateByName name hpP maxHP
+        | DeclareHP (name, hp) ->
+            match Getters.tryGetRibbit name Operations.damageTakenP model with
+            | Some damageTaken ->
+                let hp' = hp + damageTaken
+                model |> updateByName name hpP hp'
+            | None ->
+                model |> updateByName name hpP hp
         | Add (name) ->
             let add =
                 stateChange {
-                    let name = name.extract
+                    let name = name
                     let! isMonsterKind = Ribbit.GetM(fun d -> d.data.kindsOfMonsters.ContainsKey name)
                     do! if isMonsterKind then Operations.addMonster name (fun _ r -> (), r) >> ignoreM
                         else Operations.addCharacterToRoster name >> ignoreM
                     }
-
-            let model = { model with ribbit = model.ribbit.transform add }
-            match model.bestiary |> Map.tryFind name with
-            | None ->
-                { model with
-                    roster = model.roster@[name]
-                    stats = model.stats |> Map.add name (Creature.fresh name None) }
-            | Some def ->
-                let nameStr = name.extract
-                let individualName = Seq.unfold (fun i -> Some(Name $"{nameStr} #{i}", i+1)) 1 |> Seq.find (fun name' -> model.stats.ContainsKey name' |> not)
-                { model with
-                    roster = model.roster@[individualName]
-                    stats = model.stats |> Map.add individualName (Creature.fresh individualName (Some name)) }
-        | InflictDamage(src, target, HP hpLoss) ->
+            model.transform add
+        | InflictDamage(src, target, hpLoss) ->
             match model.stats |> Map.tryFind src, model.stats |> Map.tryFind target with
             | Some src, Some target ->
                 let hp = Getters.tryGetRibbit target.name.extract Domain.Ribbit.Operations.hpP model |> Option.defaultValue 0

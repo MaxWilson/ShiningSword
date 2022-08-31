@@ -60,11 +60,11 @@ let rec (|Names|_|) = pack <| function
     | _ -> None
 let (|Declaration|_|) = function
     | OWSStr "xp" (Int (amt, ctx)) ->
-        Some((fun name -> Game.DeclareXP(name, XP amt)), ctx)
+        Some((fun name -> Game.DeclareXP(name, amt)), ctx)
     | OWSStr "hp" (Int (amt, ctx)) ->
-        Some((fun name -> Game.DeclareHP(name, HP amt)), ctx)
+        Some((fun name -> Game.DeclareHP(name, amt)), ctx)
     | OWSStr "maxhp" (Int (amt, ctx)) ->
-        Some((fun name -> Game.DeclareMaxHP(name, HP amt)), ctx)
+        Some((fun name -> Game.DeclareMaxHP(name, amt)), ctx)
     | OWSStr "initmod" (IntMod (amt, ctx)) ->
         Some((fun name -> Game.DeclareInitiativeMod(name, amt)), ctx)
     | OWSStr "init" (IntMod (amt, ctx)) ->
