@@ -127,6 +127,7 @@ module Getters =
 
 open Getters
 open Game.Properties
+open Domain.Ribbit.Operations
 
 let view (model: Model.d) dispatch =
     let setCommand txt =
@@ -137,13 +138,13 @@ let view (model: Model.d) dispatch =
             for (Name name) as name' in getAllNames model do
                 let isSelected = match model.mode with Executing (h::_) when h = name' -> true | _ -> false
                 class' Html.tr (if isSelected then "currentTurn" else "") [
-                    let get f = model |> get name' f
+                    let get prop = model |> tryGetRibbit name prop
                     let type1 = get templateType
                     textCell $"{name}"
                     textCell (sprintf "(%s)" <| match get templateType with Some (Name v) -> v | None -> "PC")
                     let action =
                         let initMod =
-                            match get initiativeMod with
+                            match get initiativeModifierP with
                             | Some v -> Some v
                             | None ->
                                 get templateType
@@ -153,14 +154,14 @@ let view (model: Model.d) dispatch =
                         let verb =
                             let willAct = match model.mode with | Declaring -> true | Executing haventActed -> haventActed |> List.contains name'
                             if willAct then "will" else "did"
-                        match get actionDeclaration, (model.game.initRolls |> Map.tryFind name'), initMod with
-                        | Some (Game.Action action), Some init, Some initMod ->
+                        match get actionDeclarationTextP, (model.game.initRolls |> Map.tryFind name'), initMod with
+                        | Some (action), Some init, Some initMod ->
                             $"{init}: {name} {verb} {action} ({initMod})"
-                        | Some (Game.Action action), Some init, None ->
+                        | Some (action), Some init, None ->
                             $"{init}: {name} {verb} {action}"
-                        | Some (Game.Action action), None, Some initMod ->
+                        | Some (action), None, Some initMod ->
                             $"{name} {verb} {action} ({initMod})"
-                        | Some (Game.Action action), None, None ->
+                        | Some (action), None, None ->
                             $"{name} {verb} {action}"
                         | None, _, Some initMod when model.mode = Declaring ->
                             $"({initMod})"
