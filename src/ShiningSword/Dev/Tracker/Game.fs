@@ -57,6 +57,14 @@ module Game =
 
     type d = Ribbit
     let fresh = Ribbit.Fresh
+    let woundlogP =
+        let typeConvert (input: obj) =
+            match input with
+            | :? WoundLog as w -> Some w
+            | _ -> None
+        GenericProperty("woundLog", typeConvert)
+    let xpEarnedP = NumberProperty("XPEarned", 0)
+    let xpValueP = NumberProperty("XPValue")
 
     module Getters =
         let tryGetRibbit name (prop: Property<_,Ribbit>) (game:d) =
@@ -67,8 +75,23 @@ module Game =
                 | Ok v -> Some v
                 | _ -> None
             | None -> None
+        // for use with properties with defaults
+        let get name (prop: Property<_,Ribbit>) (game:d) =
+            let data = game.data
+            match data.roster |> Map.tryFind name |> Option.orElse (data.kindsOfMonsters |> Map.tryFind name) with
+            | Some id ->
+                match prop.GetM id (EvaluationContext.Create game) with
+                | Ok v -> v
+                | _ -> shouldntHappen()
+            | None -> shouldntHappen()
 
     let update msg (model:d) =
+        let inline transformByName nameStr (property:Property<_,_>) updateFunction (model:d) =
+            match model.data.roster |> Map.tryFind nameStr |> Option.orElse (model.data.kindsOfMonsters |> Map.tryFind nameStr) with
+            | Some id ->
+                let current = model |> property.Get(id)
+                model |> property.Set(id, updateFunction current)
+            | None -> shouldntHappen()
         let inline updateByName nameStr (property:Property<_,_>) value (model:d) =
             match model.data.roster |> Map.tryFind nameStr |> Option.orElse (model.data.kindsOfMonsters |> Map.tryFind nameStr) with
             | Some id -> model |> property.Set(id, value)
@@ -110,22 +133,21 @@ module Game =
         | InflictDamage(src, target, hpLoss) ->
             let hp = Getters.tryGetRibbit target hpP model |> Option.defaultValue 0
             let damageTaken = Getters.tryGetRibbit target damageTakenP model |> Option.defaultValue 0
+            let templateType name model: string option =
+                // logically, we want the name of the prototype, but it's not a property so much as an expression.
+                notImpl()
             // we don't give credit for overkill damage, for XP purposes, unless it's overkill damage against a PC (who might not have even had their HP recorded yet)
-            let damageCredit = hpLoss |> (if target.templateType.IsSome then min (hp - damageTaken |> max 0) else id)
+            let damageCredit = hpLoss |> (if (model |> templateType target).IsSome then min (hp - damageTaken |> max 0) else id)
             let recordInteraction (src: Name) (target: Name) amount = notImpl()
             let model' =
-                model |> updateByName target damageTakenP damageTaken + hpLoss
+                model |> updateByName target damageTakenP (damageTaken + hpLoss)
                 |> recordInteraction src target hpLoss
-            let awardXP() =
-                let woundLog = target'.woundLog
+            let awardXP model =
+                let woundLog = Getters.get target woundlogP model
                 let awards =
                     [
                         let denominator = (woundLog.victims |> Map.values |> Seq.sum) + (woundLog.woundedBy |> Map.values |> Seq.sum)
-                        let xpTotal =
-                            match target'.templateType with
-                            | Some monsterKind ->
-                                match model.bestiary[monsterKind].xp with Some (XP xp) -> xp | None -> 0
-                            | None -> 0
+                        let xpTotal = model |> Getters.tryGetRibbit target xpValueP |> Option.defaultValue 0
                         for name in (woundLog.victims |> Map.keys |> Seq.append (woundLog.woundedBy |> Map.keys) |> Seq.distinct) do
                             let numerator =
                                 (woundLog.victims |> Map.tryFind name |> Option.defaultValue 0)
@@ -133,10 +155,10 @@ module Game =
                             let award = (numerator * xpTotal)/denominator
                             name, award
                     ]
-                let allocateXP (roster: Map<Name, Creature>) = function
+                let allocateXP (model:d) = function
                     | name, award ->
-                        roster |> Map.change name (function None -> None | Some c -> Some { c with xpEarned = c.xpEarned + award })
-                { model' with stats = awards |> List.fold allocateXP model'.stats }
+                        model |> transformByName name xpEarnedP ((+) award)
+                awards |> List.fold allocateXP model'
             let isKill = damageTaken >= hp
             if isKill then
                 awardXP model'

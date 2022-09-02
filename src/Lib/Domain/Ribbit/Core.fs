@@ -164,6 +164,22 @@ module Core =
     type Ribbit with
         static member Fresh = Delta.create((fun () -> RibbitData.fresh), update) |> Ribbit
 
+type GenericProperty<'t>(name, defaultValue: _ option, typeConvert: obj -> 't option) =
+    inherit Property<'t, Ribbit>(name, RuntimeType.Generic)
+    let (|Value|_|) = typeConvert
+    let extract = function Value v -> Ok v | v -> BugReport $"row #{id} property {name} could not be converted, was actually {v}" |> Error
+    override this.Set(rowId, value) (state: Ribbit) =
+        state |> (Set(PropertyAddress(rowId, name), Generic value) |> Ribbit.Update)
+    override this.Get(rowId) (ribbit: Ribbit) =
+        match ribbit |> getSynchronously (rowId, name, defaultValue, extract) with
+        | Ok value -> value
+        | Error (BugReport msg) -> failwith msg // shouldn't use synchronous Get on a property that's lazy
+        | Error _ -> shouldntHappen() // shouldn't use synchronous Get on a property that's lazy
+    override this.GetM(rowId) =
+        getRibbit >> getAsync (rowId, name, defaultValue, extract)
+    new(name, defaultValue: 't, typeConvert) = GenericProperty<'t>(name, Some defaultValue, typeConvert)
+    new(name, typeConvert) = GenericProperty<'t>(name, None, typeConvert)
+
 type NumberProperty(name, defaultValue: _ option) =
     inherit Property<int, Ribbit>(name, RuntimeType.Number)
     override this.Set(rowId, value) (state: Ribbit) =

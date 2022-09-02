@@ -8,8 +8,8 @@ open Delta
 
 type Id = int
 
-type RuntimeType = Number | Id  | Text | Roll | Rolls | Flags | Bool
-type RuntimeValue = Number of int | Id of Id | Text of string | Roll of RollSpec | Rolls of RollSpec list | Flags of string Set| Bool of bool
+type RuntimeType = Number | Id  | Text | Roll | Rolls | Flags | Bool | Generic
+type RuntimeValue = Number of int | Id of Id | Text of string | Roll of RollSpec | Rolls of RollSpec list | Flags of string Set| Bool of bool | Generic of obj
 type Address = LocalAddress of variableName: Name | PropertyAddress of Id * propertyName: Name
 type RibbitRequest = DataRequest of Id * propertyName: Name
 type RibbitError = Awaiting of RibbitRequest | BugReport of msg: string
