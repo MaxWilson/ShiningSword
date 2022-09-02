@@ -17,13 +17,15 @@ type RibbitError = Awaiting of RibbitRequest | BugReport of msg: string
 type Row = Map<Name, RuntimeValue>
 
 type 'Ribbit ExecutionContext = {
+    agent: Id option // the creature, if any, which is acting to create this expression. E.g. the attacker during an attack.
+    target: Id option // the creature, if any, which is the target of the action.
     locals: Row // e.g. arguments to the event within which the expression is embedded
     instructionPointer: int
     state: 'Ribbit
     }
 
 module ExecutionContext =
-    let Create state = { locals = Map.empty; instructionPointer = 0; state = state }
+    let Create state = { locals = Map.empty; instructionPointer = 0; state = state; agent = None; target = None }
     let TransformM f ctx = (), { ctx with state = ctx.state |> f }
 
 type 'Ribbit EvaluationContext = {
@@ -46,12 +48,14 @@ type Scope = {
     }
     with static member fresh = { rows = Map.empty; biggestIdSoFar = None }
 
-type Property(name: Name, runtimeType: RuntimeType) =
-    member this.Name = name
-    member this.Type = runtimeType
+type IProperty =
+    abstract Name: string
+    abstract Type: RuntimeType
 
 type [<AbstractClass>] Property<'t, 'DataSource>(name, runtimeType) =
-    inherit Property(name, runtimeType)
+    interface IProperty with
+        member this.Name = name
+        member this.Type = runtimeType
     abstract Get: Id -> 'DataSource -> 't
     abstract GetM: Id -> Evaluation<'t, 'DataSource>
     abstract Set: Id *'t -> 'DataSource -> 'DataSource

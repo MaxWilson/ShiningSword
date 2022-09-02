@@ -1,6 +1,5 @@
 module Dev.Tracker.Commands
 
-open Dev.Tracker.Game
 open Packrat
 
 let helpText = """
@@ -22,6 +21,10 @@ next init
 let nameChars = alphanumeric + whitespace + Set ['#']
 let numericWithPlusOrMinus = Set<_>(['0'..'9']@['+';'-'])
 
+open Dev.Tracker.Game
+open Game.Game
+open Domain.Ribbit
+
 let (|IntMod|_|) = pack <| function
     | OWS(Chars numericWithPlusOrMinus (v, OWS(rest))) ->
         match System.Int32.TryParse(v) with
@@ -30,7 +33,7 @@ let (|IntMod|_|) = pack <| function
     | _ -> None
 
 let (|NewName|_|) = function
-    | OWS(Chars nameChars (name, ctx)) -> Some(DataTypes.Name (name.Trim()), ctx)
+    | OWS(Chars nameChars (name, ctx)) -> Some(name.Trim(), ctx)
     | _ -> None
 let rec (|NewNames|_|) = pack <| function
     | NewName(name, OWSStr "," (NewNames(rest, ctx))) -> Some(name::rest, ctx)
@@ -40,13 +43,13 @@ let (|GameContext|_|) = ExternalContextOf<Game.d>
 let isPotentialNamePrefix (names: obj) (substring: string) =
     match names |> unbox<obj option> with
     | Some externalContext ->
-        let game = externalContext |> unbox<Game.d>
-        game.ribbit.data.roster |> Map.keys |> Seq.append (game.ribbit.data.kindsOfMonsters |> Map.keys) |> Seq.exists(fun name -> name.StartsWith substring)
+        let ribbit = externalContext |> unbox<Game.d>
+        ribbit.data.roster |> Map.keys |> Seq.append (ribbit.data.kindsOfMonsters |> Map.keys) |> Seq.exists(fun name -> name.StartsWith substring)
     | _ -> false
 let (|Name|_|) = pack <| function
-    | OWS(GameContext(game) & (args, ix)) ->
+    | OWS(GameContext(ribbit) & (args, ix)) ->
         let substring = args.input.Substring(ix)
-        let candidates = game.ribbit.data.roster |> Map.keys |> Seq.append (game.ribbit.data.kindsOfMonsters |> Map.keys) |> Seq.distinct |> Seq.sortByDescending (fun n -> n.Length)
+        let candidates = ribbit.data.roster |> Map.keys |> Seq.append (ribbit.data.kindsOfMonsters |> Map.keys) |> Seq.distinct |> Seq.sortByDescending (fun n -> n.Length)
         // allow leaving off # sign
         match candidates |> Seq.tryFind(fun name -> substring.StartsWith name || substring.StartsWith (name.Replace("#", ""))) with
         | Some (name) ->
@@ -60,17 +63,17 @@ let rec (|Names|_|) = pack <| function
     | _ -> None
 let (|Declaration|_|) = function
     | OWSStr "xp" (Int (amt, ctx)) ->
-        Some((fun name -> Game.DeclareXP(name, amt)), ctx)
+        Some((fun name -> Game.DeclareNumber(name, xpValueP, amt)), ctx)
     | OWSStr "hp" (Int (amt, ctx)) ->
         Some((fun name -> Game.DeclareRemainingHP(name, amt)), ctx)
     | OWSStr "maxhp" (Int (amt, ctx)) ->
         Some((fun name -> Game.DeclareMaxHP(name, amt)), ctx)
-    | OWSStr "initmod" (IntMod (amt, ctx)) ->
-        Some((fun name -> Game.DeclareInitiativeMod(name, amt)), ctx)
     | OWSStr "init" (IntMod (amt, ctx)) ->
-        Some((fun name -> Game.DeclareCurrentInitiative(name, amt)), ctx)
+        Some((fun name -> Game.DeclareNumber(name, initiativeModifierP, amt)), ctx)
+    | OWSStr "initiative" (IntMod (amt, ctx)) ->
+        Some((fun name -> Game.DeclareNumber(name, currentInitiativeP, amt)), ctx)
     | OWSStr "will" (OWS(Any (action, ctx))) ->
-        Some((fun name -> Game.DeclareAction(name, Game.Action action)), ctx)
+        Some((fun name -> Game.DeclareAction(name, action)), ctx)
     | _ -> None
 let rec (|Declarations|_|) = pack <| function
     | Declaration(f, OWSStr "," (Declarations(rest, ctx))) -> Some(f::rest, ctx)
@@ -78,7 +81,7 @@ let rec (|Declarations|_|) = pack <| function
     | _ -> None
 let rec (|TakeDamage|_|) = pack <| function
     | (Name(target, OWSStr "for" (Int(amt, ctx)))) ->
-        Some((fun src -> Game.InflictDamage(src, target, HP amt)), ctx)
+        Some((fun src -> Game.InflictDamage(src, target, amt)), ctx)
     | _ -> None
 let rec (|TakeDamages|_|) = pack <| function
     | TakeDamage(f, OWSStr "," (TakeDamages(rest, ctx))) -> Some(f::rest, ctx)
@@ -90,9 +93,9 @@ let (|Command|_|) = function
     | Str "add" (NewName(name, ctx)) ->
         Some(Game.Add(name), ctx)
     | Str "remove" (Names(names, ctx)) ->
-        Some(Game.Remove names, ctx)
+        Some(Game.RemoveIndividuals names, ctx)
     | Str "rename" (Name(name, NewName(newName, ctx))) ->
-        Some(Game.Rename (name, newName), ctx)
+        Some(Game.RenameIndividual (name, newName), ctx)
     | Str "define" (NewName(name, ctx)) ->
         Some(Game.Define(name), ctx)
     | Str "clear" (Name(name, OWSStr "notes" ctx)) ->
@@ -102,7 +105,7 @@ let (|Command|_|) = function
     | Name(name, Declaration (f, ctx)) ->
         Some(f name, ctx)
     | Name(src, (OWSStr "hits" (Name(target, OWSStr "for" (Int(amt, ctx)))))) ->
-        Some(Game.InflictDamage(src, target, HP amt), ctx)
+        Some(Game.InflictDamage(src, target, amt), ctx)
     | _ -> None
 let (|Commands|_|) = pack <| function
     | Str "add" (NewNames(names, ctx)) ->

@@ -70,6 +70,8 @@ let init initialCmd =
     |> executeInputIfPossible "Grue 2 maxhp 18, xp 50"
 
 #endif
+open Domain.Ribbit.Operations
+open Dev.Tracker.Game.Game.Getters
 
 // move to the next character or phase
 let advance model =
@@ -77,30 +79,29 @@ let advance model =
     | Declaring ->
         let initiatives =
             [
-            for name in model.game.roster do
-                let init =
-                    match model.game.initRolls |> Map.tryFind name with
-                    | Some v -> v
-                    | None ->
-                        match model.game.stats |> Map.tryFind name with
-                            | Some creature -> creature.initiativeMod
-                            | None -> None
-                        |> Option.defaultValue 0
-                        |> (fun initMod -> rand 20 + initMod)
-                name, init
+            for name in model.game.data.roster |> Map.keys do
+                match tryGetRibbit name currentInitiativeP model.game with
+                | Some v -> () // don't reroll if it's already there
+                | _ ->
+                    let initRoll = get name initiativeModifierP model.game + rand 20
+                    name, initRoll
                 ]
-            |> Map.ofList
+        let ribbit = initiatives |> List.fold (fun ribbit (name, initRoll) -> ribbit |> Game.setByName name currentInitiativeP initRoll) model.game
         let initiative name =
-            initiatives[name]
+            tryGetRibbit name currentInitiativeP ribbit
         { model with
-            game = { model.game with initRolls = initiatives }
+            game = ribbit
             mode =
-                model.game.roster
-                |> List.filter (fun name -> model.game.stats[name].actionDeclaration.IsSome)
+                model.game.data.roster |> Map.keys |> List.ofSeq
+                |> List.filter (fun name -> tryGetRibbit name actionDeclarationTextP ribbit |> Option.isSome)
                 |> List.sortByDescending initiative
                 |> Executing
             }
-    | Executing [] -> { model with mode = Declaring; game = { model.game with initRolls = Map.empty } }
+    | Executing [] ->
+        model.game.data.roster |> Map.keys |> List.ofSeq
+        |> List.fold (fun model name -> match getId name model with | Some id -> currentInitiativeP.Clear id model | _ -> model) model.game
+        |> fun ribbit ->
+            { model with mode = Declaring; game = ribbit }
     | Executing (_::rest) -> { model with mode = Executing rest }
 
 let update msg (model: Model.d) =
@@ -120,14 +121,14 @@ module Getters =
     open Domain.Ribbit
 
     let getAllNames (model:Model.d) =
-        model.game.roster
-    let get name getter (model:Model.d) = model.game.stats[name] |> getter
+        model.game.data.roster |> Map.keys |> List.ofSeq
     let tryGetRibbit name (prop: Property<_, Ribbit>) (model:Model.d) =
         model.game |> Game.Getters.tryGetRibbit name prop
 
 open Getters
-open Game.Properties
 open Domain.Ribbit.Operations
+open Dev.Tracker.Game.Game
+open Domain.Ribbit
 
 let view (model: Model.d) dispatch =
     let setCommand txt =
@@ -135,26 +136,26 @@ let view (model: Model.d) dispatch =
     let table = Html.table [
         textHeaders ["Name"; "Type"; "Actions"; "Notes"; "XP earned"; "HP"]
         Html.tbody [
-            for (Name name) as name' in getAllNames model do
-                let isSelected = match model.mode with Executing (h::_) when h = name' -> true | _ -> false
+            for name in getAllNames model do
+                let isSelected = match model.mode with Executing (h::_) when h = name -> true | _ -> false
                 class' Html.tr (if isSelected then "currentTurn" else "") [
-                    let get prop = model |> tryGetRibbit name prop
-                    let type1 = get templateType
+                    let tryGet prop = model |> tryGetRibbit name prop
+
+                    let type1 =
+                        match templateTypeName name (EvaluationContext.Create model.game) with
+                        | Ok v -> v
+                        | _ -> "PC"
                     textCell $"{name}"
-                    textCell (sprintf "(%s)" <| match get templateType with Some (Name v) -> v | None -> "PC")
+                    textCell $"({type1})"
                     let action =
                         let initMod =
-                            match get initiativeModifierP with
-                            | Some v -> Some v
-                            | None ->
-                                get templateType
-                                |> Option.bind (fun t -> model.game.bestiary |> Map.tryFind t)
-                                |> Option.bind (fun def -> def.initiativeMod)
-                            |> Option.map (fun v -> $"%+i{v}")
+                            match get name initiativeModifierP model.game with
+                            | v when v <> 0 -> Some $"%+i{v}"
+                            | _ -> None
                         let verb =
-                            let willAct = match model.mode with | Declaring -> true | Executing haventActed -> haventActed |> List.contains name'
+                            let willAct = match model.mode with | Declaring -> true | Executing haventActed -> haventActed |> List.contains name
                             if willAct then "will" else "did"
-                        match get actionDeclarationTextP, (model.game.initRolls |> Map.tryFind name'), initMod with
+                        match tryGet actionDeclarationTextP, tryGetRibbit name currentInitiativeP model, initMod with
                         | Some (action), Some init, Some initMod ->
                             $"{init}: {name} {verb} {action} ({initMod})"
                         | Some (action), Some init, None ->
@@ -173,8 +174,8 @@ let view (model: Model.d) dispatch =
                         Html.td [prop.text txt; prop.onDoubleClick (fun _ -> setCommand msg)]
 
                     clickableText action $"{name} will "
-                    clickableText (System.String.Join(";", get notes)) $"{name}: "
-                    textCell $"{get xpEarned} XP earned"
+                    clickableText (System.String.Join(";", tryGet notesP)) $"{name}: "
+                    textCell $"{tryGet xpEarnedP} XP earned"
                     let remainingHP =
                         match tryGetRibbit name Domain.Ribbit.Operations.hpP model |> Option.defaultValue 0, tryGetRibbit name Domain.Ribbit.Operations.damageTakenP model  |> Option.defaultValue 0 with
                         | hp, dmg when dmg = 0 -> $"{hp} HP"
@@ -189,7 +190,7 @@ let view (model: Model.d) dispatch =
             let label =
                 match model.mode with
                 | Declaring -> "Declaring"
-                | Executing (Name h::_) -> $"{h}'s turn"
+                | Executing (h::_) -> $"{h}'s turn"
                 | Executing [] -> "End of round"
             Html.div [prop.text label; prop.className "inputHeader"]
             Html.input [
@@ -232,18 +233,18 @@ let view (model: Model.d) dispatch =
                     Html.tr [Html.th [prop.text "Type"]; Html.th [prop.text "HP"]; Html.th [prop.text "XP reward"]]
                     ]
                 Html.tbody [
-                    for KeyValue(name, type1) in model.game.bestiary do
+                    for KeyValue(name, id) in model.game.data.kindsOfMonsters do
                         Html.tr [
                             match model.mode with
                             | Executing (h::_) when h = name ->
                                 prop.className "currentTurn"
                             | _ -> ()
                             prop.children [
-                                textCell (match name with Name name -> name)
-                                let onNumber ctor valueCtor value = ctor(name, valueCtor value) |> ExecuteCommand |> dispatch
-                                let hp = tryGetRibbit name.extract Domain.Ribbit.Operations.hpP model |> Option.map toString |> Option.defaultValue ""
-                                editableNumberCell hp (onNumber Game.DeclareRemainingHP HP)
-                                editableNumberCell (match type1.xp with Some (XP v) -> v.ToString() | None -> "") (onNumber Game.DeclareXP XP)
+                                textCell name
+                                let onNumber makeMessage newNumber = newNumber |> makeMessage |> ExecuteCommand |> dispatch
+                                let hp = tryGetRibbit name Domain.Ribbit.Operations.hpP model |> Option.map toString |> Option.defaultValue ""
+                                editableNumberCell hp (onNumber <| fun hp -> Game.DeclareMaxHP(name, hp))
+                                editableNumberCell (match tryGetRibbit name xpValueP model with Some v -> v.ToString() | None -> "") (onNumber (fun v -> Game.DeclareNumber(name, xpValueP, v)))
                                 ]
                         ]
                     ]

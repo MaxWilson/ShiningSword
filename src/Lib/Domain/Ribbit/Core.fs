@@ -13,7 +13,10 @@ module Core =
         | AssociateIndividual of personalName:Name * id: Id * monsterKind: Name option
         | RegisterRequest of RibbitRequest
         | Set of Address * value: RuntimeValue
+        | ClearValue of RowId: Id * PropertyName: Name // clear a property value to prompt re-entry/re-calculation. Currently only used for current initiative. Allowing temporal scopes is probably a better solution, in which case this will turn from ClearValue(Address) to ClearScope(current round)
         | SetRoster of Map<Name, Id>
+        | RemoveRosterEntry of Name
+        | RenameRosterEntry of Name * newName: Name
 
     /// Ribbit operations that are about more than just data, such as logging and storing rosters
     [<AutoOpen>]
@@ -71,9 +74,7 @@ module Core =
         with static member fresh = { number = Map.empty; id = Map.empty; roll = Map.empty; rolls = Map.empty; flags = Map.empty; bool = Map.empty }
 
 
-    and [<AbstractClass>]
-        Expression<'t>() =
-        abstract Eval: 'Ribbit EvaluationContext -> 't RValue // expressions CANNOT modify state or the evaluation context variables, they can only succeed or fail.
+    and Expression<'t> = Evaluation<'t, Ribbit> // expressions CANNOT modify state or the evaluation context variables, they can only succeed or fail.
     
     and Statements = Sequence of Statement list | While of Expression<bool> * Statements
     and CompiledStatements = Statement array
@@ -152,7 +153,6 @@ module Core =
             | None -> ribbit
         | RegisterRequest request -> notImpl()
         | Set(PropertyAddress(rowId, propertyName), value) ->
-            let count = ribbit.scope.rows.Count
             let rows = ribbit.scope.rows |> Map.change rowId (function
                 | Some row -> row |> Map.add propertyName value |> Some
                 | None -> Map.ofList [propertyName, value] |> Some
@@ -160,6 +160,15 @@ module Core =
             { ribbit with scope = { ribbit.scope with rows = rows } }
         | Set(address, value) -> notImpl()
         | SetRoster(roster) -> { ribbit with roster = roster }
+        | RemoveRosterEntry name -> { ribbit with roster = ribbit.roster |> Map.filter (fun k v -> k <> name) }
+        | RenameRosterEntry(name, name') ->            
+            match ribbit.roster |> Map.tryFind name with
+            | Some id ->
+                { ribbit with roster = ribbit.roster |> Map.remove name |> Map.add name id }
+            | None -> ribbit
+        | ClearValue(rowId, propertyName) ->
+            let rows = ribbit.scope.rows |> Map.change rowId (Option.map (Map.remove propertyName))
+            { ribbit with scope = { ribbit.scope with rows = rows } }
 
     type Ribbit with
         static member Fresh = Delta.create((fun () -> RibbitData.fresh), update) |> Ribbit
@@ -193,6 +202,9 @@ type NumberProperty(name, defaultValue: _ option) =
         getRibbit >> getAsync (rowId, name, defaultValue, function Number n -> Ok n | v -> castFailure RuntimeType.Number rowId name v)
     new(name, defaultValue: int) = NumberProperty(name, Some defaultValue)
     new(name) = NumberProperty(name, None)
+    member this.Clear (rowId: Id) (ribbit: Ribbit) =
+        ribbit |> (ClearValue(rowId, name) |> Ribbit.Update)
+    
 
 type BoolProperty(name, defaultValue: _ option) =
     inherit Property<bool, Ribbit>(name, RuntimeType.Bool)

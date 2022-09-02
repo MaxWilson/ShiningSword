@@ -17,6 +17,7 @@ module Operations =
             | _ -> $"Unnamed individual (ID = {rowId})"
         failwith $"{propName} should have been set on {name}"
     let prototypeP = IdProperty("prototype", 0) // for Javascript-style prototype inheritance
+    let monsterKindNameP = TextProperty("MonsterKindName") // self-reference may not even be necessary
     let personalNameP = TextProperty("PersonalName") // self-reference may not even be necessary
     let selfP = IdProperty("UniqueId") // self-reference may not even be necessary
     let hdP = RollProperty("HitDice")
@@ -83,10 +84,11 @@ module Operations =
         }
 
     let addKind (name: Name) initialize = stateChange {
-        let! nextId = nextId()
+        let! monsterKindId = nextId()
         let! state = get()
-        do! initialize nextId
-        do! AssociateMonsterKind(name, nextId) |> Ribbit.ExecuteM
+        do! initialize monsterKindId
+        do! monsterKindNameP.SetM(monsterKindId, name)
+        do! AssociateMonsterKind(name, monsterKindId) |> Ribbit.ExecuteM
         }
 
     // there are enough subtle differences with addMonster that I don't want to refactor these together. Some minor duplication is okay in this case.
