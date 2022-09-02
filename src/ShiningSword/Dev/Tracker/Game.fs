@@ -42,16 +42,15 @@ module Game =
 
     type Command =
         | Define of Name
+        | DeclareNumber of Name * NumberProperty * int
+        | DeclareTextual of Name * TextProperty * string
         | DeclareAction of Name * Action
-        | DeclareInitiativeMod of Name * int
-        | DeclareCurrentInitiative of Name * int
         | AddNotes of Name * string list
         | SetNotes of Name * string list
-        | DeclareXP of Name * XP
-        | DeclareHP of Name * HP
+        | DeclareRemainingHP of Name * HP
         | DeclareMaxHP of Name * HP
         | Add of Name
-        | InflictDamage of src:Name * target:Name * hp:HP
+        | InflictDamage of src:Name * target:Name * hp:int
         | ClearDeadCreatures
         | Remove of Name list
         | Rename of Name * newName:Name
@@ -77,23 +76,13 @@ module Game =
         match msg with
         | Define name ->
             model.transform(stateChange { do! Domain.Ribbit.Operations.addKind name (fun _ rbt -> (), rbt) })
+        | DeclareNumber(name, prop, value) ->
+            model |> updateByName name prop value
+        | DeclareTextual(name, prop, value) ->
+            model |> updateByName name prop value
         | DeclareAction (name, Action action) ->
             model |> updateByName name Operations.actionDeclarationTextP action
-        | DeclareInitiativeMod (name, initiativeMod) ->
-            match model.stats |> Map.tryFind name with
-            | Some creature ->
-                { model with stats = model.stats |> Map.add name { creature with initiativeMod = Some initiativeMod }}
-            | None ->
-                { model with bestiary = model.bestiary |> Bestiary.declareInit name initiativeMod }
-        | DeclareCurrentInitiative (name, actualInit) ->
-            { model with initRolls = model.initRolls |> Map.add name actualInit }
-        | DeclareXP (name, (XP v as xp)) ->
-            match model.stats |> Map.tryFind name with
-            | Some creature ->
-                { model with stats = model.stats |> Map.add name { creature with xpEarned = v }}
-            | None ->
-                { model with bestiary = model.bestiary |> Bestiary.declareXP name xp }
-        | DeclareMaxHP (name, (HP maxHP as hp)) ->
+        | DeclareMaxHP (name, (maxHP as hp)) ->
             // adjust damageTaken if necessary so that remaining HP remain constant unless they exceed maximum
             match Getters.tryGetRibbit name Operations.damageTakenP model, Getters.tryGetRibbit name Operations.hpP model with
             | Some damageTaken, Some hp ->
@@ -104,13 +93,11 @@ module Game =
                 |> updateByName name hpP maxHP
             | _ ->
                 model |> updateByName name hpP maxHP
-        | DeclareHP (name, hp) ->
-            match Getters.tryGetRibbit name Operations.damageTakenP model with
-            | Some damageTaken ->
-                let hp' = hp + damageTaken
-                model |> updateByName name hpP hp'
-            | None ->
-                model |> updateByName name hpP hp
+        | DeclareRemainingHP (name, hp) ->
+            // adjust maxHP based on damageTaken so that remaining HP match the specified HP unless they exceed maximum
+            let damageTaken = Getters.tryGetRibbit name Operations.damageTakenP model |> Option.defaultValue 0 |> max 0
+            let hp' = hp + damageTaken
+            model |> updateByName name hpP hp'
         | Add (name) ->
             let add =
                 stateChange {
@@ -121,46 +108,39 @@ module Game =
                     }
             model.transform add
         | InflictDamage(src, target, hpLoss) ->
-            match model.stats |> Map.tryFind src, model.stats |> Map.tryFind target with
-            | Some src, Some target ->
-                let hp = Getters.tryGetRibbit target.name.extract Domain.Ribbit.Operations.hpP model |> Option.defaultValue 0
-                let damageTaken = Getters.tryGetRibbit target.name.extract Domain.Ribbit.Operations.damageTakenP model |> Option.defaultValue 0
-                // we don't give credit for overkill damage, for XP purposes, unless it's overkill damage against a PC (who might not have even had their HP recorded yet)
-                let damageCredit = hpLoss |> (if target.templateType.IsSome then min (hp - damageTaken |> max 0) else id)
-                let recordInteraction (name: Name) amount = Map.change name (function None -> Some amount | Some v -> Some (v+amount))
-                let target' = { target with woundLog = { target.woundLog with woundedBy = target.woundLog.woundedBy |> recordInteraction src.name hpLoss } }
-                let src' = { src with woundLog = { src.woundLog with victims = src.woundLog.victims |> recordInteraction target.name hpLoss } }
-                let model' = { model with
-                                ribbit = model.ribbit.update (Set(PropertyAddress(model.ribbit.data.roster[target.name.extract], Operations.damageTakenP.Name), Number (damageTaken + hpLoss)))
-                                stats = model.stats |> Map.add src.name src' |> Map.add target.name target' }
-                let isKill = damageTaken >= hp
-                if isKill = false then
-                    model' // no need to update XP if no kill was achieved
-                else
-                    let woundLog = target'.woundLog
-                    let awards =
-                        [
-                            let denominator = (woundLog.victims |> Map.values |> Seq.sum) + (woundLog.woundedBy |> Map.values |> Seq.sum)
-                            let xpTotal =
-                                match target'.templateType with
-                                | Some monsterKind ->
-                                    match model.bestiary[monsterKind].xp with Some (XP xp) -> xp | None -> 0
-                                | None -> 0
-                            for name in (woundLog.victims |> Map.keys |> Seq.append (woundLog.woundedBy |> Map.keys) |> Seq.distinct) do
-                                let numerator =
-                                    (woundLog.victims |> Map.tryFind name |> Option.defaultValue 0)
-                                        + (woundLog.woundedBy |> Map.tryFind name |> Option.defaultValue 0)
-                                let award = (numerator * xpTotal)/denominator
-                                name, award
-                        ]
-                    let allocateXP (roster: Map<Name, Creature>) = function
-                        | name, award ->
-                            roster |> Map.change name (function None -> None | Some c -> Some { c with xpEarned = c.xpEarned + award })
-                    { model' with stats = awards |> List.fold allocateXP model'.stats }
-            | None, _ ->
-                failwith $"{src} does not exist!"
-            | _, None ->
-                failwith $"{target} does not exist!"
+            let hp = Getters.tryGetRibbit target hpP model |> Option.defaultValue 0
+            let damageTaken = Getters.tryGetRibbit target damageTakenP model |> Option.defaultValue 0
+            // we don't give credit for overkill damage, for XP purposes, unless it's overkill damage against a PC (who might not have even had their HP recorded yet)
+            let damageCredit = hpLoss |> (if target.templateType.IsSome then min (hp - damageTaken |> max 0) else id)
+            let recordInteraction (src: Name) (target: Name) amount = notImpl()
+            let model' =
+                model |> updateByName target damageTakenP damageTaken + hpLoss
+                |> recordInteraction src target hpLoss
+            let awardXP() =
+                let woundLog = target'.woundLog
+                let awards =
+                    [
+                        let denominator = (woundLog.victims |> Map.values |> Seq.sum) + (woundLog.woundedBy |> Map.values |> Seq.sum)
+                        let xpTotal =
+                            match target'.templateType with
+                            | Some monsterKind ->
+                                match model.bestiary[monsterKind].xp with Some (XP xp) -> xp | None -> 0
+                            | None -> 0
+                        for name in (woundLog.victims |> Map.keys |> Seq.append (woundLog.woundedBy |> Map.keys) |> Seq.distinct) do
+                            let numerator =
+                                (woundLog.victims |> Map.tryFind name |> Option.defaultValue 0)
+                                    + (woundLog.woundedBy |> Map.tryFind name |> Option.defaultValue 0)
+                            let award = (numerator * xpTotal)/denominator
+                            name, award
+                    ]
+                let allocateXP (roster: Map<Name, Creature>) = function
+                    | name, award ->
+                        roster |> Map.change name (function None -> None | Some c -> Some { c with xpEarned = c.xpEarned + award })
+                { model' with stats = awards |> List.fold allocateXP model'.stats }
+            let isKill = damageTaken >= hp
+            if isKill then
+                awardXP model'
+            else model'
         | ClearDeadCreatures ->
             let roster' =
                 model.roster
@@ -203,7 +183,7 @@ module Game =
     type FSX =
         // FSX-oriented script commands
         static member define name = update (Define (Name name))
-        static member declareHP name hp = update (DeclareHP (Name name, HP hp))
+        static member declareHP name hp = update (DeclareRemainingHP (Name name, HP hp))
         static member declareXP name xp = update (DeclareXP (Name name, XP xp))
         static member add name = update (Add (Name name))
         static member damage src target hp = update (InflictDamage (Name src, Name target, HP hp))

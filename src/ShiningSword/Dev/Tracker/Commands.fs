@@ -62,7 +62,7 @@ let (|Declaration|_|) = function
     | OWSStr "xp" (Int (amt, ctx)) ->
         Some((fun name -> Game.DeclareXP(name, amt)), ctx)
     | OWSStr "hp" (Int (amt, ctx)) ->
-        Some((fun name -> Game.DeclareHP(name, amt)), ctx)
+        Some((fun name -> Game.DeclareRemainingHP(name, amt)), ctx)
     | OWSStr "maxhp" (Int (amt, ctx)) ->
         Some((fun name -> Game.DeclareMaxHP(name, amt)), ctx)
     | OWSStr "initmod" (IntMod (amt, ctx)) ->

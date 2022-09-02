@@ -242,7 +242,7 @@ let view (model: Model.d) dispatch =
                                 textCell (match name with Name name -> name)
                                 let onNumber ctor valueCtor value = ctor(name, valueCtor value) |> ExecuteCommand |> dispatch
                                 let hp = tryGetRibbit name.extract Domain.Ribbit.Operations.hpP model |> Option.map toString |> Option.defaultValue ""
-                                editableNumberCell hp (onNumber Game.DeclareHP HP)
+                                editableNumberCell hp (onNumber Game.DeclareRemainingHP HP)
                                 editableNumberCell (match type1.xp with Some (XP v) -> v.ToString() | None -> "") (onNumber Game.DeclareXP XP)
                                 ]
                         ]
