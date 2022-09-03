@@ -60,12 +60,17 @@ let textCell (txt: string) = Html.td [prop.text txt]
 
 [<ReactComponent>]
 let EditableNumberCell (txt: string, supplyNumber) =
-    let state, update = React.useState (thunk txt)
-    let submit() = if state <> txt then match System.Int32.TryParse(state) with true, hp -> supplyNumber hp | _ -> ()
+    let state = React.useRef None
+    let submit() =
+        match state.current with
+        | Some state when state <> txt ->
+            match System.Int32.TryParse(state) with true, hp -> supplyNumber hp | _ -> ()
+        | _ -> ()
+        state.current <- None
     Html.td [
         Html.input [
-            prop.valueOrDefault state;
-            prop.onChange update;
+            prop.valueOrDefault (defaultArg state.current txt)
+            prop.onChange (fun (v:string) -> state.current <- Some v);
             prop.onKeyPress(fun e ->
                 if e.key = "Enter" then
                     e.preventDefault()

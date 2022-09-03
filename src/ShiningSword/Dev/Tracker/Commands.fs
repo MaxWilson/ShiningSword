@@ -52,9 +52,9 @@ let (|Name|_|) = pack <| function
         let startsWith s = substring.StartsWith(s, System.StringComparison.InvariantCultureIgnoreCase)
         let candidates = ribbit.data.roster |> Map.keys |> Seq.append (ribbit.data.kindsOfMonsters |> Map.keys) |> Seq.distinct |> Seq.sortByDescending (fun n -> n.Length)
         // allow leaving off # sign
-        match candidates |> Seq.tryFind(startsWith) |> Option.orElseWith(fun () -> candidates |> Seq.tryFind(fun name -> startsWith (name.Replace("#", "")))) with
+        match candidates |> Seq.tryFind(startsWith) with
         | Some (name) ->
-            let l = if substring.StartsWith (name.Replace("#", "")) then (name.Replace("#", "").Length) else name.Length
+            let l = name.Length
             Some(name, (args, ix+l))
         | None -> None
     | _ -> None
@@ -68,6 +68,18 @@ let (|IndividualName|_|) = pack <| function
         match candidates |> Seq.tryFind(startsWith) |> Option.orElseWith(fun () -> candidates |> Seq.tryFind(fun name -> startsWith (name.Replace("#", "")))) with
         | Some (name) ->
             let l = if substring.StartsWith (name.Replace("#", "")) then (name.Replace("#", "").Length) else name.Length
+            Some(name, (args, ix+l))
+        | None -> None
+    | _ -> None
+let (|IndividualNickName|_|) = function
+    | OWS(GameContext(ribbit) & (args, ix)) ->
+        let substring1 = args.input.Substring(ix)
+        let startsWith1 s = substring1.StartsWith(s, System.StringComparison.InvariantCultureIgnoreCase)
+        let candidates1 = ribbit.data.roster |> Map.keys |> Seq.distinct |> Seq.sortByDescending (fun n -> n.Length)
+        // allow leaving off # sign
+        match candidates1 |> Seq.tryFind(startsWith1) |> Option.orElseWith(fun () -> candidates1 |> Seq.tryFind(fun name -> startsWith1 (name.Replace("#", "")))) with
+        | Some (name) ->
+            let l = if substring1.StartsWith (name.Replace("#", "")) then (name.Replace("#", "").Length) else name.Length
             Some(name, (args, ix+l))
         | None -> None
     | _ -> None
@@ -132,7 +144,9 @@ let (|Commands|_|) = pack <| function
         Some(names |> List.map Game.Add, ctx)
     | Str "define" (NewNames(names, ctx)) ->
         Some(names |> List.map Game.Define, ctx)
-    | Name(name, Declarations (fs, ctx)) ->
+    | Name(name, Declarations (fs, (End as ctx))) ->
+        Some(fs |> List.map(fun f -> f name), ctx)
+    | IndividualNickName(name, Declarations (fs, ctx)) ->
         Some(fs |> List.map(fun f -> f name), ctx)
     | IndividualName(name, OWSStr "hits" (TakeDamages (fs, ctx))) ->
         Some(fs |> List.map(fun f -> f name), ctx)

@@ -55,6 +55,7 @@ let init initialCmd =
     |> executeTextCommandIfPossible "Boort hp 50, init +4"
     |> executeTextCommandIfPossible "Severiana hp 44, init +1"
     |> executeTextCommandIfPossible "add Fire Giant, Giant Crocodile"
+    |> executeTextCommandIfPossible "fire giant 1 maxhp172"
     |> executeTextCommandIfPossible "Boort will wildshape and attack Fire Giant"
     |> executeTextCommandIfPossible "Loiosh will attack Fire Giant 1"
     |> executeTextCommandIfPossible "Hershel will disarm Fire Giant 1 and run off with his weapon, action surging if necessary"
