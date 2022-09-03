@@ -58,7 +58,18 @@ let textHeaders (columns: string list) =
         ]
 let textCell (txt: string) = Html.td [prop.text txt]
 
-let editableNumberCell (txt: string) supplyNumber =
+[<ReactComponent>]
+let EditableNumberCell (txt: string, supplyNumber) =
+    let state, update = React.useState (thunk txt)
+    let submit() = if state <> txt then match System.Int32.TryParse(state) with true, hp -> supplyNumber hp | _ -> ()
     Html.td [
-        Html.input [prop.valueOrDefault txt; prop.onChange (fun (txt:string) -> match System.Int32.TryParse(txt) with true, hp -> supplyNumber hp | _ -> ())]
+        Html.input [
+            prop.valueOrDefault state;
+            prop.onChange update;
+            prop.onKeyPress(fun e ->
+                if e.key = "Enter" then
+                    e.preventDefault()
+                    submit()
+                )
+            prop.onBlur (thunk1 submit ())]
         ]

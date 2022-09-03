@@ -13,7 +13,7 @@ open Fable.Core
 type Msg =
     | ReviseInput of msg: string
     | SubmitInput
-    | ExecuteCommand of Game.Command
+    | ExecuteCommand of string
     | ToggleHelp of bool
     | ToggleBestiary of bool
     | ToggleLog of bool
@@ -29,7 +29,7 @@ module Model =
             { ui with input = ""; game = ui.game |> Game.update cmd; errors = [] }
         with err ->
             { ui with input = ""; errors = (err.ToString())::ui.errors }
-    let executeInputIfPossible input (ui: d) =
+    let executeTextCommandIfPossible input (ui: d) =
         match ParseArgs.Init(input, ui.game) with
         | Commands (cmds, End) ->
             let ui = cmds |> List.fold executeIfPossible ui
@@ -47,32 +47,32 @@ let init initialCmd =
     Model.fresh
 #if DEBUG
     // start off with some data to make hot-reloading less onerous
-    |> executeInputIfPossible "add Loiosh, Boort, Hershel, Severiana"
-    |> executeInputIfPossible "define Fire Giant, Giant Crocodile, Mangler, Grue"
-    |> executeInputIfPossible "Fire Giant hp 162, xp 5000, init -1"
-    |> executeInputIfPossible "Giant Crocodile hp 85, xp 1800"
-    |> executeInputIfPossible "Mangler hp 71, xp 1800"
-    |> executeInputIfPossible "Boort hp 50, init +4"
-    |> executeInputIfPossible "Severiana hp 44, init +1"
-    |> executeInputIfPossible "add Fire Giant, Giant Crocodile"
-    |> executeInputIfPossible "Boort will wildshape and attack Fire Giant"
-    |> executeInputIfPossible "Loiosh will attack Fire Giant 1"
-    |> executeInputIfPossible "Hershel will disarm Fire Giant 1 and run off with his weapon, action surging if necessary"
-    |> executeInputIfPossible "Severiana will Fireball"
-    |> executeInputIfPossible "Fire Giant #1 will attack Severiana"
-    |> executeInputIfPossible "Giant Crocodile #1 will Dodge and shadow Hershel"
-    |> executeInputIfPossible "Severiana hits Fire Giant 1 for 33, Giant Crocodile 1 for 16"
-    |> executeInputIfPossible "add Grue, Grue, Grue, Grue"
-    |> executeInputIfPossible "Grue #1 hp 23"
-    |> executeInputIfPossible "Boort hits Grue 1 for 10, Grue 2 for 10, Grue 3 for 5"
-    |> executeInputIfPossible "Grue 17hp,50xp"
-    |> executeInputIfPossible "Grue 1 hp 14"
-    |> executeInputIfPossible "Grue 2 maxhp 18, xp 50"
-    |> executeInputIfPossible "Rename Giant Crocodile #1 Sparky"
-    |> executeInputIfPossible "Sparky hits Boort for 28"
-    |> executeInputIfPossible "Severiana hits Sparky for 20"
-    |> executeInputIfPossible "Severiana hits Sparky for 27"
-    |> executeInputIfPossible "Loiosh hits Sparky for 51" // even though Loiosh rolled high damage, Severiana should get more XP because most of Loiosh's damage was overkill
+    |> executeTextCommandIfPossible "add Loiosh, Boort, Hershel, Severiana"
+    |> executeTextCommandIfPossible "define Fire Giant, Giant Crocodile, Mangler, Grue"
+    |> executeTextCommandIfPossible "Fire Giant hp 162, xp 5000, init -1"
+    |> executeTextCommandIfPossible "Giant Crocodile hp 85, xp 1800"
+    |> executeTextCommandIfPossible "Mangler hp 71, xp 1800"
+    |> executeTextCommandIfPossible "Boort hp 50, init +4"
+    |> executeTextCommandIfPossible "Severiana hp 44, init +1"
+    |> executeTextCommandIfPossible "add Fire Giant, Giant Crocodile"
+    |> executeTextCommandIfPossible "Boort will wildshape and attack Fire Giant"
+    |> executeTextCommandIfPossible "Loiosh will attack Fire Giant 1"
+    |> executeTextCommandIfPossible "Hershel will disarm Fire Giant 1 and run off with his weapon, action surging if necessary"
+    |> executeTextCommandIfPossible "Severiana will Fireball"
+    |> executeTextCommandIfPossible "Fire Giant #1 will attack Severiana"
+    |> executeTextCommandIfPossible "Giant Crocodile #1 will Dodge and shadow Hershel"
+    |> executeTextCommandIfPossible "Severiana hits Fire Giant 1 for 33, Giant Crocodile 1 for 16"
+    |> executeTextCommandIfPossible "add Grue, Grue, Grue, Grue"
+    |> executeTextCommandIfPossible "Grue #1 hp 23"
+    |> executeTextCommandIfPossible "Boort hits Grue 1 for 10, Grue 2 for 10, Grue 3 for 5"
+    |> executeTextCommandIfPossible "Grue 17hp,50xp"
+    |> executeTextCommandIfPossible "Grue 1 hp 14"
+    |> executeTextCommandIfPossible "Grue 2 maxhp 18, xp 50"
+    |> executeTextCommandIfPossible "Rename Giant Crocodile #1 Sparky"
+    |> executeTextCommandIfPossible "Sparky hits Boort for 28"
+    |> executeTextCommandIfPossible "Severiana hits Sparky for 20"
+    |> executeTextCommandIfPossible "Severiana hits Sparky for 27"
+    |> executeTextCommandIfPossible "Loiosh hits Sparky for 51" // even though Loiosh rolled high damage, Severiana should get more XP because most of Loiosh's damage was overkill
 
 #endif
 open Domain.Ribbit.Operations
@@ -114,8 +114,8 @@ let update msg (model: Model.d) =
     | ReviseInput input -> { model with input = input }
     | SubmitInput when model.input = "ok" ->
         { model with input = "" } |> advance
-    | SubmitInput -> model |> Model.executeInputIfPossible model.input
-    | ExecuteCommand cmd -> Model.executeIfPossible model cmd
+    | SubmitInput -> model |> Model.executeTextCommandIfPossible model.input
+    | ExecuteCommand cmd -> model |> Model.executeTextCommandIfPossible cmd
     | ToggleHelp showHelp -> { model with showHelp = showHelp }
     | ToggleBestiary showBestiary -> { model with showBestiary = showBestiary }
     | ToggleLog showLog -> { model with showLog = showLog }
@@ -250,8 +250,8 @@ let view (model: Model.d) dispatch =
                                 textCell name
                                 let onNumber makeMessage newNumber = newNumber |> makeMessage |> ExecuteCommand |> dispatch
                                 let hp = tryGetRibbit name Domain.Ribbit.Operations.hpP model |> Option.map toString |> Option.defaultValue ""
-                                editableNumberCell hp (onNumber <| fun hp -> Game.DeclareMaxHP(name, hp))
-                                editableNumberCell (match tryGetRibbit name xpValueP model with Some v -> v.ToString() | None -> "") (onNumber (fun v -> Game.DeclareNumber(name, xpValueP, v)))
+                                EditableNumberCell (hp, (onNumber <| fun hp -> $"{name} maxhp {hp}"))
+                                EditableNumberCell ((match tryGetRibbit name xpValueP model with Some v -> v.ToString() | None -> ""), (onNumber (fun v -> $"{name} xp {v}")))
                                 ]
                         ]
                     ]
