@@ -76,7 +76,7 @@ module Game =
             match input with
             | :? WoundLog as w -> Some w
             | _ -> None
-        GenericProperty("woundLog", typeConvert)
+        GenericProperty("woundLog", WoundLog.fresh, typeConvert)
     let notesP =
         let typeConvert (input: obj) =
             match input with
@@ -103,7 +103,7 @@ module Game =
         match model.data.roster |> Map.tryFind nameStr |> Option.orElse (model.data.kindsOfMonsters |> Map.tryFind nameStr) with
         | Some id -> model |> property.Set(id, value)
         | None -> shouldntHappen()
-    
+
     let update msg (model:d) =
         let inline transformByName nameStr (property:Property<_,_>) updateFunction (model:d) =
             match model.data.roster |> Map.tryFind nameStr |> Option.orElse (model.data.kindsOfMonsters |> Map.tryFind nameStr) with
@@ -122,7 +122,7 @@ module Game =
             model |> setByName name Operations.actionDeclarationTextP action
         | DeclareMaxHP (name, (maxHP as hp)) ->
             // adjust damageTaken if necessary so that remaining HP remain constant unless they exceed maximum
-            match Getters.tryGetRibbit name Operations.damageTakenP model, Getters.tryGetRibbit name Operations.hpP model with
+            match Getters.tryGetRibbit name damageTakenP model, Getters.tryGetRibbit name hpP model with
             | Some damageTaken, Some hp ->
                 let remainingHP = hp - damageTaken
                 let damageTaken' = maxHP - remainingHP |> max 0
@@ -132,10 +132,17 @@ module Game =
             | _ ->
                 model |> setByName name hpP maxHP
         | DeclareRemainingHP (name, hp) ->
-            // adjust maxHP based on damageTaken so that remaining HP match the specified HP unless they exceed maximum
+            // adjust damageTaken so that remaining HP match the specified HP. Boost max hp if necessary.
             let damageTaken = Getters.tryGetRibbit name Operations.damageTakenP model |> Option.defaultValue 0 |> max 0
-            let hp' = hp + damageTaken
-            model |> setByName name hpP hp'
+            match Getters.tryGetRibbit name hpP model with
+            | Some maxHP ->
+                if hp >= maxHP then
+                    // wipe out damage and increase maxHP
+                    model |> setByName name damageTakenP 0 |> setByName name hpP hp
+                else
+                    model |> setByName name damageTakenP (maxHP - hp)
+            | None ->
+                model |> setByName name damageTakenP 0 |> setByName name hpP hp
         | Add (name) ->
             let add =
                 stateChange {
@@ -155,10 +162,14 @@ module Game =
                 | _ -> None
             // we don't give credit for overkill damage, for XP purposes, unless it's overkill damage against a PC (who might not have even had their HP recorded yet)
             let damageCredit = hpLoss |> (if (model |> templateType target).IsSome then min (hp - damageTaken |> max 0) else id)
-            let recordInteraction (src: Name) (target: Name) amount = notImpl()
-            let model' =
-                model |> setByName target damageTakenP (damageTaken + hpLoss)
-                |> recordInteraction src target hpLoss
+            let recordInteraction (src: Name) (target: Name) amount model =
+                model
+                |> transformByName src woundlogP (fun w -> { w with victims = w.victims |> Map.change target (function None -> Some amount | Some amount0 -> amount0 + amount |> Some) })
+                |> transformByName target woundlogP (fun w -> { w with woundedBy = w.woundedBy |> Map.change src (function None -> Some amount | Some amount0 -> amount0 + amount |> Some) })
+            let damageTaken' = (damageTaken + hpLoss)
+            let model =
+                model |> setByName target damageTakenP damageTaken'
+                |> recordInteraction src target damageCredit
             let awardXP model =
                 let woundLog = Getters.get target woundlogP model
                 let awards =
@@ -175,11 +186,11 @@ module Game =
                 let allocateXP (model:d) = function
                     | name, award ->
                         model |> transformByName name xpEarnedP ((+) award)
-                awards |> List.fold allocateXP model'
-            let isKill = damageTaken >= hp
+                awards |> List.fold allocateXP model
+            let isKill = damageTaken' >= hp
             if isKill then
-                awardXP model'
-            else model'
+                awardXP model
+            else model
         | ClearDeadCreatures ->
             let ctx = EvaluationContext.Create model
             let msgs =
@@ -209,6 +220,6 @@ module Game =
         static member declareXP name xp = update (DeclareNumber (name, xpValueP, xp))
         static member add name = update (Add (name))
         static member damage src target hp = update (InflictDamage (src, target, hp))
-        static member getXPEarned name (model:d) = model |> Getters.tryGetRibbit name xpEarnedP 
+        static member getXPEarned name (model:d) = model |> Getters.tryGetRibbit name xpEarnedP
 
 

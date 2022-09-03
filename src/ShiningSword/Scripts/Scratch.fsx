@@ -3,6 +3,7 @@
 #I @"..\.."
 #load @"Lib\Core\Optics.fs"
 #load @"Lib\Core\Common.fs"
+#load @"Lib\Core\Parsing.fs"
 #load @"Lib\Core\DerivedTraits.fs"
 #load @"Lib\Domain\Metrics.fs"
 #load @"Lib\Domain\Random.fs"
@@ -18,6 +19,7 @@
 #load @"Lib\Domain\Ribbit\Rules2e.fs"
 #load @"Lib\Domain\Ribbit\Rules5e.fs"
 #load @"Lib\Adventure.fs"
+#load @"Dev\Tracker\Game.fs"
 
 open Domain.Character
 open Domain.Character.ADND2nd

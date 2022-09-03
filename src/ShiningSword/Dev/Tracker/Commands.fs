@@ -22,7 +22,7 @@ let nameChars = alphanumeric + whitespace + Set ['#']
 let numericWithPlusOrMinus = Set<_>(['0'..'9']@['+';'-'])
 
 open Dev.Tracker.Game
-open Game.Game
+open Dev.Tracker.Game.Game
 open Domain.Ribbit
 
 let (|IntMod|_|) = pack <| function
@@ -49,9 +49,23 @@ let isPotentialNamePrefix (names: obj) (substring: string) =
 let (|Name|_|) = pack <| function
     | OWS(GameContext(ribbit) & (args, ix)) ->
         let substring = args.input.Substring(ix)
+        let startsWith s = substring.StartsWith(s, System.StringComparison.InvariantCultureIgnoreCase)
         let candidates = ribbit.data.roster |> Map.keys |> Seq.append (ribbit.data.kindsOfMonsters |> Map.keys) |> Seq.distinct |> Seq.sortByDescending (fun n -> n.Length)
         // allow leaving off # sign
-        match candidates |> Seq.tryFind(fun name -> substring.StartsWith name || substring.StartsWith (name.Replace("#", ""))) with
+        match candidates |> Seq.tryFind(startsWith) |> Option.orElseWith(fun () -> candidates |> Seq.tryFind(fun name -> startsWith (name.Replace("#", "")))) with
+        | Some (name) ->
+            let l = if substring.StartsWith (name.Replace("#", "")) then (name.Replace("#", "").Length) else name.Length
+            Some(name, (args, ix+l))
+        | None -> None
+    | _ -> None
+// Individual Name = NOT a monsterkind. E.g. doesn't make sense for all dragons to hit all giants.
+let (|IndividualName|_|) = pack <| function
+    | OWS(GameContext(ribbit) & (args, ix)) ->
+        let substring = args.input.Substring(ix)
+        let startsWith s = substring.StartsWith(s, System.StringComparison.InvariantCultureIgnoreCase)
+        let candidates = ribbit.data.roster |> Map.keys |> Seq.distinct |> Seq.sortByDescending (fun n -> n.Length)
+        // allow leaving off # sign
+        match candidates |> Seq.tryFind(startsWith) |> Option.orElseWith(fun () -> candidates |> Seq.tryFind(fun name -> startsWith (name.Replace("#", "")))) with
         | Some (name) ->
             let l = if substring.StartsWith (name.Replace("#", "")) then (name.Replace("#", "").Length) else name.Length
             Some(name, (args, ix+l))
@@ -62,6 +76,12 @@ let rec (|Names|_|) = pack <| function
     | Name(name, ctx) -> Some([name], ctx)
     | _ -> None
 let (|Declaration|_|) = function
+    | Int (amt, OWSStr "xp" (ctx)) ->
+        Some((fun name -> Game.DeclareNumber(name, xpValueP, amt)), ctx)
+    | Int (amt, OWSStr "hp" (ctx)) ->
+        Some((fun name -> Game.DeclareRemainingHP(name, amt)), ctx)
+    | Int (amt, OWSStr "maxhp" (ctx)) ->
+        Some((fun name -> Game.DeclareMaxHP(name, amt)), ctx)
     | OWSStr "xp" (Int (amt, ctx)) ->
         Some((fun name -> Game.DeclareNumber(name, xpValueP, amt)), ctx)
     | OWSStr "hp" (Int (amt, ctx)) ->
@@ -80,7 +100,7 @@ let rec (|Declarations|_|) = pack <| function
     | Declaration(f, ctx) -> Some([f], ctx)
     | _ -> None
 let rec (|TakeDamage|_|) = pack <| function
-    | (Name(target, OWSStr "for" (Int(amt, ctx)))) ->
+    | (IndividualName(target, OWSStr "for" (Int(amt, ctx)))) ->
         Some((fun src -> Game.InflictDamage(src, target, amt)), ctx)
     | _ -> None
 let rec (|TakeDamages|_|) = pack <| function
@@ -100,11 +120,11 @@ let (|Command|_|) = function
         Some(Game.Define(name), ctx)
     | Str "clear" (Name(name, OWSStr "notes" ctx)) ->
         Some(Game.SetNotes(name, []), ctx)
-    | Name(name, Str ":" (Any (note, ctx))) ->
+    | Name(name, Str ":" (OWS(Any (note, ctx)))) ->
         Some(Game.AddNotes(name, [note]), ctx)
     | Name(name, Declaration (f, ctx)) ->
         Some(f name, ctx)
-    | Name(src, (OWSStr "hits" (Name(target, OWSStr "for" (Int(amt, ctx)))))) ->
+    | Name(src, (OWSStr "hits" (IndividualName(target, OWSStr "for" (Int(amt, ctx)))))) ->
         Some(Game.InflictDamage(src, target, amt), ctx)
     | _ -> None
 let (|Commands|_|) = pack <| function
@@ -114,7 +134,7 @@ let (|Commands|_|) = pack <| function
         Some(names |> List.map Game.Define, ctx)
     | Name(name, Declarations (fs, ctx)) ->
         Some(fs |> List.map(fun f -> f name), ctx)
-    | Name(name, OWSStr "hits" (TakeDamages (fs, ctx))) ->
+    | IndividualName(name, OWSStr "hits" (TakeDamages (fs, ctx))) ->
         Some(fs |> List.map(fun f -> f name), ctx)
     | Command(cmd, ctx) -> Some([cmd], ctx)
     | _ -> None
@@ -124,11 +144,16 @@ let testbed() =
         match ParseArgs.Init(str, game) with
         | Commands(cmds, End) -> cmds |> List.fold (flip Game.update) game
     let mutable g = Game.fresh
-    match ParseArgs.Init("Beholder hp 180, xp 10000", g) with
+    match ParseArgs.Init("Beholder maxhp 180, xp 10000", g) with
+    | Commands(cmds, End) -> cmds
+    match ParseArgs.Init("Beholder 180 maxhp, xp 10000", g) with
+    | Commands(cmds, End) -> cmds
+    match ParseArgs.Init("Beholder 180 hp, xp 10000", g) with
     | Commands(cmds, End) -> cmds
     iter &g (exec "define Beholder, Ogre")
     iter &g (exec "Beholder hp 180, xp 10000")
     iter &g (exec "define Giant")
+    iter &g (exec "Giant 80 hp")
     iter &g (exec "Giant hp 80")
     iter &g (exec "Giant xp 2900")
     iter &g (exec "add Giant")

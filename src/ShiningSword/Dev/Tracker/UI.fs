@@ -65,9 +65,14 @@ let init initialCmd =
     |> executeInputIfPossible "add Grue, Grue, Grue, Grue"
     |> executeInputIfPossible "Grue #1 hp 23"
     |> executeInputIfPossible "Boort hits Grue 1 for 10, Grue 2 for 10, Grue 3 for 5"
-    |> executeInputIfPossible "Grue hp 17, xp 50"
+    |> executeInputIfPossible "Grue 17hp,50xp"
     |> executeInputIfPossible "Grue 1 hp 14"
     |> executeInputIfPossible "Grue 2 maxhp 18, xp 50"
+    |> executeInputIfPossible "Rename Giant Crocodile #1 Sparky"
+    |> executeInputIfPossible "Sparky hits Boort for 28"
+    |> executeInputIfPossible "Severiana hits Sparky for 20"
+    |> executeInputIfPossible "Severiana hits Sparky for 27"
+    |> executeInputIfPossible "Loiosh hits Sparky for 51" // even though Loiosh rolled high damage, Severiana should get more XP because most of Loiosh's damage was overkill
 
 #endif
 open Domain.Ribbit.Operations
@@ -122,6 +127,8 @@ module Getters =
 
     let getAllNames (model:Model.d) =
         model.game.data.roster |> Map.keys |> List.ofSeq
+    let getAllNamesInOrder (model:Model.d) =
+        model.game.data.roster |> Seq.map (function KeyValue(k,v) -> k,v) |> Seq.sortBy snd |> Seq.map fst |> List.ofSeq
     let tryGetRibbit name (prop: Property<_, Ribbit>) (model:Model.d) =
         model.game |> Game.Getters.tryGetRibbit name prop
 
@@ -136,7 +143,7 @@ let view (model: Model.d) dispatch =
     let table = Html.table [
         textHeaders ["Name"; "Type"; "Actions"; "Notes"; "XP earned"; "HP"]
         Html.tbody [
-            for name in getAllNames model do
+            for name in getAllNamesInOrder model do
                 let isSelected = match model.mode with Executing (h::_) when h = name -> true | _ -> false
                 class' Html.tr (if isSelected then "currentTurn" else "") [
                     let tryGet prop = model |> tryGetRibbit name prop

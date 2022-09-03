@@ -164,7 +164,7 @@ module Core =
         | RenameRosterEntry(name, name') ->            
             match ribbit.roster |> Map.tryFind name with
             | Some id ->
-                { ribbit with roster = ribbit.roster |> Map.remove name |> Map.add name id }
+                { ribbit with roster = ribbit.roster |> Map.remove name |> Map.add name' id }
             | None -> ribbit
         | ClearValue(rowId, propertyName) ->
             let rows = ribbit.scope.rows |> Map.change rowId (Option.map (Map.remove propertyName))
@@ -173,9 +173,9 @@ module Core =
     type Ribbit with
         static member Fresh = Delta.create((fun () -> RibbitData.fresh), update) |> Ribbit
 
-type GenericProperty<'t>(name, defaultValue: _ option, typeConvert: obj -> 't option) =
+type GenericProperty<'t>(name, defaultValue: _ option, tryUnbox: obj -> 't option) =
     inherit Property<'t, Ribbit>(name, RuntimeType.Generic)
-    let (|Value|_|) = typeConvert
+    let (|Value|_|) = function Generic v -> tryUnbox v | _ -> None
     let extract = function Value v -> Ok v | v -> BugReport $"row #{id} property {name} could not be converted, was actually {v}" |> Error
     override this.Set(rowId, value) (state: Ribbit) =
         state |> (Set(PropertyAddress(rowId, name), Generic value) |> Ribbit.Update)
@@ -186,8 +186,8 @@ type GenericProperty<'t>(name, defaultValue: _ option, typeConvert: obj -> 't op
         | Error _ -> shouldntHappen() // shouldn't use synchronous Get on a property that's lazy
     override this.GetM(rowId) =
         getRibbit >> getAsync (rowId, name, defaultValue, extract)
-    new(name, defaultValue: 't, typeConvert) = GenericProperty<'t>(name, Some defaultValue, typeConvert)
-    new(name, typeConvert) = GenericProperty<'t>(name, None, typeConvert)
+    new(name, defaultValue: 't, tryUnbox) = GenericProperty<'t>(name, Some defaultValue, tryUnbox)
+    new(name, tryUnbox) = GenericProperty<'t>(name, None, tryUnbox)
 
 type NumberProperty(name, defaultValue: _ option) =
     inherit Property<int, Ribbit>(name, RuntimeType.Number)

@@ -3,6 +3,7 @@
 // This script is purely for messing around with graph visualization.
 #I __SOURCE_DIRECTORY__
 #I ".."
+#I "..\Core"
 #load @"Optics.fs"
 #load @"Common.fs"
 
@@ -21,7 +22,7 @@ open System.Diagnostics
 open System.IO
 
 let openNotepad notepadPath filePath =
-    Process.Start(notepadPath, filePath)
+    Process.Start((notepadPath:string), (filePath:string))
 let dumpToFile txt =
     let path = System.IO.Path.GetTempFileName()
     System.IO.File.WriteAllText(path, txt)
