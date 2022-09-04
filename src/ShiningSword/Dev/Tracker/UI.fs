@@ -74,6 +74,31 @@ let init initialCmd =
     |> executeTextCommandIfPossible "Severiana hits Sparky for 20"
     |> executeTextCommandIfPossible "Severiana hits Sparky for 27"
     |> executeTextCommandIfPossible "Loiosh hits Sparky for 51" // even though Loiosh rolled high damage, Severiana should get more XP because most of Loiosh's damage was overkill
+    //|> executeTextCommandIfPossible "add Grue"
+    //|> executeTextCommandIfPossible "add Grue"
+    //|> executeTextCommandIfPossible "add Grue"
+    //|> executeTextCommandIfPossible "add Grue"
+    //|> executeTextCommandIfPossible "add Grue"
+    //|> executeTextCommandIfPossible "add Grue"
+    //|> executeTextCommandIfPossible "add Grue"
+    //|> executeTextCommandIfPossible "add Grue"
+    //|> executeTextCommandIfPossible "add Grue"
+    //|> executeTextCommandIfPossible "add Grue"
+    //|> executeTextCommandIfPossible "add Grue"
+    //|> executeTextCommandIfPossible "add Grue"
+    //|> executeTextCommandIfPossible "add Grue"
+    //|> executeTextCommandIfPossible "add Grue"
+    //|> executeTextCommandIfPossible "add Grue"
+    //|> executeTextCommandIfPossible "add Grue"
+    //|> executeTextCommandIfPossible "add Mangler"
+    //|> executeTextCommandIfPossible "add Grue"
+    //|> executeTextCommandIfPossible "add Grue"
+    //|> executeTextCommandIfPossible "add Grue"
+    //|> executeTextCommandIfPossible "add Grue"
+    //|> executeTextCommandIfPossible "add Grue"
+    //|> executeTextCommandIfPossible "add Grue"
+    //|> executeTextCommandIfPossible "add Grue"
+    //|> executeTextCommandIfPossible "add Grue"
 
 #endif
 open Domain.Ribbit.Operations
@@ -141,55 +166,57 @@ open Domain.Ribbit
 let view (model: Model.d) dispatch =
     let setCommand txt =
         (ReviseInput txt) |> dispatch
-    let table = class' Html.table "table" [
-        textHeaders ["Name"; "Type"; "Actions"; "Notes"; "XP earned"; "HP"]
-        Html.tbody [
-            for name in getAllNamesInOrder model do
-                let isSelected = match model.mode with Executing (h::_) when h = name -> true | _ -> false
-                class' Html.tr (if isSelected then "currentTurn" else "") [
-                    let tryGet prop = model |> tryGetRibbit name prop
+    let table = class' Html.div "table" [
+        Html.table [
+            textHeaders ["Name"; "Type"; "Actions"; "Notes"; "XP earned"; "HP"]
+            Html.tbody [
+                for name in getAllNamesInOrder model do
+                    let isSelected = match model.mode with Executing (h::_) when h = name -> true | _ -> false
+                    class' Html.tr (if isSelected then "currentTurn" else "") [
+                        let tryGet prop = model |> tryGetRibbit name prop
 
-                    let type1 =
-                        match templateTypeName name (EvaluationContext.Create model.game) with
-                        | Ok v -> v
-                        | _ -> "PC"
-                    textCell $"{name}"
-                    textCell $"({type1})"
-                    let action =
-                        let initMod =
-                            match get name initiativeModifierP model.game with
-                            | v when v <> 0 -> Some $"%+i{v}"
-                            | _ -> None
-                        let verb =
-                            let willAct = match model.mode with | Declaring -> true | Executing haventActed -> haventActed |> List.contains name
-                            if willAct then "will" else "did"
-                        match tryGet actionDeclarationTextP, tryGetRibbit name currentInitiativeP model, initMod with
-                        | Some (action), Some init, Some initMod ->
-                            $"{init}: {name} {verb} {action} ({initMod})"
-                        | Some (action), Some init, None ->
-                            $"{init}: {name} {verb} {action}"
-                        | Some (action), None, Some initMod ->
-                            $"{name} {verb} {action} ({initMod})"
-                        | Some (action), None, None ->
-                            $"{name} {verb} {action}"
-                        | None, _, Some initMod when model.mode = Declaring ->
-                            $"({initMod})"
-                        | None, _, None when model.mode = Declaring ->
-                            $""
-                        | _ -> $"{name} does nothing"
+                        let type1 =
+                            match templateTypeName name (EvaluationContext.Create model.game) with
+                            | Ok v -> v
+                            | _ -> "PC"
+                        textCell $"{name}"
+                        textCell $"({type1})"
+                        let action =
+                            let initMod =
+                                match get name initiativeModifierP model.game with
+                                | v when v <> 0 -> Some $"%+i{v}"
+                                | _ -> None
+                            let verb =
+                                let willAct = match model.mode with | Declaring -> true | Executing haventActed -> haventActed |> List.contains name
+                                if willAct then "will" else "did"
+                            match tryGet actionDeclarationTextP, tryGetRibbit name currentInitiativeP model, initMod with
+                            | Some (action), Some init, Some initMod ->
+                                $"{init}: {name} {verb} {action} ({initMod})"
+                            | Some (action), Some init, None ->
+                                $"{init}: {name} {verb} {action}"
+                            | Some (action), None, Some initMod ->
+                                $"{name} {verb} {action} ({initMod})"
+                            | Some (action), None, None ->
+                                $"{name} {verb} {action}"
+                            | None, _, Some initMod when model.mode = Declaring ->
+                                $"({initMod})"
+                            | None, _, None when model.mode = Declaring ->
+                                $""
+                            | _ -> $"{name} does nothing"
 
-                    let clickableText (txt: string) msg =
-                        Html.td [prop.text txt; prop.onDoubleClick (fun _ -> setCommand msg)]
+                        let clickableText (txt: string) msg =
+                            Html.td [prop.text txt; prop.onDoubleClick (fun _ -> setCommand msg)]
 
-                    clickableText action $"{name} will "
-                    clickableText (System.String.Join(";", tryGet notesP)) $"{name}: "
-                    textCell $"{tryGet xpEarnedP} XP earned"
-                    let remainingHP =
-                        match tryGetRibbit name Domain.Ribbit.Operations.hpP model |> Option.defaultValue 0, tryGetRibbit name Domain.Ribbit.Operations.damageTakenP model  |> Option.defaultValue 0 with
-                        | hp, dmg when dmg = 0 -> $"{hp} HP"
-                        | hp, dmg when dmg > hp -> $"{hp - dmg}/{hp} HP (dead)"
-                        | hp, dmg -> $"{hp - dmg}/{hp} HP"
-                    textCell remainingHP
+                        clickableText action $"{name} will "
+                        clickableText (System.String.Join(";", tryGet notesP)) $"{name}: "
+                        textCell $"{tryGet xpEarnedP} XP earned"
+                        let remainingHP =
+                            match tryGetRibbit name Domain.Ribbit.Operations.hpP model |> Option.defaultValue 0, tryGetRibbit name Domain.Ribbit.Operations.damageTakenP model  |> Option.defaultValue 0 with
+                            | hp, dmg when dmg = 0 -> $"{hp} HP"
+                            | hp, dmg when dmg > hp -> $"{hp - dmg}/{hp} HP (dead)"
+                            | hp, dmg -> $"{hp - dmg}/{hp} HP"
+                        textCell remainingHP
+                        ]
                     ]
                 ]
             ]

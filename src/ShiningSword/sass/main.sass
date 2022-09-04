@@ -8,14 +8,16 @@ html, body
     height: 100%
     box-sizing: border-box
     margin: 0px
-    padding: 2px
+    padding: 0px
+
 #feliz-app
     width: 100%
     height: 100%
     box-sizing: border-box
     padding: 1px
 #feliz-dev
-    height: 100vh
+    box-sizing: border-box
+    max-height: 100vh
     overflow-y: auto
 
 .title
@@ -308,9 +310,13 @@ html, body
         padding: 2px
     th
         border: 1px solid black
-        min-width: 10em
-    table
-        min-width: 95%
+        max-width: 10em
+
+    .table
+        width: 100%
+        max-height: 100%
+        overflow-y: auto
+        box-sizing: border-box
     .currentTurn
         font-weight: bold
     .open .bestiary
@@ -319,27 +325,44 @@ html, body
         margin: 2px
         ul
             margin: 2px
-.dev.withsidebar
+.dev
+    max-height: 95vh
     display: grid
-    grid-template-columns: 3fr 1fr
-    grid-template-rows: auto
+    grid-template-rows: 40vh auto auto auto 1fr
     .header
         grid-column: 1-2
         grid-row: 1
     .table
         grid-column: 1
+        grid-row: 1
+        table
+            box-sizing: border-box
+            width: 100%
+            padding-right: 5em
+    .inputPanel
         grid-row: 2
-        height: 50%
+    .errors
+        grid-row: 3
+    .bestiary
+        grid-row: 4
+    .log
+        grid-row: 5
+.dev.withsidebar
+    grid-template-columns: 3fr 1fr
+    .header
+        grid-column: 1-2
+    .table
+        grid-column: 1
     .inputPanel
         grid-column: 1
-        grid-row: 3
     .errors
         grid-column: 1
-        grid-row: 4
     .bestiary
         grid-column: 1
-        grid-row: 5
     .log
-        grid-row: 2/5
+        grid-row: 1/-1
         grid-column: 2
+        max-height: 95vh
+        overflow-y: auto
+
 
