@@ -141,7 +141,7 @@ open Domain.Ribbit
 let view (model: Model.d) dispatch =
     let setCommand txt =
         (ReviseInput txt) |> dispatch
-    let table = Html.table [
+    let table = class' Html.table "table" [
         textHeaders ["Name"; "Type"; "Actions"; "Notes"; "XP earned"; "HP"]
         Html.tbody [
             for name in getAllNamesInOrder model do
@@ -230,7 +230,7 @@ let view (model: Model.d) dispatch =
             Html.button [prop.text "OK"; prop.onClick (fun _ -> dispatch SubmitInput)]
             ]
     let errors =
-        Html.div [
+        class' Html.div "errors" [
             for err in model.errors do
                 Html.div err
             ]
@@ -270,7 +270,7 @@ let view (model: Model.d) dispatch =
                             Html.li logEntry
                         ]
                 ]
-    class' Html.div "dev" [
+    class' Html.div (if log.show then "dev withsidebar" else "dev") [
         withHelp model.showHelp helpText (ToggleHelp >> dispatch) [
             table
             inputPanel

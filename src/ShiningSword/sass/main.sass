@@ -14,6 +14,9 @@ html, body
     height: 100%
     box-sizing: border-box
     padding: 1px
+#feliz-dev
+    height: 100vh
+    overflow-y: auto
 
 .title
     font-size: 1.3em
@@ -282,6 +285,7 @@ html, body
     font-size: bigger
 
 .dev
+    height: 100%
     margin: 4px
     .header a
         color: -webkit-link
@@ -315,4 +319,27 @@ html, body
         margin: 2px
         ul
             margin: 2px
+.dev.withsidebar
+    display: grid
+    grid-template-columns: 3fr 1fr
+    grid-template-rows: auto
+    .header
+        grid-column: 1-2
+        grid-row: 1
+    .table
+        grid-column: 1
+        grid-row: 2
+        height: 50%
+    .inputPanel
+        grid-column: 1
+        grid-row: 3
+    .errors
+        grid-column: 1
+        grid-row: 4
+    .bestiary
+        grid-column: 1
+        grid-row: 5
+    .log
+        grid-row: 2/5
+        grid-column: 2
 
