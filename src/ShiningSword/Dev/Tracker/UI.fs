@@ -281,7 +281,7 @@ let view (model: Model.d) dispatch =
             table
             inputPanel
             errors
-            CollapsibleSection.render bestiary
-            CollapsibleSection.render log
+            CollapsibleSection.renderAsButton bestiary
+            CollapsibleSection.renderAsLink log
             ]
         ]

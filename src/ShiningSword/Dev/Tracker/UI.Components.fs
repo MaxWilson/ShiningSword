@@ -32,10 +32,10 @@ let withHelp showHelp (helpText: StringWithLinebreaks) sendToggleMessage otherwi
 module CollapsibleSection =
     type 't d = { label: string; show: bool; setShowAsync: bool -> unit; view: unit -> ReactElement }
     let create(label, show, set) view = { label = label; show = show; setShowAsync = set; view = view }
-    let render (section: _ d) =
+    let render openControl (section: _ d) =
         if not section.show then
             class' Html.div $"collapsible {section.label} closed" [
-                Html.button [
+                openControl [
                     prop.text $"Show {section.label}"
                     prop.onClick (thunk1 section.setShowAsync true)
                     ]
@@ -48,6 +48,8 @@ module CollapsibleSection =
                     ]
                 prop.onDoubleClick (thunk1 section.setShowAsync false)
                 ]
+    let inline renderAsButton section = render Html.button section
+    let inline renderAsLink section = render Html.a section
 
 let textHeaders (columns: string list) =
     Html.thead [
