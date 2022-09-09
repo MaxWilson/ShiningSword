@@ -21,9 +21,10 @@ type Msg =
 module Model =
     open Packrat
     open Commands
-    type GameMode = Declaring | Executing of Name list
-    type d = { input: string; game: Game.d; errors: string list; log: string list; showHelp: bool; showBestiary: bool; showLog: bool; mode: GameMode }
-    let fresh = { input = ""; game = Game.fresh; errors = []; log = []; showHelp = false; showBestiary = true; showLog = false; mode = Declaring }
+    type CombatPhase = Declaring | Executing of Name list
+    type DisplayMode = MainScreen | HelpScreen
+    type d = { input: string; game: Game.d; errors: string list; log: string list; nowShowing: DisplayMode; showBestiary: bool; showLog: bool; combatPhase: CombatPhase }
+    let fresh = { input = ""; game = Game.fresh; errors = []; log = []; nowShowing = MainScreen; showBestiary = true; showLog = false; combatPhase = Declaring }
     let executeIfPossible ui cmd =
         try
             { ui with input = ""; game = ui.game |> Game.update cmd; errors = [] }
@@ -82,7 +83,7 @@ open Dev.Tracker.Game.Game.Getters
 
 // move to the next character or phase
 let advance model =
-    match model.mode with
+    match model.combatPhase with
     | Declaring ->
         let initiatives =
             [
@@ -98,7 +99,7 @@ let advance model =
             tryGetRibbit name currentInitiativeP ribbit
         { model with
             game = ribbit
-            mode =
+            combatPhase =
                 model.game.data.roster |> Map.keys |> List.ofSeq
                 |> List.filter (fun name -> tryGetRibbit name actionDeclarationTextP ribbit |> Option.isSome)
                 |> List.sortByDescending initiative
@@ -108,8 +109,8 @@ let advance model =
         model.game.data.roster |> Map.keys |> List.ofSeq
         |> List.fold (fun model name -> match getId name model with | Some id -> currentInitiativeP.Clear id model | _ -> model) model.game
         |> fun ribbit ->
-            { model with mode = Declaring; game = ribbit }
-    | Executing (_::rest) -> { model with mode = Executing rest }
+            { model with combatPhase = Declaring; game = ribbit }
+    | Executing (_::rest) -> { model with combatPhase = Executing rest }
 
 let update msg (model: Model.d) =
     match msg with
@@ -118,7 +119,7 @@ let update msg (model: Model.d) =
         { model with input = "" } |> advance
     | SubmitInput -> model |> Model.executeTextCommandIfPossible model.input
     | ExecuteCommand cmd -> model |> Model.executeTextCommandIfPossible cmd
-    | ToggleHelp showHelp -> { model with showHelp = showHelp }
+    | ToggleHelp showHelp -> { model with nowShowing = if showHelp then HelpScreen else MainScreen }
     | ToggleBestiary showBestiary -> { model with showBestiary = showBestiary }
     | ToggleLog showLog -> { model with showLog = showLog }
 
@@ -147,7 +148,7 @@ let view (model: Model.d) dispatch =
             textHeaders ["Name"; "Type"; "Actions"; "XP earned"; "HP"]
             Html.tbody [
                 for name in getAllNamesInOrder model do
-                    let isSelected = match model.mode with Executing (h::_) when h = name -> true | _ -> false
+                    let isSelected = match model.combatPhase with Executing (h::_) when h = name -> true | _ -> false
                     class' Html.tr (if isSelected then "currentTurn" else "") [
                         let tryGet prop = model |> tryGetRibbit name prop
 
@@ -167,7 +168,7 @@ let view (model: Model.d) dispatch =
                                 | v when v <> 0 -> Some $"%+i{v}"
                                 | _ -> None
                             let verb =
-                                let willAct = match model.mode with | Declaring -> true | Executing haventActed -> haventActed |> List.contains name
+                                let willAct = match model.combatPhase with | Declaring -> true | Executing haventActed -> haventActed |> List.contains name
                                 if willAct then "will" else "did"
                             match tryGet actionDeclarationTextP, tryGetRibbit name currentInitiativeP model, initMod with
                             | Some (action), Some init, Some initMod ->
@@ -178,9 +179,9 @@ let view (model: Model.d) dispatch =
                                 $"{name} {verb} {action} ({initMod})"
                             | Some (action), None, None ->
                                 $"{name} {verb} {action}"
-                            | None, _, Some initMod when model.mode = Declaring ->
+                            | None, _, Some initMod when model.combatPhase = Declaring ->
                                 $"({initMod})"
-                            | None, _, None when model.mode = Declaring ->
+                            | None, _, None when model.combatPhase = Declaring ->
                                 $""
                             | _ -> $"{name} does nothing"
 
@@ -202,7 +203,7 @@ let view (model: Model.d) dispatch =
     let inputPanel =
         class' Html.div "inputPanel" [
             let label =
-                match model.mode with
+                match model.combatPhase with
                 | Declaring -> "Declaring"
                 | Executing (h::_) -> $"{h}'s turn"
                 | Executing [] -> "End of round"
@@ -249,7 +250,7 @@ let view (model: Model.d) dispatch =
                 Html.tbody [
                     for KeyValue(name, id) in model.game.data.kindsOfMonsters do
                         Html.tr [
-                            match model.mode with
+                            match model.combatPhase with
                             | Executing (h::_) when h = name ->
                                 prop.className "currentTurn"
                             | _ -> ()
@@ -285,7 +286,7 @@ let view (model: Model.d) dispatch =
             prop.onClick (thunk1 dispatch (not model.showLog |> ToggleLog))
             ]
     class' Html.div (if model.showLog then "dev withsidebar" else "dev") [
-        withHeader model.showHelp helpText (ToggleHelp >> dispatch) [logLink()] [
+        withHeader (model.nowShowing = HelpScreen) helpText (ToggleHelp >> dispatch) [logLink()] [
             table
             inputPanel
             errors
