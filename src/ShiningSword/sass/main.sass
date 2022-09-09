@@ -293,11 +293,11 @@ a
 .dev
     height: 100%
     margin: 4px
-    .header a
+    .header
         display: flex
-        position: absolute
-        top: 9px
-        right: 2em
+        > *
+            user-select: none
+            margin-right: 0.5em
     .inputPanel
         margin: 10px
         padding: 2px
@@ -348,8 +348,7 @@ a
         grid-row: 4
     .log
         grid-row: 5
-.dev.withsidebar
-    grid-template-columns: 3fr 1fr
+    grid-template-columns: 3fr auto
     .header
         grid-column: 1-2
     .table
@@ -363,7 +362,15 @@ a
     .log
         grid-row: 1/-1
         grid-column: 2
-        max-height: 95vh
         overflow-y: auto
+        border: 2px solid lightgray
+        padding: 0.5em
+        display: flex
+        flex-direction: column
+        .entries
+            flex-grow: 1
+            overflow-y: auto
+.dev.withsidebar
+    grid-template-columns: 3fr 1fr
 
 

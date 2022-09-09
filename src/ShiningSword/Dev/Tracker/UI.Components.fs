@@ -14,7 +14,8 @@ let class' ctor (className: string) (children: ReactElement list) =
     ctor [prop.className className; prop.children children]
 
 type StringWithLinebreaks = string // a string where newline should mean <br> or similar
-let withHelp showHelp (helpText: StringWithLinebreaks) sendToggleMessage otherwise =
+// withHeader is an awkward abstraction with all that additionalHeaders and otherwise stuff. Probably needs refactoring, maybe out of existence.
+let withHeader showHelp (helpText: StringWithLinebreaks) sendToggleMessage additionalHeaders otherwise =
     React.fragment [
         if showHelp then
             Html.div [
@@ -24,6 +25,7 @@ let withHelp showHelp (helpText: StringWithLinebreaks) sendToggleMessage otherwi
                 ]
         else
             class' Html.div "header" [
+                yield! additionalHeaders
                 Html.a [prop.text "Help"; prop.onClick (fun _ -> sendToggleMessage (not showHelp))]
                 ]
             yield! otherwise

@@ -263,25 +263,34 @@ let view (model: Model.d) dispatch =
                         ]
                     ]
                 ]
-    let log =
-        CollapsibleSection.create("log", model.showLog, ToggleLog >> dispatch) <| fun () ->
-            Html.div [
+    let log() =
+        Html.div [
+            prop.onDoubleClick(fun _ -> ToggleLog false |> dispatch)
+            prop.className "log"
+            prop.children [
                 let title (txt: string) = Html.div [prop.className "title"; prop.text txt]
                 if model.log.Length = 0 then
                     title "Nothing has happened yet"
                 else
                     title "What has happened so far:"
-                    Html.ul [
+                    class' Html.ul "entries" [
                         for logEntry in model.log do
                             Html.li logEntry
                         ]
                 ]
-    class' Html.div (if log.show then "dev withsidebar" else "dev") [
-        withHelp model.showHelp helpText (ToggleHelp >> dispatch) [
+            ]
+    let logLink() =
+        Html.a [
+            prop.text "Log"
+            prop.onClick (thunk1 dispatch (not model.showLog |> ToggleLog))
+            ]
+    class' Html.div (if model.showLog then "dev withsidebar" else "dev") [
+        withHeader model.showHelp helpText (ToggleHelp >> dispatch) [logLink()] [
             table
             inputPanel
             errors
             CollapsibleSection.renderAsButton bestiary
-            CollapsibleSection.renderAsLink log
+            if model.showLog then
+                log()
             ]
         ]
