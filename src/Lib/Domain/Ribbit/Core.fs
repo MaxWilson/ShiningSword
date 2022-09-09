@@ -204,7 +204,6 @@ type NumberProperty(name, defaultValue: _ option) =
     new(name) = NumberProperty(name, None)
     member this.Clear (rowId: Id) (ribbit: Ribbit) =
         ribbit |> (ClearValue(rowId, name) |> Ribbit.Update)
-    
 
 type BoolProperty(name, defaultValue: _ option) =
     inherit Property<bool, Ribbit>(name, RuntimeType.Bool)

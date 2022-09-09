@@ -151,16 +151,16 @@ let view (model: Model.d) dispatch =
                     class' Html.tr (if isSelected then "currentTurn" else "") [
                         let tryGet prop = model |> tryGetRibbit name prop
 
-                        let type1 =
+                        let template =
                             match templateTypeName name (EvaluationContext.Create model.game) with
-                            | Ok v -> v
-                            | _ -> "PC"
+                            | Ok v -> Some v
+                            | _ -> None
                         match tryGet notesP with
                         | None | Some [] ->
                             textCell $"{name}"
                         | Some notes ->
                             textCell $"""{name} ({String.join ";" notes})"""
-                        textCell $"({type1})"
+                        textCell $"""({defaultArg template "PC"})"""
                         let action =
                             let initMod =
                                 match get name initiativeModifierP model.game with
@@ -188,12 +188,12 @@ let view (model: Model.d) dispatch =
                             Html.td [prop.text txt; prop.onDoubleClick (fun _ -> setCommand msg)]
 
                         clickableText action $"{name} will "
-                        textCell $"{tryGet xpEarnedP} XP earned"
                         let remainingHP =
                             match tryGetRibbit name Domain.Ribbit.Operations.hpP model |> Option.defaultValue 0, tryGetRibbit name Domain.Ribbit.Operations.damageTakenP model  |> Option.defaultValue 0 with
                             | hp, dmg when dmg = 0 -> $"{hp} HP"
                             | hp, dmg when dmg > hp -> $"{hp - dmg}/{hp} HP (dead)"
                             | hp, dmg -> $"{hp - dmg}/{hp} HP"
+                        textCell (if template.IsNone then $"{tryGet xpEarnedP} XP" else "")
                         textCell remainingHP
                         ]
                     ]
