@@ -83,6 +83,10 @@ let (|IndividualNickName|_|) = function
             Some(name, (args, ix+l))
         | None -> None
     | _ -> None
+let rec (|IndividualNames|_|) = pack <| function
+    | IndividualName(name, Str "," (IndividualNames(rest, ctx))) -> Some(name::rest, ctx)
+    | IndividualName(name, ctx) -> Some([name], ctx)
+    | _ -> None
 let rec (|Names|_|) = pack <| function
     | Name(name, Str "," (Names(rest, ctx))) -> Some(name::rest, ctx)
     | Name(name, ctx) -> Some([name], ctx)
@@ -124,9 +128,9 @@ let (|Command|_|) = function
         Some(Game.ClearDeadCreatures, ctx)
     | Str "add" (NewName(name, ctx)) ->
         Some(Game.Add(name), ctx)
-    | Str "remove" (Names(names, ctx)) ->
+    | Str "remove" (IndividualNames(names, ctx)) ->
         Some(Game.RemoveIndividuals names, ctx)
-    | Str "rename" (Name(name, NewName(newName, ctx))) ->
+    | Str "rename" (IndividualName(name, NewName(newName, ctx))) ->
         Some(Game.RenameIndividual (name, newName), ctx)
     | Str "define" (NewName(name, ctx)) ->
         Some(Game.Define(name), ctx)
