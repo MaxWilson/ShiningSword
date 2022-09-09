@@ -74,31 +74,7 @@ let init initialCmd =
     |> executeTextCommandIfPossible "Severiana hits Sparky for 20"
     |> executeTextCommandIfPossible "Severiana hits Sparky for 27"
     |> executeTextCommandIfPossible "Loiosh hits Sparky for 51" // even though Loiosh rolled high damage, Severiana should get more XP because most of Loiosh's damage was overkill
-    //|> executeTextCommandIfPossible "add Grue"
-    //|> executeTextCommandIfPossible "add Grue"
-    //|> executeTextCommandIfPossible "add Grue"
-    //|> executeTextCommandIfPossible "add Grue"
-    //|> executeTextCommandIfPossible "add Grue"
-    //|> executeTextCommandIfPossible "add Grue"
-    //|> executeTextCommandIfPossible "add Grue"
-    //|> executeTextCommandIfPossible "add Grue"
-    //|> executeTextCommandIfPossible "add Grue"
-    //|> executeTextCommandIfPossible "add Grue"
-    //|> executeTextCommandIfPossible "add Grue"
-    //|> executeTextCommandIfPossible "add Grue"
-    //|> executeTextCommandIfPossible "add Grue"
-    //|> executeTextCommandIfPossible "add Grue"
-    //|> executeTextCommandIfPossible "add Grue"
-    //|> executeTextCommandIfPossible "add Grue"
-    //|> executeTextCommandIfPossible "add Mangler"
-    //|> executeTextCommandIfPossible "add Grue"
-    //|> executeTextCommandIfPossible "add Grue"
-    //|> executeTextCommandIfPossible "add Grue"
-    //|> executeTextCommandIfPossible "add Grue"
-    //|> executeTextCommandIfPossible "add Grue"
-    //|> executeTextCommandIfPossible "add Grue"
-    //|> executeTextCommandIfPossible "add Grue"
-    //|> executeTextCommandIfPossible "add Grue"
+    |> executeTextCommandIfPossible "Fire Giant: angry"
 
 #endif
 open Domain.Ribbit.Operations
@@ -168,7 +144,7 @@ let view (model: Model.d) dispatch =
         (ReviseInput txt) |> dispatch
     let table = class' Html.div "table" [
         Html.table [
-            textHeaders ["Name"; "Type"; "Actions"; "Notes"; "XP earned"; "HP"]
+            textHeaders ["Name"; "Type"; "Actions"; "XP earned"; "HP"]
             Html.tbody [
                 for name in getAllNamesInOrder model do
                     let isSelected = match model.mode with Executing (h::_) when h = name -> true | _ -> false
@@ -179,7 +155,11 @@ let view (model: Model.d) dispatch =
                             match templateTypeName name (EvaluationContext.Create model.game) with
                             | Ok v -> v
                             | _ -> "PC"
-                        textCell $"{name}"
+                        match tryGet notesP with
+                        | None | Some [] ->
+                            textCell $"{name}"
+                        | Some notes ->
+                            textCell $"""{name} ({String.join ";" notes})"""
                         textCell $"({type1})"
                         let action =
                             let initMod =
@@ -208,7 +188,6 @@ let view (model: Model.d) dispatch =
                             Html.td [prop.text txt; prop.onDoubleClick (fun _ -> setCommand msg)]
 
                         clickableText action $"{name} will "
-                        clickableText (System.String.Join(";", tryGet notesP)) $"{name}: "
                         textCell $"{tryGet xpEarnedP} XP earned"
                         let remainingHP =
                             match tryGetRibbit name Domain.Ribbit.Operations.hpP model |> Option.defaultValue 0, tryGetRibbit name Domain.Ribbit.Operations.damageTakenP model  |> Option.defaultValue 0 with
