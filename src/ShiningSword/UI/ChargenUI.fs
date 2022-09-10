@@ -249,6 +249,7 @@ open Interaction
 module View =
     open Interaction
     open Elmish
+    open Domain
     open Domain.Character
     open DND5e
     open Feliz

@@ -1,11 +1,9 @@
 module Dev.Tracker.Commands
 
 open Packrat
+open Domain.Ribbit.Commands
 
-let helpText = """
-Example commands:
-define Beholder
-add Beholder
+let helpText = Domain.Ribbit.Commands.helpText.Trim() + """
 Beholder hp 180, xp 10000
 add Bob, Lara, Harry
 Harry hits Beholder #1 for 80
@@ -18,9 +16,6 @@ next init
 
 #nowarn "40" // we're not going anything crazy with recursion like calling a pass-in method as part of a ctor. Just regular pattenr-matching.
 
-let nameChars = alphanumeric + whitespace + Set ['#']
-let numericWithPlusOrMinus = Set<_>(['0'..'9']@['+';'-'])
-
 open Dev.Tracker.Game
 open Dev.Tracker.Game.Game
 open Domain.Ribbit
@@ -32,13 +27,6 @@ let (|IntMod|_|) = pack <| function
         | _ -> None
     | _ -> None
 
-let (|NewName|_|) = function
-    | OWS(Chars nameChars (name, ctx)) -> Some(name.Trim(), ctx)
-    | _ -> None
-let rec (|NewNames|_|) = pack <| function
-    | NewName(name, OWSStr "," (NewNames(rest, ctx))) -> Some(name::rest, ctx)
-    | NewName(name, ctx) -> Some([name], ctx)
-    | _ -> None
 let (|GameContext|_|) = ExternalContextOf<Game.d>
 let isPotentialNamePrefix (names: obj) (substring: string) =
     match names |> unbox<obj option> with
@@ -91,23 +79,21 @@ let rec (|Names|_|) = pack <| function
     | Name(name, Str "," (Names(rest, ctx))) -> Some(name::rest, ctx)
     | Name(name, ctx) -> Some([name], ctx)
     | _ -> None
+let declare (prop: Property<_, Ribbit>) value =
+    (fun name -> Game.RibbitCommand (Domain.Ribbit.Commands.Command.Declare(name, fun id -> prop.Set(id, value))))
 let (|Declaration|_|) = function
-    | Int (amt, OWSStr "xp" (ctx)) ->
-        Some((fun name -> Game.DeclareNumber(name, xpValueP, amt)), ctx)
+    | Int (amt, OWSStr "xp" (ctx)) -> Some(declare xpValueP amt, ctx)
     | Int (amt, OWSStr "hp" (ctx)) ->
         Some((fun name -> Game.DeclareRemainingHP(name, amt)), ctx)
     | Int (amt, OWSStr "maxhp" (ctx)) ->
         Some((fun name -> Game.DeclareMaxHP(name, amt)), ctx)
-    | OWSStr "xp" (Int (amt, ctx)) ->
-        Some((fun name -> Game.DeclareNumber(name, xpValueP, amt)), ctx)
+    | OWSStr "xp" (Int (amt, ctx)) -> Some(declare xpValueP amt, ctx)
     | OWSStr "hp" (Int (amt, ctx)) ->
         Some((fun name -> Game.DeclareRemainingHP(name, amt)), ctx)
     | OWSStr "maxhp" (Int (amt, ctx)) ->
         Some((fun name -> Game.DeclareMaxHP(name, amt)), ctx)
-    | OWSStr "init" (IntMod (amt, ctx)) ->
-        Some((fun name -> Game.DeclareNumber(name, initiativeModifierP, amt)), ctx)
-    | OWSStr "initiative" (IntMod (amt, ctx)) ->
-        Some((fun name -> Game.DeclareNumber(name, currentInitiativeP, amt)), ctx)
+    | OWSStr "init" (IntMod (amt, ctx)) -> Some(declare initiativeModifierP amt, ctx)
+    | OWSStr "initiative" (IntMod (amt, ctx)) -> Some(declare currentInitiativeP amt, ctx)
     | OWSStr "will" (OWS(Any (action, ctx))) ->
         Some((fun name -> Game.DeclareAction(name, action)), ctx)
     | _ -> None
@@ -126,14 +112,6 @@ let rec (|TakeDamages|_|) = pack <| function
 let (|Command|_|) = function
     | Str "clear dead" ctx ->
         Some(Game.ClearDeadCreatures, ctx)
-    | Str "add" (NewName(name, ctx)) ->
-        Some(Game.Add(name), ctx)
-    | Str "remove" (IndividualNames(names, ctx)) ->
-        Some(Game.RemoveIndividuals names, ctx)
-    | Str "rename" (IndividualName(name, NewName(newName, ctx))) ->
-        Some(Game.RenameIndividual (name, newName), ctx)
-    | Str "define" (NewName(name, ctx)) ->
-        Some(Game.Define(name), ctx)
     | Str "clear" (Name(name, OWSStr "notes" ctx)) ->
         Some(Game.SetNotes(name, []), ctx)
     | Name(name, Str ":" (OWS(Any (note, ctx)))) ->
@@ -144,10 +122,7 @@ let (|Command|_|) = function
         Some(Game.InflictDamage(src, target, amt), ctx)
     | _ -> None
 let (|Commands|_|) = pack <| function
-    | Str "add" (NewNames(names, ctx)) ->
-        Some(names |> List.map Game.Add, ctx)
-    | Str "define" (NewNames(names, ctx)) ->
-        Some(names |> List.map Game.Define, ctx)
+    | Domain.Ribbit.Commands.Commands(cmds, ctx) -> Some(cmds |> List.map Game.RibbitCommand, ctx)
     | Name(name, Declarations (fs, (End as ctx))) ->
         Some(fs |> List.map(fun f -> f name), ctx)
     | IndividualNickName(name, Declarations (fs, ctx)) ->

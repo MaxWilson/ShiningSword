@@ -1,5 +1,6 @@
 module Domain.Character.DND5e
 open Core.DerivedTraits
+open Domain
 open Domain.Metrics
 open Domain.Random
 

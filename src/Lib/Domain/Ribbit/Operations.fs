@@ -1,4 +1,5 @@
 namespace Domain.Ribbit
+open Domain
 open Domain.Ribbit
 open Domain.Character
 

@@ -3,10 +3,6 @@ module Domain.Character.Core
 
 open Core.DerivedTraits
 
-type Stat = Str | Dex | Con | Int | Wis | Cha
-    with static member All = [Str;Dex;Con;Int;Wis;Cha]
-type Sex = Male | Female | Neither
-type Name = string
 type Origin = { ruleSystem: string; nationalOrigin: string; startingLevel: int; statRollMethod: string }
 
 // turn camel casing back into words with spaces, for display to user

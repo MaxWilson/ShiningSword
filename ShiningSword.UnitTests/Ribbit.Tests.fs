@@ -44,6 +44,8 @@ let basicAttack = testCase "Basic attack definition can be parsed" <| fun _ ->
     """
     ()
 
+module Expect =
+    let fail msg = Expect.equal true false msg
 [<Tests>]
 let tests = testList "ribbit.scenario" [
 
@@ -59,14 +61,25 @@ let tests = testList "ribbit.scenario" [
         test <@ "abc\ndef\n   hij\n   k\nab\n a" = trimFront x @>
         ("abc\ndef\n   hij\n   k\nab\n a", "Should trim first line and prefixes evenly")
         ||> Expect.equal (trimFront x)
-    ptestCase "Time travel: log entries should be tagged with ids that support time travel" <| fun _ ->
-        let r =
-            stateChange {
-                let! id = Operations.addCharacterToRoster "Bob"
-                ()
-            } |> Ribbit.Fresh.transform
+    testCase "Time travel: log entries should be tagged with ids that support time travel" <| fun _ ->
+        let mutable r = Ribbit.Fresh
+        let exec txt =
+            match Packrat.ParseArgs.Init(txt, r) with
+            | Domain.Ribbit.Commands.Commands (cmds, Packrat.End) ->
+                r <- cmds |> List.fold (flip Domain.Ribbit.Commands.executeCommand) r
+            | _ -> Expect.fail $"Could not parse '{txt}' as a Ribbit command"
+        let execs txts = txts |> List.iter exec
+        exec "add Bob"
         ("Bob", "We just added Bob to a fresh Ribbit")
         ||> Expect.equal (r.data.roster |> Map.keys |> Seq.head)
+
+        execs ["define Beholder"; "define Grue"; "add Grue, Grue, Grue, Grue, Beholder"]
+        ("Bob, Grue #1, Grue #2, Grue #3, Grue #4, Beholder #1", "We just added five monsters")
+        ||> Expect.equal (r.data.roster |> Seq.map(function KeyValue(name, id) -> name, id) |> List.ofSeq |> List.sortBy snd |> List.map fst |> String.join ", ")
+
+        execs ["rename Grue #1 Ned"; "rename Grue #2 Pete"; "remove Grue #3"]
+        ("Bob, Ned, Pete, Grue #4, Beholder #1", "We just renamed two Grues and deleted #3")
+        ||> Expect.equal (r.data.roster |> Seq.map(function KeyValue(name, id) -> name, id) |> List.ofSeq |> List.sortBy snd |> List.map fst |> String.join ", ")
     ptestCase "Simple attacks" <| fun _ ->
         let rules = """
         action is a resource

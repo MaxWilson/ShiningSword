@@ -1,5 +1,6 @@
 module Domain.Character.ADND2nd
 open Core.DerivedTraits
+open Domain
 open Domain.Metrics
 open Domain.Random
 

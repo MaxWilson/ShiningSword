@@ -23,6 +23,7 @@
     <Compile Include="Core\Common.fs" />
     <Compile Include="Core\Parsing.fs" />
     <Compile Include="Core\DerivedTraits.fs" />
+    <Compile Include="Domain\Namespace.fs" />
     <Compile Include="Domain\Onomastikon.fs" />
     <Compile Include="Domain\Metrics.fs" />
     <Compile Include="Domain\Random.fs" />
@@ -34,6 +35,7 @@
     <Compile Include="Domain\Ribbit\DataStore.fs" />
     <Compile Include="Domain\Ribbit\Core.fs" />
     <Compile Include="Domain\Ribbit\Operations.fs" />
+    <Compile Include="Domain\Ribbit\Commands.fs" />
     <Compile Include="Domain\Ribbit\Rules2e.fs" />
     <Compile Include="Domain\Ribbit\Rules5e.fs" />
     <Compile Include="Adventure.fs" />

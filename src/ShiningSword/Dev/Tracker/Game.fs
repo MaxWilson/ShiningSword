@@ -32,7 +32,6 @@ module Game =
         with static member fresh = { victims = Map.empty; woundedBy = Map.empty }
 
     type Command =
-        | Define of Name
         | DeclareNumber of Name * NumberProperty * int
         | DeclareTextual of Name * TextProperty * string
         | DeclareAction of Name * string
@@ -40,11 +39,9 @@ module Game =
         | SetNotes of Name * string list
         | DeclareRemainingHP of Name * HP
         | DeclareMaxHP of Name * HP
-        | Add of Name
         | InflictDamage of src:Name * target:Name * hp:int
         | ClearDeadCreatures
-        | RemoveIndividuals of Name list
-        | RenameIndividual of Name * newName:Name
+        | RibbitCommand of Domain.Ribbit.Commands.Command
 
     type d = Ribbit
     let fresh = Ribbit.Fresh
@@ -112,8 +109,8 @@ module Game =
                 model |> property.Set(id, updateFunction current)
             | None -> shouldntHappen()
         match msg with
-        | Define name ->
-            model.transform(stateChange { do! Domain.Ribbit.Operations.addKind name (fun _ rbt -> (), rbt) })
+        | RibbitCommand(cmd) ->
+            model |> Domain.Ribbit.Commands.executeCommand cmd
         | DeclareNumber(name, prop, value) ->
             model |> setByName name prop value
         | DeclareTextual(name, prop, value) ->
@@ -143,15 +140,6 @@ module Game =
                     model |> setByName name damageTakenP (maxHP - hp)
             | None ->
                 model |> setByName name damageTakenP 0 |> setByName name hpP hp
-        | Add (name) ->
-            let add =
-                stateChange {
-                    let name = name
-                    let! isMonsterKind = Ribbit.GetM(fun d -> d.data.kindsOfMonsters.ContainsKey name)
-                    do! if isMonsterKind then Operations.addMonster name (fun _ r -> (), r) >> ignoreM
-                        else Operations.addCharacterToRoster name >> ignoreM
-                    }
-            model.transform add
         | InflictDamage(src, target, hpLoss) ->
             let hp = Getters.tryGetRibbit target hpP model |> Option.defaultValue 0
             let damageTaken = Getters.tryGetRibbit target damageTakenP model |> Option.defaultValue 0
@@ -204,10 +192,6 @@ module Game =
                         | Error _ -> None // if hp or damageTaken have not yet been set then it can't be dead
                     )
             msgs |> Seq.fold (flip Ribbit.Update) model
-        | RemoveIndividuals names ->
-            names |> List.fold (fun model name -> (RemoveRosterEntry name |> flip Ribbit.Update model)) model
-        | RenameIndividual(name, newName) ->
-            model |> setByName name personalNameP newName |> Ribbit.Update (RenameRosterEntry(name, newName))
         | SetNotes(name, notes) ->
             model |> setByName name notesP notes
         | AddNotes(name, notes) ->
@@ -215,10 +199,8 @@ module Game =
 
     type FSX =
         // FSX-oriented script commands
-        static member define name = update (Define name)
         static member declareHP name hp = update (DeclareRemainingHP (name, hp))
         static member declareXP name xp = update (DeclareNumber (name, xpValueP, xp))
-        static member add name = update (Add (name))
         static member damage src target hp = update (InflictDamage (src, target, hp))
         static member getXPEarned name (model:d) = model |> Getters.tryGetRibbit name xpEarnedP
 
