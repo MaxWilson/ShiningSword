@@ -17,6 +17,7 @@ module Core =
         | SetRoster of Map<Name, Id>
         | RemoveRosterEntry of Name
         | RenameRosterEntry of Name * newName: Name
+        | AddLogEntry of trieIndex: int list * txt: string
             
     type RibbitData = {
         properties: PropertiesByType // used primarily in parsing and serialization scenarios. Otherwise use props directly via object references.
@@ -164,6 +165,8 @@ module Core =
         | ClearValue(rowId, propertyName) ->
             let rows = ribbit.scope.rows |> Map.change rowId (Option.map (Map.remove propertyName))
             { ribbit with scope = { ribbit.scope with rows = rows } }
+        | AddLogEntry(trieIxs, txt) -> // todo: actually use the trieIxs
+            { ribbit with log = ribbit.log.Add(LogEntry.create txt) }
 
     type Ribbit with
         static member Fresh = Delta.create((fun () -> RibbitData.fresh), update) |> Ribbit

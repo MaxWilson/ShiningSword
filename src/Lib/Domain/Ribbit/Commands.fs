@@ -24,6 +24,7 @@ type Command =
     | Declare of Name * (Id -> Ribbit -> Ribbit) // this is how we generalize Declare(name, property)--by transforming property.Set(name, <expression>) into (fun id ribbit -> myProperty.Set(id, <evaluate expression>))
     | RemoveIndividuals of Name list
     | RenameIndividual of Name * newName:Name
+    | AddLogEntry of scopeIndexes:int list * txt:string // scopeIndexes = [] means append at the top level; scopeIndexes = [0] means append to the first root level entry, [-1] means the last, [0;-1] means the last child of the first root entry, etc.
 
 let executeCommand msg (ribbit:Ribbit) =
     match msg with
@@ -50,6 +51,8 @@ let executeCommand msg (ribbit:Ribbit) =
         | Some id ->
             ribbit |> personalNameP.Set(id, newName) |> Ribbit.Update (RenameRosterEntry(name, newName))
         | None -> shouldntHappen()
+    | AddLogEntry(ixs, txt) ->
+            ribbit.update (RibbitMsg.AddLogEntry(ixs, txt))
 
 open Packrat
 

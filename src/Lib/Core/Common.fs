@@ -293,3 +293,21 @@ module FastList =
     let ofSeq values = values |> Seq.fold (flip add) fresh
     let length this = this.reversedOrder.Length
 
+module Trie =
+    // reader function is the key to the whole trie
+    // reader takes a trie node and returns a value for that node, and an optional list of children of that node
+    let read reader ixs trie =
+        let rec recur ixs node =
+            match reader node, ixs with
+            | (value, Some children), ix::rest ->
+                let ix = if ix >= 0 then ix else List.length children + ix
+                if 0 > ix || ix >= List.length children then
+                    value
+                else
+                    recur rest children[ix]
+            | (value, None), _ // ignore unusable indexes
+            | (value, _), [] ->
+                value
+        recur ixs trie
+                
+    let replace ixs trie = notImpl()

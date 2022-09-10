@@ -2,6 +2,7 @@ module Ribbit.Tests
 
 open Common
 open Expecto
+open Expecto.Flip
 open FsCheck
 #if INTERACTIVE
 #r "nuget: Unquote"
@@ -45,10 +46,10 @@ let basicAttack = testCase "Basic attack definition can be parsed" <| fun _ ->
     ()
 
 module Expect =
-    let fail msg = Expect.equal true false msg
+    let fail msg = Expect.equal msg true false
 
 [<Tests>]
-let tests = testList "ribbit.scenario" [
+let tests = testList "Ribbit.scenario" [
 
     testCase "Lemma 1" <| fun _ ->
         let x = """
@@ -60,9 +61,8 @@ let tests = testList "ribbit.scenario" [
              a
             """
         test <@ "abc\ndef\n   hij\n   k\nab\n a" = trimFront x @>
-        ("abc\ndef\n   hij\n   k\nab\n a", "Should trim first line and prefixes evenly")
-        ||> Expect.equal (trimFront x)
-    testCase "Time travel: log entries should be tagged with ids that support time travel" <| fun _ ->
+        Expect.equal "Should trim first line and prefixes evenly" "abc\ndef\n   hij\n   k\nab\n a" (trimFront x)
+    testCase "Basic ribbit commands (no stat manipulation): adding, defining, renaming" <| fun _ ->
         let mutable r = Ribbit.Fresh
         let exec txt =
             match Packrat.ParseArgs.Init(txt, r) with
@@ -71,16 +71,36 @@ let tests = testList "ribbit.scenario" [
             | _ -> Expect.fail $"Could not parse '{txt}' as a Ribbit command"
         let execs txts = txts |> List.iter exec
         exec "add Bob"
-        ("Bob", "We just added Bob to a fresh Ribbit")
-        ||> Expect.equal (r.data.roster |> Map.keys |> Seq.head)
+        Expect.equal "We just added Bob to a fresh Ribbit" "Bob" (r.data.roster |> Map.keys |> Seq.head)
 
         execs ["define Beholder"; "define Grue"; "add Grue, Grue, Grue, Grue, Beholder"]
-        ("Bob, Grue #1, Grue #2, Grue #3, Grue #4, Beholder #1", "We just added five monsters")
-        ||> Expect.equal (r.data.roster |> Seq.map(function KeyValue(name, id) -> name, id) |> List.ofSeq |> List.sortBy snd |> List.map fst |> String.join ", ")
+        Expect.equal
+            "We just added five monsters"
+            "Bob, Grue #1, Grue #2, Grue #3, Grue #4, Beholder #1"
+            (r.data.roster |> Seq.map(function KeyValue(name, id) -> name, id) |> List.ofSeq |> List.sortBy snd |> List.map fst |> String.join ", ")
 
         execs ["rename Grue #1 Ned"; "rename Grue #2 Pete"; "remove Grue #3"]
-        ("Bob, Ned, Pete, Grue #4, Beholder #1", "We just renamed two Grues and deleted #3")
-        ||> Expect.equal (r.data.roster |> Seq.map(function KeyValue(name, id) -> name, id) |> List.ofSeq |> List.sortBy snd |> List.map fst |> String.join ", ")
+        Expect.equal
+            "We just renamed two Grues and deleted #3"
+            "Bob, Ned, Pete, Grue #4, Beholder #1"
+            (r.data.roster |> Seq.map(function KeyValue(name, id) -> name, id) |> List.ofSeq |> List.sortBy snd |> List.map fst |> String.join ", ")
+
+    testCase "Logs should be capable of adding entries" <| fun _ ->
+        let r =
+            Ribbit.Fresh
+            |> Commands.executeCommand (Commands.AddLogEntry([], "The world awakens"))
+        Expect.equal "We just awakened the world" "The world awakens" (r.data.log[0].msg)
+
+    ptestCase "Time travel: log entries should be tagged with ids that support time travel" <| fun _ ->
+        let mutable r = Ribbit.Fresh
+        let exec txt =
+            match Packrat.ParseArgs.Init(txt, r) with
+            | Domain.Ribbit.Commands.Commands (cmds, Packrat.End) ->
+                r <- cmds |> List.fold (flip Domain.Ribbit.Commands.executeCommand) r
+            | _ -> Expect.fail $"Could not parse '{txt}' as a Ribbit command"
+        let execs txts = txts |> List.iter exec
+        ()
+
     ptestCase "Simple attacks" <| fun _ ->
         let rules = """
         action is a resource
