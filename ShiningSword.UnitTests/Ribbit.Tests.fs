@@ -46,6 +46,7 @@ let basicAttack = testCase "Basic attack definition can be parsed" <| fun _ ->
 
 module Expect =
     let fail msg = Expect.equal true false msg
+
 [<Tests>]
 let tests = testList "ribbit.scenario" [
 

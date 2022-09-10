@@ -17,20 +17,6 @@ module Core =
         | SetRoster of Map<Name, Id>
         | RemoveRosterEntry of Name
         | RenameRosterEntry of Name * newName: Name
-
-    /// Ribbit operations that are about more than just data, such as logging and storing rosters
-    [<AutoOpen>]
-    module Composition =
-        type LogCategory = Good | Bad | Neither
-        type LogEntry = { msg: string; important: bool; category: LogCategory }
-            with
-            static member create msg = { msg = msg; important = false; category = Neither }
-            static member create(msg, important, category) = { msg = msg; important = important; category = category }
-
-    type 'Ribbit Affordance = {
-        name: Name
-        action: 'Ribbit Execution
-        }
             
     type RibbitData = {
         properties: PropertiesByType // used primarily in parsing and serialization scenarios. Otherwise use props directly via object references.
@@ -40,10 +26,11 @@ module Core =
         scope: Scope
         affordances: Map<Name, Ribbit Affordance>
         openRequests: RibbitError list // probably also need some way of knowing what to restart after a request is filled
+        log: LogEntry FastList.d
         }
         with
         static member fresh = { scope = Scope.fresh; kindsOfMonsters = Map.empty; roster = Map.empty; categories = Map.empty;
-            affordances = Map.empty; properties = PropertiesByType.fresh; openRequests = []
+            affordances = Map.empty; properties = PropertiesByType.fresh; openRequests = []; log = FastList.fresh
             }
 
     and RibbitUnwrapped = Delta.DeltaDrivenState<RibbitData, RibbitMsg>
@@ -73,7 +60,6 @@ module Core =
         }
         with static member fresh = { number = Map.empty; id = Map.empty; roll = Map.empty; rolls = Map.empty; flags = Map.empty; bool = Map.empty }
 
-
     and Expression<'t> = Evaluation<'t, Ribbit> // expressions CANNOT modify state or the evaluation context variables, they can only succeed or fail.
     
     and Statements = Sequence of Statement list | While of Expression<bool> * Statements
@@ -81,6 +67,15 @@ module Core =
     and Statement =
         | Assign of Address * Expression<RuntimeValue>
         | Jump of int
+    and 'Ribbit Affordance = {
+        name: Name
+        action: 'Ribbit Execution
+        }
+    and LogCategory = Good | Bad | Neither
+    and LogEntry = { msg: string; important: bool; category: LogCategory }
+        with
+        static member create msg = { msg = msg; important = false; category = Neither }
+        static member create(msg, important, category) = { msg = msg; important = important; category = category }
 
     type FightResult = Victory | Defeat | Ongoing
     type RoundResult = { outcome: FightResult; msgs: LogEntry list; ribbit: Ribbit }

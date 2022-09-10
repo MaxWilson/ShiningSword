@@ -5,6 +5,7 @@
     <GenerateProgramFile>false</GenerateProgramFile>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="DataStructures.Tests.fs" />
     <Compile Include="Packrat.Parsing.Tests.fs" />
     <Compile Include="Ribbit.Tests.fs" />
     <Compile Include="Main.fs" />

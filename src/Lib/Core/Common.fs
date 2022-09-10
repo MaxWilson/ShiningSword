@@ -270,3 +270,26 @@ module SharedDelta =
 module ResizeArray =
     let (|Lookup|_|) id (rows: _ ResizeArray) =
         if rows.Count > id then rows[id] |> Some else None
+
+module FastList =
+    type 't d = { reversedOrder: 't list; randomAccess: Map<int, 't> }
+        with
+        member lst.Add value = { reversedOrder = value::lst.reversedOrder; randomAccess = lst.randomAccess |> Map.add lst.reversedOrder.Length value }
+        // addM = monadic return value, return new index + new monad (new FastList). Used for doing things like linking to the newly-created list item.
+        member lst.AddM value =
+            let ix = lst.reversedOrder.Length 
+            ix, { reversedOrder = value::lst.reversedOrder; randomAccess = lst.randomAccess |> Map.add ix value }
+        member lst.inOrder() = lst.reversedOrder |> List.rev
+        member lst.Item with get ix = lst.randomAccess[ix]
+        member lst.Length = lst.reversedOrder.Length
+
+    [<GeneralizableValue>]
+    let fresh = { reversedOrder = []; randomAccess = Map.empty }
+    let add value (lst: 't d) = { reversedOrder = value::lst.reversedOrder; randomAccess = lst.randomAccess |> Map.add lst.reversedOrder.Length value }
+    // addM = monadic return value, return new index + new monad (new FastList). Used for doing things like linking to the newly-created list item.
+    let addM value (lst: 't d) =
+        let ix = lst.reversedOrder.Length 
+        ix, { reversedOrder = value::lst.reversedOrder; randomAccess = lst.randomAccess |> Map.add ix value }
+    let ofSeq values = values |> Seq.fold (flip add) fresh
+    let length this = this.reversedOrder.Length
+
