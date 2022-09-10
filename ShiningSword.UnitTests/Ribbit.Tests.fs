@@ -59,6 +59,14 @@ let tests = testList "ribbit.scenario" [
         test <@ "abc\ndef\n   hij\n   k\nab\n a" = trimFront x @>
         ("abc\ndef\n   hij\n   k\nab\n a", "Should trim first line and prefixes evenly")
         ||> Expect.equal (trimFront x)
+    ptestCase "Time travel: log entries should be tagged with ids that support time travel" <| fun _ ->
+        let r =
+            stateChange {
+                let! id = Operations.addCharacterToRoster "Bob"
+                ()
+            } |> Ribbit.Fresh.transform
+        ("Bob", "We just added Bob to a fresh Ribbit")
+        ||> Expect.equal (r.data.roster |> Map.keys |> Seq.head)
     ptestCase "Simple attacks" <| fun _ ->
         let rules = """
         action is a resource
