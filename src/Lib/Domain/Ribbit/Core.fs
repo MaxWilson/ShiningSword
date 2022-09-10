@@ -31,7 +31,7 @@ module Core =
         }
         with
         static member fresh = { scope = Scope.fresh; kindsOfMonsters = Map.empty; roster = Map.empty; categories = Map.empty;
-            affordances = Map.empty; properties = PropertiesByType.fresh; openRequests = []; log = FastList.fresh
+            affordances = Map.empty; properties = PropertiesByType.fresh; openRequests = []; log = FastList.fresh()
             }
 
     and RibbitUnwrapped = Delta.DeltaDrivenState<RibbitData, RibbitMsg>

@@ -272,25 +272,28 @@ module ResizeArray =
         if rows.Count > id then rows[id] |> Some else None
 
 module FastList =
-    type 't d = { reversedOrder: 't list; randomAccess: Map<int, 't> }
+    type 't d = { reversedOrder: 't list; randomAccess: Map<int, 't>; mutable cached: 't list option  }
         with
-        member lst.Add value = { reversedOrder = value::lst.reversedOrder; randomAccess = lst.randomAccess |> Map.add lst.reversedOrder.Length value }
+        member lst.Add value = { reversedOrder = value::lst.reversedOrder; randomAccess = lst.randomAccess |> Map.add lst.reversedOrder.Length value; cached = None }
         // addM = monadic return value, return new index + new monad (new FastList). Used for doing things like linking to the newly-created list item.
         member lst.AddM value =
             let ix = lst.reversedOrder.Length 
-            ix, { reversedOrder = value::lst.reversedOrder; randomAccess = lst.randomAccess |> Map.add ix value }
-        member lst.inOrder() = lst.reversedOrder |> List.rev
+            ix, { reversedOrder = value::lst.reversedOrder; randomAccess = lst.randomAccess |> Map.add ix value; cached = None }
+        member lst.inOrder() =
+            match lst.cached with
+            | Some l -> l
+            | None ->
+                let rev = lst.reversedOrder |> List.rev
+                lst.cached <- Some rev
+                rev
         member lst.Item with get ix = lst.randomAccess[ix]
         member lst.Length = lst.reversedOrder.Length
 
-    [<GeneralizableValue>]
-    let fresh = { reversedOrder = []; randomAccess = Map.empty }
-    let add value (lst: 't d) = { reversedOrder = value::lst.reversedOrder; randomAccess = lst.randomAccess |> Map.add lst.reversedOrder.Length value }
+    let fresh() = { reversedOrder = []; randomAccess = Map.empty; cached = None }
+    let add value (lst: 't d) = lst.Add value
     // addM = monadic return value, return new index + new monad (new FastList). Used for doing things like linking to the newly-created list item.
-    let addM value (lst: 't d) =
-        let ix = lst.reversedOrder.Length 
-        ix, { reversedOrder = value::lst.reversedOrder; randomAccess = lst.randomAccess |> Map.add ix value }
-    let ofSeq values = values |> Seq.fold (flip add) fresh
+    let addM value (lst: 't d) = lst.AddM value
+    let ofSeq values = values |> Seq.fold (flip add) (fresh())
     let length this = this.reversedOrder.Length
 
 module Trie =

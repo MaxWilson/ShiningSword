@@ -23,8 +23,8 @@ module Model =
     open Commands
     type CombatPhase = Declaring | Executing of Name list
     type DisplayMode = MainScreen | HelpScreen
-    type d = { input: string; game: Game.d; errors: string list; log: string list; nowShowing: DisplayMode; showBestiary: bool; showLog: bool; combatPhase: CombatPhase }
-    let fresh = { input = ""; game = Game.fresh; errors = []; log = []; nowShowing = MainScreen; showBestiary = true; showLog = false; combatPhase = Declaring }
+    type d = { input: string; game: Game.d; errors: string list; nowShowing: DisplayMode; showBestiary: bool; showLog: bool; combatPhase: CombatPhase }
+    let fresh = { input = ""; game = Game.fresh; errors = []; nowShowing = MainScreen; showBestiary = true; showLog = false; combatPhase = Declaring }
     let executeIfPossible ui cmd =
         try
             { ui with input = ""; game = ui.game |> Game.update cmd; errors = [] }
@@ -36,7 +36,7 @@ module Model =
             let ui = cmds |> List.fold executeIfPossible ui
             let hadSuccessfulExecution = ui.errors.Length < cmds.Length
             if hadSuccessfulExecution then
-                { ui with log = ui.log@[input] }
+                executeIfPossible ui (Domain.Ribbit.Commands.AddLogEntry([], input) |> Game.RibbitCommand)
             else
                 ui
         | Command (cmd, End) ->
@@ -270,13 +270,14 @@ let view (model: Model.d) dispatch =
             prop.className "log"
             prop.children [
                 let title (txt: string) = Html.div [prop.className "title"; prop.text txt]
-                if model.log.Length = 0 then
+                let log = model.game.data.log
+                if log.Length = 0 then
                     title "Nothing has happened yet"
                 else
                     title "What has happened so far:"
                     class' Html.ul "entries" [
-                        for logEntry in model.log do
-                            Html.li logEntry
+                        for logEntry in log.inOrder() do
+                            Html.li logEntry.msg
                         ]
                 ]
             ]
