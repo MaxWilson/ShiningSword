@@ -31,18 +31,20 @@ module Model =
             { ui with input = ""; game = ui.game |> Game.update cmd; errors = [] }
         with err ->
             { ui with input = ""; errors = (err.ToString())::ui.errors }
-    let executeTextCommandIfPossible input (ui: d) =
-        match ParseArgs.Init(input, ui.game) with
-        | Commands (cmds, End) ->
-            let ui = cmds |> List.fold executeIfPossible ui
-            let hadSuccessfulExecution = ui.errors.Length < cmds.Length
-            if hadSuccessfulExecution then
-                executeIfPossible ui (Domain.Ribbit.Commands.AddLogEntry([], input) |> Game.RibbitCommand)
-            else
-                ui
-        | LoggingCommands(cmds, End) ->
-            cmds |> List.fold executeIfPossible ui
-        | _ -> ui
+    let executeTextCommandIfPossible (input:string) (ui: d) =
+        if input.Trim().ToLowerInvariant() = "/startover" then fresh
+        else
+            match ParseArgs.Init(input, ui.game) with
+            | Commands (cmds, End) ->
+                let ui = cmds |> List.fold executeIfPossible ui
+                let hadSuccessfulExecution = ui.errors.Length < cmds.Length
+                if hadSuccessfulExecution then
+                    executeIfPossible ui (Domain.Ribbit.Commands.AddLogEntry([], input) |> Game.RibbitCommand)
+                else
+                    ui
+            | LoggingCommands(cmds, End) ->
+                cmds |> List.fold executeIfPossible ui
+            | _ -> ui
 
 open Model
 let init initialCmd =
