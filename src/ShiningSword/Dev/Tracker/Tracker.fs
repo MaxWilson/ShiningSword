@@ -17,6 +17,11 @@ let start() =
                     | "?" ->
                         e.preventDefault()
                         dispatch (ToggleHelp None)
+                    | "c" ->
+                        e.preventDefault()
+                        match (Browser.Dom.window.document.getElementById "userInput") with
+                        | null -> ()
+                        | e -> e.focus()
                     | _ -> ()
             ))
     |> Program.withReactBatched "feliz-dev"

@@ -222,6 +222,7 @@ let view (model: Model.d) dispatch =
                 | Executing [] -> "End of round"
             Html.div [prop.text label; prop.className "inputHeader"]
             Html.input [
+                prop.id "userInput"
                 prop.placeholder "Enter a command, e.g. define Beholder"
                 prop.autoFocus true
                 prop.ref(fun e ->
