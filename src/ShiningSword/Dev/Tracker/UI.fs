@@ -14,9 +14,9 @@ type Msg =
     | ReviseInput of msg: string
     | SubmitInput
     | ExecuteCommand of string
-    | ToggleHelp of bool
+    | ToggleHelp of bool option
     | ToggleBestiary of bool
-    | ToggleLog of bool
+    | ToggleLog of bool option
     | SetRewind of int option
 
 module Model =
@@ -124,9 +124,14 @@ let update msg (model: Model.d) =
         { model with input = "" } |> advance
     | SubmitInput -> model |> Model.executeTextCommandIfPossible model.input
     | ExecuteCommand cmd -> model |> Model.executeTextCommandIfPossible cmd
-    | ToggleHelp showHelp -> { model with nowShowing = if showHelp then HelpScreen else MainScreen }
+    | ToggleHelp showHelp ->
+        let showHelp =
+            match showHelp with
+            | Some v -> v
+            | None -> model.nowShowing <> HelpScreen
+        { model with nowShowing = if showHelp then HelpScreen else MainScreen }
     | ToggleBestiary showBestiary -> { model with showBestiary = showBestiary }
-    | ToggleLog showLog -> { model with showLog = showLog }
+    | ToggleLog showLog -> { model with showLog = defaultArg showLog (model.showLog |> not) }
     | SetRewind ix -> { model with rewindFrame = ix }
 
 open UI.Components
@@ -306,10 +311,10 @@ let view (model: Model.d) dispatch =
     let logLink() =
         Html.a [
             prop.text "Log"
-            prop.onClick (thunk1 dispatch (not model.showLog |> ToggleLog))
+            prop.onClick (thunk1 dispatch (ToggleLog None))
             ]
     class' Html.div (["dev"; if model.showLog then begin "withsidebar" end; if trueModel.rewindFrame.IsSome then begin "historical" end] |> String.join " ") [
-        withHeader (model.nowShowing = HelpScreen) helpText (ToggleHelp >> dispatch) [logLink()] [
+        withHeader (model.nowShowing = HelpScreen) helpText (Some >> ToggleHelp >> dispatch) [logLink()] [
             table
             inputPanel
             errors
