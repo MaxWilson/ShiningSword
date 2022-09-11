@@ -21,7 +21,7 @@
     <None Include="Scratch\Sample.rbt" />
     <Compile Include="Core\Optics.fs" />
     <Compile Include="Core\Common.fs" />
-    <Compile Include="Core\Parsing.fs" />
+    <Compile Include="Core\Packrat.fs" />
     <Compile Include="Core\DerivedTraits.fs" />
     <Compile Include="Domain\Namespace.fs" />
     <Compile Include="Domain\Onomastikon.fs" />
