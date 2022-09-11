@@ -27,6 +27,7 @@ module DataTypes =
 
 module Game =
     open Domain.Ribbit
+    open Domain.Random
 
     type WoundLog = { victims: Map<Name, int>; woundedBy: Map<Name, int> }
         with static member fresh = { victims = Map.empty; woundedBy = Map.empty }
@@ -42,6 +43,8 @@ module Game =
         | InflictDamage of src:Name * target:Name * hp:int
         | ClearDeadCreatures
         | RibbitCommand of Domain.Ribbit.Commands.Command
+        | Print of string
+        | Eval of RollSpec // first basic automation! Only generates a log entry, no other side effects.
 
     type d = Ribbit
     let fresh = Ribbit.Fresh
@@ -196,6 +199,8 @@ module Game =
             model |> setByName name notesP notes
         | AddNotes(name, notes) ->
             model |> transformByName name notesP (fun notes' -> notes@notes')
+        | Print txt -> model |> Domain.Ribbit.Commands.executeCommand (Domain.Ribbit.Commands.AddLogEntry([], txt))
+        | Eval r -> notImpl()
 
     type FSX =
         // FSX-oriented script commands

@@ -124,7 +124,7 @@ let (|Command|_|) = function
     | Name(src, (OWSStr "hits" (IndividualName(target, OWSStr "for" (Int(amt, ctx)))))) ->
         Some(Game.InflictDamage(src, target, amt), ctx)
     | _ -> None
-let (|Commands|_|) = pack <| function
+let (|LoggedCommands|_|) = pack <| function
     | Domain.Ribbit.Commands.Commands(cmds, ctx) -> Some(cmds |> List.map Game.RibbitCommand, ctx)
     | Name(name, Declarations (fs, (End as ctx))) ->
         Some(fs |> List.map(fun f -> f name), ctx)
@@ -133,6 +133,10 @@ let (|Commands|_|) = pack <| function
     | IndividualName(name, OWSStr "hits" (TakeDamages (fs, ctx))) ->
         Some(fs |> List.map(fun f -> f name), ctx)
     | Command(cmd, ctx) -> Some([cmd], ctx)
+    | _ -> None
+// commands that have their own logging built in. Might be able to refactor this back into commands.
+let (|UnloggedCommands|_|) = pack <| function
+    | Char('/', AnyTrimmed(txt, ctx)) -> Some([Print txt], ctx)
     | _ -> None
 #if INTERACTIVE
 let testbed() =
