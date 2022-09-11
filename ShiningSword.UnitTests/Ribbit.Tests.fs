@@ -89,7 +89,7 @@ let tests = testList "Ribbit.scenario" [
         let r =
             Ribbit.Fresh
             |> Commands.executeCommand (Commands.AddLogEntry([], "The world awakens"))
-        Expect.equal "We just awakened the world" "The world awakens" (r.data.log[0].msg)
+        Expect.equal "We just awakened the world" "The world awakens" (getLogMsg 0 r)
 
     ptestCase "Time travel: log entries should be tagged with ids that support time travel" <| fun _ ->
         let mutable r = Ribbit.Fresh

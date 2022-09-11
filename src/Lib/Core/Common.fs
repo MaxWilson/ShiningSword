@@ -209,15 +209,15 @@ let toState initialState monad =
 //   the current state, we can just make a quick mutation to the shared mutable state
 //   and return it.
 module Delta =
-    type private Seed<'t, 'msg> = Seed of initial: (unit -> 't) * update: ('msg -> 't -> 't)
+    type private Seed<'t, 'msg> = Seed of initial: (unit -> 't) * update: ('msg list -> 'msg -> 't -> 't)
     type DeltaDrivenState<'t, 'msg> =
         private { seed: Seed<'t, 'msg> ; current:'t ; past: ('msg list) }
-    let create(initial: (unit -> 't), update: 'msg -> 't -> 't) =
+    let create(initial: (unit -> 't), update: 'msg list -> 'msg -> 't -> 't) =
         { seed = Seed(initial, update); current = initial(); past = [] }
     let deref this = this.current
     let execute msg = function
         | { seed = Seed(_, update); past = past } as this ->
-            { this with past = msg::past; current = this.current |> update msg }
+            { this with past = msg::past; current = this.current |> update past msg }
     let executeM msg state = (), execute msg state
     let getM f state =
         let inner = state.current

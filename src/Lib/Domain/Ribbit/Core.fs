@@ -27,11 +27,12 @@ module Core =
         scope: Scope
         affordances: Map<Name, Ribbit Affordance>
         openRequests: RibbitError list // probably also need some way of knowing what to restart after a request is filled
-        log: LogEntry FastList.d
+        events: Map<Id, EventData>
+        log: Id FastList.d // event Ids
         }
         with
         static member fresh = { scope = Scope.fresh; kindsOfMonsters = Map.empty; roster = Map.empty; categories = Map.empty;
-            affordances = Map.empty; properties = PropertiesByType.fresh; openRequests = []; log = FastList.fresh()
+            affordances = Map.empty; properties = PropertiesByType.fresh; openRequests = []; log = FastList.fresh(); events = Map.empty
             }
 
     and RibbitUnwrapped = Delta.DeltaDrivenState<RibbitData, RibbitMsg>
@@ -77,6 +78,11 @@ module Core =
         with
         static member create msg = { msg = msg; important = false; category = Neither }
         static member create(msg, important, category) = { msg = msg; important = important; category = category }
+    and EventData = {
+        id: int // ribbit.data.events[ix].id should equal ix
+        log: LogEntry option // will be None before the event gets resolved
+        timeTravelIndex: int // the number of state change events which have occurred when event is resolved. Used for time travel
+        }
 
     type FightResult = Victory | Defeat | Ongoing
     type RoundResult = { outcome: FightResult; msgs: LogEntry list; ribbit: Ribbit }
@@ -131,7 +137,7 @@ module Core =
         | Map.Lookup rowId (Map.Lookup propertyName _) -> true
         | _ -> false
 
-    let update msg (ribbit: RibbitData) =
+    let update history msg (ribbit: RibbitData) =
         match msg with
         | ReserveId id ->
             { ribbit with scope = { ribbit.scope with biggestIdSoFar = max id (defaultArg ribbit.scope.biggestIdSoFar 0) |> Some }}
@@ -166,10 +172,16 @@ module Core =
             let rows = ribbit.scope.rows |> Map.change rowId (Option.map (Map.remove propertyName))
             { ribbit with scope = { ribbit.scope with rows = rows } }
         | AddLogEntry(trieIxs, txt) -> // todo: actually use the trieIxs
-            { ribbit with log = ribbit.log.Add(LogEntry.create txt) }
+            let id = ribbit.events.Count
+            let logEntry = LogEntry.create txt
+            let event = { EventData.id = id; log = Some logEntry; timeTravelIndex = history |> List.length }
+            { ribbit with log = ribbit.log.Add(id); events = ribbit.events |> Map.add id event }
 
     type Ribbit with
         static member Fresh = Delta.create((fun () -> RibbitData.fresh), update) |> Ribbit
+
+    let getLog ix (ribbit:Ribbit) = ribbit.data.events[ribbit.data.log[ix]].log
+    let getLogMsg ix (ribbit:Ribbit) = ribbit.data.events[ribbit.data.log[ix]].log.Value.msg // convenience helper for the common case where log is guaranteed to be completed, as for unit tests
 
 type GenericProperty<'t>(name, defaultValue: _ option, tryUnbox: obj -> 't option) =
     inherit Property<'t, Ribbit>(name, RuntimeType.Generic)

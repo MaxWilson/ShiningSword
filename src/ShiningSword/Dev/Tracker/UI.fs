@@ -276,8 +276,11 @@ let view (model: Model.d) dispatch =
                 else
                     title "What has happened so far:"
                     class' Html.ul "entries" [
-                        for logEntry in log.inOrder() do
-                            Html.li logEntry.msg
+                        for ix in log.inOrder() do
+                            match model.game.data.events[ix].log with
+                            | Some logEntry ->
+                                Html.li logEntry.msg
+                            | None -> ()
                         ]
                 ]
             ]
