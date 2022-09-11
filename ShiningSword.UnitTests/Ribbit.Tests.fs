@@ -102,11 +102,11 @@ let tests = testList "Ribbit.scenario" [
         execs ["add Bob"; "define Giant"; "add Giant"]
         Expect.equal "There should be Bob and a Giant now" 2 (r.data.roster.Count)
         r <- r |> Commands.executeCommand (Commands.AddLogEntry([], "Harry and Lara are coming!"))
-        Expect.equal "There should be one log entry now" 1 (r.data.log.Length)
+        Expect.equal "There should be one log entry now" 1 (r.data.eventRoots.Length)
         execs ["add Lara"; "add Harry"]
         Expect.equal "There should be four people now" 4 (r.data.roster.Count)
         Expect.equal "History should still reflect only two people back when message about Harry and Lara was logged"
-            2 (r.data.events[r.data.log[0]].timeTravelIndex |> r.rewindTo).data.roster.Count
+            2 (r.data.events[r.data.eventRoots[0]].timeTravelIndex |> r.rewindTo).data.roster.Count
 
     ptestCase "Simple attacks" <| fun _ ->
         let rules = """

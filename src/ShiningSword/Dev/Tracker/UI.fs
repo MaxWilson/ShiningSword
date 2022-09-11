@@ -273,7 +273,7 @@ let view (model: Model.d) dispatch =
             prop.className "log"
             prop.children [
                 let title (txt: string) = Html.div [prop.className "title"; prop.text txt]
-                let log = trueModel.game.data.log
+                let log = trueModel.game.data.eventRoots
                 if log.Length = 0 then
                     title "Nothing has happened yet"
                 else
