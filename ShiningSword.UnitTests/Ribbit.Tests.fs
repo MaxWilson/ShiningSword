@@ -91,7 +91,7 @@ let tests = testList "Ribbit.scenario" [
             |> Commands.executeCommand (Commands.AddLogEntry([], "The world awakens"))
         Expect.equal "We just awakened the world" "The world awakens" (getLogMsg 0 r)
 
-    ptestCase "Time travel: log entries should be tagged with ids that support time travel" <| fun _ ->
+    testCase "Time travel: log entries should be tagged with ids that support time travel" <| fun _ ->
         let mutable r = Ribbit.Fresh
         let exec txt =
             match Packrat.ParseArgs.Init(txt, r) with
@@ -99,7 +99,14 @@ let tests = testList "Ribbit.scenario" [
                 r <- cmds |> List.fold (flip Domain.Ribbit.Commands.executeCommand) r
             | _ -> Expect.fail $"Could not parse '{txt}' as a Ribbit command"
         let execs txts = txts |> List.iter exec
-        ()
+        execs ["add Bob"; "define Giant"; "add Giant"]
+        Expect.equal "There should be Bob and a Giant now" 2 (r.data.roster.Count)
+        r <- r |> Commands.executeCommand (Commands.AddLogEntry([], "Harry and Lara are coming!"))
+        Expect.equal "There should be one log entry now" 1 (r.data.log.Length)
+        execs ["add Lara"; "add Harry"]
+        Expect.equal "There should be four people now" 4 (r.data.roster.Count)
+        Expect.equal "History should still reflect only two people back when message about Harry and Lara was logged"
+            2 (r.data.events[r.data.log[0]].timeTravelIndex |> r.rewindTo).data.roster.Count
 
     ptestCase "Simple attacks" <| fun _ ->
         let rules = """
