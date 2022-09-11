@@ -8,6 +8,9 @@ Beholder hp 180, xp 10000
 add Bob, Lara, Harry
 Harry hits Beholder #1 for 80
 Beholder #1 hits Bob for 60, Harry for 30, Lara for 30
+Lara: charmed by beholder
+Harry:: angry at beholder
+Harry:: furious at beholder
 clear dead
 Lara declares Kill beholder
 roll init
@@ -112,9 +115,9 @@ let rec (|TakeDamages|_|) = pack <| function
 let (|Command|_|) = function
     | Str "clear dead" ctx ->
         Some(Game.ClearDeadCreatures, ctx)
-    | Str "clear" (Name(name, OWSStr "notes" ctx)) ->
-        Some(Game.SetNotes(name, []), ctx)
-    | Name(name, Str ":" (OWS(Any (note, ctx)))) ->
+    | Name(name, Str "::" (OWS(AnyTrimmed (note, ctx)))) ->
+        Some(Game.SetNotes(name, if note.Length > 0 then [note] else []), ctx)
+    | Name(name, Str ":" (OWS(AnyTrimmed (note, ctx)))) ->
         Some(Game.AddNotes(name, [note]), ctx)
     | Name(name, Declaration (f, ctx)) ->
         Some(f name, ctx)

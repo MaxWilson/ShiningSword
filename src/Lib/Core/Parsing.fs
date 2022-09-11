@@ -202,6 +202,9 @@ let (|AnyCase|) (input: string) = input.ToLowerInvariant()
 let (|Any|) ((ctx, ix): ParseInput) =
     ctx.input.Substring(ix), (ctx, ctx.input.Length)
 
+let (|AnyTrimmed|) ((ctx, ix): ParseInput) =
+    ctx.input.Substring(ix).Trim(), (ctx, ctx.input.Length)
+
 // Optional whitespace
 let (|OWS|) ((ctx, ix): ParseInput) =
     let rec seek i =

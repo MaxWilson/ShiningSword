@@ -76,7 +76,9 @@ let init initialCmd =
     |> executeTextCommandIfPossible "Severiana hits Sparky for 20"
     |> executeTextCommandIfPossible "Severiana hits Sparky for 27"
     |> executeTextCommandIfPossible "Loiosh hits Sparky for 51" // even though Loiosh rolled high damage, Severiana should get more XP because most of Loiosh's damage was overkill
-    |> executeTextCommandIfPossible "Fire Giant: angry"
+    |> executeTextCommandIfPossible "rename Fire Giant #1 Thor"
+    |> executeTextCommandIfPossible "Thor: angry"
+    |> executeTextCommandIfPossible "Thor:: angry and tired"
 
 #endif
 open Domain.Ribbit.Operations
@@ -284,10 +286,16 @@ let view (model: Model.d) dispatch =
                             match event.log with
                             | Some logEntry ->
                                 Html.li [
-                                    prop.className "logEntry"
-                                    prop.text $"{logEntry.msg} [{ix},{trueModel.game.data.events[ix].timeTravelIndex}]"
-                                    let historyIx = event.timeTravelIndex
-                                    prop.onClick (fun e -> e.preventDefault(); SetRewind(match trueModel.rewindFrame with Some ix' when ix' = historyIx -> None | _ -> Some historyIx) |> dispatch)
+                                    if Some event.timeTravelIndex = model.rewindFrame then
+                                        prop.className "logEntry selected"
+                                    else
+                                        prop.className "logEntry"
+                                    prop.text $"{logEntry.msg}"
+                                    prop.onClick (fun e ->
+                                        e.preventDefault();
+                                        let historyIx = event.timeTravelIndex
+                                        SetRewind(match trueModel.rewindFrame with Some ix' when ix' = historyIx -> None | _ -> Some historyIx)
+                                            |> dispatch)
                                     ]
                             | None -> ()
                         ]

@@ -28,7 +28,7 @@ a
     cursor: pointer
     text-decoration: underline
 .historical
-    background-color: lightgrey
+    background-color: #efefef // light grey
 
 .homePage
     height: 100%
@@ -329,7 +329,9 @@ a
         ul
             margin: 2px
 .dev
-    max-height: 95vh
+    height: calc(100vh - 8px)
+    margin: 0px
+    padding: 4px
     display: grid
     grid-template-rows: 40vh auto auto auto 1fr
     .header
@@ -373,9 +375,12 @@ a
             flex-grow: 1
             overflow-y: auto
             .logEntry
+                user-select: none
                 cursor: pointer
             .logEntry:hover
                 background-color: grey
+            .logEntry.selected
+                font-weight: bold
 .dev.withsidebar
     grid-template-columns: 3fr 1fr
 
