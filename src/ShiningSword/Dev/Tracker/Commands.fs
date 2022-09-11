@@ -1,6 +1,7 @@
 module Dev.Tracker.Commands
 
 open Packrat
+open Domain.Random
 open Domain.Ribbit.Commands
 
 let helpText = Domain.Ribbit.Commands.helpText.Trim() + """
@@ -15,6 +16,9 @@ clear dead
 Lara declares Kill beholder
 roll init
 next init
+10d6
+3d+1
+d20-1
 """
 
 #nowarn "40" // we're not going anything crazy with recursion like calling a pass-in method as part of a ctor. Just regular pattenr-matching.
@@ -112,6 +116,14 @@ let rec (|TakeDamages|_|) = pack <| function
     | TakeDamage(f, OWSStr "," (TakeDamages(rest, ctx))) -> Some(f::rest, ctx)
     | TakeDamage(f, ctx) -> Some([f], ctx)
     | _ -> None
+let rec (|Roll|_|) = pack <| function
+    | Int(n, Str "d" (IntMod(bonus, ctx))) -> Some(RollSpec.create(n, 6, bonus), ctx)
+    | Int(n, Str "d" ctx) -> Some(RollSpec.create(n, 6), ctx)
+    | Str "d" (Int(d, IntMod(bonus, ctx))) -> Some(RollSpec.create(1, d, bonus), ctx)
+    | Str "d" (Int(d, ctx)) -> Some(RollSpec.create(1, d), ctx)
+    | Int(n, Str "d" (Int(d, IntMod(bonus, ctx)))) -> Some(RollSpec.create(n, d, bonus), ctx)
+    | Int(n, Str "d" (Int(d, ctx))) -> Some(RollSpec.create(n, d), ctx)
+    | _ -> None
 let (|Command|_|) = function
     | Str "clear dead" ctx ->
         Some(Game.ClearDeadCreatures, ctx)
@@ -124,7 +136,7 @@ let (|Command|_|) = function
     | Name(src, (OWSStr "hits" (IndividualName(target, OWSStr "for" (Int(amt, ctx)))))) ->
         Some(Game.InflictDamage(src, target, amt), ctx)
     | _ -> None
-let (|LoggedCommands|_|) = pack <| function
+let (|Commands|_|) = pack <| function
     | Domain.Ribbit.Commands.Commands(cmds, ctx) -> Some(cmds |> List.map Game.RibbitCommand, ctx)
     | Name(name, Declarations (fs, (End as ctx))) ->
         Some(fs |> List.map(fun f -> f name), ctx)
@@ -135,7 +147,8 @@ let (|LoggedCommands|_|) = pack <| function
     | Command(cmd, ctx) -> Some([cmd], ctx)
     | _ -> None
 // commands that have their own logging built in. Might be able to refactor this back into commands.
-let (|UnloggedCommands|_|) = pack <| function
+let (|LoggingCommands|_|) = pack <| function
+    | Roll(r, ctx) -> Some([Eval r], ctx)
     | Char('/', AnyTrimmed(txt, ctx)) -> Some([Print txt], ctx)
     | _ -> None
 #if INTERACTIVE

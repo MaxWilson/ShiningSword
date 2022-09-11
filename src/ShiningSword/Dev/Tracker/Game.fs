@@ -200,7 +200,7 @@ module Game =
         | AddNotes(name, notes) ->
             model |> transformByName name notesP (fun notes' -> notes@notes')
         | Print txt -> model |> Domain.Ribbit.Commands.executeCommand (Domain.Ribbit.Commands.AddLogEntry([], txt))
-        | Eval r -> notImpl()
+        | Eval r -> model |> Domain.Ribbit.Commands.executeCommand (Domain.Ribbit.Commands.AddLogEntry([], $"{r.ToString()} = {r.roll()}"))
 
     type FSX =
         // FSX-oriented script commands

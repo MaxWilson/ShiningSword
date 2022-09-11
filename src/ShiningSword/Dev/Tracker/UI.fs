@@ -33,14 +33,14 @@ module Model =
             { ui with input = ""; errors = (err.ToString())::ui.errors }
     let executeTextCommandIfPossible input (ui: d) =
         match ParseArgs.Init(input, ui.game) with
-        | LoggedCommands (cmds, End) ->
+        | Commands (cmds, End) ->
             let ui = cmds |> List.fold executeIfPossible ui
             let hadSuccessfulExecution = ui.errors.Length < cmds.Length
             if hadSuccessfulExecution then
                 executeIfPossible ui (Domain.Ribbit.Commands.AddLogEntry([], input) |> Game.RibbitCommand)
             else
                 ui
-        | UnloggedCommands(cmds, End) ->
+        | LoggingCommands(cmds, End) ->
             cmds |> List.fold executeIfPossible ui
         | _ -> ui
 
