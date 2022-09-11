@@ -18,7 +18,7 @@ module Core =
         | RemoveRosterEntry of Name
         | RenameRosterEntry of Name * newName: Name
         | AddLogEntry of trieIndex: int list * txt: string
-            
+
     type RibbitData = {
         properties: PropertiesByType // used primarily in parsing and serialization scenarios. Otherwise use props directly via object references.
         kindsOfMonsters: Map<Name, Id> // used for looking up kinds if necessary
@@ -52,6 +52,8 @@ module Core =
         member this.transform stateChange = (stateChange |> runNoResult this)
         member this.transformM stateChange = (), match this with Ribbit(data) -> (stateChange |> runNoResult data |> Ribbit)
         member this.transformM stateChange = (), (stateChange |> runNoResult this |> Ribbit)
+        member this.rewindTo ix = this.transform (Delta.rewind ix)
+
     and PropertiesByType = {
         number: Map<Name, Property<int, Ribbit>>
         id: Map<Name, Property<Id, Ribbit>>
@@ -63,7 +65,7 @@ module Core =
         with static member fresh = { number = Map.empty; id = Map.empty; roll = Map.empty; rolls = Map.empty; flags = Map.empty; bool = Map.empty }
 
     and Expression<'t> = Evaluation<'t, Ribbit> // expressions CANNOT modify state or the evaluation context variables, they can only succeed or fail.
-    
+
     and Statements = Sequence of Statement list | While of Expression<bool> * Statements
     and CompiledStatements = Statement array
     and Statement =
@@ -163,7 +165,7 @@ module Core =
         | Set(address, value) -> notImpl()
         | SetRoster(roster) -> { ribbit with roster = roster }
         | RemoveRosterEntry name -> { ribbit with roster = ribbit.roster |> Map.filter (fun k v -> k <> name) }
-        | RenameRosterEntry(name, name') ->            
+        | RenameRosterEntry(name, name') ->
             match ribbit.roster |> Map.tryFind name with
             | Some id ->
                 { ribbit with roster = ribbit.roster |> Map.remove name |> Map.add name' id }

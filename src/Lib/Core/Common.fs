@@ -227,6 +227,12 @@ module Delta =
         let commands = f inner
         let state = commands |> List.fold (flip execute) state
         (), state
+    let rewind ix state =
+        // TODO: it would be possible to make this enormously more efficient with incremental updates, instead of replaying everything from the beginning every time
+        let (Seed (initial, update)) = state.seed
+        let history = state.past |> List.rev
+        let start = create(initial, update)
+        history |> List.take ix |> List.fold (flip execute) start
 
 module SharedDelta =
     open Microsoft.FSharp.Core
@@ -277,7 +283,7 @@ module FastList =
         member lst.Add value = { reversedOrder = value::lst.reversedOrder; randomAccess = lst.randomAccess |> Map.add lst.reversedOrder.Length value; cached = None }
         // addM = monadic return value, return new index + new monad (new FastList). Used for doing things like linking to the newly-created list item.
         member lst.AddM value =
-            let ix = lst.reversedOrder.Length 
+            let ix = lst.reversedOrder.Length
             ix, { reversedOrder = value::lst.reversedOrder; randomAccess = lst.randomAccess |> Map.add ix value; cached = None }
         member lst.inOrder() =
             match lst.cached with
@@ -312,5 +318,5 @@ module Trie =
             | (value, _), [] ->
                 value
         recur ixs trie
-                
+
     let replace ixs trie = notImpl()

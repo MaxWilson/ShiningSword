@@ -17,14 +17,15 @@ type Msg =
     | ToggleHelp of bool
     | ToggleBestiary of bool
     | ToggleLog of bool
+    | SetRewind of int option
 
 module Model =
     open Packrat
     open Commands
     type CombatPhase = Declaring | Executing of Name list
     type DisplayMode = MainScreen | HelpScreen
-    type d = { input: string; game: Game.d; errors: string list; nowShowing: DisplayMode; showBestiary: bool; showLog: bool; combatPhase: CombatPhase }
-    let fresh = { input = ""; game = Game.fresh; errors = []; nowShowing = MainScreen; showBestiary = true; showLog = false; combatPhase = Declaring }
+    type d = { input: string; game: Game.d; errors: string list; nowShowing: DisplayMode; showBestiary: bool; showLog: bool; combatPhase: CombatPhase; rewindFrame: int option  }
+    let fresh = { input = ""; game = Game.fresh; errors = []; nowShowing = MainScreen; showBestiary = true; showLog = false; combatPhase = Declaring; rewindFrame = None }
     let executeIfPossible ui cmd =
         try
             { ui with input = ""; game = ui.game |> Game.update cmd; errors = [] }
@@ -122,6 +123,7 @@ let update msg (model: Model.d) =
     | ToggleHelp showHelp -> { model with nowShowing = if showHelp then HelpScreen else MainScreen }
     | ToggleBestiary showBestiary -> { model with showBestiary = showBestiary }
     | ToggleLog showLog -> { model with showLog = showLog }
+    | SetRewind ix -> { model with rewindFrame = ix }
 
 open UI.Components
 
@@ -141,6 +143,8 @@ open Dev.Tracker.Game.Game
 open Domain.Ribbit
 
 let view (model: Model.d) dispatch =
+    let trueModel = model
+    let model = match model.rewindFrame with Some ix -> { model with game = model.game.rewindTo ix } | None -> model
     let setCommand txt =
         (ReviseInput txt) |> dispatch
     let table = class' Html.div "table" [
@@ -266,20 +270,25 @@ let view (model: Model.d) dispatch =
                 ]
     let log() =
         Html.div [
-            prop.onDoubleClick(fun _ -> ToggleLog false |> dispatch)
             prop.className "log"
             prop.children [
                 let title (txt: string) = Html.div [prop.className "title"; prop.text txt]
-                let log = model.game.data.log
+                let log = trueModel.game.data.log
                 if log.Length = 0 then
                     title "Nothing has happened yet"
                 else
                     title "What has happened so far:"
                     class' Html.ul "entries" [
                         for ix in log.inOrder() do
-                            match model.game.data.events[ix].log with
+                            let event = trueModel.game.data.events[ix]
+                            match event.log with
                             | Some logEntry ->
-                                Html.li logEntry.msg
+                                Html.li [
+                                    prop.className "logEntry"
+                                    prop.text $"{logEntry.msg} [{ix},{trueModel.game.data.events[ix].timeTravelIndex}]"
+                                    let historyIx = event.timeTravelIndex
+                                    prop.onClick (fun e -> e.preventDefault(); SetRewind(match trueModel.rewindFrame with Some ix' when ix' = historyIx -> None | _ -> Some historyIx) |> dispatch)
+                                    ]
                             | None -> ()
                         ]
                 ]
@@ -289,7 +298,7 @@ let view (model: Model.d) dispatch =
             prop.text "Log"
             prop.onClick (thunk1 dispatch (not model.showLog |> ToggleLog))
             ]
-    class' Html.div (if model.showLog then "dev withsidebar" else "dev") [
+    class' Html.div (["dev"; if model.showLog then begin "withsidebar" end; if trueModel.rewindFrame.IsSome then begin "historical" end] |> String.join " ") [
         withHeader (model.nowShowing = HelpScreen) helpText (ToggleHelp >> dispatch) [logLink()] [
             table
             inputPanel
