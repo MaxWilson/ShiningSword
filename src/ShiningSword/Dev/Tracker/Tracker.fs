@@ -10,19 +10,27 @@ let start() =
         Cmd.ofSub(fun dispatch ->
             Browser.Dom.window.onkeydown <- fun e ->
                 if e.ctrlKey then
+                    let mutable handled = true // shortcut so we don't have to type e.preventDefault() in every valid case
                     match e.key.ToLowerInvariant() with
                     | "l" ->
-                        e.preventDefault()
                         dispatch (ToggleLog None)
                     | "?" ->
-                        e.preventDefault()
                         dispatch (ToggleHelp None)
                     | "c" ->
-                        e.preventDefault()
                         match (Browser.Dom.window.document.getElementById "userInput") with
-                        | null -> ()
+                        | null -> handled <- false
                         | e -> e.focus()
-                    | _ -> ()
+                    | "arrowup" ->
+                        dispatch (LogNav(-1, 0))
+                    | "arrowdown" ->
+                        dispatch (LogNav(+1, 0))
+                    | "arrowleft" ->
+                        dispatch (LogNav(0, -1))
+                    | "arrowright" ->
+                        dispatch (LogNav(0, +1))
+                    | _ -> handled <- false
+                    if handled then e.preventDefault()
+
             ))
     |> Program.withReactBatched "feliz-dev"
     |> Program.run

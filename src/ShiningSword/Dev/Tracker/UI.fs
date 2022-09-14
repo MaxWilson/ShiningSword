@@ -18,6 +18,7 @@ type Msg =
     | ToggleBestiary of bool
     | ToggleLog of bool option
     | SetRewind of int option
+    | LogNav of down:int * right: int
 
 module Model =
     open Packrat
@@ -130,6 +131,27 @@ let update msg (model: Model.d) =
     | ToggleBestiary showBestiary -> { model with showBestiary = showBestiary }
     | ToggleLog showLog -> { model with showLog = defaultArg showLog (model.showLog |> not) }
     | SetRewind ix -> { model with rewindFrame = ix }
+    | LogNav(down, right) ->
+        // LogNav is a more indirect, incremental way of doing SetRewind with arrow keys within the log
+        if model.showLog |> not then
+            model
+        else
+            // for now the only meaning of left is to unfocus the log; right means start at the end and is otherwise identical to down
+            // these will change when log is hierarchical
+            let r = model.game.data
+            let roots = r.eventRoots.inOrder()
+            let setRewind ix = { model with rewindFrame = ix }
+            let setRewindByLogIndex ix = (if 0 <= ix && ix < roots.Length then r.events[roots[ix]].timeTravelIndex |> Some else None) |> setRewind
+            match model.rewindFrame |> Option.bind (fun frame -> roots |> List.tryFindIndex (fun ix -> r.events[ix].timeTravelIndex >= frame)) with
+            | None -> // if not currently focused anywhere valid
+                if (right > 0 || down < 0) && roots.Length > 0 then // start at back; note that it's slightly wrong that we don't treat right=2 different from right=1, should fix when we add hierarchy
+                    r.events[roots |> List.last].timeTravelIndex |> Some |> setRewind
+                elif down > 0 && roots.Length > 0 then // start at back; note that it's slightly wrong that we don't treat right=2 different from right=1, should fix when we add hierarchy
+                    r.events[roots |> List.head].timeTravelIndex |> Some |> setRewind
+                else model
+            | Some currentIndex ->
+                if right < 0 then setRewind None
+                else currentIndex + down + right |> setRewindByLogIndex
 
 open UI.Components
 
