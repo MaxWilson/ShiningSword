@@ -18,6 +18,7 @@
     <None Include="Scratch\RibbitFromScratch.fsx" />
     <None Include="Scratch\RibbitFromScratch2.fsx" />
     <None Include="Scratch\RibbitFromScratch3.fsx" />
+    <None Include="Scratch\GURPSSpellDependencies.fsx" />
     <None Include="Scratch\Sample.rbt" />
     <Compile Include="Core\Optics.fs" />
     <Compile Include="Core\Common.fs" />
