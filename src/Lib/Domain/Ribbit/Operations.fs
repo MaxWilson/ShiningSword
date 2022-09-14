@@ -8,13 +8,13 @@ module Operations =
     let propFail rowId propName (ribbit: RibbitData) =
         let name =
             match ribbit.scope.rows with
-            | Map.Lookup rowId (Map.Lookup "PersonalName" (Text personalName)) -> personalName
+            | Map.Lookup rowId (Map.Lookup "PersonalName" (Generic personalName)) -> personalName
             | _ -> $"Unnamed individual (ID = {rowId})"
         failwith $"{propName} should have been set on {name}"
     let request rowId propName (ribbit: RibbitData) =
         let name =
             match ribbit.scope.rows with
-            | Map.Lookup rowId (Map.Lookup "PersonalName" (Text personalName)) -> personalName
+            | Map.Lookup rowId (Map.Lookup "PersonalName" (Generic personalName)) -> personalName
             | _ -> $"Unnamed individual (ID = {rowId})"
         failwith $"{propName} should have been set on {name}"
     let prototypeP = IdProperty("prototype", 0) // for Javascript-style prototype inheritance

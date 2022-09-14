@@ -96,12 +96,12 @@ module Core =
         let ribbit = ctx.state
         (f { ribbit = ribbit; locals = ctx.locals }), ctx
 
-    let castFailure (runtimeType: RuntimeType) id propName (v: RuntimeValue) =
-        BugReport $"row #{id} property {propName} was should be a {runtimeType} but was actually {v}" |> Error
     // registerRequest adds a request to the list of things a user will be requested to fill. Associating
     // a request with logic to retry will happen separately and later, when the caller fails to synchronously
     // receive a value.
     let registerRequest request = fun state -> (), state |> Delta.execute (RegisterRequest request)
+
+    let private (|Id|) = function Generic ix -> unbox<int> ix
 
     let private _get (rowId: Id, propertyName: Name, fallback, getter) (ribbit: Ribbit) =
         let rec recur rowId' =
@@ -187,8 +187,8 @@ module Core =
     let getLogMsg ix (ribbit:Ribbit) = ribbit.data.events[ribbit.data.eventRoots[ix]].log.Value.msg // convenience helper for the common case where log is guaranteed to be completed, as for unit tests
 
 type GenericProperty<'t>(name, defaultValue: _ option, tryUnbox: obj -> 't option) =
-    inherit Property<'t, Ribbit>(name, RuntimeType.Generic)
-    let extract = function Generic v -> Ok (unbox v) | v -> BugReport $"row #{id} property {name} could not be converted, was actually {v}" |> Error
+    inherit Property<'t, Ribbit>(name)
+    let extract = function Generic v -> Ok (unbox v)
     // default conversion function for convenience--99% of the time you should use this via the convenience ctors
     override this.Set(rowId, value) (state: Ribbit) =
         state |> (Set(PropertyAddress(rowId, name), Generic value) |> Ribbit.Update)
@@ -203,11 +203,13 @@ type GenericProperty<'t>(name, defaultValue: _ option, tryUnbox: obj -> 't optio
     static member TypeConvert = unbox<'t> >> Some
     new(name, defaultValue: 't) = GenericProperty<'t>(name, Some defaultValue, GenericProperty.TypeConvert)
     new(name) = GenericProperty<'t>(name, None, GenericProperty.TypeConvert)
+    member this.Clear (rowId: Id) (ribbit: Ribbit) =
+        ribbit |> (ClearValue(rowId, name) |> Ribbit.Update)
 
 type GlobalGenericProperty<'t>(name, defaultValue: _ option, tryUnbox: obj -> 't option) =
-    inherit GlobalProperty<'t, Ribbit>(name, RuntimeType.Generic)
+    inherit GlobalProperty<'t, Ribbit>(name)
     let rowId = 0
-    let extract = function Generic v -> Ok (unbox v) | v -> BugReport $"row #{id} property {name} could not be converted, was actually {v}" |> Error
+    let extract = function Generic v -> Ok (unbox v)
     override this.Set(value) (state: Ribbit) =
         state |> (Set(PropertyAddress(rowId, name), Generic value) |> Ribbit.Update)
     override this.Get (ribbit: Ribbit) =
@@ -221,85 +223,29 @@ type GlobalGenericProperty<'t>(name, defaultValue: _ option, tryUnbox: obj -> 't
     static member TypeConvert = unbox<'t> >> Some
     new(name, defaultValue: 't) = GlobalGenericProperty<'t>(name, Some defaultValue, GlobalGenericProperty.TypeConvert)
     new(name) = GlobalGenericProperty<'t>(name, None, GlobalGenericProperty.TypeConvert)
-
-type NumberProperty(name, defaultValue: _ option) =
-    inherit Property<int, Ribbit>(name, RuntimeType.Number)
-    override this.Set(rowId, value) (state: Ribbit) =
-        state |> (Set(PropertyAddress(rowId, name), Number value) |> Ribbit.Update)
-    override this.Get(rowId) (ribbit: Ribbit) =
-        match ribbit |> getSynchronously (rowId, name, defaultValue, function Number n -> Ok n | v -> castFailure RuntimeType.Number rowId name v) with
-        | Ok value -> value
-        | Error (BugReport msg) -> failwith msg // shouldn't use synchronous Get on a property that's lazy
-        | Error _ -> shouldntHappen() // shouldn't use synchronous Get on a property that's lazy
-    override this.GetM(rowId) =
-        getRibbit >> getAsync (rowId, name, defaultValue, function Number n -> Ok n | v -> castFailure RuntimeType.Number rowId name v)
-    new(name, defaultValue: int) = NumberProperty(name, Some defaultValue)
-    new(name) = NumberProperty(name, None)
     member this.Clear (rowId: Id) (ribbit: Ribbit) =
         ribbit |> (ClearValue(rowId, name) |> Ribbit.Update)
 
-type BoolProperty(name, defaultValue: _ option) =
-    inherit Property<bool, Ribbit>(name, RuntimeType.Bool)
-    override this.Set(rowId, value) (state: Ribbit) =
-        state |> (Set(PropertyAddress(rowId, name), Bool value) |> Ribbit.Update)
-    override this.Get(rowId) (ribbit: Ribbit) =
-        match ribbit |> getSynchronously (rowId, name, defaultValue, function Bool b -> Ok b | v -> castFailure RuntimeType.Number rowId name v) with
-        | Ok value -> value
-        | Error (BugReport msg) -> failwith msg // shouldn't use synchronous Get on a property that's lazy
-        | Error _ -> shouldntHappen() // shouldn't use synchronous Get on a property that's lazy
-    override this.GetM(rowId) =
-        getRibbit >> getAsync (rowId, name, defaultValue, function Bool b -> Ok b | v -> castFailure RuntimeType.Bool rowId name v)
-    new(name, defaultValue: bool) = BoolProperty(name, Some defaultValue)
-    new(name) = BoolProperty(name, None)
-
-type RollProperty(name, defaultValue) =
-    inherit Property<RollSpec, Ribbit>(name, RuntimeType.Roll)
-    override this.Set(rowId, value) (state: Ribbit) =
-        state |> (Set(PropertyAddress(rowId, name), Roll value) |> Ribbit.Update)
-    override this.Get(rowId) (ribbit: Ribbit) =
-        match ribbit |> getSynchronously (rowId, name, defaultValue, function Roll r -> Ok r | v -> castFailure RuntimeType.Number rowId name v) with
-        | Ok value -> value
-        | Error (BugReport msg) -> failwith msg // shouldn't use synchronous Get on a property that's lazy
-        | Error _ -> shouldntHappen() // shouldn't use synchronous Get on a property that's lazy
-    override this.GetM(rowId) =
-        getRibbit >> getAsync (rowId, name, defaultValue, function Roll r -> Ok r | v -> castFailure RuntimeType.Roll rowId name v)
-    new(name, defaultValue: RollSpec) = RollProperty(name, Some defaultValue)
-    new(name) = RollProperty(name, None)
-
-type RollsProperty(name, defaultValue) =
-    inherit Property<RollSpec list, Ribbit>(name, RuntimeType.Rolls)
-    override this.Set(rowId, value) (state: Ribbit) =
-        state |> (Set(PropertyAddress(rowId, name), Rolls value) |> Ribbit.Update)
-    override this.Get(rowId) (ribbit: Ribbit) =
-        match ribbit |> getSynchronously (rowId, name, defaultValue, function Rolls rs -> Ok rs | v -> castFailure RuntimeType.Number rowId name v) with
-        | Ok value -> value
-        | Error (BugReport msg) -> failwith msg // shouldn't use synchronous Get on a property that's lazy
-        | Error _ -> shouldntHappen() // shouldn't use synchronous Get on a property that's lazy
-    override this.GetM(rowId) =
-        getRibbit >> getAsync (rowId, name, defaultValue, function Rolls rs -> Ok rs | v -> castFailure RuntimeType.Rolls rowId name v)
-    new(name, defaultValue: RollSpec list) = RollsProperty(name, Some defaultValue)
-    new(name) = RollsProperty(name, None)
+type NumberProperty = GenericProperty<int>
+type BoolProperty = GenericProperty<bool>
+type RollProperty = GenericProperty<RollSpec>
+type RollsProperty = GenericProperty<RollSpec list>
+type IdProperty = GenericProperty<Id>
+type TextProperty = GenericProperty<string>
 
 type FlagsProperty<'t>(name, defaultValue: string Set) =
-    inherit Property<string Set, Ribbit>(name, RuntimeType.Flags)
-    override this.Set(rowId, value) (state: Ribbit) =
-        state |> (Set(PropertyAddress(rowId, name), Flags value) |> Ribbit.Update)
-    override this.Get(rowId) (ribbit: Ribbit) =
-        match ribbit |> getSynchronously (rowId, name, Some defaultValue, function Flags f -> Ok f | _ -> Ok defaultValue) with
-        | Ok value -> value
-        | Error (BugReport msg) -> failwith msg // shouldn't use synchronous Get on a property that's lazy
-        | Error _ -> shouldntHappen() // shouldn't use synchronous Get on a property that's lazy
-    override this.GetM(rowId) =
-        getRibbit >> getAsync (rowId, name, Some defaultValue, function Flags b -> Ok b | v -> castFailure RuntimeType.Flags rowId name v)
-    member this.SetAll(rowId, value) = (this :> Property<string Set, Ribbit>).Set(rowId, value)
+    inherit GenericProperty<string Set>(name, defaultValue)
+    member this.SetAll(rowId, value) = this.Set(rowId, value)
     member this.SetFlag(rowId, targetFlag:'t, value) (state: Ribbit) =
         let target = targetFlag.ToString()
-        state |> upsertScope (rowId, name, Flags defaultValue, function
+        let (|Flags|) = function Generic v -> unbox<string Set> v
+        let toFlag = box >> Generic
+        state |> upsertScope (rowId, name, Generic defaultValue, function
             | (Some (Flags set)) ->
-                if value = (set.Contains target) then Flags set
-                elif value then set.Add target |> Flags
-                else set |> Set.filter ((<>) target) |> Flags
-            | _ -> (if value then [target] else []) |> Set.ofList |> Flags
+                if value = (set.Contains target) then toFlag set
+                elif value then set.Add target |> toFlag
+                else set |> Set.filter ((<>) target) |> toFlag
+            | _ -> (if value then [target] else []) |> Set.ofList |> toFlag
             )
     member this.SetAllM(rowId, value) (state: Ribbit) = (), this.SetAll(rowId, value) state
     member this.SetFlagM(rowId, targetFlag, value) (state: Ribbit) = (), this.SetFlag(rowId, targetFlag, value) state
@@ -307,43 +253,17 @@ type FlagsProperty<'t>(name, defaultValue: string Set) =
         let target = targetFlag.ToString()
         let check = fun (set: string Set) ->
             set.Contains target
-        match ribbit |> getSynchronously (rowId, name, (Some false), function Flags flags -> check flags |> Ok | v -> castFailure RuntimeType.Flags rowId name v) with
+        let (|Flags|) = function Generic v -> unbox<string Set> v
+        match ribbit |> getSynchronously (rowId, name, (Some false), function Flags flags -> check flags |> Ok) with
         | Ok v -> v
         | Error err -> shouldntHappen err
     member this.CheckM(rowId, targetFlag) (ribbit: Ribbit) =
         let target = targetFlag.ToString()
         let check = fun (set: string Set) ->
             set.Contains target
-        ribbit |> getAsync (rowId, name, (Some false), function Flags flags -> check flags |> Ok | v -> castFailure RuntimeType.Flags rowId name v)
+        let (|Flags|) = function Generic v -> unbox<string Set> v
+        ribbit |> getAsync (rowId, name, (Some false), function Flags flags -> check flags |> Ok)
     new(name) = FlagsProperty(name, Set.empty)
-
-type IdProperty(name, defaultValue) =
-    inherit Property<Id, Ribbit>(name, RuntimeType.Id)
-    override this.Set(rowId, value) (state: Ribbit) =
-        state |> (Set(PropertyAddress(rowId, name), Id value) |> Ribbit.Update)
-    override this.Get(rowId) (ribbit: Ribbit) =
-        match ribbit |> getSynchronously (rowId, name, defaultValue, function Id id -> Ok id | v -> castFailure RuntimeType.Number rowId name v) with
-        | Ok value -> value
-        | Error (BugReport msg) -> failwith msg // shouldn't use synchronous Get on a property that's lazy
-        | Error _ -> shouldntHappen() // shouldn't use synchronous Get on a property that's lazy
-    override this.GetM(rowId) =
-        getRibbit >> getAsync (rowId, name, defaultValue, function Id id -> Ok id | v -> castFailure RuntimeType.Id rowId name v)
-    new(name, defaultValue: int) = IdProperty(name, Some defaultValue)
-    new(name) = IdProperty(name, None)
-
-type TextProperty(name, defaultValue) =
-    inherit Property<string, Ribbit>(name, RuntimeType.Text)
-    override this.Set(rowId, value) (state: Ribbit) =
-        state |> (Set(PropertyAddress(rowId, name), Text value) |> Ribbit.Update)
-    override this.Get(rowId) (ribbit: Ribbit) =
-        match ribbit |> getSynchronously (rowId, name, defaultValue, function Text t -> Ok t | v -> castFailure RuntimeType.Number rowId name v) with
-        | Ok value -> value
-        | Error (BugReport msg) -> failwith msg // shouldn't use synchronous Get on a property that's lazy
-        | Error _ -> shouldntHappen() // shouldn't use synchronous Get on a property that's lazy
-    override this.GetM(rowId) =
-        getRibbit >> getAsync (rowId, name, defaultValue, function Text t -> Ok t | v -> castFailure RuntimeType.Text rowId name v)
-    new(name, defaultValue: string) = TextProperty(name, Some defaultValue)
-    new(name) = TextProperty(name, None)
 
 //type BinaryExpression<'t, 'lhs, 'rhs>(lhs: 'lhs Expression, rhs: 'rhs Expression, f: 'lhs -> 'rhs -> Result<'t, RibbitError>) =
 //    inherit Expression<'t>()

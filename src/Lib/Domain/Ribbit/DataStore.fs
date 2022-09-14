@@ -8,8 +8,7 @@ open Delta
 
 type Id = int
 
-type RuntimeType = Number | Id  | Text | Roll | Rolls | Flags | Bool | Generic
-type RuntimeValue = Number of int | Id of Id | Text of string | Roll of RollSpec | Rolls of RollSpec list | Flags of string Set| Bool of bool | Generic of obj
+type RuntimeValue = Generic of obj
 type Address = LocalAddress of variableName: Name | PropertyAddress of Id * propertyName: Name
 type RibbitRequest = DataRequest of Id * propertyName: Name
 type RibbitError = Awaiting of RibbitRequest | BugReport of msg: string
@@ -50,12 +49,10 @@ type Scope = {
 
 type IProperty =
     abstract Name: string
-    abstract Type: RuntimeType
 
-type [<AbstractClass>] Property<'t, 'DataSource>(name, runtimeType) =
+type [<AbstractClass>] Property<'t, 'DataSource>(name) =
     interface IProperty with
         member this.Name = name
-        member this.Type = runtimeType
     abstract Get: Id -> 'DataSource -> 't
     abstract GetM: Id -> Evaluation<'t, 'DataSource>
     abstract Set: Id *'t -> 'DataSource -> 'DataSource
@@ -69,10 +66,9 @@ type [<AbstractClass>] Property<'t, 'DataSource>(name, runtimeType) =
             return Ok ()
             }
 
-type [<AbstractClass>] GlobalProperty<'t, 'DataSource>(name, runtimeType) =
+type [<AbstractClass>] GlobalProperty<'t, 'DataSource>(name) =
     interface IProperty with
         member this.Name = name
-        member this.Type = runtimeType
     abstract Get: 'DataSource -> 't
     abstract GetM: Evaluation<'t, 'DataSource>
     abstract Set: 't -> 'DataSource -> 'DataSource
