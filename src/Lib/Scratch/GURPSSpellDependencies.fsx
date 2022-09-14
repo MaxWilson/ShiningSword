@@ -19,11 +19,18 @@ let (|EndOfLine|_|) = function
     | (Char (('\n' | '\r'), ctx)) -> Some(ctx)
     | End as ctx -> Some(ctx)
     | _ -> None
-let rec (|PrereqChain|_|) = pack <| function
-    | OWS(Char(lead, _) & Word(word, OWSStr "," (PrereqChain(words, ctx)))) when System.Char.IsLetter lead -> Some(word::words, ctx)
-    | OWS(Char(lead, _) & Word(word, ctx)) when System.Char.IsLetter lead -> Some([word], ctx)
+let rec (|Prereq|_|) = pack <| function
+    // an individual prereq, like "at least three necromancy spells"
+    // Need to use lookahead to make sure not to eat the page number,
+    // e.g. "Destroy Spirits Necro. C: PI3, at least three necromancy spells 59" should return "at least three necromancy spells" as prereq #2 but stop short of the 59+EOL
+    | OWS(Int(_, EndOfLine _)) -> None // excluded case: NOT if it would eat the page number
+    | OWS(Word(word, Prereq(_, ((arg, ix) as ctx))) & (_, startIx)) -> Some(arg.input.Substring(startIx, ix - startIx).Trim(), ctx) // recursive case: a word and the rest of the prereq
+    | OWS(Word(word, ctx) & (_, startIx)) -> Some(word, ctx) // basis case: a word that does not end with a page number
     | _ -> None
-
+let rec (|PrereqChain|_|) = pack <| function
+    | OWS(Char(lead, _) & Prereq(word, OWSStr "," (PrereqChain(words, ctx)))) when System.Char.IsLetter lead -> Some(word::words, ctx)
+    | OWS(Char(lead, _) & Prereq(word, ctx)) when System.Char.IsLetter lead -> Some([word], ctx)
+    | _ -> None
 let (|Prereqs|_|) = function
     | OWS(Str "C:" (PrereqChain(prereqs, ctx))) -> Some(prereqs, ctx)
     | OWS(Str "W:" (PrereqChain(prereqs, ctx))) -> Some(prereqs, ctx)
@@ -37,7 +44,8 @@ type Spell = { name: string; college: string; prereqs: string list; page: int }
 let rec (|Spell|_|) = pack <| function
     // specific should come before general, but in this case having a shorter title is (I think) more specific because of the EndOfLine qualifier. Or is it?
     | TitleWord(pt1, Spell(spell, ctx)) -> Some({ spell with name = String.join " " [pt1;spell.name] }, ctx)
-    | TitleWord(name, College(college, Prereqs(prereqs, Int(pg, ctx)))) -> Some({ name = name; college = college; prereqs = prereqs; page = pg }, ctx)
+    | TitleWord(name, College(college, Prereqs(prereqs, Int(pg, ctx)))) ->
+        Some({ name = name; college = college; prereqs = prereqs; page = pg }, ctx)
     | _ -> None
 
 let parseDf txt =
