@@ -139,9 +139,9 @@ let (|Optional|) (str: string) ((ctx, ix): ParseInput) =
     if ix + str.Length <= ctx.input.Length && System.String.Equals(ctx.input.Substring(ix, str.Length), str, System.StringComparison.InvariantCultureIgnoreCase) then (ctx, ix+str.Length) else (ctx, ix)
 
 // set up some basic alphabets
-let alpha = Set<_>['A'..'Z'] + Set<_>['a'..'z']
-let numeric = Set<_>['0'..'9']
-let whitespace = Set<_>[' '; '\t'; '\n'; '\r']
+let alpha = Set.ofList ['A'..'Z'] + Set.ofList ['a'..'z']
+let numeric = Set.ofList ['0'..'9']
+let whitespace = Set.ofList [' '; '\t'; '\n'; '\r']
 let alphanumeric = alpha + numeric
 let alphawhitespace = alpha + whitespace
 

@@ -3,12 +3,13 @@
 #I @"..\.."
 #load @"Lib\Core\Optics.fs"
 #load @"Lib\Core\Common.fs"
-#load @"Lib\Core\Parsing.fs"
+#load @"Lib\Core\Packrat.fs"
 #load @"Lib\Core\DerivedTraits.fs"
 #load @"Lib\Domain\Metrics.fs"
 #load @"Lib\Domain\Random.fs"
 #load @"Lib\Domain\Treasure.fs"
 #load @"Lib\Domain\Onomastikon.fs"
+#load @"Lib\Domain\Namespace.fs"
 #load @"Lib\Domain\Character\Character.fs"
 #load @"Lib\Domain\Character\Character2e.fs"
 #load @"Lib\Domain\Character\Character5e.fs"
@@ -16,10 +17,12 @@
 #load @"Lib\Domain\Ribbit\DataStore.fs"
 #load @"Lib\Domain\Ribbit\Core.fs"
 #load @"Lib\Domain\Ribbit\Operations.fs"
+#load @"Lib\Domain\Ribbit\Commands.fs"
 #load @"Lib\Domain\Ribbit\Rules2e.fs"
 #load @"Lib\Domain\Ribbit\Rules5e.fs"
 #load @"Lib\Adventure.fs"
 #load @"Dev\Tracker\Game.fs"
+#load @"Dev\Tracker\Commands.fs"
 
 open Domain.Character
 open Domain.Character.ADND2nd

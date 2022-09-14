@@ -1,9 +1,5 @@
 module Dev.Tracker.Commands
 
-open Packrat
-open Domain.Random
-open Domain.Ribbit.Commands
-
 let helpText = Domain.Ribbit.Commands.helpText.Trim() + """
 Beholder hp 180, xp 10000
 add Bob, Lara, Harry
@@ -23,14 +19,28 @@ d20-1
 
 #nowarn "40" // we're not going anything crazy with recursion like calling a pass-in method as part of a ctor. Just regular pattenr-matching.
 
+open Packrat
+open Domain.Random
+open Domain.Ribbit
+open Domain.Ribbit.Commands
 open Dev.Tracker.Game
 open Dev.Tracker.Game.Game
-open Domain.Ribbit
 
 let (|IntMod|_|) = pack <| function
     | OWS(Chars numericWithPlusOrMinus (v, OWS(rest))) ->
         match System.Int32.TryParse(v) with
         | true, v -> Some(v, rest)
+        | _ -> None
+    | _ -> None
+// don't want to confuse 3d6+6 with 3d+6+6
+let (|BonusOrPenalty|_|) = pack <| function
+    | OWS(Str "+" (Chars numeric (v, rest))) ->
+        match System.Int32.TryParse(v) with
+        | true, v -> Some(v, rest)
+        | _ -> None
+    | OWS(Str "-" (Chars numeric (v, rest))) ->
+        match System.Int32.TryParse(v) with
+        | true, v -> Some(-v, rest)
         | _ -> None
     | _ -> None
 
@@ -117,12 +127,13 @@ let rec (|TakeDamages|_|) = pack <| function
     | TakeDamage(f, ctx) -> Some([f], ctx)
     | _ -> None
 let rec (|Roll|_|) = pack <| function
-    | Int(n, Str "d" (IntMod(bonus, ctx))) -> Some(RollSpec.create(n, 6, bonus), ctx)
-    | Int(n, Str "d" ctx) -> Some(RollSpec.create(n, 6), ctx)
-    | Str "d" (Int(d, IntMod(bonus, ctx))) -> Some(RollSpec.create(1, d, bonus), ctx)
-    | Str "d" (Int(d, ctx)) -> Some(RollSpec.create(1, d), ctx)
-    | Int(n, Str "d" (Int(d, IntMod(bonus, ctx)))) -> Some(RollSpec.create(n, d, bonus), ctx)
+    // note that we are NOT using IntMod for BonusOrPenalty because the +/- is mandatory to avoid confusion, and IntMod's +/- is optional
+    | Int(n, Str "d" (Int(d, BonusOrPenalty(bonus, ctx)))) -> Some(RollSpec.create(n, d, bonus), ctx)
+    | Int(n, Str "d" (BonusOrPenalty(bonus, ctx))) -> Some(RollSpec.create(n, 6, bonus), ctx)
+    | Str "d" (Int(d, BonusOrPenalty(bonus, ctx))) -> Some(RollSpec.create(1, d, bonus), ctx)
     | Int(n, Str "d" (Int(d, ctx))) -> Some(RollSpec.create(n, d), ctx)
+    | Int(n, Str "d" ctx) -> Some(RollSpec.create(n, 6), ctx)
+    | Str "d" (Int(d, ctx)) -> Some(RollSpec.create(1, d), ctx)
     | _ -> None
 let (|Command|_|) = function
     | Str "clear dead" ctx ->
@@ -163,6 +174,8 @@ let testbed() =
     | Commands(cmds, End) -> cmds
     match ParseArgs.Init("Beholder 180 hp, xp 10000", g) with
     | Commands(cmds, End) -> cmds
+    match ParseArgs.Init("3d6+6", g) with
+    | Roll(r, _) -> r
     iter &g (exec "define Beholder, Ogre")
     iter &g (exec "Beholder hp 180, xp 10000")
     iter &g (exec "define Giant")
@@ -173,10 +186,10 @@ let testbed() =
     iter &g (exec "add Bob")
     iter &g (exec "Bob hp 50")
     iter &g (exec "Bob hits Giant 1 for 30")
-    g.stats[DataTypes.Name "Giant #1"].HP
+    tryGetRibbit hpP "Giant #1"
     iter &g (exec "Bob hits Giant 1 for 30")
-    g.stats[DataTypes.Name "Giant #1"].HP
+    tryGetRibbit hpP "Giant #1"
     iter &g (exec "Bob hits Giant 1 for 30")
-    g.stats[DataTypes.Name "Giant #1"].HP
+    tryGetRibbit hpP "Giant #1"
     iter &g (exec "clear dead")
 #endif
