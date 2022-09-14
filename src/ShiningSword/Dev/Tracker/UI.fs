@@ -10,6 +10,14 @@ open Feliz
 open Fable.Core.JsInterop
 open Fable.Core
 
+let uiHelpText = $"""
+    Ctrl-? to toggle help screen
+    Ctrl-L to toggle log
+    Ctrl-Up/Down/Left/Right arrow keys to navigate within log
+
+    {Dev.Tracker.Commands.helpText}
+    """
+
 type Msg =
     | ReviseInput of msg: string
     | SubmitInput
@@ -43,7 +51,7 @@ module Model =
                 else
                     ui
             | LoggingCommands(cmds, End) ->
-                cmds |> List.fold executeIfPossible ui
+                cmds |> List.fold executeIfPossible ui |> fun ui -> { ui with showLog = true }
             | _ -> ui
 
 open Model
@@ -335,7 +343,7 @@ let view (model: Model.d) dispatch =
             prop.onClick (thunk1 dispatch (ToggleLog None))
             ]
     class' Html.div (["dev"; if model.showLog then begin "withsidebar" end; if trueModel.rewindFrame.IsSome then begin "historical" end] |> String.join " ") [
-        withHeader (model.nowShowing = HelpScreen) helpText (Some >> ToggleHelp >> dispatch) [logLink()] [
+        withHeader (model.nowShowing = HelpScreen) uiHelpText (Some >> ToggleHelp >> dispatch) [logLink()] [
             table
             inputPanel
             errors
