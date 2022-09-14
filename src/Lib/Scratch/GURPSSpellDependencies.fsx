@@ -8,19 +8,55 @@
 #load @"Packrat.fs"
 open Packrat
 
-let (|Spell|_|) = function
+let (|TitleWord|_|) = function
     | OWS(Chars alphanumeric (name, ctx)) -> Some(name, ctx)
+    | _ -> None
+let collegeChars = alphanumeric + Set.ofList ['.']
+let (|College|_|) = function
+    | OWS(Chars collegeChars (name, ctx)) -> Some(name, ctx)
+    | _ -> None
+let (|EndOfLine|_|) = function
+    | (Char (('\n' | '\r'), ctx)) -> Some(ctx)
+    | End as ctx -> Some(ctx)
+    | _ -> None
+let rec (|PrereqChain|_|) = pack <| function
+    | OWS(Char(lead, _) & Word(word, OWSStr "," (PrereqChain(words, ctx)))) when System.Char.IsLetter lead -> Some(word::words, ctx)
+    | OWS(Char(lead, _) & Word(word, ctx)) when System.Char.IsLetter lead -> Some([word], ctx)
+    | _ -> None
+
+let (|Prereqs|_|) = function
+    | OWS(Str "C:" (PrereqChain(prereqs, ctx))) -> Some(prereqs, ctx)
+    | OWS(Str "W:" (PrereqChain(prereqs, ctx))) -> Some(prereqs, ctx)
+    | _ -> None
+#nowarn "40" // we're not doing anything weird like calling a passed-in function in a ctor
+let (|Title|_|) = function
+    | TitleWord(word1, TitleWord(word2, ctx)) -> Some(String.join " " [word1; word2], ctx)
+    | TitleWord(word1, ctx) -> Some(word1, ctx)
+    | _ -> None
+type Spell = { name: string; college: string; prereqs: string list; page: int }
+let rec (|Spell|_|) = pack <| function
+    // specific should come before general, but in this case having a shorter title is (I think) more specific because of the EndOfLine qualifier. Or is it?
+    | TitleWord(pt1, Spell(spell, ctx)) -> Some({ spell with name = String.join " " [pt1;spell.name] }, ctx)
+    | TitleWord(name, College(college, Prereqs(prereqs, Int(pg, ctx)))) -> Some({ name = name; college = college; prereqs = prereqs; page = pg }, ctx)
     | _ -> None
 
 let parseDf txt =
     match ParseArgs.Init(txt) with
     | Spell(name, End) ->
         printfn $"Spell: {name}"
+    | Spell(name, (args, ix)) ->
+        printfn $"Partial Spell: {name} + ...{args.input.Substring(ix)}"
     | _ -> printfn $"Not a spell: {txt}"
+
+let eachLine f (input:string) =
+    for l in input.Split("\n") do
+        f (l.Trim())
 
 "Affect Spirits Necro. C: PI3 59
 Agonize Body W: M2, Sensitize 20
-" |> parseDf
+Spirits Necro. C: PI3 59
+Destroy Spirits Necro. C: PI3, at least three necromancy spells 59
+" |> eachLine parseDf
 
 let df = """
 Affect Spirits Necro. C: PI3 59
