@@ -188,8 +188,8 @@ module Core =
 
 type GenericProperty<'t>(name, defaultValue: _ option, tryUnbox: obj -> 't option) =
     inherit Property<'t, Ribbit>(name, RuntimeType.Generic)
-    let (|Value|_|) = function Generic v -> tryUnbox v | _ -> None
-    let extract = function Value v -> Ok v | v -> BugReport $"row #{id} property {name} could not be converted, was actually {v}" |> Error
+    let extract = function Generic v -> Ok (unbox v) | v -> BugReport $"row #{id} property {name} could not be converted, was actually {v}" |> Error
+    // default conversion function for convenience--99% of the time you should use this via the convenience ctors
     override this.Set(rowId, value) (state: Ribbit) =
         state |> (Set(PropertyAddress(rowId, name), Generic value) |> Ribbit.Update)
     override this.Get(rowId) (ribbit: Ribbit) =
@@ -199,8 +199,28 @@ type GenericProperty<'t>(name, defaultValue: _ option, tryUnbox: obj -> 't optio
         | Error _ -> shouldntHappen() // shouldn't use synchronous Get on a property that's lazy
     override this.GetM(rowId) =
         getRibbit >> getAsync (rowId, name, defaultValue, extract)
-    new(name, defaultValue: 't, tryUnbox) = GenericProperty<'t>(name, Some defaultValue, tryUnbox)
-    new(name, tryUnbox) = GenericProperty<'t>(name, None, tryUnbox)
+    // default conversion function for convenience--99% of the time you should use this via the convenience ctors
+    static member TypeConvert = unbox<'t> >> Some
+    new(name, defaultValue: 't) = GenericProperty<'t>(name, Some defaultValue, GenericProperty.TypeConvert)
+    new(name) = GenericProperty<'t>(name, None, GenericProperty.TypeConvert)
+
+type GlobalGenericProperty<'t>(name, defaultValue: _ option, tryUnbox: obj -> 't option) =
+    inherit GlobalProperty<'t, Ribbit>(name, RuntimeType.Generic)
+    let rowId = 0
+    let extract = function Generic v -> Ok (unbox v) | v -> BugReport $"row #{id} property {name} could not be converted, was actually {v}" |> Error
+    override this.Set(value) (state: Ribbit) =
+        state |> (Set(PropertyAddress(rowId, name), Generic value) |> Ribbit.Update)
+    override this.Get (ribbit: Ribbit) =
+        match ribbit |> getSynchronously (rowId, name, defaultValue, extract) with
+        | Ok value -> value
+        | Error (BugReport msg) -> failwith msg // shouldn't use synchronous Get on a property that's lazy
+        | Error _ -> shouldntHappen() // shouldn't use synchronous Get on a property that's lazy
+    override this.GetM =
+        getRibbit >> getAsync (rowId, name, defaultValue, extract)
+    // default conversion function for convenience--99% of the time you should use this via the convenience ctors
+    static member TypeConvert = unbox<'t> >> Some
+    new(name, defaultValue: 't) = GlobalGenericProperty<'t>(name, Some defaultValue, GlobalGenericProperty.TypeConvert)
+    new(name) = GlobalGenericProperty<'t>(name, None, GlobalGenericProperty.TypeConvert)
 
 type NumberProperty(name, defaultValue: _ option) =
     inherit Property<int, Ribbit>(name, RuntimeType.Number)

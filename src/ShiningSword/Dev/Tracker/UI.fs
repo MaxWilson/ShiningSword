@@ -22,10 +22,9 @@ type Msg =
 module Model =
     open Packrat
     open Commands
-    type CombatPhase = Declaring | Executing of Name list
     type DisplayMode = MainScreen | HelpScreen
-    type d = { input: string; game: Game.d; errors: string list; nowShowing: DisplayMode; showBestiary: bool; showLog: bool; combatPhase: CombatPhase; rewindFrame: int option  }
-    let fresh = { input = ""; game = Game.fresh; errors = []; nowShowing = MainScreen; showBestiary = true; showLog = false; combatPhase = Declaring; rewindFrame = None }
+    type d = { input: string; game: Game.d; errors: string list; nowShowing: DisplayMode; showBestiary: bool; showLog: bool; rewindFrame: int option  }
+    let fresh = { input = ""; game = Game.fresh; errors = []; nowShowing = MainScreen; showBestiary = true; showLog = false; rewindFrame = None }
     let executeIfPossible ui cmd =
         try
             { ui with input = ""; game = ui.game |> Game.update cmd; errors = [] }
@@ -88,8 +87,8 @@ open Dev.Tracker.Game.Game.Getters
 
 // move to the next character or phase
 let advance model =
-    match model.combatPhase with
-    | Declaring ->
+    match model.game |> Game.combatPhaseP.Get with
+    | Game.Declaring ->
         let initiatives =
             [
             for name in model.game.data.roster |> Map.keys do
@@ -102,20 +101,18 @@ let advance model =
         let ribbit = initiatives |> List.fold (fun ribbit (name, initRoll) -> ribbit |> Game.setByName name currentInitiativeP initRoll) model.game
         let initiative name =
             tryGetRibbit name currentInitiativeP ribbit
-        { model with
-            game = ribbit
-            combatPhase =
-                model.game.data.roster |> Map.keys |> List.ofSeq
-                |> List.filter (fun name -> tryGetRibbit name actionDeclarationTextP ribbit |> Option.isSome)
-                |> List.sortByDescending initiative
-                |> Executing
-            }
-    | Executing [] ->
+        let newPhase =
+            model.game.data.roster |> Map.keys |> List.ofSeq
+            |> List.filter (fun name -> tryGetRibbit name actionDeclarationTextP ribbit |> Option.isSome)
+            |> List.sortByDescending initiative
+            |> Game.Executing
+        { model with game = model.game |> Game.combatPhaseP.Set newPhase }
+    | Game.Executing [] ->
         model.game.data.roster |> Map.keys |> List.ofSeq
         |> List.fold (fun model name -> match getId name model with | Some id -> currentInitiativeP.Clear id model | _ -> model) model.game
         |> fun ribbit ->
-            { model with combatPhase = Declaring; game = ribbit }
-    | Executing (_::rest) -> { model with combatPhase = Executing rest }
+            { model with game = ribbit |> Game.combatPhaseP.Set Game.Declaring }
+    | Game.Executing (_::rest) -> { model with game = model.game |> Game.combatPhaseP.Set (Game.Executing rest) }
 
 let update msg (model: Model.d) =
     match msg with
@@ -154,6 +151,7 @@ open Domain.Ribbit
 let view (model: Model.d) dispatch =
     let trueModel = model
     let model = match model.rewindFrame with Some ix -> { model with game = model.game.rewindTo ix } | None -> model
+    let combatPhase = Game.combatPhaseP.Get model.game
     let setCommand txt =
         (ReviseInput txt) |> dispatch
     let table = class' Html.div "table" [
@@ -161,7 +159,7 @@ let view (model: Model.d) dispatch =
             textHeaders ["Name"; "Type"; "Actions"; "XP earned"; "HP"]
             Html.tbody [
                 for name in getAllNamesInOrder model do
-                    let isSelected = match model.combatPhase with Executing (h::_) when h = name -> true | _ -> false
+                    let isSelected = match combatPhase with Executing (h::_) when h = name -> true | _ -> false
                     class' Html.tr (if isSelected then "currentTurn" else "") [
                         let tryGet prop = model |> tryGetRibbit name prop
 
@@ -181,7 +179,7 @@ let view (model: Model.d) dispatch =
                                 | v when v <> 0 -> Some $"%+i{v}"
                                 | _ -> None
                             let verb =
-                                let willAct = match model.combatPhase with | Declaring -> true | Executing haventActed -> haventActed |> List.contains name
+                                let willAct = match combatPhase with | Declaring -> true | Executing haventActed -> haventActed |> List.contains name
                                 if willAct then "will" else "did"
                             match tryGet actionDeclarationTextP, tryGetRibbit name currentInitiativeP model, initMod with
                             | Some (action), Some init, Some initMod ->
@@ -192,9 +190,9 @@ let view (model: Model.d) dispatch =
                                 $"{name} {verb} {action} ({initMod})"
                             | Some (action), None, None ->
                                 $"{name} {verb} {action}"
-                            | None, _, Some initMod when model.combatPhase = Declaring ->
+                            | None, _, Some initMod when combatPhase = Declaring ->
                                 $"({initMod})"
-                            | None, _, None when model.combatPhase = Declaring ->
+                            | None, _, None when combatPhase = Declaring ->
                                 $""
                             | _ -> $"{name} does nothing"
 
@@ -216,7 +214,7 @@ let view (model: Model.d) dispatch =
     let inputPanel =
         class' Html.div "inputPanel" [
             let label =
-                match model.combatPhase with
+                match combatPhase with
                 | Declaring -> "Declaring"
                 | Executing (h::_) -> $"{h}'s turn"
                 | Executing [] -> "End of round"
@@ -264,7 +262,7 @@ let view (model: Model.d) dispatch =
                 Html.tbody [
                     for KeyValue(name, id) in model.game.data.kindsOfMonsters do
                         Html.tr [
-                            match model.combatPhase with
+                            match combatPhase with
                             | Executing (h::_) when h = name ->
                                 prop.className "currentTurn"
                             | _ -> ()

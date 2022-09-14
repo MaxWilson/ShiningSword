@@ -13,7 +13,7 @@ type RuntimeValue = Number of int | Id of Id | Text of string | Roll of RollSpec
 type Address = LocalAddress of variableName: Name | PropertyAddress of Id * propertyName: Name
 type RibbitRequest = DataRequest of Id * propertyName: Name
 type RibbitError = Awaiting of RibbitRequest | BugReport of msg: string
-    
+
 type Row = Map<Name, RuntimeValue>
 
 type 'Ribbit ExecutionContext = {
@@ -68,4 +68,21 @@ type [<AbstractClass>] Property<'t, 'DataSource>(name, runtimeType) =
             do! ExecutionContext.TransformM (this.Set(rowId, value))
             return Ok ()
             }
-    
+
+type [<AbstractClass>] GlobalProperty<'t, 'DataSource>(name, runtimeType) =
+    interface IProperty with
+        member this.Name = name
+        member this.Type = runtimeType
+    abstract Get: 'DataSource -> 't
+    abstract GetM: Evaluation<'t, 'DataSource>
+    abstract Set: 't -> 'DataSource -> 'DataSource
+    member this.SetM(rowId, value) : StateChange<'DataSource, unit> =
+        stateChange {
+            do! (fun ribbit -> (), ribbit |> this.Set(value))
+            }
+    member this.SetContextM(rowId, value) : ExecutionWithResult<'DataSource, unit> =
+        stateChange {
+            do! ExecutionContext.TransformM (this.Set(value))
+            return Ok ()
+            }
+

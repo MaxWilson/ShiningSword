@@ -71,24 +71,22 @@ module Game =
                 | _ -> shouldntHappen()
             | None -> shouldntHappen()
 
+    // custom properties specific to dev/Tracker
     let woundlogP =
-        let typeConvert (input: obj) =
-            match input with
-            | :? WoundLog as w -> Some w
-            | _ -> None
-        GenericProperty("woundLog", WoundLog.fresh, typeConvert)
+        GenericProperty("woundLog", WoundLog.fresh)
     let notesP =
-        let typeConvert (input: obj) =
-            match input with
-            | :? (string list) as w -> Some w
-            | _ -> None
-        GenericProperty("notes", [], typeConvert)
+        GenericProperty("notes", ([]:string list))
     let xpEarnedP = NumberProperty("XPEarned", 0)
     let xpValueP = NumberProperty("XPValue")
     let remainingHP = Getters.withId <| fun id ctx ->
         match hpP.GetM id ctx, damageTakenP.GetM id ctx with
         | Ok hp, Ok dmg -> Ok(hp - dmg)
         | (Error _ as e, _) | _, (Error _ as e) -> e // if there's at least one error then we have an error
+
+    type CombatPhase = Declaring | Executing of Name list
+    let combatPhaseP =
+        GlobalGenericProperty("combatPhase", Declaring)
+
     let templateTypeName = Getters.withId <| fun id ctx ->
         match monsterKindNameP.GetM id ctx with
         | Ok name -> Ok name
