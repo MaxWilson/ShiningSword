@@ -247,7 +247,7 @@ type IdProperty = GenericProperty<Id>
 type TextProperty = GenericProperty<string>
 
 type FlagsProperty<'t>(name, defaultValue: string Set) =
-    inherit GenericProperty<string Set>(name, defaultValue)
+    inherit GenericProperty<string Set>(name, Some defaultValue, GenericProperty.TypeConvert)
     member this.SetAll(rowId, value) = this.Set(rowId, value)
     member this.SetFlag(rowId, targetFlag:'t, value) (state: Ribbit) =
         let target = targetFlag.ToString()
