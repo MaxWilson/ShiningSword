@@ -144,7 +144,6 @@ Life, Voices
 66
 Destroy Air Air W: Create Air 16
 Destroy Water Water W: Create Water 68
-Spell College(s) Prerequisites Page
 Detect Magic Know. C: PI1 • D: PI1
 • W*: M1/BT1
 43
@@ -427,7 +426,6 @@ Mind-Reading C&E W*: Truthsayer or
 Borrow Language
 25
 Mind-Search (VH) C&E W*: Mind-Reading 25
-Spell College(s) Prerequisites Page
 Mind-Sending C&E W*: Mind-Reading 25
 Minor Healing Healing C: PI1 37
 Mirror L&D W: Colors 47
@@ -703,7 +701,6 @@ Stone to Flesh Earth C: PI3 • W: M2,
 Flesh to Stone,
 Stone to Earth
 29
-Spell College(s) Prerequisites Page
 Stop Bleeding Healing C: PI1 39
 Stop Paralysis Body/
 Healing
@@ -783,15 +780,9 @@ Might
 Voices Sound W*: Sound 68
 Walk on Air Air W: Shape Air 17
 Walk on Water Water W: Shape Water 71
-Walk Through
-Earth
-Earth W: 4 Earth spells 29
-Walk Through
-Plants
-Plant D: PI3 63
-Walk Through
-Wood
-Plant D: PI3 63
+Walk Through Earth Earth W: 4 Earth spells 29
+Walk Through Plants Plant D: PI3 63
+Walk Through Wood Plant D: PI3 63
 Wall of Lightning Air/
 Weather
 W: Lightning 72
@@ -801,7 +792,6 @@ Ward Meta W: M1 53
 Warmth Fire/P&W C: PI1 • D: PI1
 • W: Heat
 32
-Spell College(s) Prerequisites Page
 Watchdog P&W C: PI1 • W: Sense
 Danger
 65

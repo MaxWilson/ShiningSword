@@ -10,29 +10,36 @@
 open Packrat
 open DFData
 
+#nowarn "40" // we're not doing anything weird like calling a passed-in function in a ctor
 let (|TitleWord|_|) = function
     // lookahead: a title word will have whitespace after it, otherwise it might be a college instead
+    | OWS(Chars alphanumeric (name, (OWSStr "(VH)" (ctx & WS(_, _))))) -> Some(name, ctx)
     | OWS(Chars alphanumeric (name, ctx & WS(_, _))) -> Some(name, ctx)
     | _ -> None
 let collegeChars = alphanumeric + Set.ofList ['.';'&']
-let (|College|_|) = function
+let rec (|College|_|) = pack <| function
+    | OWS(Chars collegeChars (name, OWSStr "/" (College(more, ctx)))) -> Some($"{name}/{more}", ctx)
     | OWS(Chars collegeChars (name, ctx)) -> Some(name, ctx)
     | _ -> None
 let (|EndOfLine|_|) = function
     | (Char (('\n' | '\r'), ctx)) -> Some(ctx)
     | End as ctx -> Some(ctx)
     | _ -> None
+let prereqChars = alphanumeric + Set.ofList ['/']
+let (|PrereqWord|_|) = function // stuff like W1/BT1 is allowed
+    | OWS(Chars prereqChars (v, OWS rest)) -> Some(v, rest)
+    | _ -> None
 let rec (|Prereq|_|) = pack <| function
     // an individual prereq, like "at least three necromancy spells"
     // Need to use lookahead to make sure not to eat the page number,
     // e.g. "Destroy Spirits Necro. C: PI3, at least three necromancy spells 59" should return "at least three necromancy spells" as prereq #2 but stop short of the 59+EOL
     | OWS(Int(_, EndOfLine _)) -> None // excluded case: NOT if it would eat the page number
-    | OWS(Word(word, Prereq(_, ((arg, ix) as ctx))) & (_, startIx)) -> Some(arg.input.Substring(startIx, ix - startIx).Trim(), ctx) // recursive case: a word and the rest of the prereq
-    | OWS(Word(word, ctx) & (_, startIx)) -> Some(word, ctx) // basis case: a word that does not end with a page number
+    | OWS(PrereqWord(word, Prereq(_, ((arg, ix) as ctx))) & (_, startIx)) -> Some(arg.input.Substring(startIx, ix - startIx).Trim(), ctx) // recursive case: a word and the rest of the prereq
+    | OWS(PrereqWord(word, ctx) & (_, startIx)) -> Some(word, ctx) // basis case: a word that does not end with a page number
     | _ -> None
 let rec (|PrereqChain|_|) = pack <| function
-    | OWS(Char(lead, _) & Prereq(word, OWSStr "," (PrereqChain(words, ctx)))) when System.Char.IsLetter lead -> Some(word::words, ctx)
-    | OWS(Char(lead, _) & Prereq(word, ctx)) when System.Char.IsLetter lead -> Some([word], ctx)
+    | OWS(Char(lead, _) & Prereq(word, OWSStr "," (PrereqChain(words, ctx)))) -> Some(word::words, ctx)
+    | OWS(Char(lead, _) & Prereq(word, ctx)) -> Some([word], ctx)
     | _ -> None
 let rec (|ClassPrereqs|_|) = pack <| function
     | OWS(Str "C:" (PrereqChain(prereqs, ctx))) -> Some("C: "::prereqs, ctx)
@@ -44,9 +51,9 @@ let rec (|Prereqs|_|) = pack <| function
     | ClassPrereqs(prereqs, OWSStr "•" (Prereqs(more, ctx))) -> Some(prereqs::more, ctx)
     | ClassPrereqs(prereqs, ctx) -> Some([prereqs], ctx)
     | _ -> None
-#nowarn "40" // we're not doing anything weird like calling a passed-in function in a ctor
 let (|Title|_|) = function
     | TitleWord(word1, TitleWord(word2, ctx)) -> Some(String.join " " [word1; word2], ctx)
+    | TitleWord(word1, OWSStr "(VH)" ctx) -> Some(word1 + " (VH)", ctx)
     | TitleWord(word1, ctx) -> Some(word1, ctx)
     | _ -> None
 type Spell = { name: string; college: string; prereqs: string list list; page: int }
@@ -70,40 +77,46 @@ let eachLine f (input:string) =
         let line = l.Trim() + " " + accum
         match f line with
         | Ok spell as r ->
-            printfn "Found a spell! %A" spell
             accum <- ""
             yield r
         | Error err ->
-            printfn "Error: %s" line
-            accum <- line
+            if line.Length < 100 then
+                accum <- line // arbitrarily choose 100 chars as the point at which it's obviously not all one spell
+            else
+                printfn "Error: %s" line
+                accum <- ""
         ] |> List.rev
 
-let agglomerate (results: (Result<Spell * string, string * string>) list) =
-    let mutable i = 0
-    let results = Array.ofList results
-    while i < results.Length do
-        match results[i] with
-        | Ok _ -> ()
-        | Error(err, txt) ->
-            printfn "Trying to fix %s" txt
-            match [0..results.Length] |> List.tryFindBack (fun j -> j < i && match results[j] with Ok _ -> true | _ -> false) with
-            | Some j ->
-                let spell, txt' = results[j] |> Result.toOption |> Option.get
-                let newPrereqs = String.join " " [spell.prereqs |> List.map (String.join " ") |> String.join " • "]
-                printfn "New prereqs: %s" newPrereqs
-                match ParseArgs.Init (newPrereqs + " 99") with
-                | Prereqs(prereqs, End) ->
-                    printfn "Success!"
-                    results[j] <- Ok({ spell with prereqs = prereqs }, txt' + txt)
-                | _ ->
-                    printfn "Failure to parse! Needs more data I guess."
-            | None ->
-                printfn "Couldn't find a predecessor"
-            printfn "Result: "
-        i <- i + 1
-    results
+match ParseArgs.Init "Vigil (VH) Mind C: PI4 56" with
+| Spell(spell, _) ->
+    sprintf "%A" spell
+| TitleWord(name, College(college, Prereqs(prereqs, Int(pg, ctx)))) ->
+    sprintf "%A" { name = name; college = college; prereqs = prereqs; page = pg }
+| TitleWord(name, College(college, Prereqs(prereqs, _))) ->
+    sprintf "%A" { name = name; college = college; prereqs = prereqs; page = 99 }
+| TitleWord(name, College(college, _)) ->
+    sprintf "%A" { name = name; college = college; prereqs = []; page = 99 }
+| TitleWord(name, _) ->
+    sprintf "%A" { name = name; college = "None"; prereqs = []; page = 99 }
 
-"""Wisdom Mind C: PI3 • W*: 6 Mind
+
+"""Water Jet Water W: Shape Water 71
+Water Vision Know./
+Water
+D: PI3 • W*: Shape
+Water
+71
+Weaken M&B W: Find Weakness 50
+Weaken Will Mind W*: M1/BT1,
+Foolishness
+56
+Weather Dome P&W/
+Weather
+D: PI2 65
+Windstorm Air D: PI2 • W: Shape
+Air
+17
+Wisdom Mind C: PI3 • W*: 6 Mind
 Control spells
 56
 Wither Limb Body W: M2, Paralyze
@@ -115,6 +128,10 @@ Keen Vision
 45
 """ |> eachLine parseDf
 
+#load "GURPSSpellTextTable.fsx"
+open DFData
+
 dfSpells |> eachLine parseDf
+|> ignore
 |> agglomerate
 |> Array.choose (function Error(msg, rest) -> (msg, rest) |> Some | _ -> None)
