@@ -25,7 +25,7 @@ let (|EndOfLine|_|) = function
     | (Char (('\n' | '\r'), ctx)) -> Some(ctx)
     | End as ctx -> Some(ctx)
     | _ -> None
-let prereqChars = alphanumeric + Set.ofList ['/';'+';'-';'&';'.']
+let prereqChars = alphanumeric + Set.ofList ['/';'+';'-';'&';'.';'“';'”']
 let (|PrereqWord|_|) = function // stuff like W1/BT1, IQ 13+, or 6 L&D spells is allowed
     | OWS(Chars prereqChars (v, OWS rest)) -> Some(v, rest)
     | _ -> None
