@@ -12,13 +12,12 @@ Ambidexterity Body W: Grace 20
 Analyze Magic Know. W*: Identify Spell 42
 Animal Control Animal D: PI2 17
 Apportation Move. W: M1 56
-Arboreal
-Immurement
+Arboreal Immurement
 Plant D: PI5 61
 Armor P&W C: PI1 • W: Shield 63
 Astral Block Necro. C: PI4 • W: Repel
 Spirits, Summon
-Spirit
+Spirit 59
 Astral Vision (VH) Know./
 Necro.
 C: PI3 • W*: Sense
@@ -198,10 +197,7 @@ Move. W: M3, 6 Movement
 spells
 57
 Explosive Fireball Fire W: Fireball 29
-Explosive
-Lightning
-Air/
-Weather
+Explosive Lightning Air/Weather
 W: Lightning 71
 Extinguish Fire Fire D: PI1 • W: Ignite
 Fire
@@ -342,8 +338,7 @@ Infravision L&D W: Keen Vision or
 Initiative Illusion W: Independence,
 Wisdom
 41
-Instant Neutralize
-Poison (VH)
+Instant Neutralize Poison (VH)
 Healing C: PI4 • D: PI3 37
 Invisibility L&D W: 6 L&D spells
 including Blur
@@ -495,8 +490,7 @@ Knowledge spells
 Protect Animal Animal/
 P&W
 D: PI3 19
-Protection from
-Evil
+Protection from Evil
 Meta/P&W C: PI2 • D: PI2
 • W*: M3/BT3,
 Sense Evil

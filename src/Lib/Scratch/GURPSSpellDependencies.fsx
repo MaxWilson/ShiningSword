@@ -11,10 +11,11 @@ open Packrat
 open DFData
 
 #nowarn "40" // we're not doing anything weird like calling a passed-in function in a ctor
+let titlewordChars = alphanumeric + Set.ofList ['-';'’'] // No-Smell is a valid spell name, ditto Monk's Banquet
 let (|TitleWord|_|) = function
     // lookahead: a title word will have whitespace after it, otherwise it might be a college instead
-    | OWS(Chars alphanumeric (name, (OWSStr "(VH)" (ctx & WS(_, _))))) -> Some(name, ctx)
-    | OWS(Chars alphanumeric (name, ctx & WS(_, _))) -> Some(name, ctx)
+    | OWS(Chars titlewordChars (name, (OWSStr "(VH)" (ctx & WS(_, _))))) -> Some(name, ctx)
+    | OWS(Chars titlewordChars (name, ctx & WS(_, _))) -> Some(name, ctx)
     | _ -> None
 let collegeChars = alphanumeric + Set.ofList ['.';'&']
 let rec (|College|_|) = pack <| function
@@ -87,7 +88,7 @@ let eachLine f (input:string) =
                 accum <- ""
         ] |> List.rev
 
-match ParseArgs.Init "Sunbolt L&D C: PI3 • W: 6 L&D spells including Sunlight 48" with
+match ParseArgs.Init "Nightingale P&W W: Sense Danger 64 No-Smell Air D: PI1 • W: Purify Air 16 " with
 | Spell(spell, _) ->
     sprintf "%A" spell
 | TitleWord(name, College(college, Prereqs(prereqs, Int(pg, ctx)))) ->
@@ -104,5 +105,4 @@ open DFData
 
 dfSpells |> eachLine parseDf
 |> ignore
-|> agglomerate
 |> Array.choose (function Error(msg, rest) -> (msg, rest) |> Some | _ -> None)
