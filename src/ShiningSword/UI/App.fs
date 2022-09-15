@@ -80,7 +80,7 @@ module App =
                 model, Cmd.Empty
         | AddOrUpdateRoster (characterSheet, stillAlive) ->
             // helper method for working with universal sheets
-            let getId (sheet1: CharacterSheet) = sheet1.converge((fun c -> c.id), (fun c -> c.id))
+            let getId (sheet1: CharacterSheet) = sheet1.converge((fun c -> c.id), (fun c -> c.id), (fun c -> c.id))
             let delete id' collection = collection |> Array.filter (fun r -> getId r <> id')
             let addOrUpdate collection =
                 // assign a unique id if one isn't already there
@@ -162,7 +162,7 @@ module App =
             | Adventure.Save ->
                 // avoid saving unless an ID has already been assigned, partly to avoid duplications (because of different Ids)
                 // and partly because the player might not be ready to keep the character.
-                let hasAlreadyBeenSaved (char:CharacterSheet) = char.converge((fun c -> c.id.IsSome), (fun c -> c.id.IsSome))
+                let hasAlreadyBeenSaved (char:CharacterSheet) = char.converge((fun c -> c.id.IsSome), (fun c -> c.id.IsSome), (fun c -> c.id.IsSome))
                 for char in adventure.state.mainCharacter::adventure.state.allies |> List.filter hasAlreadyBeenSaved |> List.rev do
                     (char, stillAlive char) |> AddOrUpdateRoster |> dispatch
             | Adventure.SaveAndQuit ->

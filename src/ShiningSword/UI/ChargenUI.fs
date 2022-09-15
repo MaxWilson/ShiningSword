@@ -230,7 +230,7 @@ module Interaction =
                 allocate pointsLeft amount
             | _ -> draft // unchanged
         | _ -> shouldntHappen()
-    let create (traits: Universal.Detail<_,_>) method : Draft =
+    let create (traits: Universal.Detail<_,_,_>) method : Draft =
         let sex = chooseRandom [Male; Female]
         let nationalOrigin, name = makeName sex
         method(fun rolls -> {
@@ -695,8 +695,9 @@ module View =
                         let postRacialStatAssignments = racialStatMods |> Seq.fold (fun map (stat, n) -> map |> Map.change stat (addStat n)) preracialStatAssignments
                         let ctx : PreconditionContext2e = { preracialStats = preracialStatAssignments; postracialStats = postRacialStatAssignments }
                         Detail2e {| decisions = decisions; ctx = ctx; traits = decisions |> collect rules2e [Trait2e.PC] ctx |}
+                    | DetailDF _ -> notImpl()
                 for stat in Stat.All do
-                    match statsAndTraits.converge((fun d -> d.ctx.postracialStats),(fun d -> d.ctx)) |> Map.tryFind stat with
+                    match statsAndTraits.converge((fun d -> d.ctx.postracialStats),(fun d -> d.ctx),(fun d -> notImpl())) |> Map.tryFind stat with
                     | Some v -> describe stat (Some v)
                     | None ->
                         describe stat None

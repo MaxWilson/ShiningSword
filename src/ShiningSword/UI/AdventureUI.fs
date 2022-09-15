@@ -36,7 +36,7 @@ let recruitCompanions model control dispatch =
         Recruit (candidates |> chooseRandomExponentialDecay 0.2 chooseRandom) |> dispatch
 
 let stillAlive (ribbit: Ribbit) (char: CharacterSheet) =
-    let name = char.converge((fun c -> c.name), (fun c -> c.name))
+    let name = char.converge((fun c -> c.name), (fun c -> c.name), (fun c -> c.name))
     match ribbit.data.roster |> Map.tryFind name with
     | Some id ->
         (Domain.Ribbit.Operations.hpP.Get id ribbit) > (Domain.Ribbit.Operations.damageTakenP.Get id ribbit)
