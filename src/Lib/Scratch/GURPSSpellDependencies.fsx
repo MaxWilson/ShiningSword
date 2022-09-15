@@ -117,13 +117,15 @@ let append txt =
 for spell, _txt in dfSpells |> eachLine parseDf |> List.map (Result.toOption >> Option.get) do
     for group in spell.prereqs do
         let grouptxt = group |> String.join ", " |> sprintf "[%s]"
-        (sprintf "    %A -> %A" spell.name grouptxt) |> append
+        (sprintf "    %A -> %A [color=red]" spell.name grouptxt) |> append
         for prereq in group do
-            (sprintf "    %A -> %A" grouptxt prereq) |> append
+            (sprintf "    %A -> %A [color=blue]" grouptxt prereq) |> append
 TextCopy.Clipboard().SetText ($"
 digraph G {{
 {writer.ToString()}
+    start->PI1
+    PI1->PI2
+    PI2->PI3
     start [shape=Mdiamond];
-    end [shape=Msquare];
 }}
 ")
