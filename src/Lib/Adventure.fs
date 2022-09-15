@@ -63,6 +63,7 @@ let loadCharacters (characters: CharacterSheet list) (adventureState: AdventureS
                 do! Domain.Ribbit.Rules5e.initBonusP.SetM(id, char.Dex |> DND5e.statBonus)
                 do! Domain.Ribbit.Rules5e.traitsP.SetAllM(id, char.traits.summary |> Set.map string)
                 }
+        | DetailDF _ -> notImpl()
         |> runNoResult state'
     { adventureState with ribbit = characters |> List.fold addCharacter adventureState.ribbit }
 
@@ -162,6 +163,7 @@ let victory (encounter:OngoingEncounter) state =
                 |> treasureValue
             let reward (char: CharacterSheet) = char.map5e(fun char -> { char with xp = char.xp + (xpReward/divisor*1<xp>); wealth = char.wealth + (gpReward/divisor) })
             xpReward, gpReward, treasureDescription, { state with mainCharacter = state.mainCharacter |> reward; allies = state.allies |> List.map reward }
+        | DetailDF _ -> notImpl()
     if divisor = 1 then
         state', $"You earn {xp} XP! As for material rewards... you find {treasureDescription}."
     elif gpReward = 0<gp> then

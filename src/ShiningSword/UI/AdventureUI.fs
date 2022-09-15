@@ -19,7 +19,7 @@ type Model = {
     }
 
 let getPotentialCompanions model =
-    let getId = function Detail2e (char: CharacterSheet2e) -> char.id | Detail5e (char: CharacterSheet5e) -> char.id
+    let getId = function Detail2e (char: CharacterSheet2e) -> char.id | Detail5e (char: CharacterSheet5e) -> char.id | DetailDF (char: CharacterSheetDF) -> char.id
     let isADND = model.state.mainCharacter.isADND
     let ineligibleIds = (model.state.mainCharacter::model.state.allies) |> List.map getId
     LocalStorage.PCs.read() |> Seq.filter(fun r -> r.isADND = isADND && not (ineligibleIds |> List.contains (getId r)))
