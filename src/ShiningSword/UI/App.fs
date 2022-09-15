@@ -35,6 +35,7 @@ module App =
         | AddOrUpdateRoster of CharacterSheet * stillAlive: bool
         | ResumePlay of id: int
         | ClearRoster
+        | ClearGraveyard
         | DeleteCharacter of id: int
 
     let init initialCmd =
@@ -106,13 +107,19 @@ module App =
                 { model with roster = roster'; graveyard = graveyard' }, Cmd.Empty
 
         | ClearRoster ->
-            let roster' = Array.empty
-            LocalStorage.PCs.write roster'
-            { model with roster = roster' }, Cmd.Empty
+            let roster = Array.empty
+            LocalStorage.PCs.write roster
+            { model with roster = roster }, Cmd.Empty
+        | ClearGraveyard ->
+            let graveyard = Array.empty
+            LocalStorage.Graveyard.write graveyard
+            { model with graveyard = graveyard }, Cmd.Empty
         | DeleteCharacter id ->
-            let roster' = model.roster |> Array.filter (function Detail2e char -> char.id <> Some id | Detail5e char -> char.id <> Some id)
-            LocalStorage.PCs.write roster'
-            { model with roster = roster' }, Cmd.Empty
+            let roster = model.roster |> Array.filter (function Detail2e char -> char.id <> Some id | Detail5e char -> char.id <> Some id)
+            LocalStorage.PCs.write roster
+            let graveyard = model.graveyard |> Array.filter (function Detail2e char -> char.id <> Some id | Detail5e char -> char.id <> Some id)
+            LocalStorage.Graveyard.write graveyard
+            { model with roster = roster; graveyard = graveyard }, Cmd.Empty
         | GoHome ->
             { model with current = Home; error = None }, Navigate "/" |> Cmd.ofMsg
         | Open(page, Some url) -> { model with current = page}, Navigate url |> Cmd.ofMsg
@@ -165,7 +172,7 @@ module App =
             | Adventure.Error msg ->
                 Error msg |> dispatch
             UI.Adventure.view adventure control (AdventureMsg >> dispatch)
-        | _ ->
+        | Home ->
             Html.div [
                 prop.className "homePage"
                 prop.children [
@@ -187,33 +194,49 @@ module App =
                             )
                         ]
                     class' Html.div "growToFill" [
-                        class' Html.div "existingCharacters" [
-                            for ch in model.roster do
-                                let txt, id, flair, cssClass =
-                                    match ch with
-                                    | Detail2e char ->
-                                        char.name, char.id, "AD&D", "flairADND"
-                                    | Detail5e char ->
-                                        char.name, char.id, "D&D 5E", "flairDND5e"
+                        let render stillAlive (ch: CharacterSheet) =
+                            let txt, id, flair, cssClass =
+                                match ch with
+                                | Detail2e char ->
+                                    char.name, char.id, "AD&D", "flairADND"
+                                | Detail5e char ->
+                                    char.name, char.id, "D&D 5E", "flairDND5e"
+                            [
                                 Html.span [
                                     prop.text flair
                                     prop.className cssClass
                                     ]
                                 Html.span [prop.text txt; prop.className "characterName"; prop.onClick (thunk1 dispatch (ResumePlay id.Value))]
-                                Html.button [
-                                    prop.text $"Resume"
-                                    prop.className "resumeCommand"
-                                    prop.onClick (thunk1 dispatch (ResumePlay id.Value))
-                                    ]
+                                if stillAlive then
+                                    Html.button [
+                                        prop.text $"Resume"
+                                        prop.className "resumeCommand"
+                                        prop.onClick (thunk1 dispatch (ResumePlay id.Value))
+                                        ]
+                                else
+                                    // placeholder to make the grids come out right
+                                    Html.div[prop.text ""]
                                 Html.button [
                                     prop.text $"Delete"
                                     prop.className "deleteCommand"
                                     prop.onClick (thunk1 dispatch (DeleteCharacter id.Value))
                                     ]
+                                ]
+
+                        class' Html.div "existingCharacters" [
+                            for ch in model.roster do
+                                yield! render true ch
 
                             if model.roster.Length > 0 then
                                 Html.button [prop.text "Delete all characters"; prop.className "deleteAllCommand"; prop.onClick (thunk1 dispatch ClearRoster)]
                             ]
+                        if(model.graveyard.Length > 0) then
+                            Html.h2 "The honored dead"
+                            class' Html.div "graveyard" [
+                                for ch in model.graveyard do
+                                    yield! render false ch
+                                Html.button [prop.text "Delete entire graveyard"; prop.className "deleteAllCommand"; prop.onClick (thunk1 dispatch ClearGraveyard)]
+                                ]
                         ]
 
                     Html.div [
