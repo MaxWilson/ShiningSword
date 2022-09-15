@@ -283,7 +283,7 @@ module View =
         member this.f = match this with (MethodInfo(name, f)) -> f
         member this.name' = match this with (MethodInfo(name, f)) -> name
 
-    type Ruleset = TSR | WotC
+    type Ruleset = TSR | WotC | DungeonFantasy
     type Model = {
         draft: Draft option
         method: ChargenMethod
