@@ -65,9 +65,18 @@ let parseDf txt =
     | _ -> Error ($"Not a spell", txt)
 
 let eachLine f (input:string) =
-    [for l in input.Split("\n") do
-        yield f (l.Trim())
-        ]
+    let mutable accum = ""
+    [for l in input.Split("\n") |> Array.rev do
+        let line = l.Trim() + " " + accum
+        match f line with
+        | Ok spell as r ->
+            printfn "Found a spell! %A" spell
+            accum <- ""
+            yield r
+        | Error err ->
+            printfn "Error: %s" line
+            accum <- line
+        ] |> List.rev
 
 let agglomerate (results: (Result<Spell * string, string * string>) list) =
     let mutable i = 0
@@ -91,9 +100,21 @@ let agglomerate (results: (Result<Spell * string, string * string>) list) =
             | None ->
                 printfn "Couldn't find a predecessor"
             printfn "Result: "
-
         i <- i + 1
+    results
+
+"""Wisdom Mind C: PI3 • W*: 6 Mind
+Control spells
+56
+Wither Limb Body W: M2, Paralyze
+Limb
+23
+Wither Plant Plant D: PI4 63
+Wizard Eye Know. W*: Apportation,
+Keen Vision
+45
+""" |> eachLine parseDf
 
 dfSpells |> eachLine parseDf
 |> agglomerate
-|> List.choose (function Error(msg, rest) -> (msg, rest) |> Some | _ -> None)
+|> Array.choose (function Error(msg, rest) -> (msg, rest) |> Some | _ -> None)
