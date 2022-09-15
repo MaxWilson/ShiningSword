@@ -25,8 +25,8 @@ let (|EndOfLine|_|) = function
     | (Char (('\n' | '\r'), ctx)) -> Some(ctx)
     | End as ctx -> Some(ctx)
     | _ -> None
-let prereqChars = alphanumeric + Set.ofList ['/';'+']
-let (|PrereqWord|_|) = function // stuff like W1/BT1 or IQ 13+ is allowed
+let prereqChars = alphanumeric + Set.ofList ['/';'+';'-';'&';'.']
+let (|PrereqWord|_|) = function // stuff like W1/BT1, IQ 13+, or 6 L&D spells is allowed
     | OWS(Chars prereqChars (v, OWS rest)) -> Some(v, rest)
     | _ -> None
 let rec (|Prereq|_|) = pack <| function
@@ -87,16 +87,7 @@ let eachLine f (input:string) =
                 accum <- ""
         ] |> List.rev
 
-match ParseArgs.Init "W: M2, IQ 13+, 1 spell from 10 colleges 35" with
-| Prereqs(prereqs, _) -> prereqs
-| College(college, _) -> college
-
-match ParseArgs.Init "Gate/Move. W: M2, IQ 13+, 1 spell from 10 colleges 35" with
-| College(college, Prereqs(prereqs, Int(pg, ctx))) -> 1
-| Prereqs(prereqs, Int(pg, ctx)) -> 2
-| Int(pg, ctx) -> 3
-
-match ParseArgs.Init "Trace Teleport Gate/Move. W: M2, IQ 13+, 1 spell from 10 colleges 35" with
+match ParseArgs.Init "Sunbolt L&D C: PI3 • W: 6 L&D spells including Sunlight 48" with
 | Spell(spell, _) ->
     sprintf "%A" spell
 | TitleWord(name, College(college, Prereqs(prereqs, Int(pg, ctx)))) ->

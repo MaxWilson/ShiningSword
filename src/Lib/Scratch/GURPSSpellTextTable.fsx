@@ -731,9 +731,7 @@ Sunlight L&D C: PI3 • D: PI3
 • W: M1, Colors,
 Glow
 48
-Suspended
-Animation
-Healing C: PI3 40
+Suspended Animation Healing C: PI3 40
 Swim Move./
 Water
 D: PI3 • W: Levitation, Shape Water
