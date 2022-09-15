@@ -35,10 +35,10 @@ let rec (|PrereqChain|_|) = pack <| function
     | OWS(Char(lead, _) & Prereq(word, ctx)) when System.Char.IsLetter lead -> Some([word], ctx)
     | _ -> None
 let rec (|ClassPrereqs|_|) = pack <| function
-    | OWS(Str "C:" (PrereqChain(prereqs, ctx))) -> Some(prereqs, ctx)
-    | OWS(Str "W*:" (PrereqChain(prereqs, ctx))) -> Some(prereqs, ctx)
-    | OWS(Str "W:" (PrereqChain(prereqs, ctx))) -> Some(prereqs, ctx)
-    | OWS(Str "D:" (PrereqChain(prereqs, ctx))) -> Some(prereqs, ctx)
+    | OWS(Str "C:" (PrereqChain(prereqs, ctx))) -> Some("C: "::prereqs, ctx)
+    | OWS(Str "W*:" (PrereqChain(prereqs, ctx))) -> Some("W*: "::prereqs, ctx)
+    | OWS(Str "W:" (PrereqChain(prereqs, ctx))) -> Some("W: "::prereqs, ctx)
+    | OWS(Str "D:" (PrereqChain(prereqs, ctx))) -> Some("D: "::prereqs, ctx)
     | _ -> None
 let rec (|Prereqs|_|) = pack <| function
     | ClassPrereqs(prereqs, OWSStr "•" (Prereqs(more, ctx))) -> Some(prereqs::more, ctx)
@@ -59,9 +59,9 @@ let rec (|Spell|_|) = pack <| function
 
 let parseDf txt =
     match ParseArgs.Init(txt) with
-    | Spell(spell, End) -> Ok spell
+    | Spell(spell, End) -> Ok (spell, txt)
     | Spell(spell, Any(rest, _)) ->
-        Error (sprintf "%A" spell, rest)
+        Error (sprintf "%A...%s" spell rest, txt)
     | _ -> Error ($"Not a spell", txt)
 
 let eachLine f (input:string) =
@@ -69,10 +69,31 @@ let eachLine f (input:string) =
         yield f (l.Trim())
         ]
 
-"Affect Spirits Necro. C: PI3 59
-Agonize Body W: M2, Sensitize 20
-Spirits Necro. C: PI3 59
-Destroy Spirits Necro. C: PI3, at least three necromancy spells 59
-" |> eachLine parseDf
+let agglomerate (results: (Result<Spell * string, string * string>) list) =
+    let mutable i = 0
+    let results = Array.ofList results
+    while i < results.Length do
+        match results[i] with
+        | Ok _ -> ()
+        | Error(err, txt) ->
+            printfn "Trying to fix %s" txt
+            match [0..results.Length] |> List.tryFindBack (fun j -> j < i && match results[j] with Ok _ -> true | _ -> false) with
+            | Some j ->
+                let spell, txt' = results[j] |> Result.toOption |> Option.get
+                let newPrereqs = String.join " " [spell.prereqs |> List.map (String.join " ") |> String.join " • "]
+                printfn "New prereqs: %s" newPrereqs
+                match ParseArgs.Init (newPrereqs + " 99") with
+                | Prereqs(prereqs, End) ->
+                    printfn "Success!"
+                    results[j] <- Ok({ spell with prereqs = prereqs }, txt' + txt)
+                | _ ->
+                    printfn "Failure to parse! Needs more data I guess."
+            | None ->
+                printfn "Couldn't find a predecessor"
+            printfn "Result: "
 
-dfSpells |> eachLine parseDf |> List.choose (function Error(msg, rest) -> (msg, rest) |> Some | _ -> None)
+        i <- i + 1
+
+dfSpells |> eachLine parseDf
+|> agglomerate
+|> List.choose (function Error(msg, rest) -> (msg, rest) |> Some | _ -> None)
