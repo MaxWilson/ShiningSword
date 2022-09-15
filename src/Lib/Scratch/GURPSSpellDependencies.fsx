@@ -43,10 +43,10 @@ let rec (|PrereqChain|_|) = pack <| function
     | OWS(Char(lead, _) & Prereq(word, ctx)) -> Some([word], ctx)
     | _ -> None
 let rec (|ClassPrereqs|_|) = pack <| function
-    | OWS(Str "C:" (PrereqChain(prereqs, ctx))) -> Some("C: "::prereqs, ctx)
-    | OWS(Str "W*:" (PrereqChain(prereqs, ctx))) -> Some("W*: "::prereqs, ctx)
-    | OWS(Str "W:" (PrereqChain(prereqs, ctx))) -> Some("W: "::prereqs, ctx)
-    | OWS(Str "D:" (PrereqChain(prereqs, ctx))) -> Some("D: "::prereqs, ctx)
+    | OWS(Str "C:" (PrereqChain(prereqs, ctx))) -> Some(prereqs, ctx)
+    | OWS(Str "W*:" (PrereqChain(prereqs, ctx))) -> Some(prereqs, ctx)
+    | OWS(Str "W:" (PrereqChain(prereqs, ctx))) -> Some(prereqs, ctx)
+    | OWS(Str "D:" (PrereqChain(prereqs, ctx))) -> Some(prereqs, ctx)
     | _ -> None
 let rec (|Prereqs|_|) = pack <| function
     | ClassPrereqs(prereqs, OWSStr "•" (Prereqs(more, ctx))) -> Some(prereqs::more, ctx)
@@ -103,6 +103,27 @@ match ParseArgs.Init "Nightingale P&W W: Sense Danger 64 No-Smell Air D: PI1 •
 #load "GURPSSpellTextTable.fsx"
 open DFData
 
-dfSpells |> eachLine parseDf
-|> ignore
-|> Array.choose (function Error(msg, rest) -> (msg, rest) |> Some | _ -> None)
+for spell, _txt in dfSpells |> eachLine parseDf |> List.map (Result.toOption >> Option.get) do
+    printfn $"""{spell.name} {spell.prereqs |> List.map (String.join ", " >> sprintf "[%s]") |> String.join " or "}"""
+
+#r "nuget: TextCopy"
+let writer = System.Text.StringBuilder()
+let mutable dupes = Set.empty
+let append txt =
+    if dupes.Contains txt |> not then
+        writer.AppendLine txt |> ignore
+        dupes <- dupes |> Set.add txt
+// format for graphviz
+for spell, _txt in dfSpells |> eachLine parseDf |> List.map (Result.toOption >> Option.get) do
+    for group in spell.prereqs do
+        let grouptxt = group |> String.join ", " |> sprintf "[%s]"
+        (sprintf "    %A -> %A" spell.name grouptxt) |> append
+        for prereq in group do
+            (sprintf "    %A -> %A" grouptxt prereq) |> append
+TextCopy.Clipboard().SetText ($"
+digraph G {{
+{writer.ToString()}
+    start [shape=Mdiamond];
+    end [shape=Msquare];
+}}
+")
