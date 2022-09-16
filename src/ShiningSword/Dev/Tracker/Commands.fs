@@ -163,33 +163,31 @@ let (|LoggingCommands|_|) = pack <| function
     | Char('/', AnyTrimmed(txt, ctx)) -> Some([Print txt], ctx)
     | _ -> None
 #if INTERACTIVE
+open Dev.Tracker.Game.Game.Getters
+#if LOADING // can't directly include nuget load in .fs file or Scratch.fsx will complain
+#r "nuget: Unquote"
+#endif
+open Swensen.Unquote
 let testbed() =
     let exec str game =
         match ParseArgs.Init(str, game) with
         | Commands(cmds, End) -> cmds |> List.fold (flip Game.update) game
+        | _ -> notImpl()
     let mutable g = Game.fresh
-    match ParseArgs.Init("Beholder maxhp 180, xp 10000", g) with
-    | Commands(cmds, End) -> cmds
-    match ParseArgs.Init("Beholder 180 maxhp, xp 10000", g) with
-    | Commands(cmds, End) -> cmds
-    match ParseArgs.Init("Beholder 180 hp, xp 10000", g) with
-    | Commands(cmds, End) -> cmds
-    match ParseArgs.Init("3d6+6", g) with
-    | Roll(r, _) -> r
-    iter &g (exec "define Beholder, Ogre")
-    iter &g (exec "Beholder hp 180, xp 10000")
-    iter &g (exec "define Giant")
-    iter &g (exec "Giant 80 hp")
-    iter &g (exec "Giant hp 80")
-    iter &g (exec "Giant xp 2900")
-    iter &g (exec "add Giant")
-    iter &g (exec "add Bob")
-    iter &g (exec "Bob hp 50")
-    iter &g (exec "Bob hits Giant 1 for 30")
-    tryGetRibbit hpP "Giant #1"
-    iter &g (exec "Bob hits Giant 1 for 30")
-    tryGetRibbit hpP "Giant #1"
-    iter &g (exec "Bob hits Giant 1 for 30")
-    tryGetRibbit hpP "Giant #1"
-    iter &g (exec "clear dead")
+    iteri &g (exec "define Beholder, Ogre")
+    iteri &g (exec "Beholder hp 180, xp 10000")
+    iteri &g (exec "define Giant")
+    iteri &g (exec "Giant 80 hp")
+    iteri &g (exec "Giant hp 80")
+    iteri &g (exec "Giant xp 2900")
+    iteri &g (exec "add Giant")
+    iteri &g (exec "add Bob")
+    iteri &g (exec "Bob hp 50")
+    iteri &g (exec "Bob hits Giant 1 for 30")
+    test <@ tryGetRibbit "Giant #1" hpP g = Some 30 @>
+    iteri &g (exec "Bob hits Giant 1 for 30")
+    test <@ tryGetRibbit "Giant #1" hpP g = Some 30 @>
+    iteri &g (exec "Bob hits Giant 1 for 30")
+    test <@ tryGetRibbit "Giant #1" hpP g = Some 30 @>
+    iteri &g (exec "clear dead")
 #endif

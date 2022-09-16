@@ -22,6 +22,7 @@
 #load @"Lib\Domain\Ribbit\Rules5e.fs"
 #load @"Lib\Adventure.fs"
 #load @"Dev\Tracker\Game.fs"
+#r "nuget: Unquote"
 #load @"Dev\Tracker\Commands.fs"
 
 open Domain.Character
