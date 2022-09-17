@@ -44,15 +44,10 @@ let (|BonusOrPenalty|_|) = pack <| function
         | _ -> None
     | _ -> None
 
-let (|GameContext|_|) = ExternalContextOf<Game.d>
-let isPotentialNamePrefix (names: obj) (substring: string) =
-    match names |> unbox<obj option> with
-    | Some externalContext ->
-        let ribbit = externalContext |> unbox<Game.d>
-        ribbit.data.roster |> Map.keys |> Seq.append (ribbit.data.kindsOfMonsters |> Map.keys) |> Seq.exists(fun name -> name.StartsWith substring)
-    | _ -> false
+type ParseContext = Game.d * LogIndex
+let (|ParseContext|_|) = ExternalContextOf<ParseContext>
 let (|Name|_|) = pack <| function
-    | OWS(GameContext(ribbit) & (args, ix)) ->
+    | OWS(ParseContext(ribbit,_) & (args, ix)) ->
         let substring = args.input.Substring(ix)
         let startsWith s = substring.StartsWith(s, System.StringComparison.InvariantCultureIgnoreCase)
         let candidates = ribbit.data.roster |> Map.keys |> Seq.append (ribbit.data.kindsOfMonsters |> Map.keys) |> Seq.distinct |> Seq.sortByDescending (fun n -> n.Length)
@@ -65,7 +60,7 @@ let (|Name|_|) = pack <| function
     | _ -> None
 // Individual Name = NOT a monsterkind. E.g. doesn't make sense for all dragons to hit all giants.
 let (|IndividualName|_|) = pack <| function
-    | OWS(GameContext(ribbit) & (args, ix)) ->
+    | OWS(ParseContext(ribbit,_) & (args, ix)) ->
         let substring = args.input.Substring(ix)
         let startsWith s = substring.StartsWith(s, System.StringComparison.InvariantCultureIgnoreCase)
         let candidates = ribbit.data.roster |> Map.keys |> Seq.distinct |> Seq.sortByDescending (fun n -> n.Length)
@@ -77,7 +72,7 @@ let (|IndividualName|_|) = pack <| function
         | None -> None
     | _ -> None
 let (|IndividualNickName|_|) = function
-    | OWS(GameContext(ribbit) & (args, ix)) ->
+    | OWS(ParseContext(ribbit,_) & (args, ix)) ->
         let substring1 = args.input.Substring(ix)
         let startsWith1 s = substring1.StartsWith(s, System.StringComparison.InvariantCultureIgnoreCase)
         let candidates1 = ribbit.data.roster |> Map.keys |> Seq.distinct |> Seq.sortByDescending (fun n -> n.Length)
@@ -97,7 +92,7 @@ let rec (|Names|_|) = pack <| function
     | Name(name, ctx) -> Some([name], ctx)
     | _ -> None
 let declare (prop: Property<_, Ribbit>) value =
-    (fun name -> Game.RibbitCommand (Domain.Ribbit.Commands.Command.Declare(name, fun id -> prop.Set(id, value))))
+    (fun name -> Game.RibbitOperation (Operation.Declare(name, fun id -> prop.Set(id, value))))
 let (|Declaration|_|) = function
     | Int (amt, OWSStr "xp" (ctx)) -> Some(declare xpValueP amt, ctx)
     | Int (amt, OWSStr "hp" (ctx)) ->
@@ -148,7 +143,7 @@ let (|Command|_|) = function
         Some(Game.InflictDamage(src, target, amt), ctx)
     | _ -> None
 let (|Commands|_|) = pack <| function
-    | Domain.Ribbit.Commands.Commands(cmds, ctx) -> Some(cmds |> List.map Game.RibbitCommand, ctx)
+    | Domain.Ribbit.Commands.Commands(cmds, ctx) -> Some(cmds |> List.map Game.RibbitOperation, ctx)
     | Name(name, Declarations (fs, (End as ctx))) ->
         Some(fs |> List.map(fun f -> f name), ctx)
     | IndividualNickName(name, Declarations (fs, ctx)) ->
@@ -159,9 +154,10 @@ let (|Commands|_|) = pack <| function
     | _ -> None
 // commands that have their own logging built in. Might be able to refactor this back into commands.
 let (|LoggingCommands|_|) = pack <| function
-    | Roll(r, ctx) -> Some([Eval r], ctx)
-    | Char('/', AnyTrimmed(txt, ctx)) -> Some([Print txt], ctx)
+    | Roll(r, ctx) & ParseContext(game, logIx) -> Some([Eval(logIx , r)], ctx)
+    | Char('/', AnyTrimmed(txt, ctx)) & ParseContext(game, logIx) -> Some([Print(logIx, txt)], ctx)
     | _ -> None
+let parser input game logIx = ParseArgs.Init(input, (game, box logIx))
 #if INTERACTIVE
 let testbed() =
     let exec str game =

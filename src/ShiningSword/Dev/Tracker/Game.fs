@@ -32,6 +32,7 @@ module Game =
     type WoundLog = { victims: Map<Name, int>; woundedBy: Map<Name, int> }
         with static member fresh = { victims = Map.empty; woundedBy = Map.empty }
 
+    type LogIndex = int list
     type Command =
         | DeclareNumber of Name * NumberProperty * int
         | DeclareTextual of Name * TextProperty * string
@@ -42,9 +43,9 @@ module Game =
         | DeclareMaxHP of Name * HP
         | InflictDamage of src:Name * target:Name * hp:int
         | ClearDeadCreatures
-        | RibbitCommand of Domain.Ribbit.Commands.Command
-        | Print of string
-        | Eval of RollSpec // first basic automation! Only generates a log entry, no other side effects.
+        | RibbitOperation of Operation
+        | Print of LogIndex * string // logs at specified trie index (relative to logRoot/events)
+        | Eval of LogIndex * RollSpec // first basic automation! Only generates a log entry, no other side effects.
 
     type d = Ribbit
     let fresh = Ribbit.Fresh
@@ -110,8 +111,8 @@ module Game =
                 model |> property.Set(id, updateFunction current)
             | None -> shouldntHappen()
         match msg with
-        | RibbitCommand(cmd) ->
-            model |> Domain.Ribbit.Commands.executeCommand cmd
+        | RibbitOperation(cmd) ->
+            model |> executeOperation cmd
         | DeclareNumber(name, prop, value) ->
             model |> setByName name prop value
         | DeclareTextual(name, prop, value) ->
@@ -197,8 +198,8 @@ module Game =
             model |> setByName name notesP notes
         | AddNotes(name, notes) ->
             model |> transformByName name notesP (fun notes' -> notes@notes')
-        | Print txt -> model |> Domain.Ribbit.Commands.executeCommand (Domain.Ribbit.Commands.AddLogEntry([], txt))
-        | Eval r -> model |> Domain.Ribbit.Commands.executeCommand (Domain.Ribbit.Commands.AddLogEntry([], $"{r.ToString()} = {r.roll()}"))
+        | Print (ixs, txt) -> model |> executeOperation (Domain.Ribbit.Operations.AddLogEntry(ixs, txt))
+        | Eval (ixs, r) -> model |> executeOperation (Domain.Ribbit.Operations.AddLogEntry(ixs, $"{r.ToString()} = {r.roll()}"))
 
     type FSX =
         // FSX-oriented script commands

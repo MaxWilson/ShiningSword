@@ -305,18 +305,33 @@ module FastList =
 module Trie =
     // reader function is the key to the whole trie
     // reader takes a trie node and returns a value for that node, and an optional list of children of that node
-    let read reader ixs trie =
+    let read nav ixs trie =
         let rec recur ixs node =
-            match reader node, ixs with
+            match nav node, ixs with
+            | (value, _), [] ->
+                Some value
+            | (value, Some children), ix::rest ->
+                let ix = if ix < 0 then List.length children + ix else ix // -1 means "last", etc.
+                if 0 > ix || ix >= List.length children then
+                    None // ignore out-of-bounds indexes
+                else
+                    recur rest children[ix]
+            | (value, None), _ -> // ignore unusable indexes
+                None
+        recur ixs trie
+
+    let replace nav navUpdate targetNodeUpdate ixs trie =
+        let rec recur ixs node =
+            match nav node, ixs with
+            | (value, _), [] ->
+                node |> targetNodeUpdate
             | (value, Some children), ix::rest ->
                 let ix = if ix >= 0 then ix else List.length children + ix
                 if 0 > ix || ix >= List.length children then
-                    value
+                    node // treat unusable indexes as no-op
                 else
-                    recur rest children[ix]
-            | (value, None), _ // ignore unusable indexes
-            | (value, _), [] ->
-                value
+                    let updatedChild = (recur rest children[ix])
+                    node |> navUpdate (ix, updatedChild)
+            | (value, None), _ -> // treat unusable indexes as no-op
+                node // treat unusable indexes as no-op
         recur ixs trie
-
-    let replace ixs trie = notImpl()

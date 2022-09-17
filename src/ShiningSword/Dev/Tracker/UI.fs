@@ -25,15 +25,15 @@ type Msg =
     | ToggleHelp of bool option
     | ToggleBestiary of bool
     | ToggleLog of bool option
-    | SetRewind of int option
+    | SetLogFocus of (int * Game.LogIndex) option
     | LogNav of down:int * right: int
 
 module Model =
     open Packrat
     open Commands
     type DisplayMode = MainScreen | HelpScreen
-    type d = { input: string; game: Game.d; errors: string list; nowShowing: DisplayMode; showBestiary: bool; showLog: bool; rewindFrame: int option  }
-    let fresh = { input = ""; game = Game.fresh; errors = []; nowShowing = MainScreen; showBestiary = true; showLog = false; rewindFrame = None }
+    type d = { input: string; game: Game.d; errors: string list; nowShowing: DisplayMode; showBestiary: bool; showLog: bool; currentLogFocus: (int * Game.LogIndex) option }
+    let fresh = { input = ""; game = Game.fresh; errors = []; nowShowing = MainScreen; showBestiary = true; showLog = false; currentLogFocus = None }
     let executeIfPossible ui cmd =
         try
             { ui with input = ""; game = ui.game |> Game.update cmd; errors = [] }
@@ -42,15 +42,18 @@ module Model =
     let executeTextCommandIfPossible (input:string) (ui: d) =
         if input.Trim().ToLowerInvariant() = "/startover" then fresh
         else
-            match ParseArgs.Init(input, ui.game) with
+            let logIx = match ui.currentLogFocus with | Some(_, ixs) -> ixs | _ -> []
+            match parser input ui.game logIx with
             | Commands (cmds, End) ->
+                printfn "Commands: %A" cmds
                 let ui = cmds |> List.fold executeIfPossible ui
                 let hadSuccessfulExecution = ui.errors.Length < cmds.Length
                 if hadSuccessfulExecution then
-                    executeIfPossible ui (Domain.Ribbit.Commands.AddLogEntry([], input) |> Game.RibbitCommand)
+                    executeIfPossible ui (Domain.Ribbit.Operations.AddLogEntry([], input) |> Game.RibbitOperation)
                 else
                     ui
             | LoggingCommands(cmds, End) ->
+                printfn "LogCommands: %A" cmds
                 cmds |> List.fold executeIfPossible ui |> fun ui -> { ui with showLog = true }
             | _ -> ui
 
@@ -138,9 +141,9 @@ let update msg (model: Model.d) =
         { model with nowShowing = if showHelp then HelpScreen else MainScreen }
     | ToggleBestiary showBestiary -> { model with showBestiary = showBestiary }
     | ToggleLog showLog -> { model with showLog = defaultArg showLog (model.showLog |> not) }
-    | SetRewind ix -> { model with rewindFrame = ix }
+    | SetLogFocus ix -> { model with currentLogFocus = ix }
     | LogNav(down, right) ->
-        // LogNav is a more indirect, incremental way of doing SetRewind with arrow keys within the log
+        // LogNav is a more indirect, incremental way of doing SetLogFocus with arrow keys within the log
         if model.showLog |> not then
             model
         else
@@ -148,18 +151,29 @@ let update msg (model: Model.d) =
             // these will change when log is hierarchical
             let r = model.game.data
             let roots = r.eventRoots.inOrder()
-            let setRewind ix = { model with rewindFrame = ix }
-            let setRewindByLogIndex ix = (if 0 <= ix && ix < roots.Length then r.events[roots[ix]].timeTravelIndex |> Some else None) |> setRewind
-            match model.rewindFrame |> Option.bind (fun frame -> roots |> List.tryFindIndex (fun ix -> r.events[ix].timeTravelIndex >= frame)) with
-            | None -> // if not currently focused anywhere valid
-                if (right > 0 || down < 0) && roots.Length > 0 then // start at back; note that it's slightly wrong that we don't treat right=2 different from right=1, should fix when we add hierarchy
-                    r.events[roots |> List.last].timeTravelIndex |> Some |> setRewind
-                elif down > 0 && roots.Length > 0 then // start at back; note that it's slightly wrong that we don't treat right=2 different from right=1, should fix when we add hierarchy
-                    r.events[roots |> List.head].timeTravelIndex |> Some |> setRewind
-                else model
-            | Some currentIndex ->
-                if right < 0 then setRewind None
-                else currentIndex + down + right |> setRewindByLogIndex
+            let inbounds maxBound ix = 0 <= ix && ix < maxBound
+            let lookupEvent id = model.game.data.events[id]
+            let lookupRoot ix = roots[ix] |> lookupEvent
+            let lookupChild ix (parent: Domain.Ribbit.Core.EventData) = parent.childEvents[ix] |> lookupEvent
+            let setRewindByLogIndex ixs =
+                let rec recur (event: Domain.Ribbit.Core.EventData) accum = function
+                    | [] ->
+                        { model with currentLogFocus = Some(event.timeTravelIndex, accum) }
+                    | h::rest ->
+                        if inbounds event.childEvents.Length h then
+                            recur (lookupChild h event) (accum@[h]) rest
+                        else
+                            printf "%A is out of bounds, treating as noop" accum
+                            model // out of bounds, invalid! Treat as noop.
+                match ixs with
+                | rootIx::rest when inbounds roots.Length rootIx -> recur (lookupRoot rootIx) [rootIx] rest
+                | _ -> { model with currentLogFocus = None }
+            let updateCoords (coords: Game.LogIndex) : Game.LogIndex =
+                if right < 0 then coords |> List.take (coords.Length + right |> max 0) elif right = 0 then coords else coords @ (List.replicate right 0)
+                |> (fun coords -> coords |> List.mapi (fun j ix -> if j < coords.Length - 1 then ix else ix + down)) // modify only the last entry
+            match model.currentLogFocus with
+            | Some(_, currentIndex) -> currentIndex |> updateCoords |> setRewindByLogIndex
+            | None -> [] |> updateCoords |> setRewindByLogIndex
 
 open UI.Components
 
@@ -180,7 +194,7 @@ open Domain.Ribbit
 
 let view (model: Model.d) dispatch =
     let trueModel = model
-    let model = match model.rewindFrame with Some ix -> { model with game = model.game.rewindTo ix } | None -> model
+    let model = match model.currentLogFocus with Some (rewind, logIndex) -> { model with game = model.game.rewindTo rewind } | None -> model
     let combatPhase = Game.combatPhaseP.Get model.game
     let setCommand txt =
         (ReviseInput txt) |> dispatch
@@ -316,24 +330,39 @@ let view (model: Model.d) dispatch =
                     title "Nothing has happened yet"
                 else
                     title "What has happened so far:"
-                    class' Html.ul "entries" [
-                        for ix in log.inOrder() do
-                            let event = trueModel.game.data.events[ix]
-                            match event.log with
-                            | Some logEntry ->
-                                Html.li [
-                                    if Some event.timeTravelIndex = model.rewindFrame then
-                                        prop.className "logEntry selected"
-                                    else
-                                        prop.className "logEntry"
-                                    prop.text $"{logEntry.msg}"
-                                    prop.onClick (fun e ->
-                                        e.preventDefault();
-                                        let historyIx = event.timeTravelIndex
-                                        SetRewind(match trueModel.rewindFrame with Some ix' when ix' = historyIx -> None | _ -> Some historyIx)
-                                            |> dispatch)
+                    let rec showLogById logIndex id : ReactElement =
+                        let event = trueModel.game.data.events[id]
+                        match event.log with
+                        | Some logEntry ->
+                            Html.li [
+                                let isFocused = Some logIndex = (model.currentLogFocus |> Option.map snd)
+                                let txt =
+                                    Html.span [
+                                        prop.className (if isFocused then "logEntry selected" else "logEntry")
+                                        prop.onClick (fun e -> // toggle focus by clicking
+                                            e.preventDefault();
+                                            let historyIx = event.timeTravelIndex
+                                            SetLogFocus(if not isFocused then Some (historyIx, logIndex) else None)
+                                                |> dispatch)
+                                        prop.text $"{logEntry.msg}"
                                     ]
-                            | None -> ()
+                                match event.childEvents with
+                                | [] ->
+                                    prop.children [txt]
+                                | children ->
+                                    prop.children [
+                                        txt
+                                        class' Html.ul "entries" [
+                                            for ix, id in children |> List.mapi tuple2 do
+                                                showLogById (logIndex@[ix]) id
+                                        ]
+                                    ]
+                                ]
+                        | None -> React.fragment []
+
+                    class' Html.ul "entries" [
+                        for ix, id in log.inOrder() |> List.mapi tuple2 do
+                            showLogById [ix] id
                         ]
                 ]
             ]
@@ -342,7 +371,14 @@ let view (model: Model.d) dispatch =
             prop.text "Log"
             prop.onClick (thunk1 dispatch (ToggleLog None))
             ]
-    class' Html.div (["dev"; if model.showLog then begin "withsidebar" end; if trueModel.rewindFrame.IsSome then begin "historical" end] |> String.join " ") [
+    let historical =
+        match trueModel.currentLogFocus, trueModel.game.data.eventRoots.inOrder() |> List.tryLast with
+        | Some(focusedFrame, _), Some ix ->
+            let mostRecentPastRootEvent = trueModel.game.data.events[ix].timeTravelIndex
+            // it's not historical if it's up to date with the most recent present, e.g. in order to append to the last log entry
+            not (focusedFrame >= mostRecentPastRootEvent)
+        | _ -> false
+    class' Html.div (["dev"; if model.showLog then begin "withsidebar" end; if historical then begin "historical" end] |> String.join " ") [
         withHeader (model.nowShowing = HelpScreen) uiHelpText (Some >> ToggleHelp >> dispatch) [logLink()] [
             table
             inputPanel

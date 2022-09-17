@@ -85,6 +85,7 @@ module Core =
         log: LogEntry option // will be None before the event gets resolved
         timeTravelIndex: int // the number of state change events which have occurred when event is resolved. Used for time travel
         returnValue: RuntimeValue option
+        childEvents: Id list
         }
 
     type FightResult = Victory | Defeat | Ongoing
@@ -174,11 +175,23 @@ module Core =
         | ClearValue(rowId, propertyName) ->
             let rows = ribbit.scope.rows |> Map.change rowId (Option.map (Map.remove propertyName))
             { ribbit with scope = { ribbit.scope with rows = rows } }
-        | AddLogEntry(trieIxs, txt) -> // todo: actually use the trieIxs
+        | AddLogEntry(trieIxs, txt) ->
             let id = ribbit.events.Count
             let logEntry = LogEntry.create txt
-            let event = { EventData.id = id; log = Some logEntry; timeTravelIndex = history |> List.length; returnValue = None }
-            { ribbit with eventRoots = ribbit.eventRoots.Add(id); events = ribbit.events |> Map.add id event }
+            let event = { EventData.id = id; log = Some logEntry; timeTravelIndex = history |> List.length; returnValue = None; childEvents = [] }
+            match trieIxs with
+            | [] -> // add at root level
+                { ribbit with eventRoots = ribbit.eventRoots.Add(id); events = ribbit.events |> Map.add id event }
+            | rootIndex::restIxs ->
+                // first, find the parent event. Then append the log entry to it.
+                let readEventChildren id =
+                    id, Some ribbit.events[id].childEvents
+                let parentEventId = ribbit.eventRoots.inOrder()[rootIndex] |> Trie.read readEventChildren restIxs
+                match parentEventId with
+                | None -> ribbit // invalid index is a noop
+                | Some parentId ->
+                    let parentEvent = ribbit.events[parentId]
+                    { ribbit with events = ribbit.events |> Map.add id event |> Map.add parentId { parentEvent with childEvents = parentEvent.childEvents @ [id] } }
 
     type Ribbit with
         static member Fresh = Delta.create((fun () -> RibbitData.fresh), update) |> Ribbit

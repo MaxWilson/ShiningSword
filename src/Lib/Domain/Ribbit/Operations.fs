@@ -146,3 +146,38 @@ module Operations =
             | None -> return None
         }
 
+    type Operation =
+        | Define of Name
+        | Add of Name
+        | Declare of Name * (Id -> Ribbit -> Ribbit) // this is how we generalize Declare(name, property)--by transforming property.Set(name, <expression>) into (fun id ribbit -> myProperty.Set(id, <evaluate expression>))
+        | RemoveIndividuals of Name list
+        | RenameIndividual of Name * newName:Name
+        | AddLogEntry of scopeIndexes:int list * txt:string // scopeIndexes = [] means append at the top level; scopeIndexes = [0] means append to the first root level entry, [-1] means the last, [0;-1] means the last child of the first root entry, etc.
+
+    let executeOperation msg (ribbit:Ribbit) =
+        match msg with
+        | Define name ->
+            ribbit.transform(stateChange { do! addKind name (fun _ rbt -> (), rbt) })
+        | Add (name) ->
+            let add =
+                stateChange {
+                    let name = name
+                    let! isMonsterKind = Ribbit.GetM(fun d -> d.data.kindsOfMonsters.ContainsKey name)
+                    do! if isMonsterKind then addMonster name (fun _ r -> (), r) >> ignoreM
+                        else addCharacterToRoster name >> ignoreM
+                    }
+            ribbit.transform add
+        | Declare(name, setExpressionById) ->
+            match ribbit.data.roster |> Map.tryFind name |> Option.orElse (ribbit.data.kindsOfMonsters |> Map.tryFind name) with
+            | Some id ->
+                ribbit |> setExpressionById id
+            | None -> shouldntHappen()
+        | RemoveIndividuals names ->
+            names |> List.fold (fun model name -> (RemoveRosterEntry name |> flip Ribbit.Update model)) ribbit
+        | RenameIndividual(name, newName) ->
+            match ribbit.data.roster |> Map.tryFind name |> Option.orElse (ribbit.data.kindsOfMonsters |> Map.tryFind name) with
+            | Some id ->
+                ribbit |> personalNameP.Set(id, newName) |> Ribbit.Update (RenameRosterEntry(name, newName))
+            | None -> shouldntHappen()
+        | AddLogEntry(ixs, txt) ->
+                ribbit.update (RibbitMsg.AddLogEntry(ixs, txt))
