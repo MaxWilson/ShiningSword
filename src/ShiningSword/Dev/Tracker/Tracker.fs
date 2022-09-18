@@ -9,27 +9,29 @@ let start() =
     |> Program.withSubscription(fun _ ->
         Cmd.ofSub(fun dispatch ->
             Browser.Dom.window.onkeydown <- fun e ->
-                if e.ctrlKey then
-                    let mutable handled = true // shortcut so we don't have to type e.preventDefault() in every valid case
-                    match e.key.ToLowerInvariant() with
-                    | "l" ->
-                        dispatch (ToggleLog None)
-                    | "?" ->
-                        dispatch (ToggleHelp None)
-                    | "c" ->
-                        match (Browser.Dom.window.document.getElementById "userInput") with
-                        | null -> handled <- false
-                        | e -> e.focus()
-                    | "arrowup" ->
-                        dispatch (LogNav(-1, 0))
-                    | "arrowdown" ->
-                        dispatch (LogNav(+1, 0))
-                    | "arrowleft" ->
-                        dispatch (LogNav(0, -1))
-                    | "arrowright" ->
-                        dispatch (LogNav(0, +1))
-                    | _ -> handled <- false
-                    if handled then e.preventDefault()
+                let (|Ctrl|_|) = function
+                    | str when e.ctrlKey -> Some str
+                    | _ -> None
+                let mutable handled = true // shortcut so we don't have to type e.preventDefault() in every valid case
+                match e.key.ToLowerInvariant() with
+                | Ctrl "l" ->
+                    dispatch (ToggleLog None)
+                | Ctrl "?" ->
+                    dispatch (ToggleHelp None)
+                | Ctrl "c" ->
+                    match (Browser.Dom.window.document.getElementById "userInput") with
+                    | null -> handled <- false
+                    | e -> e.focus()
+                | Ctrl "arrowup" ->
+                    dispatch (LogNav(-1, 0))
+                | Ctrl "arrowdown" ->
+                    dispatch (LogNav(+1, 0))
+                | Ctrl "arrowleft" ->
+                    dispatch (LogNav(0, -1))
+                | Ctrl "arrowright" ->
+                    dispatch (LogNav(0, +1))
+                | _ -> handled <- false
+                if handled then e.preventDefault()
 
             ))
     |> Program.withReactBatched "feliz-dev"
