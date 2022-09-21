@@ -1154,8 +1154,7 @@ let magic = """
 193 Predict Weather Information Weather/Air Instant Varies 5 sec.# 4 Air spells
 51 Predict Earth Information Earth Instant 2 per day# Varies 4 Earth spells Movement
 69 Powerstone Enchantment Enchantment Perm. 20 – Enchant
-57 Power Enchantment Enchantment Perm. Varies – Enchant, Recover Energy
-or Beast Possession
+57 Power Enchantment Enchantment Perm. Varies – Enchant, Recover Energy or Beast Possession
 144 Poltergeist Missile/R-HT Movement Instant 1 or 2# 1 sec. Apportation 49 Possession* Regular/R-Will Comm. 1 min. 10/4 1 min. M1, and Control Person
 162 Pollen Cloud Area/R-HT Plant 5 min.# 1 1 sec. Shape Plant
 78 Poison Food Regular Food Perm. 3 per meal 1 sec. Purify Food, Decay
@@ -1655,4 +1654,795 @@ or Beast Possession
 191 Acid Ball Missile Water Instant 1 to Magery# 1 to 3 sec. M2, Create Acid
 65 Accuracy Enchantment Enchantment Perm. Varies – Enchant and 5 Air spells
 86 Accelerate Time* Area/R-Spec. Gate 1 min. Varies 2 sec. M2, IQ 13+, 2 spells each from 10 colleges
+"""
+
+let compare = """
+Affect Spirits (Clerical, "C"): [PI3]
+    WAS Affect Spirits Regular Necro. 1 min. 4/2 2 sec. Solidify
+Agonize (Wizardly, "W"): [M2, Sensitize]
+    WAS Agonize Regular/R-HT Body 1 min. 8/6 1 sec. M2, Sensitize
+Air Jet (Wizardly, "W"): [Shape Air]
+    WAS Air Jet Regular Air 1 sec. 1 to 3/S 1 sec. Shape Air
+Alertness (Wizardly, "W*"): [2 Keen Sense spells]
+    WAS Alertness* Regular Mind 10 min. 2 to 10/H 1 sec. Any two Keen spells
+Ambidexterity (Wizardly, "W"): [Grace]
+    WAS Ambidexterity Regular Body 1 min. 3/2 1 sec. Grace
+Analyze Magic (Wizardly, "W*"): [Identify Spell]
+    WAS Analyze Magic Inform./R-spell Knowledge Instant 8 1 hr. Identify Spell
+Animal Control (Druidic, "D"): [PI2]
+    WAS Animal Control Regular/R-Will Animal 1 min. Varies 1 sec. Beast-Soother
+Apportation (Wizardly, "W"): [M1]
+    WAS Apportation Reg./R-Will Movement 1 min. Varies 1 sec. M1
+Arboreal Immurement (Druidic, "D"): [PI5]
+    WAS Arboreal Immurement Regular/R-HT Plant Indef.# 8# 3 sec. M2, Walk Through Wood
+Armor (Clerical, "C"): [PI1] or (Wizardly, "W"): [Shield]
+    WAS Armor Regular Protection 1 min. Varies 1 sec. Shield
+Astral Block (Clerical, "C"): [PI4] or (Wizardly, "W"): [Repel Spirits, Summon Spirit]
+    WAS Astral Block Area Necro. 10 min. 4/2# 2 sec. Summon Spirit, Repel Spirits
+Astral Vision (Clerical, "C"): [PI3] or (Wizardly, "W*"): [Sense Spirit, See Invisible]
+    WAS Astral Vision* Regular Knowledge/Necro. 1 min. 4/2 1 sec. Sense Spirit, See Invisible 169 Atmosphere Dome Area Protection/Air 6 hrs. 4/H 1 sec. Purify Air, Weather Dome
+Aura (Clerical, "C"): [PI1] or (Wizardly, "W*"): [Detect Magic]
+    WAS Aura Information Knowledge Instant 3 1 sec. Detect Magic
+Awaken (Clerical, "C"): [PI2]
+    WAS Awaken Area Healing Instant 1 1 sec. Lend Vitality
+Awaken (Clerical, "C"): [PI2]
+    WAS Awaken Computer/TL Regular Tech 1 hr. Varies 10 sec. Animation, Wisdom
+Awaken (Clerical, "C"): [PI2]
+    WAS Awaken Craft Spirit Regular Mk-Brk/Necro. 1 min. 3/1 5 sec. Inspired Creation, Sense Spirit
+Balance (Wizardly, "W"): [Grace]
+    WAS Balance Regular Body 1 min. 5/3 1 sec. Grace
+Banish (Clerical, "C"): [PI4] or (Wizardly, "W"): [M1, 1 spell from 10 colleges]
+    WAS Banish Spec./R-Will Necro. Instant Varies 5 sec. M, 1 spell each from 10 colleges
+Beast Link (Druidic, "D"): [PI2]
+    WAS Beast Link Regular Animal Special 3 5 sec. Beast Summoning
+Beast Possession (Druidic, "D"): [PI4]
+    WAS Beast Possession Regular/R-Will Animal 1 min. 6/2 5 sec. Rider Within or Possession
+Beast-Rouser (Druidic, "D"): [PI1]
+    WAS Beast-Rouser Regular Animal 1 hour# 1 to 3 1 sec. Vexation or Animal Empathy
+Beast Seeker (Druidic, "D"): [PI2]
+    WAS Beast Seeker Information Animal Instant 3# 1 sec. Seeker or Beast Summoning and 2 Seek spells
+Beast-Soother (Druidic, "D"): [PI1]
+    WAS Beast-Soother Regular Animal Perm.# 1 to 3 1 sec. Persuasion or Animal Empathy advantage
+Beast Speech (Druidic, "D"): [PI2]
+    WAS Beast Speech Regular Animal 1 min. 4/2 1 sec. Beast Summoning
+Beast Summoning (Druidic, "D"): [PI3]
+    WAS Beast Summoning Regular Animal 1 min. 3/2# 1 sec. Beast-Soother
+Blackout (Wizardly, "W"): [Darkness]
+    WAS Blackout Area Lt-Dk 1 min. 2/1 1 sec. Darkness
+Bladeturning (Wizardly, "W"): [Shield]
+    WAS Bladeturning Regular/R-Spec Protection 1 min. 2/2 1 sec. Shield or Turn Blade
+Bless (Clerical, "C"): [PI5]
+    WAS Bless Regular Meta-Spell Special Varies min.=cost M2, 2 spells each from 10 colleges#
+Bless (Clerical, "C"): [PI5]
+    WAS Bless Plants Area Plant 1 crop/season 1 5 min. Heal Plant
+Blink (Wizardly, "W"): [M3, IQ 13+, 1 spell from 10 colleges]
+    WAS Blink Blocking Movement/Gate Instant 2 1 sec. Teleport
+Blink Other (Wizardly, "W"): [Blink]
+    WAS Blink Other* Blocking Movement/Gate Instant 2 1 sec. Blink
+Blur (Wizardly, "W"): [Darkness]
+    WAS Blur Regular Lt-Dk 1 min. 1 to 5/S 2 sec. Darkness or Gloom
+Borrow Language (Wizardly, "W*"): [Lend Language]
+    WAS Borrow Language Regular Comm. 1 min. 3/1 3 sec. Lend Language
+Borrow Skill (Wizardly, "W*"): [Lend Skill]
+    WAS Borrow Skill Regular Comm. 1 min. 4/3 3 sec. Lend Skill Page Spell Name Class College Duration Energy Time to cast Prerequisites Prerequisite Count
+Bravery (Clerical, "C"): [PI1] or (Wizardly, "W*"): [Fear]
+    WAS Bravery Area/R-Will-1 Mind 1 hr. 2 1 sec. Fear
+Breathe Water (Clerical, "C"): [PI3] or (Druidic, "D"): [PI3] or (Wizardly, "W"): [Create Air, Destroy Water]
+    WAS Breathe Water Regular Water/Air 1 min. 4/2 1 sec. Create Air, Destroy Water
+Bright Vision (Wizardly, "W"): [Keen Vision or 5 L&D spells]
+    WAS Bright Vision Regular Lt-Dk 1 min. 2/1 1 sec. Keen Vision or 5 Light spells; no Blindness
+Burning Touch (Wizardly, "W"): [M2, 6 Fire spells including Heat]
+    WAS Burning Touch Melee Fire Instant 1 to 3 1 sec. M2, 6 Fire spells inc. Heat
+Charm (Wizardly, "W*"): [M1/BT1, Loyalty, 7 other Mind Control spells]
+    WAS Charm Regular/R-Will Mind 1 min. 6/3 3 sec. M1, Loyalty, 7 other Mind Control spells
+Cleansing (Clerical, "C"): [PI1]
+    WAS Cleansing Regular/R-Spec Healing Perm. Varies 3 sec. Minor Healing, Purify Earth
+Climbing (Wizardly, "W"): [M0]
+    WAS Climbing Regular Body 1 min. 1 to 3/S 1 sec. –
+Clumsiness (Wizardly, "W"): [Spasm]
+    WAS Clumsiness Regular/R-HT Body 1 min. 1 to 5/H 1 sec. Spasm
+Cold (Wizardly, "W"): [Heat]
+    WAS Cold Regular Fire 1 min. Varies 1 min. Heat
+Colors (Wizardly, "W"): [Light]
+    WAS Colors Regular Lt-Dk 1 min. 2/1 1 sec. Light
+Command (Clerical, "C"): [PI2] or (Wizardly, "W*"): [M2/ BT2, Forgetfulness]
+    WAS Command Blocking/R-Will Mind Instant 2 1 sec. M2, Forgetfulness
+Command Spirit (Clerical, "C"): [PI3] or (Wizardly, "W"): [Summon Spirit, Turn Spirit]
+    WAS Command Spirit Regular/R-Will Necro. 1 min. Varies 2 sec. Summon Spirit, Turn Spirit
+Compel Truth (Clerical, "C"): [PI2] or (Wizardly, "W*"): [M2/ BT2, Truthsayer]
+    WAS Compel Truth Inform./R-Will Comm. 5 min. 4/2 1 sec. M2, Truthsayer
+Complex Illusion (Wizardly, "W"): [Simple Illusion, Sound]
+    WAS Complex Illusion Area Illusion 1 min. 2/H 1 sec. Sound, Simple Illusion
+Conceal (Druidic, "D"): [PI3]
+    WAS Conceal Area Plant 1 min. varies# 4 sec. Plant Growth
+Conceal (Druidic, "D"): [PI3]
+    WAS Conceal Magic Regular Meta-Spell 10 hrs. 1 to 5/S# 3 sec. Detect Magic
+Concussion (Wizardly, "W*"): [Shape Air, Thunderclap]
+    WAS Concussion Missile Air/Sound Instant 2 to 2¥Magery# 1 to 3 sec. Shape Air, Thunderclap
+Continual Light (Clerical, "C"): [PI2] or (Wizardly, "W"): [Light]
+    WAS Continual Light Regular Lt-Dk Varies Varies 1 sec. Light
+Control Gate (Wizardly, "W"): [M3, Seek Gate]
+    WAS Control Gate Regular/R-Gate Gate 1 min. 6/3 10 sec. M3, Seek Gate
+Control Illusion (Wizardly, "W"): [Perfect Illusion]
+    WAS Control Illusion Regular/R-spell Illusion Perm. 1 2 sec. Perfect Illusion
+Control Person (Wizardly, "W*"): [Soul Rider or Telepathy]
+    WAS Control Person Regular/R-Will Comm. 1 min. 6/3 10 sec. Soul Rider or Telepathy
+Cook (Wizardly, "W"): [Test Food, Create Fire]
+    WAS Cook Regular Food Instant 1 per meal 5 sec. Test Food, Create Fire
+Coolness (Clerical, "C"): [PI1] or (Druidic, "D"): [PI1] or (Wizardly, "W"): [Cold]
+    WAS Coolness Regular Water/Protection 1 hr. 2/1 10 sec. Cold
+Copy (Wizardly, "W"): [5 M&B spells including Restore, no Illiteracy]
+    WAS Copy Regular Mk-Brk Perm. 2 plus 1/copy 5 sec. Dye, 1 Accented language
+Counterspell (Wizardly, "W"): [M1]
+    WAS Counterspell Regular/R-spell Meta-Spell Instant Varies 5 sec. M1
+Create Air (Wizardly, "W"): [Purify Air]
+    WAS Create Air Area Air 5 sec.# 1 1 sec. Purify Air or Seek Air
+Create Animal (Druidic, "D"): [PI4]
+    WAS Create Animal Regular Illusion 1 min. Varies sec.=cost Create Water, Create Object, IQ 12+
+Create Earth (Wizardly, "W"): [Earth to Stone]
+    WAS Create Earth Regular Earth Perm. 2/25 cu. ft. 1 sec. Earth to Stone
+Create Fire (Wizardly, "W"): [Ignite Fire or Seek Fire]
+    WAS Create Fire Area Fire 1 min. 2/H 1 sec. Ignite Fire or Seek Fire
+Create Food (Clerical, "C"): [PI3] or (Wizardly, "W"): [Cook, Seek Food]
+    WAS Create Food Regular Food Perm. Varies 30 sec. Cook, Seek Food
+Create Plant (Druidic, "D"): [PI3]
+    WAS Create Plant Area Plant Perm. Varies sec.=cost M, Plant Growth
+Create Water (Clerical, "C"): [PI2] or (Wizardly, "W"): [Purify Water]
+    WAS Create Water Regular Water Perm. 2/gal. 1 sec. Purify Water
+Cure Disease (Clerical, "C"): [PI3] or (Druidic, "D"): [PI2]
+    WAS Cure Disease Regular Healing Instant 4 10 min. Major Healing, Relieve Sickness
+Curse (Clerical, "C"): [PI5]
+    WAS Curse Regular Meta-Spell Special Varies Varies M2, 2 spells each from 10 colleges#
+Dark Vision (Wizardly, "W"): [Infravision or Night Vision]
+    WAS Dark Vision Regular Lt-Dk 1 min. 5/2 1 sec. Night Vision or Infravision
+Darkness (Wizardly, "W"): [Continual Light]
+    WAS Darkness Area Lt-Dk 1 min. 2/1 1 sec. Continual Light
+Daze (Wizardly, "W*"): [Foolishness]
+    WAS Daze Regular/R-HT Mind 1 min. 3/2 2 sec. Foolishness
+Death Vision (Wizardly, "W"): [M1]
+    WAS Death Vision Regular Necro. 1 sec. 2 3 sec. M1
+Deathtouch (Wizardly, "W"): [Wither Limb]
+    WAS Deathtouch Melee Body Instant 1 to 3 1 sec. Wither Limb
+Debility (Wizardly, "W"): [M0]
+    WAS Debility Regular/R-HT Body 1 min. 1 per ST-/H 1 sec. –
+Decay (Wizardly, "W"): [Test Food]
+    WAS Decay Regular Food Perm. 1/meal 1 sec. Test Food
+Deflect Energy (Wizardly, "W"): [M1, Shape Fire]
+    WAS Deflect Energy Blocking Fire Instant 1 1 sec. M1, Shape Fire
+Deflect Missile (Wizardly, "W"): [Apportation]
+    WAS Deflect Missile Blocking Movement/Protection Instant 1 1 sec. Apportation
+Dehydrate (Wizardly, "W"): [5 Water spells including Destroy Water]
+    WAS Dehydrate Regular/R-HT Water Perm. 1 to 3 2 sec. 5 Water spells inc. Destroy Water
+Delayed Message (Wizardly, "W*"): [M1/BT1, Sense Life, Voices]
+    WAS Delayed Message Area Sound Indef.# 3# 4 sec. M1, Voices, Sense Life
+Destroy Air (Wizardly, "W"): [Create Air]
+    WAS Destroy Air Area Air Instant 2 1 sec. Create Air
+Destroy Water (Wizardly, "W"): [Create Water]
+    WAS Destroy Water Area Water Perm. 3/S 1 sec. Create Water
+Detect Magic (Clerical, "C"): [PI1] or (Druidic, "D"): [PI1] or (Wizardly, "W*"): [M1/BT1]
+    WAS Detect Magic Regular Knowledge Instant 2 5 sec. M1
+Detect Poison (Clerical, "C"): [PI1] or (Druidic, "D"): [PI1]
+    WAS Detect Poison Area/Information Protection/Healing Instant 2 2 sec. Sense Danger or Test Food
+Dispel Illusion (Wizardly, "W"): [Control Illusion]
+    WAS Dispel Illusion Regular/R-spell Illusion Instant 1 1 sec. Control Illusion
+Dispel Magic (Clerical, "C"): [PI4] or (Druidic, "D"): [PI4] or (Wizardly, "W"): [Counterspell, any 12 other spells]
+    WAS Dispel Magic Area/R-spell Meta-Spell Perm. 3 sec.=cost Counterspell and 12 other spells
+Dispel Possession (Clerical, "C"): [PI3]
+    WAS Dispel Possession Regular/R-spell Comm. Instant 10 10 sec. Soul Rider or Possession#
+Divert Teleport (Wizardly, "W"): [M3, Trace Teleport]
+    WAS Divert Teleport* Blocking/R-spell Gate/Movement Instant Varies 1 sec. M3, Trace Teleport
+Drunkenness (Wizardly, "W*"): [Foolishness, Clumsiness]
+    WAS Drunkenness Regular/R-Will Mind 1 min. Varies 2 sec. Foolishness, Clumsiness
+Dull Sense (Wizardly, "W*"): [M0/BT1]
+    WAS Dull Sense Regular/R-HT Mind 30 min. 1 to 3/H 1 sec. –
+Dullness (Wizardly, "W*"): [2 Dull Sense spells]
+    WAS Dullness* Regular/R-HT Mind 10 min. 2 to 10/H 1 sec. Any two Dull spells
+Earth to Air (Wizardly, "W"): [Create Air, Shape Earth]
+    WAS Earth to Air Regular Air/Earth Perm. 5/25 cu. ft.# 2 sec. Create Air, Shape Earth
+Earth to Stone (Wizardly, "W"): [M1, Shape Earth]
+    WAS Earth to Stone Regular Earth Perm. 3/25 cu. ft.# 1 sec. M1, Shape Earth
+Earth Vision (Druidic, "D"): [PI3] or (Wizardly, "W*"): [Shape Earth]
+    WAS Earth Vision Regular Earth/Know. 30 sec. 2/10 yds.# 1 sec. Shape Earth
+Earthquake (Clerical, "C"): [PI5] or (Druidic, "D"): [PI6]
+    WAS Earthquake Area Earth 1 min. 2/S 30 sec. M2, 6 Earth spells inc. Earth Vision
+Entombment (Druidic, "D"): [PI5] or (Wizardly, "W"): [M2, 5 Earth spells]
+    WAS Entombment Regular/R-HT Earth Perm. 10# 3 sec. M2, 5 Earth spells
+Entrap Spirit (Clerical, "C"): [PI5] or (Wizardly, "W"): [M1, 7 Necromantic spells including Turn Spirit]
+    WAS Entrap Spirit Special Necro. 5 min. Varies 1 sec. M1, Soul Jar, Turn Spirit
+Essential Food (Clerical, "C"): [PI4] or (Wizardly, "W"): [6 Food spells including Create Food]
+    WAS Essential Food* Regular Food Perm. 3/meal# 30 sec. 6 Food spells inc. Create Food
+Ethereal Body (Wizardly, "W"): [M3, 6 Movement spells]
+    WAS Ethereal Body* Regular Movement 10 sec. 8/4 30 sec. 6 Movement spells or M3 and Body of Air
+Explosive Fireball (Wizardly, "W"): [Fireball]
+    WAS Explosive Fireball Missile Fire Instant 2 to 2¥Magery# 1 to 3 sec. Fireball
+Explosive Lightning (Wizardly, "W"): [Lightning]
+    WAS Explosive Lightning Missile Weather/Air Instant 2 to 2¥Magery# 1 to 3 sec. Lightning
+Extinguish Fire (Druidic, "D"): [PI1] or (Wizardly, "W"): [Ignite Fire]
+    WAS Extinguish Fire Regular Fire Perm. 3 1 sec. Ignite Fire
+Far-Feeling (Wizardly, "W*"): [M1/BT1]
+    WAS Far-Feeling Regular Knowledge 1 min. 3/1 3 sec. M1
+Far-Hearing (Wizardly, "W*"): [M1/BT1, 4 Sound spells]
+    WAS Far-Hearing Information Sound/Know. 1 min. 4/2 3 sec. M1, 4 Sound spells, no Deafness or Hard of Hearing
+Far-Tasting (Wizardly, "W*"): [M1, Seek Food]
+    WAS Far-Tasting Regular Food/Knowledge 1 min. 3/1 3 sec. M1, no anosmia, Seek Food or Seek Air
+Fascinate (Wizardly, "W*"): [Daze]
+    WAS Fascinate Regular or Blocking/R-Will Mind Indef.# 4 1 sec. Daze
+Fasten (Wizardly, "W"): [Knot]
+    WAS Fasten Regular/R-DX Mk-Brk Perm. 3# 1 sec. Knot
+Fear (Wizardly, "W*"): [Sense Emotion]
+    WAS Fear Area/R-Will Mind 10 min. 1 1 sec. Sense Emotion or Empathy
+Final Rest (Clerical, "C"): [PI1]
+    WAS Final Rest Regular Healing/Necro. Perm. 20 10 min.# M1 or Spirit Empathy
+Find Direction (Druidic, "D"): [PI1] or (Wizardly, "W*"): [M1/BT1]
+    WAS Find Direction Information Knowledge Instant 2 1 sec. M1
+Find Weakness (Wizardly, "W"): [1 Air, 1 Earth, 1 Fire, 1 Water spell]
+    WAS Find Weakness Information Mk-Brk Instant 1# 2 sec. 1 spell of each four elements
+Fire Cloud (Wizardly, "W"): [Fireball, Shape Air]
+    WAS Fire Cloud Area Fire 10 sec. 1 to 5/S 1 to 5 sec. Shape Air, Fireball
+Fireball (Wizardly, "W"): [M1, Create Fire, Shape Fire]
+    WAS Fireball Missile Fire Instant 1 to Magery# 1 to 3 sec. M1, Create Fire, Shape Fire
+Fireproof (Druidic, "D"): [PI2] or (Wizardly, "W"): [Extinguish Fire]
+    WAS Fireproof Area Fire 1 day 3# 5 min. Extinguish Fire
+Flame Jet (Wizardly, "W"): [Create Fire, Shape Fire]
+    WAS Flame Jet Regular Fire 1 sec. 1 to 3/S 1 sec. Create Fire, Shape Fire
+Flaming Missiles (Wizardly, "W"): [Flaming Weapon]
+    WAS Flaming Missiles Regular Fire 1 min. 4/2# 3 sec. Flaming Weapon
+Flaming Weapon (Clerical, "C"): [PI3] or (Wizardly, "W"): [M2, Heat]
+    WAS Flaming Weapon Regular Fire 1 min. 4/1 2 sec. M2, Heat
+Flesh to Stone (Wizardly, "W"): [Earth to Stone]
+    WAS Flesh to Stone Regular/R-HT Earth Perm. 10# 2 sec. Earth to Stone
+Flight (Wizardly, "W"): [M2, Levitation]
+    WAS Flight* Regular Movement 1 min. 5/3 2 sec. M2, Levitation
+Fog (Druidic, "D"): [PI2]
+    WAS Fog Area Weather/Water 1 min. 2/H 1 sec. Shape Water
+Foolishness (Wizardly, "W*"): [M0/BT1, IQ 12+]
+    WAS Foolishness Regular/R-Will Mind 1 min. 1 per IQ-/H 1 sec. IQ 12+
+Forest Warning (Druidic, "D"): [PI3]
+    WAS Forest Warning Area Plant 10 hrs. 2#/S 1 sec. 4 Plant spells
+Forgetfulness (Wizardly, "W*"): [M1/BT1, Foolishness]
+    WAS Forgetfulness Regular/R-Will Mind 1 hr. 3/3 10 sec. M1, Foolishness or skill
+Frailty (Wizardly, "W"): [Lend Energy]
+    WAS Frailty Regular/R-HT Body 1 min. 2 per HT-/S# 1 sec. Lend Energy
+Freeze (Druidic, "D"): [PI3] or (Wizardly, "W"): [Shape Water]
+    WAS Freeze Regular Water Perm. Varies 10 sec. Shape Water
+Frostbite (Druidic, "D"): [PI4] or (Wizardly, "W"): [Cold, Freeze]
+    WAS Frostbite Regular/R-HT Water Perm. 1 to 3 3 sec. Frost, Freeze
+Garble (Wizardly, "W*"): [Voices]
+    WAS Garble Regular/R-Will Sound 1 min. 4/2 1 sec. Voices
+Geyser (Druidic, "D"): [PI6]
+    WAS Geyser* Area Water 1 sec. 5/2 5 sec. 6 Water spells inc. Create Well and either 4 Earth or Fire spells
+Gift of Letters (Clerical, "C"): [PI4] or (Wizardly, "W*"): [Borrow Language, 3 written languages]
+    WAS Gift of Letters* Regular Comm. 1 min. Varies 1 sec. Borrow Language, 3 languages at Accented
+Gift of Tongues (Clerical, "C"): [PI4] or (Wizardly, "W*"): [Borrow Language, 3 spoken languages]
+    WAS Gift of Tongues* Regular Comm. 1 min. Varies 1 sec. Borrow Language, 3 languages at Accented
+Glass Wall (Wizardly, "W*"): [5 Knowledge spells or Earth Vision]
+    WAS Glass Wall Regular Knowledge 1 min. 4/2 1 sec. 5 Knowledge spells or Earth Vision
+Glow (Clerical, "C"): [PI2] or (Wizardly, "W"): [Continual Light]
+    WAS Glow Area Lt-Dk Varies Varies Varies Continual Light
+Glue (Wizardly, "W"): [Haste]
+    WAS Glue Area Movement 10 min. 3/S 1 sec. Haste
+Grace (Wizardly, "W"): [Clumsiness]
+    WAS Grace Regular Body 1 min. 4 per DX+/S 1 sec. Clumsiness
+Grace (Wizardly, "W"): [Clumsiness]
+    WAS Graceful Weapon Enchantment Enchantment Perm. 150/lb. – Enchant, Apportation
+Grease (Wizardly, "W"): [Haste]
+    WAS Grease Area Movement 10 min. 3/S 1 sec. Haste
+Great Haste (Wizardly, "W"): [M1, IQ 12+, Haste]
+    WAS Great Haste* Regular Movement 10 sec. 5# 3 sec. M1, Haste, IQ 12+
+Great Healing (Clerical, "C"): [PI3]
+    WAS Great Healing Regular Healing Perm. 20 1 min. M3, Major Healing
+Great Voice (Clerical, "C"): [PI2] or (Wizardly, "W*"): [Thunderclap, Voices]
+    WAS Great Voice Regular Sound 1 min. 3/1 2 sec. Voices, Thunderclap
+Great Ward (Wizardly, "W"): [M2, Ward]
+    WAS Great Ward Block/R-spell Meta-Spell Instant 1 per subject# none M2, Ward
+Hail (Druidic, "D"): [PI4]
+    WAS Hail Area Weather/Water 1 min. 1/5/S# 1 sec. Snow
+Haste (Wizardly, "W"): [M0]
+    WAS Haste Regular Movement 1 min. 2/pt./H 2 sec. –
+Hawk Vision (Druidic, "D"): [PI1] or (Wizardly, "W"): [Keen Vision or 5 L&D spells]
+    WAS Hawk Vision Regular Lt-Dk 1 min. 2/lvl./H# 2 sec. Keen Vision or 5 Light spells; no Blindness or Bad Sight
+Healing Slumber (Clerical, "C"): [PI2]
+    WAS Healing Slumber Regular/R-# Healing 8 hrs.# 6 or 10 30 sec. M2, Sleep, Minor Healing
+Heat (Wizardly, "W"): [Create Fire, Shape Fire]
+    WAS Heat Regular Fire 1 min. Varies 1 min. Create Fire, Shape Fire
+Hide (Wizardly, "W"): [Blur or Forgetfulness]
+    WAS Hide Regular Lt-Dk 1 hr. 1 to 5/S 5 sec. Blur or Forgetfulness
+Hide Emotion (Wizardly, "W*"): [Sense Emotion]
+    WAS Hide Emotion Regular Comm. 1 hour 2/2 1 sec. Sense Emotion
+Hide (Wizardly, "W"): [Blur or Forgetfulness]
+    WAS Hide Object Regular Gate 1 hr. 1/lb./S 10 sec. Hideaway, Teleport
+Hide Path (Druidic, "D"): [PI2]
+    WAS Hide Path Regular Plant 1 min. 2/1 1 sec. Heal Plant
+Hide Thoughts (Clerical, "C"): [PI2] or (Wizardly, "W*"): [Truthsayer or Hide Emotion]
+    WAS Hide Thoughts Regular Comm. 10 min. 3/1 1 sec. Truthsayer or Hide Emotion
+Hide (Wizardly, "W"): [Blur or Forgetfulness]
+    WAS Hideaway Enchantment Enchantment Perm. 50# – Enchant, Create Object, Lighten
+Hinder (Wizardly, "W"): [Clumsiness or Haste]
+    WAS Hinder Regular Body/Movement 1 min. 1 to 4/S 1 sec. Haste or Clumsiness
+History (Wizardly, "W*"): [Trace]
+    WAS History Information Knowledge Instant Varies sec.=cost Trace
+Hold Breath (Wizardly, "W"): [M1, Vigor]
+    WAS Hold Breath Regular Body 1 min. 4/2 1 sec. M1, Vigor
+Hush (Wizardly, "W*"): [Silence]
+    WAS Hush Regular/R-Will Sound 10 sec.# 2/1 2 sec. Silence
+Hybrid Control (Druidic, "D"): [PI3]
+    WAS Hybrid Control* Regular/R-Will Animal 1 min. 6/3 1 sec. 2 Control spells#
+Ice Dagger (Wizardly, "W"): [Ice Sphere or Water Jet]
+    WAS Ice Dagger Missile Water Instant 1 to Magery# 1 to 3 sec. Ice Sphere or Water Jet
+Ice Sphere (Wizardly, "W"): [Shape Water]
+    WAS Ice Sphere Missile Water Instant 1 to Magery# 1 to 3 sec. Shape Water
+Icy Missiles (Wizardly, "W"): [Icy Weapon]
+    WAS Icy Missiles Regular Water 1 min. 4/2 3 sec. Icy Weapon
+Icy Weapon (Wizardly, "W"): [Create Water]
+    WAS Icy Weapon Regular Water 1 min. 3/1 3 sec. Create Water
+Identify Plant (Druidic, "D"): [PI1]
+    WAS Identify Plant Information Plant Instant 2 1 sec. Seek Plant
+Identify Spell (Wizardly, "W*"): [Detect Magic]
+    WAS Identify Spell Information Knowledge Instant 2 1 sec. Detect Magic
+Ignite Fire (Wizardly, "W"): [M0]
+    WAS Ignite Fire Regular Fire 1 sec. 1 to 4/S 1 sec. –
+Illusion Disguise (Wizardly, "W"): [Simple Illusion]
+    WAS Illusion Disguise Regular Illusion Varies 3 1 sec. Simple Illusion
+Illusion Shell (Wizardly, "W"): [Simple Illusion]
+    WAS Illusion Shell Regular Illusion 1 min. 1 or 2/H 1 sec. Simple Illusion
+Independence (Wizardly, "W"): [Simple Illusion]
+    WAS Independence Area Illusion Varies 2 Varies Simple Illusion
+Infravision (Wizardly, "W"): [Keen Vision or 5 L&D spells]
+    WAS Infravision Regular Lt-Dk 1 min. 3/1 1 sec. Keen Vision or 5 Light spells
+Initiative (Wizardly, "W"): [Independence, Wisdom]
+    WAS Initiative Area Illusion Indef.# Varies 10 sec. Independence, Wisdom
+Invisibility (Wizardly, "W"): [6 L&D spells including Blur]
+    WAS Invisibility Regular Lt-Dk 1 min. 5/3 3 sec. 6 Light spells inc. Blur
+Iron Arm (Wizardly, "W"): [Resist Pain, DX 11+]
+    WAS Iron Arm Blocking Protection Instant 1 1 sec. Resist Pain, DX 11+
+Itch (Wizardly, "W"): [M0]
+    WAS Itch Regular/R-HT Body Scratch# 2 1 sec. –
+Keen Sense (Wizardly, "W*"): [M0/BT1]
+    WAS Keen Sense Regular Mind 30 min. 1 per +/H# 1 sec. –
+Knot (Wizardly, "W"): [Stiffen]
+    WAS Knot Regular Mk-Brk Indef.# 2 3 sec. Stiffen
+Know Illusion (Wizardly, "W"): [Simple Illusion]
+    WAS Know Illusion Information Illusion Instant 2 1 sec. Simple Illusion
+Know Location (Druidic, "D"): [PI2] or (Wizardly, "W*"): [M1/ BT1, Tell Position]
+    WAS Know Location Information Knowledge Instant 2 10 sec. M1, Tell Position
+Lend Energy (Clerical, "C"): [PI1] or (Wizardly, "W"): [M1]
+    WAS Lend Energy Regular Healing Perm. Varies 1 sec. M1 or Empathy advantage
+Lend Language (Wizardly, "W*"): [3 C&E spells]
+    WAS Lend Language Regular Comm. 1 min. 3/1 3 sec. 3 Communication spells, or Beast Speech
+Lend Skill (Wizardly, "W*"): [Mind-Sending, IQ 11+]
+    WAS Lend Skill Regular Comm. 1 min. 3/2 3 sec. Mind-Sending, IQ 11+
+Lend Vitality (Clerical, "C"): [PI1]
+    WAS Lend Vitality Regular Healing 1 hr. 1 per HP loaned 1 sec. Lend Energy
+Levitation (Wizardly, "W"): [Apportation]
+    WAS Levitation Regular/R-ST or Will Movement 1 min. 1 per 80 lbs./H# 2 sec. Apportation
+Light (Clerical, "C"): [PI1] or (Wizardly, "W"): [M0]
+    WAS Light Regular Lt-Dk 1 min. 1/1 1 sec. –
+Light Jet (Clerical, "C"): [PI2] or (Wizardly, "W"): [Continual Light]
+    WAS Light Jet Regular Lt-Dk 1 min. 2/1 1 sec. Continual Light or Shape Light
+Light Tread (Druidic, "D"): [PI2] or (Wizardly, "W"): [Apportation, Shape Earth]
+    WAS Light Tread Regular Movement 10 min. 4/1# 1 sec. Apportation, Shape Earth
+Light (Clerical, "C"): [PI1] or (Wizardly, "W"): [M0]
+    WAS Lighten Enchantment Enchantment Perm. Varies – Enchant
+Lighten Burden (Wizardly, "W"): [Apportation]
+    WAS Lighten Burden Regular Movement 10 min. 3 or 5/H# 3 sec. Apportation
+Lightning (Druidic, "D"): [PI4] or (Wizardly, "W"): [M1, 6 Air spells]
+    WAS Lightning Missile Weather/Air Instant 1 to Magery# 1 to 3 sec. M1, 6 Air spells
+Lightning (Druidic, "D"): [PI4] or (Wizardly, "W"): [M1, 6 Air spells]
+    WAS Lightning Armor Regular Weather/Air 1 min. 7/4 1 sec. 6 Lightning spells inc. Resist Lightning
+Lightning Missiles (Wizardly, "W"): [Lightning Weapon]
+    WAS Lightning Missiles Regular Weather/Air 1 min. 4/2# 3 sec. Lightning Weapon
+Lightning (Druidic, "D"): [PI4] or (Wizardly, "W"): [M1, 6 Air spells]
+    WAS Lightning Stare* Regular Weather/Air 1 sec. 1 to 4 2 sec. Lightning, Resist Lightning
+Lightning Weapon (Wizardly, "W"): [M2, Lightning]
+    WAS Lightning Weapon Regular Weather/Air 1 min. 4/1 2 sec. M2, Lightning
+Lightning (Druidic, "D"): [PI4] or (Wizardly, "W"): [M1, 6 Air spells]
+    WAS Lightning Whip Regular Weather/Air 10 sec. 1 per 2 yards# 2 sec. Lightning
+Lockmaster (Wizardly, "W"): [Either M2, Apportation or Locksmith]
+    WAS Lockmaster Regular/R-Magelock Movement Perm. 3 10 sec. Locksmith or Apportation and M2
+Locksmith (Wizardly, "W"): [Apportation]
+    WAS Locksmith Regular Movement 1 min. 2/2 1 sec. Apportation
+Loyalty (Wizardly, "W*"): [Bravery, 2 Mind Control spells]
+    WAS Loyalty Regular/R-Will Mind 1 hr. 2/2# 2 sec. Bravery, 2 other Mind Control spells
+Mage Sight (Wizardly, "W*"): [Detect Magic]
+    WAS Mage Sight Regular Knowledge 1 min. 3/2 1 sec. Detect Magic
+Mage-Stealth (Wizardly, "W*"): [Hush]
+    WAS Mage-Stealth Regular Sound 1 min. 3/2 3 sec. Hush
+Magelock (Wizardly, "W"): [M1]
+    WAS Magelock Regular Protection 6 hrs. 3/2 4 sec. M1
+Magic Resistance (Clerical, "C"): [PI3] or (Wizardly, "W"): [M1, 1 spell from 7 different colleges]
+    WAS Magic Resistance Regular/R-Will+M Meta-Spell 1 min. 1 to 5/S# 3 sec. M1, 1 spell each from 7 colleges
+Major Healing (Clerical, "C"): [PI2]
+    WAS Major Healing* Regular Healing Perm. 1 to 4 1 sec. M1, Minor Healing
+Manipulate (Wizardly, "W"): [Locksmith]
+    WAS Manipulate Regular Movement 1 min. 4/3# 3 sec. Locksmith
+Mapmaker (Wizardly, "W"): [Copy, Measurement]
+    WAS Mapmaker Special Mk-Brk 1 hr. 4/2 10 sec. Inscribe, Measurement
+Mass Daze (Wizardly, "W*"): [Daze, IQ 13+]
+    WAS Mass Daze Area/R-HT Mind Instant 2/1# sec.=cost Daze, IQ 13+
+Mass Sleep (Wizardly, "W*"): [Sleep, IQ 13+]
+    WAS Mass Sleep Area/R-HT Mind Instant 3# sec.=cost Sleep, IQ 13+
+Master (Druidic, "D"): [PI1]
+    WAS Master Reg./Block./R-IQ Animal Indef. 2 1 sec. Beast-Soother
+Measurement (Wizardly, "W*"): [M0/BT1]
+    WAS Measurement Area/Inform. Knowledge Instant 1 1 sec. –
+Message (Wizardly, "W*"): [Great Voice, Seeker]
+    WAS Message Regular/R-spell Sound/Comm. Varies 1/15 sec. Varies Great Voice, Seeker
+Might (Clerical, "C"): [PI1] or (Wizardly, "W"): [Lend Energy]
+    WAS Might Regular Body 1 min. 2 per ST+/S 1 sec. Lend Energy
+Mind-Reading (Wizardly, "W*"): [Truthsayer or Borrow Language]
+    WAS Mind-Reading Regular/R-Will Comm. 1 min. 4/2 10 sec. Truthsayer or Borrow Language
+Mind-Search (Wizardly, "W*"): [Mind-Reading]
+    WAS Mind-Search* Regular/R-Will Comm. 1 min. 6/3 1 min. Mind-Reading
+Mind-Sending (Wizardly, "W*"): [Mind-Reading]
+    WAS Mind-Sending Regular Comm. 1 min. 4/4 4 sec. Mind-Reading
+Minor Healing (Clerical, "C"): [PI1]
+    WAS Minor Healing Regular Healing Perm. 1 to 3 1 sec. Lend Vitality
+Mirror (Wizardly, "W"): [Colors]
+    WAS Mirror Regular Lt-Dk 1 min. 2/2 1 sec. Colors
+Missile Shield (Wizardly, "W"): [Apportation or Shield]
+    WAS Missile Shield Regular Protection 1 min. 5/2 1 sec. Apportation or Shield
+Monk’s Banquet (Clerical, "C"): [PI4]
+    WAS Monk’s Banquet Regular Food 24 hrs. 6 1 sec. Fool’s Banquet, Resist Pain
+Mystic Mist (Druidic, "D"): [PI2] or (Wizardly, "W"): [M1, Watchdog or Shield]
+    WAS Mystic Mist Area Protection 10 hrs. 1/S 5 min. M1 and Watchdog or Shield
+Nauseate (Wizardly, "W"): [5 Body Control spells]
+    WAS Nauseate Regular/R-HT Body 10 sec. 2/S 1 sec. 2 Body spells inc. Perfume
+Neutralize Poison (Clerical, "C"): [PI3] or (Druidic, "D"): [PI2]
+    WAS Neutralize Poison Regular Healing Perm. 5 30 sec. Cure Disease or M3 and Test Food
+Night Vision (Wizardly, "W"): [Keen Vision or 5 L&D spells]
+    WAS Night Vision Regular Lt-Dk 1 min. 3/1 1 sec. Keen Vision or 5 Light spells
+Nightingale (Wizardly, "W"): [Sense Danger]
+    WAS Nightingale Area Protection 10 hrs. 2/2 1 sec. Sense Danger
+No-Smell (Druidic, "D"): [PI1] or (Wizardly, "W"): [Purify Air]
+    WAS No-Smell Regular Air 1 hr. 2/2 1 sec. Purify Air
+Noise (Wizardly, "W*"): [Wall of Silence]
+    WAS Noise Area Sound 5 sec. 4/2 1 sec. Wall of Silence
+Pain (Wizardly, "W"): [Spasm]
+    WAS Pain Regular/R-HT Body 1 sec. 2 2 sec. Spasm
+Panic (Wizardly, "W*"): [Fear]
+    WAS Panic Area/R-Will Mind 1 min. 4/2 1 sec. Fear
+Paralyze Limb (Wizardly, "W"): [M1, 5 Body Control spells including Clumsiness]
+    WAS Paralyze Limb Melee/R-HT Body 1 min. 3 1 sec. M1, 5 Body Control spell inc. Clumsiness
+Pathfinder (Druidic, "D"): [PI2] or (Wizardly, "W*"): [M1/ BT1, IQ 12+, 2 “Seek” spells]
+    WAS Pathfinder Information Knowledge Instant 4 10 sec. M1, IQ 12+, 2 Seek spells
+Pentagram (Clerical, "C"): [PI5] or (Wizardly, "W"): [Spell Shield]
+    WAS Pentagram Special Meta-Spell Perm. 1/sq. ft.# 1/sq. ft.# Spell Shield
+Perfect Illusion (Wizardly, "W"): [M1, Complex Illusion]
+    WAS Perfect Illusion Area Illusion 1 min. 3/H# 1 sec. M1, Complex Illusion
+Persuasion (Clerical, "C"): [PI2] or (Wizardly, "W*"): [Sense Emotion]
+    WAS Persuasion Regular/R-Will Comm. 1 min. 2¥bonus# 1 sec. Sense Emotion
+Phantom (Wizardly, "W"): [M2, Apportation, Hinder, Perfect Illusion]
+    WAS Phantom* Area Illusion 1 min. 5/H# 1 sec. M2, Perfect Illusion, Hinder, Apportation
+Phantom (Wizardly, "W"): [M2, Apportation, Hinder, Perfect Illusion]
+    WAS Phantom Flame Area Fire/Illusion 1 min. 1/S 1 sec. Shape Fire or Simple Illusion
+Phase (Wizardly, "W"): [M3, Ethereal Body]
+    WAS Phase Blocking Gate Instant 3 1 sec. M3, Plane Shift or Ethereal Body
+Phase Other (Wizardly, "W"): [Phase]
+    WAS Phase Other* Blocking Gate Instant 3 1 sec. Phase
+Plant Control (Druidic, "D"): [PI3]
+    WAS Plant Control Regular/R-Will Plant 1 min. 3/H 1 sec. Plant Sense
+Plant Sense (Druidic, "D"): [PI3]
+    WAS Plant Sense Regular/R-Hide Path Plant 1 min. 3/2 1 sec. Forest Warning, Hide Path
+Plant Speech (Druidic, "D"): [PI3]
+    WAS Plant Speech Regular Plant 1 min. 3/2 1 sec. M1, Plant Sense
+Plant Vision (Druidic, "D"): [PI2]
+    WAS Plant Vision Regular Plant/Knowledge 30 sec. 1/10 yds. 1 sec. Shape Plant
+Poison Food (Wizardly, "W"): [Purify Food]
+    WAS Poison Food Regular Food Perm. 3 per meal 1 sec. Purify Food, Decay
+Pollen Cloud (Druidic, "D"): [PI2]
+    WAS Pollen Cloud Area/R-HT Plant 5 min.# 1 1 sec. Shape Plant
+Prepare Game (Wizardly, "W"): [Purify Food]
+    WAS Prepare Game Regular Food Perm. 2 10 sec. Purify Food
+Projection (Wizardly, "W*"): [Sense Spirit, 4 Knowledge spells]
+    WAS Projection Regular Knowledge 1 min. 4/2 3 sec. Sense Spirit, 4 Knowledge spells
+Protect Animal (Druidic, "D"): [PI3]
+    WAS Protect Animal Area Animal/Protection 1 min. 1/S 1 min. Armor, Watchdog, 3 Animal spells
+Purify Air (Clerical, "C"): [PI1] or (Druidic, "D"): [PI1] or (Wizardly, "W"): [M0]
+    WAS Purify Air Area Air Instant 1 1 sec. –
+Purify Earth (Druidic, "D"): [PI1] or (Wizardly, "W"): [6 Earth spells including Create Earth]
+    WAS Purify Earth Area Earth/Plant Perm. 2# 30 sec. Create Earth, Plant Growth
+Purify Food (Clerical, "C"): [PI2] or (Druidic, "D"): [PI2] or (Wizardly, "W"): [Decay]
+    WAS Purify Food Regular Food Perm. 1 per lb. 1 sec. Decay
+Purify Water (Clerical, "C"): [PI1] or (Druidic, "D"): [PI1] or (Wizardly, "W"): [Seek Water]
+    WAS Purify Water Special Water Perm. 1/gal. 5-10 sec./gal.# Seek Water
+Quick March (Druidic, "D"): [PI1] or (Wizardly, "W"): [M1, Haste]
+    WAS Quick March Regular Movement 1 day’s march 4# 1 min. M1, Haste
+Recover Energy (Clerical, "C"): [PI1] or (Druidic, "D"): [PI1] or (Wizardly, "W"): [M1, Lend Energy]
+    WAS Recover Energy Special Healing Special none Special M1, Lend Energy
+Reflect (Wizardly, "W"): [Ward]
+    WAS Reflect Block/R-spell Meta-Spell Instant 4 or 6# none Ward
+Reflect Gaze (Wizardly, "W"): [Mirror]
+    WAS Reflect Gaze* Blocking/R-Spec Protection Instant 2 1 sec. Mirror
+Reflexes (Wizardly, "W"): [Grace, Haste]
+    WAS Reflexes Regular Body 1 min. 5/3 1 sec. Grace, Haste
+Regeneration (Clerical, "C"): [PI4]
+    WAS Regeneration* Regular Healing Perm. 20 Special# Magery 2, Restoration
+Rejoin (Wizardly, "W"): [Weaken, Restore]
+    WAS Rejoin Regular Mk-Brk 10 min. 1 per 10 lbs./H 4 sec./10 lbs. Weaken, Restore
+Relieve Paralysis (Clerical, "C"): [PI3]
+    WAS Relieve Paralysis Regular Healing 1 min. Varies 10 sec. Stop Paralysis
+Relieve Sickness (Clerical, "C"): [PI2]
+    WAS Relieve Sickness Regular/R-spell Healing 10 min. 2 10 sec. Lend Vitality
+Remember Path (Druidic, "D"): [PI3]
+    WAS Remember Path Regular Knowledge 1 hr. 3/1 10 sec. Find Direction, Memorize
+Remove Curse (Clerical, "C"): [PI5]
+    WAS Remove Curse Regular/R-spell Meta-Spell Instant 20 1 hr. M2, Suspend Curse or 1 spell each from 15 colleges
+Repair (Wizardly, "W"): [M2, Rejoin]
+    WAS Repair Regular Mk-Brk Perm. 2/5 lbs.# 1 sec./lb. M2, Rejoin
+Repel Animal (Druidic, "D"): [PI2]
+    WAS Repel Animal Area/R-HT Animal 1 hour Varies 10 sec. 1 Control spell#
+Repel Hybrids (Druidic, "D"): [PI3]
+    WAS Repel Hybrids* Area/R-HT Animal 1 hour 6/3 10 sec. Hybrid Control
+Repel Spirits (Clerical, "C"): [PI3] or (Wizardly, "W"): [Banish, Turn Spirit]
+    WAS Repel Spirits Area/R-Will Necro. 1 hr. 4/H 10 sec. Banish, Turn Spirit
+Resist Acid (Clerical, "C"): [PI2]
+    WAS Resist Acid Regular Water/Protection 1 min. 2/H# 1 sec. Create Acid
+Resist Cold (Clerical, "C"): [PI2] or (Druidic, "D"): [PI3] or (Wizardly, "W"): [Heat]
+    WAS Resist Cold Regular Fire 1 min. 2/1 1 sec. Heat
+Resist Disease (Clerical, "C"): [PI2]
+    WAS Resist Disease Regular Healing/Protection 1 hour 4/3 10 sec. Remove Contagion or Vigor
+Resist Fire (Clerical, "C"): [PI2] or (Wizardly, "W"): [Fireproof]
+    WAS Resist Fire Regular Fire 1 min. 2/1# 1 sec. Fireproof
+Resist Lightning (Clerical, "C"): [PI2] or (Druidic, "D"): [PI3] or (Wizardly, "W"): [6 Air spells]
+    WAS Resist Lightning Regular Weather/Air/Protection 1 min. 2/1 1 sec. 6 Air spells
+Resist Pain (Clerical, "C"): [PI2] or (Wizardly, "W"): [M2, Pain]
+    WAS Resist Pain Regular Body 1 min. 4/2 1 sec. M2, Pain
+Resist Poison (Clerical, "C"): [PI2]
+    WAS Resist Poison Regular Healing/Protection 1 hr. 4/3 10 sec. Vigor 169 Resist Pressure Regular Protection 1 min. Varies 1 sec. Weather Dome
+Resist Sound (Wizardly, "W*"): [4 Sound spells]
+    WAS Resist Sound Regular Sound/Protection 1 min. 2/1 1 sec. 4 Sound spells
+Resist Water (Wizardly, "W"): [Umbrella, or Shape Water, Destroy Water]
+    WAS Resist Water Regular Water/Protection 1 min. 2/1 1 sec. Umbrella, or Shape Water and Destroy Water
+Restoration (Clerical, "C"): [PI3]
+    WAS Restoration* Regular Healing Perm. 15 1 min.# Major Healing, or any 2 of Relieve Paralysis and the
+Restore (Wizardly, "W"): [Find Weakness or Simple Illusion]
+    WAS Restore Regular Mk-Brk 10 min. 2/1 3 sec. Find Weakness or Simple Illusion
+Restore Hearing (Clerical, "C"): [PI2]
+    WAS Restore Hearing Regular Healing 1 hr. Varies 5 sec. Minor Healing, Keen Hearing or Strike Deaf
+Restore (Wizardly, "W"): [Find Weakness or Simple Illusion]
+    WAS Restore Mana* Area Meta-Spell Perm. 10 1 hr. Dispel Magic, Suspend Mana
+Restore Memory (Clerical, "C"): [PI2]
+    WAS Restore Memory Regular Healing Perm. 3 10 sec. Awaken, IQ 11+
+Restore Sight (Clerical, "C"): [PI2]
+    WAS Restore Sight Regular Healing 1 hr. Varies 5 sec. Minor Healing, Keen Vision or Strike Blind
+Restore Speech (Clerical, "C"): [PI2]
+    WAS Restore Speech Regular Healing 1 hr. 5/3 5 sec. Minor Healing, Great Voice or Strike Dumb
+Retch (Wizardly, "W"): [Nauseate, Spasm]
+    WAS Retch Regular/R-HT Body Instant 3 4 sec. Nauseate, Spasm
+Rider (Druidic, "D"): [PI2]
+    WAS Rider Regular Animal 5 min. 2/1 1 sec. 1 Control spell#
+Rider Within (Druidic, "D"): [PI2]
+    WAS Rider Within Regular Animal 1 min. 4/1 3 sec. 2 Control spells#
+Rive (Wizardly, "W"): [M2, Shatter]
+    WAS Rive* Regular Mk-Brk Instant 1 per die 1 sec. M2, Shatter
+Rooted Feet (Wizardly, "W"): [Hinder]
+    WAS Rooted Feet Regular/R-ST Body 1 min.# 3 1 sec. Hinder
+Roundabout (Wizardly, "W"): [Tanglefoot]
+    WAS Roundabout Regular/R-HT Body Instant 3 1 sec. Tanglefoot
+Sanctuary (Clerical, "C"): [PI6]
+    WAS Sanctuary* Special Gate 1 hr. 5/S 10 sec. Hide Object
+Sandstorm (Druidic, "D"): [PI4] or (Wizardly, "W"): [Create Earth, Windstorm]
+    WAS Sandstorm Area Air/Earth 1 minute# 3/H Instant# Windstorm, Create Earth
+Scry Gate (Wizardly, "W"): [Seek Gate]
+    WAS Scry Gate Regular Gate 1 min. 4/4 10 sec. Seek Gate
+Scryguard (Wizardly, "W"): [M1]
+    WAS Scryguard Regular Meta-Spell 10 hrs. 3/1 5 sec. M1
+See Invisible (Wizardly, "W"): [Invisibility, or Dark Vision, Infravision]
+    WAS See Invisible Regular Lt-Dk 1 min. 4/2 1 sec. Invisibility, or Dark Vision and Infravision
+See Secrets (Clerical, "C"): [PI3] or (Wizardly, "W*"): [Seeker, Aura]
+    WAS See Secrets Regular Knowledge 1 min. 5/2 5 sec. Seeker, Aura
+Seek Earth (Druidic, "D"): [PI1] or (Wizardly, "W"): [M0]
+    WAS Seek Earth Information Earth Instant 3 10 sec. –
+Seek Fire (Wizardly, "W"): [M0]
+    WAS Seek Fire Information Fire Instant 1 1 sec. –
+Seek Food (Druidic, "D"): [PI1] or (Wizardly, "W"): [M0]
+    WAS Seek Food Information Food Instant 2 1 sec. –
+Seek Gate (Wizardly, "W"): [M2, Seek Magic, 1 spell from 10 colleges]
+    WAS Seek Gate Information Gate Instant 3 10 sec. M2, Seek Magic, 1 spell each from 10 colleges
+Seek Magic (Wizardly, "W*"): [Detect Magic]
+    WAS Seek Magic Information Knowledge/Meta-Spell Instant 6 10 sec. Detect Magic
+Seek Plant (Druidic, "D"): [PI1]
+    WAS Seek Plant Information Plant Instant 2 1 sec. –
+Seek Water (Druidic, "D"): [PI1] or (Wizardly, "W"): [M0]
+    WAS Seek Water Information Water Instant 2 1 sec. –
+Seeker (Clerical, "C"): [PI2] or (Wizardly, "W*"): [M1/ BT1, IQ 12+, 2 “Seek” spells]
+    WAS Seeker Information Knowledge Instant 3 1 sec. M1, IQ 12+, 2 Seek spells
+Sense Danger (Wizardly, "W"): [Sense Foes]
+    WAS Sense Danger Information Protection Instant 3 1 sec. Sense Foes or Danger Sense
+Sense Emotion (Wizardly, "W*"): [Sense Foes]
+    WAS Sense Emotion Regular Comm. Instant 2 1 sec. Sense Foes
+Sense Foes (Wizardly, "W*"): [M0/BT1]
+    WAS Sense Foes Inform./Area Comm. Instant 2# 1 sec. –
+Sense Life (Clerical, "C"): [PI1] or (Druidic, "D"): [PI1] or (Wizardly, "W*"): [M0/BT1]
+    WAS Sense Life Inform./Area Comm. Instant 1# 1 sec. –
+Sense Spirit (Clerical, "C"): [PI1] or (Wizardly, "W"): [Death Vision, or M1, Sense Life]
+    WAS Sense Spirit Inform./Area Necro. Instant 1# 1 sec. Death Vision, or Sense Life and M1
+Sensitize (Wizardly, "W"): [M1, Stun]
+    WAS Sensitize Regular/R-HT Body 1 min. 3/2 1 sec. M1, Stun
+Shape Air (Druidic, "D"): [PI2] or (Wizardly, "W"): [Create Air]
+    WAS Shape Air Regular Air 1 min. 1 to 10# 1 sec. Create Air
+Shape Earth (Druidic, "D"): [PI2] or (Wizardly, "W"): [Seek Earth]
+    WAS Shape Earth Regular Earth 1 min. 1/25 cu. ft./h 1 sec. Seek Earth
+Shape Fire (Wizardly, "W"): [Ignite Fire]
+    WAS Shape Fire Area Fire 1 min. 2/H 1 sec. Ignite Fire
+Shape Plant (Druidic, "D"): [PI2]
+    WAS Shape Plant Regular Plant 1 min. 3/1# 10 sec. Identify Plant
+Shape Water (Druidic, "D"): [PI2] or (Wizardly, "W"): [Create Water]
+    WAS Shape Water Regular Water 1 min. 1/1# 2 sec. Create Water
+Share Energy (Clerical, "C"): [PI1] or (Druidic, "D"): [PI1] or (Wizardly, "W"): [Lend Energy]
+    WAS Share Energy Regular Healing Special Varies 1 sec. Lend Energy
+Share Vitality (Clerical, "C"): [PI1]
+    WAS Share Vitality Regular Healing Perm. 0# 1 sec./HP Lend Vitality
+Sharpen (Wizardly, "W"): [Repair]
+    WAS Sharpen Regular Mk-Brk 1 min. Varies 4 sec. Repair
+Shatter (Wizardly, "W"): [M1, Weaken]
+    WAS Shatter* Regular Mk-Brk Instant 1 to 3 1 sec. M1, Weaken
+Shatterproof (Wizardly, "W"): [Repair, Shatter]
+    WAS Shatterproof Regular Mk-Brk 1 hr. 3/3 1 sec. Repair, Shatter
+Shield (Clerical, "C"): [PI1] or (Wizardly, "W"): [M2]
+    WAS Shield Regular Protection 1 min. Varies 1 sec. M2
+Shocking Touch (Wizardly, "W"): [Lightning]
+    WAS Shocking Touch Melee Weather/Air Instant 1 to 3 1 sec. Lightning
+Sickness (Wizardly, "W*"): [Drunkenness]
+    WAS Sickness Regular/R-HT Mind/Body 1 min. 3/3 4 sec. Drunkenness or Pestilence
+Silence (Clerical, "C"): [PI1] or (Wizardly, "W*"): [Sound]
+    WAS Silence Area Sound 1 min. 2/1 1 sec. Sound
+Silver Tongue (Clerical, "C"): [PI3] or (Wizardly, "W*"): [Voices, 5 Mind Control spells]
+    WAS Silver Tongue Regular Sound 1 min. 3/2 1 sec. Voices, Emotion Control
+Simple Illusion (Wizardly, "W"): [M0, IQ 11+, no Blindness]
+    WAS Simple Illusion Area Illusion 1 min. 1/H 1 sec. not blind, IQ 11+
+Sleep (Wizardly, "W*"): [Daze]
+    WAS Sleep Regular/R-HT Mind Instant 4 3 sec. Daze
+Slow (Wizardly, "W"): [M1, Haste, Hinder]
+    WAS Slow Regular/R-HT Movement 10 sec. 5/4 3 sec. M1, Haste, Hinder
+Slow Fall (Wizardly, "W"): [Apportation]
+    WAS Slow Fall Regular Movement 1 min. 1 per 50 lbs./H 1 sec. Apportation
+Slow (Wizardly, "W"): [M1, Haste, Hinder]
+    WAS Slow Fire Regular Fire 1 min. Varies 1 sec. Extinguish Fire
+Slow (Wizardly, "W"): [M1, Haste, Hinder]
+    WAS Slow Healing Regular/R-HT Necro. 1 day 1 to 5/S 10 sec. M1, Frailty, Steal Vitality
+Slow (Wizardly, "W"): [M1, Haste, Hinder]
+    WAS Slow Time* Area/R-Spec. Gate 1 min. Varies 2 sec. M2, IQ 13+, 2 spells each from 10 colleges
+Smoke (Wizardly, "W"): [Shape Fire, Extinguish Fire]
+    WAS Smoke Area Fire 5 min.# 1/H 1 sec. Shape Fire, Extinguish Fire
+Soul Rider (Wizardly, "W*"): [Mind-Reading]
+    WAS Soul Rider Regular/R-Will Comm. 1 min. 5/2 3 sec. Mind-Reading
+Sound (Wizardly, "W*"): [M0/BT1]
+    WAS Sound Regular Sound Varies Varies 1 sec. –
+Sound Jet (Wizardly, "W*"): [Great Voice]
+    WAS Sound Jet Regular Sound 1 sec. 1 to 4/S 1 sec. Great Voice
+Sound (Wizardly, "W*"): [M0/BT1]
+    WAS Sound Vision Regular Sound 1 min. 5/2 1 sec. Keen Hearing or Acute Hearing
+Spark Cloud (Wizardly, "W"): [Lightning, Shape Air]
+    WAS Spark Cloud Area Weather/Air 10 sec. 1 to 5/S 1 to 5 sec. Shape Air, Lightning
+Spark Storm (Druidic, "D"): [PI5] or (Wizardly, "W"): [Lightning, Windstorm]
+    WAS Spark Storm Area Weather/Air 1 min.# 2, 4, or 6/H Instant# Windstorm, Lightning
+Spasm (Wizardly, "W"): [Itch]
+    WAS Spasm Regular/R-HT Body Instant 2 1 sec. Itch
+Spell Shield (Wizardly, "W"): [M2, Magic Resistance, Scryguard]
+    WAS Spell Shield Area Meta-Spell 1 min. 3/2 1 sec. M2, Scryguard, Magic Resistance
+Steelwraith (Wizardly, "W"): [M2, Walk Through Earth]
+    WAS Steelwraith Regular/R-HT Earth 1 min. 7/4 2 sec. M2, Walk Through Earth
+Stench (Wizardly, "W"): [Purify Air]
+    WAS Stench Area Air 5 min. 1 1 sec. Purify Air
+Stiffen (Wizardly, "W"): [Rejoin]
+    WAS Stiffen Regular/R-Spec. Mk-Brk 10 min. 1 per lb./H# 2 sec./lb. Rejoin
+Stone Missile (Wizardly, "W"): [Create Earth]
+    WAS Stone Missile Missile Earth Instant 1 to Magery 1 to 3 sec. Create Earth
+Stone to Earth (Wizardly, "W"): [Earth to Stone or 4 Earth spells]
+    WAS Stone to Earth Regular Earth Perm. 6/25 cu. ft. 1 sec. Earth to Stone or any 4 Earth spells
+Stone to Flesh (Clerical, "C"): [PI3] or (Wizardly, "W"): [M2, Flesh to Stone, Stone to Earth]
+    WAS Stone to Flesh Regular Earth Perm. 10 5 sec. M2, Stone to Earth, Flesh to Stone
+Stop Bleeding (Clerical, "C"): [PI1]
+    WAS Stop Bleeding Regular Healing Perm. 1 or 10 1 sec. Lend Vitality
+Stop Paralysis (Clerical, "C"): [PI3]
+    WAS Stop Paralysis Regular Healing Perm. 1 or 2 1 sec. Major Healing, or Minor Healing and Paralyze Limb
+Stop Spasm (Clerical, "C"): [PI2]
+    WAS Stop Spasm Regular Body/Healing Instant 1 1 sec. Spasm or Lend Vitality
+Strengthen Will (Clerical, "C"): [PI3] or (Wizardly, "W*"): [M1/ BT1, 6 Mind Control spells]
+    WAS Strengthen Will Regular Mind 1 min. 1/pt/H 1 sec. M1, 6 Mind spells
+Strike Blind (Wizardly, "W"): [Spasm, 2 L&D spells]
+    WAS Strike Blind Regular/R-HT Body 10 sec. 4/2 1 sec. 2 Light spells, Spasm
+Strike Deaf (Wizardly, "W"): [Spasm, 2 Sound spells]
+    WAS Strike Deaf Regular/R-HT Body 10 sec. 3/1 1 sec. 2 Sound spells, Spasm
+Strike Dumb (Wizardly, "W"): [Spasm]
+    WAS Strike Dumb Regular/R-HT Body 10 sec. 3/1 1 sec. Spasm
+Stun (Wizardly, "W"): [Pain]
+    WAS Stun Regular/R-HT Body Instant 2 1 sec. Pain
+Summon Spirit (Clerical, "C"): [PI2] or (Wizardly, "W"): [M2, Death Vision]
+    WAS Summon Spirit Inform./R-Will Necro. 1 min. 20/10# 5 min. Death Vision, M2
+Sunbolt (Clerical, "C"): [PI3] or (Wizardly, "W"): [6 L&D spells including Sunlight]
+    WAS Sunbolt Missile Lt-Dk Instant 1 to Magery# 1 to 3 sec. 6 Light spells inc. Sunlight
+Sunlight (Clerical, "C"): [PI3] or (Druidic, "D"): [PI3] or (Wizardly, "W"): [M1, Colors, Glow]
+    WAS Sunlight Area Lt-Dk 1 min. 2/1 1 sec. M1, Glow, Colors
+Suspended Animation (Clerical, "C"): [PI3]
+    WAS Suspended Animation Regular/R-HT Healing Indef.# 6 30 sec. Sleep, 4 Healing spells
+Swim (Druidic, "D"): [PI3] or (Wizardly, "W"): [Levitation, Shape Water]
+    WAS Swim Regular Water/Move 1 min. 6/3 3 sec. Shape Water, Levitation
+Tangle Growth (Druidic, "D"): [PI3]
+    WAS Tangle Growth Area Plant 1 min. 1 or 2#/H 2 sec. Plant Growth
+Tanglefoot (Wizardly, "W"): [Clumsiness]
+    WAS Tanglefoot Regular/R-DX Body Instant 2 1 sec. Clumsiness
+Telepathy (Wizardly, "W*"): [Mind-Sending]
+    WAS Telepathy* Regular Comm. 1 min. 4/4# 4 sec. Mind-Sending
+Teleport Shield (Wizardly, "W"): [Spell Shield, Watchdog]
+    WAS Teleport Shield Area Protection/Gate 1 hr. 1/S# 10 sec. Watchdog, either Spell Shield or Teleport
+Tell Position (Druidic, "D"): [PI1] or (Wizardly, "W*"): [Measurement]
+    WAS Tell Position Information Knowledge Instant 1 1 sec. Measurement
+Terror (Wizardly, "W*"): [Fear]
+    WAS Terror Area/R-Will Mind Instant 4 1 sec. Fear
+Test Food (Clerical, "C"): [PI1] or (Wizardly, "W"): [M0]
+    WAS Test Food Information Food Instant 1 to 3# 1 sec. –
+Test Load (Wizardly, "W*"): [Measurement]
+    WAS Test Load Area/Inform. Knowledge Instant 2# 1 sec. Measurement
+Thunderclap (Clerical, "C"): [PI1] or (Druidic, "D"): [PI1] or (Wizardly, "W*"): [Sound]
+    WAS Thunderclap Regular Sound Instant 2 1 sec. Sound
+Tickle (Wizardly, "W"): [Spasm]
+    WAS Tickle Regular/R-Will Body 1 min. 5/5 1 sec. Spasm
+Total Paralysis (Wizardly, "W"): [Paralyze Limb]
+    WAS Total Paralysis Melee/R-HT Body 1 min. 5 1 sec. Paralyze Limb
+Trace (Wizardly, "W*"): [Seeker]
+    WAS Trace Regular Knowledge 1 hr. 3/1 1 min. Seeker
+Trace Teleport (Wizardly, "W"): [M2, IQ 13+, 1 spell from 10 colleges]
+    WAS Trace Teleport Information/R-spell Gate/Movement Instant 3 1 sec. Teleport, Timeport, or Plane Shift
+Truthsayer (Clerical, "C"): [PI2] or (Wizardly, "W*"): [Sense Emotion]
+    WAS Truthsayer Inform./R-Will Comm. Instant 2 1 sec. Sense Emotion
+Turn Spirit (Clerical, "C"): [PI2] or (Wizardly, "W"): [Fear, Sense Spirit]
+    WAS Turn Spirit Regular/R-Will Necro. 10 sec. 4/2# 1 sec. Fear, Sense Spirit
+Turn Zombie (Clerical, "C"): [PI2]
+    WAS Turn Zombie Area Necro. 1 day 2 4 sec. Zombie#
+Umbrella (Clerical, "C"): [PI1] or (Druidic, "D"): [PI1] or (Wizardly, "W"): [Shape Water or Shield]
+    WAS Umbrella Regular Water/Protection 10 min. 1/1 2 sec. Shape Water or Shield
+Undo (Wizardly, "W"): [Locksmith]
+    WAS Undo Regular/R-Spec. Movement Instant 3 or 6# 1 sec. Locksmith
+Vigil (Clerical, "C"): [PI4]
+    WAS Vigil* Regular Mind 1 night 8 1 sec. M2, Sleep, Lend Energy
+Vigor (Clerical, "C"): [PI1] or (Wizardly, "W"): [Frailty or Might]
+    WAS Vigor Regular Body 1 min. 2 per HT+/S# 1 sec. Lend Vitality or Frailty
+Voices (Wizardly, "W*"): [Sound]
+    WAS Voices Regular Sound 1 min. 3/2 1 sec. Sound
+Walk on Air (Wizardly, "W"): [Shape Air]
+    WAS Walk on Air Regular Air 1 min. 3/2 1 sec. Shape Air
+Walk on Water (Wizardly, "W"): [Shape Water]
+    WAS Walk on Water Regular Water 1 min. 3/2 4 sec. Shape Water
+Walk Through Earth (Wizardly, "W"): [4 Earth spells]
+    WAS Walk Through Earth Regular Earth 10 sec. 3/3# 1 sec. 4 Earth spells
+Walk Through Plants (Druidic, "D"): [PI3]
+    WAS Walk Through Plants Regular Plant 1 min. 3/1 1 sec. Hide Path, Shape Plant
+Walk Through Wood (Druidic, "D"): [PI3]
+    WAS Walk Through Wood Regular Plant 1 sec. 3/2 1 sec. Walk Through Plants
+Wall of Lightning (Wizardly, "W"): [Lightning]
+    WAS Wall of Lightning Regular Weather/Air 1 min. 2 to 6/S 1 sec. Lightning
+Wall of Silence (Wizardly, "W*"): [Silence]
+    WAS Wall of Silence Area Sound 1 min. 2/1 1 sec. Silence
+Wallwalker (Wizardly, "W"): [Apportation]
+    WAS Wallwalker Regular Movement 1 min. 1 per 50 lbs./H# 1 sec. Apportation
+Ward (Wizardly, "W"): [M1]
+    WAS Ward Block/R-spell Meta-Spell Instant 2 or 3# none M1
+Warmth (Clerical, "C"): [PI1] or (Druidic, "D"): [PI1] or (Wizardly, "W"): [Heat]
+    WAS Warmth Regular Fire/Protection 1 hour 2/1 10 sec. Heat
+Watchdog (Clerical, "C"): [PI1] or (Wizardly, "W"): [Sense Danger]
+    WAS Watchdog Area Protection 10 hrs. 1/1 10 sec. Sense Danger
+Water Jet (Wizardly, "W"): [Shape Water]
+    WAS Water Jet Regular Water 1 sec. 1 to 3 1 sec. Shape Water
+Water Vision (Druidic, "D"): [PI3] or (Wizardly, "W*"): [Shape Water]
+    WAS Water Vision Information Water/Knowledge 30 sec. 1/1# 1 sec. Shape Water
+Weaken (Wizardly, "W"): [Find Weakness]
+    WAS Weaken Regular Mk-Brk Perm. 2 to 6 5 sec. Find Weakness
+Weaken (Wizardly, "W"): [Find Weakness]
+    WAS Weaken Blood Regular/R-HT Body/Necro. 1 day 9/5 1 sec. Sickness or Steal Vitality
+Weaken Will (Wizardly, "W*"): [M1/BT1, Foolishness]
+    WAS Weaken Will Regular/R-Will Mind 1 min. 2/pt/H 1 sec. M1, Foolishness
+Weather Dome (Druidic, "D"): [PI2]
+    WAS Weather Dome Area Protection/Weather 6 hrs. 3/2 1 sec. 2 spells each from 4 elements
+Windstorm (Druidic, "D"): [PI2] or (Wizardly, "W"): [Shape Air]
+    WAS Windstorm Area Air 1 min.# 2/H Instant# Shape Air
+Wisdom (Clerical, "C"): [PI3] or (Wizardly, "W*"): [6 Mind Control spells]
+    WAS Wisdom Regular Mind 1 min. 4 per IQ+/S 1 sec. 6 other Mind Control spells
+Wither Limb (Wizardly, "W"): [M2, Paralyze Limb]
+    WAS Wither Limb Melee/R-HT Body Perm. 5 1 sec. M2, Paralyze Limb
+Wither Plant (Druidic, "D"): [PI4]
+    WAS Wither Plant Area/R-HT Plant Perm. 2 10 sec. Blight
+Wizard Eye (Wizardly, "W*"): [Apportation, Keen Vision]
+    WAS Wizard Eye Regular Knowledge 1 min. 4/2 2 sec. Apportation, Keen Vision
 """
