@@ -16,65 +16,66 @@ type Prerequisite = { heading: MagicType * string; items: string list }
 type Spell = { name: string; college: string; prereqs: Prerequisite list; page: int }
 
 #nowarn "40" // we're not doing anything weird like calling a passed-in function in a ctor
-let titlewordChars = alphanumeric + Set.ofList ['-';'’'] // No-Smell is a valid spell name, ditto Monk's Banquet
-let (|TitleWord|_|) = function
-    // lookahead: a title word will have whitespace after it, otherwise it might be a college instead
-    | OWS(Chars titlewordChars (name, (OWSStr "(VH)" (ctx & WS(_, _))))) -> Some(name, ctx)
-    | OWS(Chars titlewordChars (name, ctx & WS(_, _))) -> Some(name, ctx)
-    | _ -> None
-let collegeChars = alphanumeric + Set.ofList ['.';'&']
-let rec (|College|_|) = pack <| function
-    | OWS(Chars collegeChars (name, OWSStr "/" (College(more, ctx)))) -> Some($"{name}/{more}", ctx)
-    | OWS(Chars collegeChars (name, ctx)) -> Some(name, ctx)
-    | _ -> None
-let (|EndOfLine|_|) = function
-    | (Char (('\n' | '\r'), ctx)) -> Some(ctx)
-    | End as ctx -> Some(ctx)
-    | _ -> None
-let prereqChars = alphanumeric + Set.ofList ['/';'+';'-';'&';'.';'“';'”']
-let (|PrereqWord|_|) = function // stuff like W1/BT1, IQ 13+, or 6 L&D spells is allowed
-    | OWS(Chars prereqChars (v, OWS rest)) -> Some(v, rest)
-    | _ -> None
-let rec (|Prereq|_|) = pack <| function
-    // an individual prereq, like "at least three necromancy spells"
-    // Need to use lookahead to make sure not to eat the page number,
-    // e.g. "Destroy Spirits Necro. C: PI3, at least three necromancy spells 59" should return "at least three necromancy spells" as prereq #2 but stop short of the 59+EOL
-    | OWS(Int(_, EndOfLine _)) -> None // excluded case: NOT if it would eat the page number
-    | OWS(PrereqWord(word, Prereq(_, ((arg, ix) as ctx))) & (_, startIx)) -> Some(arg.input.Substring(startIx, ix - startIx).Trim(), ctx) // recursive case: a word and the rest of the prereq
-    | OWS(PrereqWord(word, ctx) & (_, startIx)) -> Some(word, ctx) // basis case: a word that does not end with a page number
-    | _ -> None
-let rec (|PrereqChain|_|) = pack <| function
-    | OWS(Char(lead, _) & Prereq(word, OWSStr "," (PrereqChain(words, ctx)))) -> Some(word::words, ctx)
-    | OWS(Char(lead, _) & Prereq(word, ctx)) -> Some([word], ctx)
-    | _ -> None
-let rec (|ClassPrereqs|_|) = pack <| function
-    | OWS(Str "C:" (PrereqChain(prereqs, ctx))) -> Some(Prerequisite.Create(Clerical, "C", prereqs), ctx)
-    | OWS(Str "W*:" (PrereqChain(prereqs, ctx))) -> Some(Prerequisite.Create(Wizardly, "W*", prereqs), ctx)
-    | OWS(Str "W:" (PrereqChain(prereqs, ctx))) -> Some(Prerequisite.Create(Wizardly, "W", prereqs), ctx)
-    | OWS(Str "D:" (PrereqChain(prereqs, ctx))) -> Some(Prerequisite.Create(Druidic, "D", prereqs), ctx)
-    | _ -> None
-let rec (|Prereqs|_|) = pack <| function
-    | ClassPrereqs(prereqs, OWSStr "•" (Prereqs(more, ctx))) -> Some(prereqs::more, ctx)
-    | ClassPrereqs(prereqs, ctx) -> Some([prereqs], ctx)
-    | _ -> None
-let (|Title|_|) = function
-    | TitleWord(word1, TitleWord(word2, ctx)) -> Some(String.join " " [word1; word2], ctx)
-    | TitleWord(word1, OWSStr "(VH)" ctx) -> Some(word1 + " (VH)", ctx)
-    | TitleWord(word1, ctx) -> Some(word1, ctx)
-    | _ -> None
-let rec (|Spell|_|) = pack <| function
-    // specific should come before general, but in this case having a shorter title is (I think) more specific because of the EndOfLine qualifier. Or is it?
-    | TitleWord(pt1, Spell(spell, ctx)) -> Some({ spell with name = String.join " " [pt1;spell.name] }, ctx)
-    | TitleWord(name, College(college, Prereqs(prereqs, Int(pg, ctx)))) ->
-        Some({ name = name; college = college; prereqs = prereqs; page = pg }, ctx)
-    | _ -> None
+module DF =
+    let titlewordChars = alphanumeric + Set.ofList ['-';'’'] // No-Smell is a valid spell name, ditto Monk's Banquet
+    let (|TitleWord|_|) = function
+        // lookahead: a title word will have whitespace after it, otherwise it might be a college instead
+        | OWS(Chars titlewordChars (name, (OWSStr "(VH)" (ctx & WS(_, _))))) -> Some(name, ctx)
+        | OWS(Chars titlewordChars (name, ctx & WS(_, _))) -> Some(name, ctx)
+        | _ -> None
+    let collegeChars = alphanumeric + Set.ofList ['.';'&']
+    let rec (|College|_|) = pack <| function
+        | OWS(Chars collegeChars (name, OWSStr "/" (College(more, ctx)))) -> Some($"{name}/{more}", ctx)
+        | OWS(Chars collegeChars (name, ctx)) -> Some(name, ctx)
+        | _ -> None
+    let (|EndOfLine|_|) = function
+        | (Char (('\n' | '\r'), ctx)) -> Some(ctx)
+        | End as ctx -> Some(ctx)
+        | _ -> None
+    let prereqChars = alphanumeric + Set.ofList ['/';'+';'-';'&';'.';'“';'”']
+    let (|PrereqWord|_|) = function // stuff like W1/BT1, IQ 13+, or 6 L&D spells is allowed
+        | OWS(Chars prereqChars (v, OWS rest)) -> Some(v, rest)
+        | _ -> None
+    let rec (|Prereq|_|) = pack <| function
+        // an individual prereq, like "at least three necromancy spells"
+        // Need to use lookahead to make sure not to eat the page number,
+        // e.g. "Destroy Spirits Necro. C: PI3, at least three necromancy spells 59" should return "at least three necromancy spells" as prereq #2 but stop short of the 59+EOL
+        | OWS(Int(_, EndOfLine _)) -> None // excluded case: NOT if it would eat the page number
+        | OWS(PrereqWord(word, Prereq(_, ((arg, ix) as ctx))) & (_, startIx)) -> Some(arg.input.Substring(startIx, ix - startIx).Trim(), ctx) // recursive case: a word and the rest of the prereq
+        | OWS(PrereqWord(word, ctx) & (_, startIx)) -> Some(word, ctx) // basis case: a word that does not end with a page number
+        | _ -> None
+    let rec (|PrereqChain|_|) = pack <| function
+        | OWS(Char(lead, _) & Prereq(word, OWSStr "," (PrereqChain(words, ctx)))) -> Some(word::words, ctx)
+        | OWS(Char(lead, _) & Prereq(word, ctx)) -> Some([word], ctx)
+        | _ -> None
+    let rec (|ClassPrereqs|_|) = pack <| function
+        | OWS(Str "C:" (PrereqChain(prereqs, ctx))) -> Some(Prerequisite.Create(Clerical, "C", prereqs), ctx)
+        | OWS(Str "W*:" (PrereqChain(prereqs, ctx))) -> Some(Prerequisite.Create(Wizardly, "W*", prereqs), ctx)
+        | OWS(Str "W:" (PrereqChain(prereqs, ctx))) -> Some(Prerequisite.Create(Wizardly, "W", prereqs), ctx)
+        | OWS(Str "D:" (PrereqChain(prereqs, ctx))) -> Some(Prerequisite.Create(Druidic, "D", prereqs), ctx)
+        | _ -> None
+    let rec (|Prereqs|_|) = pack <| function
+        | ClassPrereqs(prereqs, OWSStr "•" (Prereqs(more, ctx))) -> Some(prereqs::more, ctx)
+        | ClassPrereqs(prereqs, ctx) -> Some([prereqs], ctx)
+        | _ -> None
+    let (|Title|_|) = function
+        | TitleWord(word1, TitleWord(word2, ctx)) -> Some(String.join " " [word1; word2], ctx)
+        | TitleWord(word1, OWSStr "(VH)" ctx) -> Some(word1 + " (VH)", ctx)
+        | TitleWord(word1, ctx) -> Some(word1, ctx)
+        | _ -> None
+    let rec (|Spell|_|) = pack <| function
+        // specific should come before general, but in this case having a shorter title is (I think) more specific because of the EndOfLine qualifier. Or is it?
+        | TitleWord(pt1, Spell(spell, ctx)) -> Some({ spell with name = String.join " " [pt1;spell.name] }, ctx)
+        | TitleWord(name, College(college, Prereqs(prereqs, Int(pg, ctx)))) ->
+            Some({ name = name; college = college; prereqs = prereqs; page = pg }, ctx)
+        | _ -> None
 
-let parseDf txt =
-    match ParseArgs.Init(txt) with
-    | Spell(spell, End) -> Ok (spell, txt)
-    | Spell(spell, Any(rest, _)) ->
-        Error (sprintf "%A...%s" spell rest, txt)
-    | _ -> Error ($"Not a spell", txt)
+    let parseDf txt =
+        match ParseArgs.Init(txt) with
+        | Spell(spell, End) -> Ok (spell, txt)
+        | Spell(spell, Any(rest, _)) ->
+            Error (sprintf "%A...%s" spell rest, txt)
+        | _ -> Error ($"Not a spell", txt)
 
 let eachLine f (input:string) =
     let mutable accum = ""
@@ -91,6 +92,8 @@ let eachLine f (input:string) =
                 printfn "Error: %s" line
                 accum <- ""
         ] |> List.rev
+
+open DF
 
 match ParseArgs.Init "Nightingale P&W W: Sense Danger 64 No-Smell Air D: PI1 • W: Purify Air 16 " with
 | Spell(spell, _) ->
@@ -120,9 +123,9 @@ let append txt =
 // format for graphviz
 for spell, _txt in dfSpells |> eachLine parseDf |> List.map (Result.toOption >> Option.get) do
     for group in spell.prereqs do
-        let grouptxt = group |> String.join ", " |> sprintf "[%s]"
+        let grouptxt = group.items |> String.join ", " |> sprintf "[%s]"
         (sprintf "    %A -> %A [color=red]" spell.name grouptxt) |> append
-        for prereq in group do
+        for prereq in group.items do
             (sprintf "    %A -> %A [color=blue]" grouptxt prereq) |> append
 TextCopy.Clipboard().SetText ($"
 digraph G {{
