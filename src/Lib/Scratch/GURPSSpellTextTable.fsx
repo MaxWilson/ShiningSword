@@ -915,8 +915,7 @@ Animal Empathy advantage
 165 Body of Wood Regular/R-HT Plant 1 min. 7/3 5 sec. M2, Plant Form 9
 88 Body-Reading Information/R-Will Healing Instant 2 30 sec. Sense Life or Awaken 1
 189 Boil Water Regular Water Perm. Varies 10 sec. Shape Water, Heat 8
-37 Boost Attribute Regular Body/Mind Instant 1 to 5 none Varies Varies
-or Blocking
+37 Boost Attribute Regular or Blocking Body/Mind Instant 1 to 5 none Varies Varies
 46 Borrow Language Regular Comm. 1 min. 3/1 3 sec. Lend Language 4
 47 Borrow Skill Regular Comm. 1 min. 4/3 3 sec. Lend Skill 8
 Page Spell Name Class College Duration Energy Time to cast Prerequisites Prerequisite Count
@@ -940,10 +939,8 @@ Mind Control spells
 116 Clean Area Mk-Brk Perm. 2 1 sec. Restore 4
 94 Cleansing Regular/R-Spec Healing Perm. Varies 3 sec. Minor Healing, Purify Earth 13
 35 Climbing Regular Body 1 min. 1 to 3/S 1 sec. – 0
-148 Cloud-Vaulting* Regular Movement/ 1 sec./100 mi.# 7 1 sec. M2, Jump, Cloud-Walking 13
-Weather
-148 Cloud-Walking Regular Movement/ 1 hr. 3/2 1 sec. Walk on Air, Walk on Water 9
-Weather
+148 Cloud-Vaulting* Regular Movement/Weather 1 sec./100 mi.# 7 1 sec. M2, Jump, Cloud-Walking 13
+148 Cloud-Walking Regular Movement/Weather 1 hr. 3/2 1 sec. Walk on Air, Walk on Water 9
 194 Clouds Area Weather/Air 10 min. 1/20/S 10 sec. 2 Water spells, 2 Air spells 4
 36 Clumsiness Regular/R-HT Body 1 min. 1 to 5/H 1 sec. Spasm 2
 74 Cold Regular Fire 1 min. Varies 1 min. Heat 4
@@ -961,8 +958,7 @@ Voices, Simple Illusion
 189 Condense Steam Area Water Perm. 2# 10 sec. Cold or Boil Water 5
 180 Conduct Power/TL* Special Tech 1 min. 0/1# 1 sec. M1, Seek Power 2
 110 Continual Light Regular Lt-Dk Varies Varies 1 sec. Light 1
-113 Continual Mage Regular Lt-Dk Varies Varies 1 sec. Mage Light, Continual Light 6
-Light
+113 Continual Mage Light Regular Lt-Dk Varies Varies 1 sec. Mage Light, Continual Light 6
 114 Continual Sunlight Area Lt-Dk Varies 3 1 sec. Sunlight 6
 120 Contract Object* Regular Mk-Brk 1 hour Varies 3 sec. M3, Transform Object 17
 99 Control Creation Regular/R-spell Illusion Instant 1 2 sec. Create Animal or Create Servant 19
@@ -1074,8 +1070,7 @@ from 10 colleges
 120 Enlarge Object* Regular Mk-Brk 1 hour Varies 3 sec. Extend Object 18
 43 Enlarge Other* Regular/R-HT Body 1 hr. 2/+1 SM/S 10 sec. M3, Enlarge 20
 141 Enslave* Regular/R-Will Mind Perm. 30 1 sec. Charm, Telepathy 16
-60 Ensorcel* Enchantment/ Enchantment Perm.# 200¥spell cost – Malefice 17
-R-Spec.
+60 Ensorcel* Enchantment/R-Spec. Enchantment Perm.# 200¥spell cost – Malefice 17
 139 Enthrall Special/R-Will Mind 1 hr. 3/3 1 sec. Forgetfulness, Daze, Slow 11
 53 Entombment Regular/R-HT Earth Perm. 10# 3 sec. M2, 5 Earth spells 7
 157 Entrap Spirit Special Necro. 5 min. Varies 1 sec. M1, Soul Jar, Turn Spirit 14
@@ -1106,10 +1101,9 @@ Mind Control spells
 100 Far-Feeling Regular Knowledge 1 min. 3/1 3 sec. M1 1
 173 Far-Hearing Information Sound/Know. 1 min. 4/2 3 sec. M1, 4 Sound spells, no Deafness 5
 or Hard of Hearing
-77 Far-Tasting Regular Food/ 1 min. 3/1 3 sec. M1, no anosmia, Seek Food 2
-Knowledge or Seek Air
-135 Fascinate Regular Mind Indef.# 4 1 sec. Daze 6
-or Blocking/R-Will
+77 Far-Tasting Regular Food/Knowledge 1 min. 3/1 3 sec. M1, no anosmia, Seek Food 2
+or Seek Air
+135 Fascinate Regular or Blocking/R-Will Mind Indef.# 4 1 sec. Daze 6
 73 Fast Fire Regular Fire 1 min. Varies 1 sec. Slow Fire 3
 118 Fasten Regular/R-DX Mk-Brk Perm. 3# 1 sec. Knot 10
 139 Fear Area/R-Will Mind 10 min. 1 1 sec. Sense Emotion or Empathy 2
@@ -1139,8 +1133,8 @@ or skill
 66 Fortify Enchantment Enchantment Perm. Varies – Enchant 13
 185 Foul Water Area Water/Food Perm. 3 1 sec. Purify Water, Decay 4
 37 Frailty Regular/R-HT Body 1 min. 2 per HT-/S# 1 sec. Lend Energy 2
-148 Freedom Regular Movement/ 1 min. 2/pt/S 1 sec. 3 Body spells, 3 Movement spells, 10
-Protection 3 Protection spells
+148 Freedom Regular Movement/Protection 1 min. 2/pt/S 1 sec. 3 Body spells, 3 Movement spells, 10
+3 Protection spells
 185 Freeze Regular Water Perm. Varies 10 sec. Shape Water 4
 193 Frost Area Weather/Water Indef. 1 1 sec. Create Water or Cold 3
 189 Frostbite Regular/R-HT Water Perm. 1 to 3 3 sec. Frost, Freeze 6
@@ -1229,8 +1223,7 @@ no Blindness or Bad Sight
 97 Inscribe Area/R-Will Illusion/Mk-Brk 1 min. 2/S 1 sec. Simple Illusion, Copy 8
 48 Insignificance Regular/R-Spec. Comm. 1 hour 4/4 10 sec. Persuasion, Avoid 10
 115 Inspired Creation* Regular Mk-Brk Perm. 5/day Varies – 0
-92 Instant Neutralize Regular Healing Instant 8 1 sec. M2, Neutralize Poison 5
-Poison
+92 Instant Neutralize Poison Regular Healing Instant 8 1 sec. M2, Neutralize Poison 5
 93 Instant Regeneration* Regular Healing Perm. 80 Special M3, Regeneration 9
 93 Instant Restoration* Regular Healing Perm. 50 Special M2, Restoration 7
 114 Invisibility Regular Lt-Dk 1 min. 5/3 3 sec. 6 Light spells inc. Blur 6
@@ -1244,8 +1237,7 @@ Poison
 117 Knot Regular Mk-Brk Indef.# 2 3 sec. Stiffen 9
 97 Know Illusion Information Illusion Instant 2 1 sec. Simple Illusion 3
 103 Know Location Information Knowledge Instant 2 10 sec. M1, Tell Position 3
-78 Know Recipe Information/ Food/ 1 day# 3 15 sec. Far-Tasting, Season 4
-R-Spec. Knowledge
+78 Know Recipe Information/R-Spec. Food/Knowledge 1 day# 3 15 sec. Far-Tasting, Season 4
 106 Know True Shape Information Knowledge Instant 2 1 sec. M1, any one shifting spell, 10
 either Aura or Know Illusion
 61 Leak Enchantment Enchantment Perm. 100 – Hideaway 22
@@ -1260,8 +1252,7 @@ From 6 colleges
 41 Lengthen Limb Regular Body 1 min. 2/2 5 sec. M3, Shapeshifting 10
 140 Lesser Geas* Regular/R-Will Mind Perm. 12 30 sec. M2, 10 Mind Control spells 14
 58 Lesser Wish* Enchantment Enchantment Special 180 – Enchant 13
-143 Levitation Regular/ Movement 1 min. 1 per 80 lbs./H# 2 sec. Apportation 2
-R-ST or Will
+143 Levitation Regular/R-ST or Will Movement 1 min. 1 per 80 lbs./H# 2 sec. Apportation 2
 159 Lich* Enchantment Necro./Ench. Perm. Varies Varies M3, IQ 13+, Enchant, 28
 Soul Jar, Zombie
 110 Light Regular Lt-Dk 1 min. 1/1 1 sec. – 0
@@ -1278,8 +1269,7 @@ Resist Lightning
 196 Lightning Whip Regular Weather/Air 10 sec. 1 per 2 yards# 2 sec. Lightning 8
 68 Limit Enchantment Enchantment Perm. 200 – Enchant 13
 131 Link Area Meta-Spell Indef.# 8 4 hrs. Delay 19
-144 Lockmaster Regular/ Movement Perm. 3 10 sec. Locksmith or Apportation and M2 3
-R-Magelock
+144 Lockmaster Regular/R-Magelock Movement Perm. 3 10 sec. Locksmith or Apportation and M2 3
 143 Locksmith Regular Movement 1 min. 2/2 1 sec. Apportation 2
 143 Long March Regular/R-ST Movement 1 day’s march 3 1 min. M1, Clumsiness or Debility 2
 63 Loyal Sword Enchantment Enchantment Perm. 750/lb.# – Enchant, Apportation 13
@@ -1288,11 +1278,10 @@ Mind Control spells
 137 Lure Area/R-Will Mind 1 hr. 1/S 10 sec. Emotion Control 6
 176 Machine Control/TL Regular Tech 1 min. 6/3 1 sec. Reveal Function, Locksmith, 11
 Lightning
-178 Machine Regular/R-Will Tech 1 min. 6/2 30 sec. Machine Control, 16
-Possession/TL Rider Within or Soul Rider
+178 Machine Possession/TL Regular/R-Will Tech 1 min. 6/2 30 sec. Machine Control, 16
+ Rider Within or Soul Rider
 176 Machine Speech/TL Regular Tech/Comm. 1 min. 5/3 1 sec. Machine Summoning 13
-176 Machine Regular Tech 1 min. 4/2 4 sec. Machine Control 12
-Summoning/TL
+176 Machine Summoning/TL Regular Tech 1 min. 4/2 4 sec. Machine Control 12
 136 Madness Regular/R-Will-2 Mind 1 min. 4/2 2 sec. Forgetfulness or Drunkenness 7
 113 Mage Light Regular Lt-Dk 1 min. Varies 1 sec. Mage Sight, Light 4
 102 Mage Sense Information Knowledge 1 min. 3/2 1 sec. Detect Magic 2
@@ -1346,15 +1335,14 @@ or Create Earth and Water Jet
 173 Noise Area Sound 5 sec. 4/2 1 sec. Wall of Silence 3
 138 Oath Regular/R-spec Mind Perm. 4 1 min. M1, Emotion Control 7
 24 Odor Area Air 1 hr. 1 1 sec. No-Smell 2
-70 One-College Enchantment Enchantment Indef. 12 – Enchant 13
-Powerstone
+70 One-College Powerstone Enchantment Enchantment Indef. 12 – Enchant 13
 36 Pain Regular/R-HT Body 1 sec. 2 2 sec. Spasm 2
 134 Panic Area/R-Will Mind 1 min. 4/2 1 sec. Fear 3
 40 Paralyze Limb Melee/R-HT Body 1 min. 3 1 sec. M1, 5 Body Control spell 6
 inc. Clumsiness
 52 Partial Petrifaction* Regular/R-HT Earth Perm. 12 3 sec. M2, Flesh to Stone 6
-34 Partial Regular/R-Will Animal 1 hour Varies 10 sec. M3, Shapeshift Others, 21
-Shapeshifting* Alter Body
+34 Partial Shapeshifting* Regular/R-Will Animal 1 hour Varies 10 sec. M3, Shapeshift Others, 21
+Alter Body
 68 Password Enchantment Enchantment Perm. 400# – Enchant 13
 105 Pathfinder Information Knowledge Instant 4 10 sec. M1, IQ 12+, 2 Seek spells 7
 138 Peaceful Sleep Regular/R-Spec. Mind 8 hrs. 4 30 sec. Sleep, Silence 9
@@ -1363,17 +1351,12 @@ Shapeshifting* Alter Body
 124 Pentagram Special Meta-Spell Perm. 1/sq. ft.# 1/sq. ft.# Spell Shield 12
 96 Perfect Illusion Area Illusion 1 min. 3/H# 1 sec. M1, Complex Illusion 6
 35 Perfume Regular/R-HT Body 10 min. 2/1 1 sec. Odor 1
-32 Permanent Beast Regular/R-Will Animal Indef. 20 1 min. M2, Beast Possession 7
-Possession*
-138 Permanent Regular/ Mind Perm. 15 1 hr. M2, Forgetfulness, IQ 13+ 10
-Forgetfulness* R-Will or skill
-178 Permanent Machine* Regular/R-Will Tech Indef.# 30 5 min. M3, Machine Possession 19
-Possession/TL
+32 Permanent Beast Possession* Regular/R-Will Animal Indef. 20 1 min. M2, Beast Possession 7
+138 Permanent Forgetfulness* Regular/R-Will or skill Mind Perm. 15 1 hr. M2, Forgetfulness, IQ 13+ 10
+178 Permanent Machine Possession/TL* Regular/R-Will Tech Indef.# 30 5 min. M3, Machine Possession 19
 139 Permanent Madness* Regular/R-Will-2 Mind Perm. 20 10 min. M2, Madness, IQ 13+ 11
-49 Permanent Regular/R-Will Comm. Indef. 30 5 min. M3, Possession 9
-Possession*
-33 Permanent Regular Animal Indef. Varies 1 min. M3, Shapeshifting 10
-Shapeshifting*
+49 Permanent Possession* Regular/R-Will Comm. Indef. 30 5 min. M3, Possession 9
+33 Permanent Shapeshifting* Regular Animal Indef. Varies 1 min. M3, Shapeshifting 10
 45 Persuasion Regular/R-Will Comm. 1 min. 2¥bonus# 1 sec. Sense Emotion 2
 154 Pestilence Regular Necro. Perm. 6 30 sec. M1, Steal Vitality, Decay 8
 97 Phantom* Area Illusion 1 min. 5/H# 1 sec. M2, Perfect Illusion, 9
@@ -1390,8 +1373,7 @@ Planar Summons
 164 Plant Form Special Plant 1 hr. 5/2 1 sec. M1, 6 Plant spells 7
 165 Plant Form Other Special/R-Will Plant 1 hr. 5/2 30 sec. M2, Plant Form 9
 162 Plant Growth Area Plant 1 min. 3/2 10 sec. Heal Plant 3
-163 Plant Sense Regular/ Plant 1 min. 3/2 1 sec. Forest Warning, Hide Path 5
-R-Hide Path
+163 Plant Sense Regular/R-Hide Path Plant 1 min. 3/2 1 sec. Forest Warning, Hide Path 5
 164 Plant Speech Regular Plant 1 min. 3/2 1 sec. M1, Plant Sense 7
 162 Plant Vision Regular Plant/Knowledge 30 sec. 1/10 yds. 1 sec. Shape Plant 3
 183 Plastic Vision Regular Tech/Knowledge 30 sec. 2/5 yds./S 1 sec. Shape Plastic 5
@@ -1470,24 +1452,18 @@ Levitation
 or Shape Plant
 190 Resist Acid Regular Water/Protection 1 min. 2/H# 1 sec. Create Acid 9
 74 Resist Cold Regular Fire 1 min. 2/1 1 sec. Heat 4
-90 Resist Disease Regular Healing/ 1 hour 4/3 10 sec. Remove Contagion or Vigor 3
-Protection
+90 Resist Disease Regular Healing/Protection 1 hour 4/3 10 sec. Remove Contagion or Vigor 3
 58 Resist Enchantment Enchantment Enchantment Perm. Varies – any Limiting Enchantment 14
 74 Resist Fire Regular Fire 1 min. 2/1# 1 sec. Fireproof 3
-196 Resist Lightning Regular Weather/ 1 min. 2/1 1 sec. 6 Air spells 6
-Air/Protection
+196 Resist Lightning Regular Weather/Air/Protection 1 min. 2/1 1 sec. 6 Air spells 6
 38 Resist Pain Regular Body 1 min. 4/2 1 sec. M2, Pain 5
-91 Resist Poison Regular Healing/ 1 hr. 4/3 10 sec. Vigor 4
-Protection
+91 Resist Poison Regular Healing/Protection 1 hr. 4/3 10 sec. Vigor 4
 169 Resist Pressure Regular Protection 1 min. Varies 1 sec. Weather Dome
 182 Resist Radiation Regular Tech/Protection 1 min. varies# 1 sec. 3 Radiation spells 7
-173 Resist Sound Regular Sound/ 1 min. 2/1 1 sec. 4 Sound spells 4
-Protection
-186 Resist Water Regular Water/ 1 min. 2/1 1 sec. Umbrella, or Shape Water 4
-Protection and Destroy Water
-93 Restoration* Regular Healing Perm. 15 1 min.# Major Healing, or any 2 of 5
-Relieve Paralysis and the
-Restore spells
+173 Resist Sound Regular Sound/Protection 1 min. 2/1 1 sec. 4 Sound spells 4
+186 Resist Water Regular Water/Protection 1 min. 2/1 1 sec. Umbrella, or Shape Water 4
+and Destroy Water
+93 Restoration* Regular Healing Perm. 15 1 min.# Major Healing, or any 2 of Relieve Paralysis and the Restore spells 5
 116 Restore Regular Mk-Brk 10 min. 2/1 3 sec. Find Weakness or Simple Illusion 3
 92 Restore Hearing Regular Healing 1 hr. Varies 5 sec. Minor Healing, Keen Hearing 5
 or Strike Deaf
@@ -1514,10 +1490,8 @@ Summon Spirit
 86 Sanctuary* Special Gate 1 hr. 5/S 10 sec. Hide Object 30
 52 Sand Jet Regular Earth 1 sec. 1 to 3/S 1 sec. Create Earth 5
 27 Sandstorm Area Air/Earth 1 minute# 3/H Instant# Windstorm, Create Earth 9
-107 Scents of the Past Regular Knowledge/ 1 min. 1/1# 10 sec. M2, History, Odor 14
-Food
-177 Schematic/TL Information Tech/ 1 min. 5/H# 5 sec. Reveal Function, History 12
-Knowledge
+107 Scents of the Past Regular Knowledge/Food 1 min. 1/1# 10 sec. M2, History, Odor 14
+177 Schematic/TL Information Tech/Knowledge 1 min. 5/H# 5 sec. Reveal Function, History 12
 174 Scribe Regular Sound 1 min. 3/1 1 sec. Voices, Dancing Object, 6
 1 Accented language
 57 Scroll Enchantment Enchantment Varies Special days=cost M1, 1 language at Accented 1
@@ -1540,8 +1514,7 @@ and Infravision
 85 Seek Gate Information Gate Instant 3 10 sec. M2, Seek Magic, 1 spell each 14
 from 10 colleges
 175 Seek Machine/TL Information Tech Instant 3 10 sec. – 0
-102 Seek Magic Information Knowledge/ Instant 6 10 sec. Detect Magic 2
-Meta-Spell
+102 Seek Magic Information Knowledge/Meta-Spell Instant 6 10 sec. Detect Magic 2
 51 Seek Pass Information Earth Instant 3 10 sec. Seek Earth 1
 161 Seek Plant Information Plant Instant 2 1 sec. – 0
 182 Seek Plastic Information Tech Instant 3 10 sec. – 0
@@ -1594,8 +1567,8 @@ Illusion Disguise
 153 Slow Healing Regular/R-HT Necro. 1 day 1 to 5/S 10 sec. M1, Frailty, Steal Vitality 7
 86 Slow Time* Area/R-Spec. Gate 1 min. Varies 2 sec. M2, IQ 13+, 2 spells each 28
 from 10 colleges
-111 Small Vision Regular Lt-Dk/ 1 min. 4/2# 2 sec. Keen Vision or 5 Light spells; 1
-Knowledge no Blindness or Bad Sight
+111 Small Vision Regular Lt-Dk/Knowledge 1 min. 4/2# 2 sec. Keen Vision or 5 Light spells; 1
+no Blindness or Bad Sight
 73 Smoke Area Fire 5 min.# 1/H 1 sec. Shape Fire, Extinguish Fire 3
 195 Snow Area Weather/Air/Water 1 hr. 1/15#/S 1 sec. Clouds, Frost 7
 189 Snow Jet Regular Water 1 sec. 1 to 3 1 sec. Water Jet, Freeze 6
@@ -1646,8 +1619,7 @@ Conduct Power
 and Paralyze Limb
 179 Stop Power Area Tech 1 min. 3/H 3 sec. M1, Seek Power 2
 35 Stop Spasm Regular Body/Healing Instant 1 1 sec. Spasm or Lend Vitality 2
-195 Storm Area Weather/ 1 hour 1/50/S 1 min. Rain, Hail 10
-Air/Water
+195 Storm Area Weather/Air/Water 1 hour 1/50/S 1 min. Rain, Hail 10
 136 Strengthen Will Regular Mind 1 min. 1/pt/H 1 sec. M1, 6 Mind spells 7
 41 Strike Barren Regular/R-HT Body/Necro. Perm. 5 30 sec. M1, Steal Vitality, Decay 8
 38 Strike Blind Regular/R-HT Body 10 sec. 4/2 1 sec. 2 Light spells, Spasm 3
@@ -1686,8 +1658,7 @@ From 10 colleges
 Spell Shield or Teleport
 101 Tell Position Information Knowledge Instant 1 1 sec. Measurement 1
 100 Tell Time Information Knowledge Instant 1 1 sec. – 0
-56 Temporary Enchantment Enchantment Indef.# Varies – Enchant 13
-Enchantment
+56 Temporary Enchantment Enchantment Enchantment Indef.# Varies – Enchant 13
 134 Terror Area/R-Will Mind Instant 4 1 sec. Fear 3
 77 Test Food Information Food Instant 1 to 3# 1 sec. – 0
 179 Test Fuel/TL Information Tech Instant Varies 1 sec. – 0
@@ -1706,8 +1677,7 @@ Enchantment
 35 Touch Regular Body Instant 1 1 sec. – 0
 119 Toughen Regular Mk-Brk 1 hr. Varies 5 sec. Shatterproof 12
 106 Trace Regular Knowledge 1 hr. 3/1 1 min. Seeker 8
-84 Trace Teleport Information/ Gate/Movement Instant 3 1 sec. Teleport, Timeport, or Plane Shift 7
-R-spell
+84 Trace Teleport Information/R-spell Gate/Movement Instant 3 1 sec. Teleport, Timeport, or Plane Shift 7
 43 Transform Body Special Body 1 hr. Varies 1 min. 3 forms of Shapeshifting, 18
 Alter Body
 120 Transform Object* Regular/R-Spec Mk-Brk 1 hour Varies Varies M2, Reshape, 4 Create spells 15
@@ -1754,8 +1724,7 @@ Transform Object, Flesh to Stone
 119 Weapon Self* Regular/R-HT# Mk-Brk 1 min. 8/4 5 sec. M2, Apportation, 14
 6 Mk-Brk spells inc. Reshape
 64 Weapon Spirit* Enchantment Enchantment Perm. Varies – Enchant, Summon Spirit 14
-169 Weather Dome Area Protection/ 6 hrs. 3/2 1 sec. 2 spells each from 4 elements 8
-Weather
+169 Weather Dome Area Protection/Weather 6 hrs. 3/2 1 sec. 2 spells each from 4 elements 8
 187 Whirlpool Area Water 1 min.# 2/H Varies Shape Water 4
 138 Will Lock Area/R-(ST+Will)/2 Mind 1 day 3 Varies Emotion Control 6
 195 Wind Special; Area Weather/Air 1 hour 1/50/S 1 min. Windstorm 4
@@ -1769,13 +1738,12 @@ from 15 colleges
 174 Wizard Ear Regular Sound 1 min. 4/3 2 sec. Apportation, Far-Hearing, 7
 Sound Vision
 104 Wizard Eye Regular Knowledge 1 min. 4/2 2 sec. Apportation, Keen Vision 3
-104 Wizard Hand Regular Knowledge/ 1 min. Varies 3 sec. Manipulate, Far-Feeling 5
-Movement
-104 Wizard Mouth Regular Knowledge/ 1 min. 4/2 2 sec. Apportation, Far-Tasting, 8
-Food/Sound Great Voice
+104 Wizard Hand Regular Knowledge/Movement 1 min. Varies 3 sec. Manipulate, Far-Feeling 5
+104 Wizard Mouth Regular Knowledge/Food/Sound 1 min. 4/2 2 sec. Apportation, Far-Tasting, 8
+Great Voice
 104 Wizard Nose Regular Knowledge/Food 1 min. 3/2 2 sec. Apportation, Far-Tasting 4
-160 Wraith* Enchantment/ Necro./Ench. Perm. 250 or 500# Varies M3, IQ 13+, Enchant, 34
-R-HT Halt Aging, Soul Jar
+160 Wraith* Enchantment/R-HT Necro./Ench. Perm. 250 or 500# Varies M3, IQ 13+, Enchant, 34
+Halt Aging, Soul Jar
 94 Youth* Regular Healing Special 100 1 sec. M3, Halt Aging 13
 151 Zombie Regular Necro. Perm. 8 1 min. Summon Spirit, Lend Vitality 6
 153 Zombie Summoning Special Necro. 1 min. 5/2# 4 sec. Zombie 7
