@@ -10,6 +10,11 @@
 open Packrat
 open DFData
 
+type MagicType = Clerical | Wizardly | Druidic
+type Prerequisite = { heading: MagicType * string; items: string list }
+    with static member Create(magicType, primaryLabel, items) = { heading = (magicType, primaryLabel); items = items }
+type Spell = { name: string; college: string; prereqs: Prerequisite list; page: int }
+
 #nowarn "40" // we're not doing anything weird like calling a passed-in function in a ctor
 let titlewordChars = alphanumeric + Set.ofList ['-';'’'] // No-Smell is a valid spell name, ditto Monk's Banquet
 let (|TitleWord|_|) = function
@@ -43,10 +48,10 @@ let rec (|PrereqChain|_|) = pack <| function
     | OWS(Char(lead, _) & Prereq(word, ctx)) -> Some([word], ctx)
     | _ -> None
 let rec (|ClassPrereqs|_|) = pack <| function
-    | OWS(Str "C:" (PrereqChain(prereqs, ctx))) -> Some(prereqs, ctx)
-    | OWS(Str "W*:" (PrereqChain(prereqs, ctx))) -> Some(prereqs, ctx)
-    | OWS(Str "W:" (PrereqChain(prereqs, ctx))) -> Some(prereqs, ctx)
-    | OWS(Str "D:" (PrereqChain(prereqs, ctx))) -> Some(prereqs, ctx)
+    | OWS(Str "C:" (PrereqChain(prereqs, ctx))) -> Some(Prerequisite.Create(Clerical, "C", prereqs), ctx)
+    | OWS(Str "W*:" (PrereqChain(prereqs, ctx))) -> Some(Prerequisite.Create(Wizardly, "W*", prereqs), ctx)
+    | OWS(Str "W:" (PrereqChain(prereqs, ctx))) -> Some(Prerequisite.Create(Wizardly, "W", prereqs), ctx)
+    | OWS(Str "D:" (PrereqChain(prereqs, ctx))) -> Some(Prerequisite.Create(Druidic, "D", prereqs), ctx)
     | _ -> None
 let rec (|Prereqs|_|) = pack <| function
     | ClassPrereqs(prereqs, OWSStr "•" (Prereqs(more, ctx))) -> Some(prereqs::more, ctx)
@@ -57,7 +62,6 @@ let (|Title|_|) = function
     | TitleWord(word1, OWSStr "(VH)" ctx) -> Some(word1 + " (VH)", ctx)
     | TitleWord(word1, ctx) -> Some(word1, ctx)
     | _ -> None
-type Spell = { name: string; college: string; prereqs: string list list; page: int }
 let rec (|Spell|_|) = pack <| function
     // specific should come before general, but in this case having a shorter title is (I think) more specific because of the EndOfLine qualifier. Or is it?
     | TitleWord(pt1, Spell(spell, ctx)) -> Some({ spell with name = String.join " " [pt1;spell.name] }, ctx)
@@ -104,7 +108,7 @@ match ParseArgs.Init "Nightingale P&W W: Sense Danger 64 No-Smell Air D: PI1 •
 open DFData
 
 for spell, _txt in dfSpells |> eachLine parseDf |> List.map (Result.toOption >> Option.get) do
-    printfn $"""{spell.name} {spell.prereqs |> List.map (String.join ", " >> sprintf "[%s]") |> String.join " or "}"""
+    printfn $"""{spell.name} {spell.prereqs |> List.map (fun p -> p.items |> String.join ", " |> sprintf "%A: [%s]" p.heading) |> String.join " or "}"""
 
 #r "nuget: TextCopy"
 let writer = System.Text.StringBuilder()
