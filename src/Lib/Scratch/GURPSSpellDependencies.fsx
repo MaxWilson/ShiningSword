@@ -165,10 +165,21 @@ for spell, _txt in magicSample |> eachLine Magic.parse |> List.map (Result.toOpt
 #load "GURPSSpellTextTable.fsx"
 open DFData
 
+#r "nuget: TextCopy"
+let showSuspects =
+    let out = System.Text.StringBuilder()
+    let rec recur prior = function
+        | line::rest ->
+            if (line:string).Length < 50 then
+                out.AppendLine(sprintf "%s\n%s\n" prior line) |> ignore
+            recur line rest
+        | [] -> ()
+    fun txt -> recur "" txt; out.ToString() |> TextCopy.ClipboardService.SetText; out.ToString() |> printfn "%s"
+magic.Split("\n") |> List.ofArray |> showSuspects
+
 for spell, _txt in dfSpells |> eachLine DF.parse |> List.map (Result.toOption >> Option.get) do
     printfn $"""{spell.name} {spell.prereqs |> List.map (fun p -> p.items |> String.join ", " |> sprintf "%A: [%s]" p.heading) |> String.join " or "}"""
 
-#r "nuget: TextCopy"
 let writer = System.Text.StringBuilder()
 let mutable dupes = Set.empty
 let append txt =

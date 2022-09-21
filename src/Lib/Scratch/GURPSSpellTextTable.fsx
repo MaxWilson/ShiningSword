@@ -853,7 +853,6 @@ and 8 Body spells
 39 Ambidexterity Regular Body 1 min. 3/2 1 sec. Grace 4
 58 Amulet Enchantment Enchantment Perm. 50/pt. MR – Talisman for appropriate spell 14
 102 Analyze Magic Inform./R-spell Knowledge Instant 8 1 hr. Identify Spell 3
-Page Spell Name Class College Duration Energy Time to cast Prerequisites Prerequisite Count
 106 Ancient History Information Knowledge Instant Varies min.=cost History 10
 30 Animal Control Regular/R-Will Animal 1 min. Varies 1 sec. Beast-Soother 1
 177 Animate Machine/TL Regular/R-Will Tech 1 min. Varies Varies Machine Control, 17
@@ -920,7 +919,6 @@ Animal Empathy advantage
 or Blocking
 46 Borrow Language Regular Comm. 1 min. 3/1 3 sec. Lend Language 4
 47 Borrow Skill Regular Comm. 1 min. 4/3 3 sec. Lend Skill 8
-224 APPENDIX: SPELL TABLE
 Page Spell Name Class College Duration Energy Time to cast Prerequisites Prerequisite Count
 134 Bravery Area/R-Will-1 Mind 1 hr. 2 1 sec. Fear 3
 26 Breathe Air Regular Air/Water 1 min. 4/2 1 sec. Create Water, Destroy Air 6
@@ -988,8 +986,6 @@ Enchantment spells
 23 Create Air Area Air 5 sec.# 1 1 sec. Purify Air or Seek Air 1
 98 Create Animal Regular Illusion 1 min. Varies sec.=cost Create Water, Create Object, 20
 IQ 12+
-APPENDIX: SPELL TABLE 225
-Page Spell Name Class College Duration Energy Time to cast Prerequisites Prerequisite Count
 84 Create Door Regular Gate 10 sec. 2/10 sq. ft.# 5 sec. Teleport, any one 13
 Walk Through spell
 51 Create Earth Regular Earth Perm. 2/25 cu. ft. 1 sec. Earth to Stone 4
@@ -1054,8 +1050,6 @@ Timeport, or Plane Shift
 127 Drain Mana* Area Meta-Spell Perm. 10 1 hr. Dispel Magic, Suspend Mana 15
 180 Draw Power/TL* Special Tech 1 min. 0/1# 1 sec. Steal Power, 2 spells each 23
 from 10 colleges
-226 APPENDIX: SPELL TABLE
-Page Spell Name Class College Duration Energy Time to cast Prerequisites Prerequisite Count
 46 Dream Projection Regular Comm./Mind 1 min. 3/3 1 min. Dream Sending 5
 45 Dream Sending Regular/R-Will Comm./Mind 1 hr. 3 1 min. Dream Viewing or Sleep 4
 45 Dream Viewing Regular/R-Will Comm. 1 hr. 2/1 10 sec. Truthsayer or Sleep 3
@@ -1121,8 +1115,6 @@ or Blocking/R-Will
 139 Fear Area/R-Will Mind 10 min. 1 1 sec. Sense Emotion or Empathy 2
 89 Final Rest Regular Healing/Necro. Perm. 20 10 min.# M1 or Spirit Empathy 1
 101 Find Direction Information Knowledge Instant 2 1 sec. M1 1
-APPENDIX: SPELL TABLE 227
-Page Spell Name Class College Duration Energy Time to cast Prerequisites Prerequisite Count
 116 Find Weakness Information Mk-Brk Instant 1# 2 sec. 1 spell of each four elements 4
 75 Fire Cloud Area Fire 10 sec. 1 to 5/S 1 to 5 sec. Shape Air, Fireball 8
 74 Fireball Missile Fire Instant 1 to Magery# 1 to 3 sec. M1, Create Fire, Shape Fire 4
@@ -1189,8 +1181,6 @@ inc. Lesser Geas
 39 Haircut Regular/R-HT Body Instant 2 2 sec. Weaken, 2 Body spells 8
 140 Hallucination Regular/R-Will Mind 1 min. 4/2 3 sec. Madness, Suggestion 14
 94 Halt Aging* Regular Healing 1 month 20 1 sec. M2, 8 Healing spells 11
-228 APPENDIX: SPELL TABLE
-Page Spell Name Class College Duration Energy Time to cast Prerequisites Prerequisite Count
 128 Hang Spell* Special Meta-Spell 1 hr. Varies 10 sec. Delay 19
 167 Hardiness Blocking Protection Instant 1/DR+# 1 sec. Block 2
 142 Haste Regular Movement 1 min. 2/pt./H 2 sec. – 0
@@ -1258,8 +1248,6 @@ Poison
 R-Spec. Knowledge
 106 Know True Shape Information Knowledge Instant 2 1 sec. M1, any one shifting spell, 10
 either Aura or Know Illusion
-APPENDIX: SPELL TABLE 229
-Page Spell Name Class College Duration Energy Time to cast Prerequisites Prerequisite Count
 61 Leak Enchantment Enchantment Perm. 100 – Hideaway 22
 89 Lend Energy Regular Healing Perm. Varies 1 sec. M1 or Empathy advantage 1
 46 Lend Language Regular Comm. 1 min. 3/1 3 sec. 3 Communication spells, 3
@@ -1327,8 +1315,6 @@ Summoning/TL
 30 Master Reg./Block./R-IQ Animal Indef. 2 1 sec. Beast-Soother 1
 150 Materialize Special Necro. 1 min. 5/5 1 sec. Summon Spirit 4
 78 Mature Regular Food Perm. 1 per pound 10 sec. Decay or Season 2
-230 APPENDIX: SPELL TABLE
-Page Spell Name Class College Duration Energy Time to cast Prerequisites Prerequisite Count
 100 Measurement Area/Inform. Knowledge Instant 1 1 sec. – 0
 186 Melt Ice Area Water Perm.# 2# 10 sec. Heat or Freeze 4
 105 Memorize Regular Knowledge/Mind 1 day# 3 2 sec. Wisdom or 6 Knowledge spells 6
@@ -1396,8 +1382,6 @@ Hinder, Apportation
 83 Phase Blocking Gate Instant 3 1 sec. M3, Plane Shift or Ethereal Body 8
 83 Phase Other* Blocking Gate Instant 3 1 sec. Phase 9
 82 Planar Summons Special Gate 1 hr. 20# 5 min. M1, 1 spell each from 10 colleges 11
-APPENDIX: SPELL TABLE 231
-Page Spell Name Class College Duration Energy Time to cast Prerequisites Prerequisite Count
 82 Planar Visit* Special Gate 1 min. 4/2 30 sec. M2, Projection or 10
 Planar Summons
 83 Plane Shift* Special Gate Instant 20 5 sec. Planar Summons 12
@@ -1464,8 +1448,6 @@ Shape Plant
 116 Rejoin Regular Mk-Brk 10 min. 1 per 10 lbs./H 4 sec./10 lbs. Weaken, Restore 7
 163 Rejuvenate Plant Regular Plant Perm. 3 1 sec. M1, Plant Growth 5
 92 Relieve Addiction Regular Healing 1 day 6 10 sec. Neutralize Poison 5
-232 APPENDIX: SPELL TABLE
-Page Spell Name Class College Duration Energy Time to cast Prerequisites Prerequisite Count
 92 Relieve Madness Regular/R-spell Healing/Mind 10 min. 2 10 sec. Lend Vitality, Wisdom 10
 93 Relieve Paralysis Regular Healing 1 min. Varies 10 sec. Stop Paralysis 6
 90 Relieve Sickness Regular/R-spell Healing 10 min. 2 10 sec. Lend Vitality 3
@@ -1532,8 +1514,6 @@ Summon Spirit
 86 Sanctuary* Special Gate 1 hr. 5/S 10 sec. Hide Object 30
 52 Sand Jet Regular Earth 1 sec. 1 to 3/S 1 sec. Create Earth 5
 27 Sandstorm Area Air/Earth 1 minute# 3/H Instant# Windstorm, Create Earth 9
-APPENDIX: SPELL TABLE 233
-Page Spell Name Class College Duration Energy Time to cast Prerequisites Prerequisite Count
 107 Scents of the Past Regular Knowledge/ 1 min. 1/1# 10 sec. M2, History, Odor 14
 Food
 177 Schematic/TL Information Tech/ 1 min. 5/H# 5 sec. Reveal Function, History 12
@@ -1600,8 +1580,6 @@ Meta-Spell
 120 Shrink Object* Regular Mk-Brk 1 hour Varies 3 sec. Contract Object 18
 42 Shrink Other* Regular/R-HT Body 1 hr. 2/-1 SM/S 10 sec. M3, Shrink 20
 138 Sickness Regular/R-HT Mind/Body 1 min. 3/3 4 sec. Drunkenness or Pestilence 9
-234 APPENDIX: SPELL TABLE
-Page Spell Name Class College Duration Energy Time to cast Prerequisites Prerequisite Count
 171 Silence Area Sound 1 min. 2/1 1 sec. Sound 1
 174 Silver Tongue Regular Sound 1 min. 3/2 1 sec. Voices, Emotion Control 11
 95 Simple Illusion Area Illusion 1 min. 1/H 1 sec. not blind, IQ 11+ 2
@@ -1668,8 +1646,6 @@ Conduct Power
 and Paralyze Limb
 179 Stop Power Area Tech 1 min. 3/H 3 sec. M1, Seek Power 2
 35 Stop Spasm Regular Body/Healing Instant 1 1 sec. Spasm or Lend Vitality 2
-APPENDIX: SPELL TABLE 235
-Page Spell Name Class College Duration Energy Time to cast Prerequisites Prerequisite Count
 195 Storm Area Weather/ 1 hour 1/50/S 1 min. Rain, Hail 10
 Air/Water
 136 Strengthen Will Regular Mind 1 min. 1/pt/H 1 sec. M1, 6 Mind spells 7
@@ -1737,8 +1713,6 @@ Alter Body
 120 Transform Object* Regular/R-Spec Mk-Brk 1 hour Varies Varies M2, Reshape, 4 Create spells 15
 43 Transform Other Special/R-Will Body 1 hr. Varies 2 min. Shapeshift Others, 20
 Transform Body#
-236 APPENDIX: SPELL TABLE
-Page Spell Name Class College Duration Energy Time to cast Prerequisites Prerequisite Count
 43 Transmogrification Regular/R-Will Body 1 hr. 20/20 2 min. M3, Transform Other, 27
 Transform Object, Flesh to Stone
 119 Transparency Regular Mk-Brk 1 min. 4/2 10 sec. Dye, Stone to Earth 12
