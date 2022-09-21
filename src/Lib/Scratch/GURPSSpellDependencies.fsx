@@ -166,16 +166,42 @@ for spell, _txt in magicSample |> eachLine Magic.parse |> List.map (Result.toOpt
 open DFData
 
 #r "nuget: TextCopy"
-let showSuspects =
-    let out = System.Text.StringBuilder()
+"""40 Wither Limb Melee/R-HT Body Perm. 5 1 sec. M2, Paralyze Limb 8
+163 Wither Plant Area/R-HT Plant Perm. 2 10 sec. Blight 5
+""".Split("\n") |> Array.map (fun line -> System.Text.RegularExpressions.Regex.IsMatch(line, ".*[0-9]+$"), line)
+
+let rev (str:string) =
+    (str.ToCharArray() |> Array.rev) |> System.String
+#r "nuget: Unquote"
+Swensen.Unquote.Assertions.test <@ rev "abc" = "cba" @>
+Swensen.Unquote.Assertions.test <@ rev "abbd" = "dbba" @>
+Swensen.Unquote.Assertions.test <@ rev "" = "" @>
+Swensen.Unquote.Assertions.test <@ (3+(5/7*2)) = 6 @>
+
+let showSuspects txt =
+    let mutable out = []
     let rec recur prior = function
         | line::rest ->
-            if (line:string).Length < 50 then
-                out.AppendLine(sprintf "%s\n%s\n" prior line) |> ignore
-            recur line rest
+            match System.Text.RegularExpressions.Regex.Match(rev line, @"^\d+(.*)") with
+            | m when m.Success ->
+                let prior = defaultArg prior ""
+                out <- ($"{m.Groups[1].Value |> rev |> fun s -> s.Trim()} {prior}") :: out
+                recur None rest
+            | _ ->
+                printfn "Deferring [%s]" line
+                recur (Some line) rest
         | [] -> ()
-    fun txt -> recur "" txt; out.ToString() |> TextCopy.ClipboardService.SetText; out.ToString() |> printfn "%s"
-magic.Split("\n") |> List.ofArray |> showSuspects
+    recur None (txt |> List.rev)
+    let str = out |> List.rev |> String.join "\n"
+    TextCopy.ClipboardService.SetText str
+    str
+
+"""135 Wisdom Regular Mind 1 min. 4 per IQ+/S 1 sec. 6 other Mind Control spells 6
+61 Wish* Enchantment Enchantment Special 250 – Lesser Wish, 1 spell each 19
+from 15 colleges
+""".Split("\n") |> List.ofArray |> List.map (fun s -> s.Trim()) |> showSuspects
+
+magic.Split("\r\n") |> List.ofArray |> List.map (fun s -> s.Trim()) |> showSuspects
 
 for spell, _txt in dfSpells |> eachLine DF.parse |> List.map (Result.toOption >> Option.get) do
     printfn $"""{spell.name} {spell.prereqs |> List.map (fun p -> p.items |> String.join ", " |> sprintf "%A: [%s]" p.heading) |> String.join " or "}"""
