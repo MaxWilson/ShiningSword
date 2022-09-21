@@ -1029,16 +1029,14 @@ Timeport, or Plane Shift
 64 Defending Weapon Enchantment Enchantment Perm. Varies – Enchant, Dancing Object 14
 67 Deflect Enchantment Enchantment Perm. Varies – Enchant 13
 73 Deflect Energy Blocking Fire Instant 1 1 sec. M1, Shape Fire 3
-143 Deflect Missile Blocking Movement/ Instant 1 1 sec. Apportation 2
-Protection
+143 Deflect Missile Blocking Movement/Protection Instant 1 1 sec. Apportation 2
 188 Dehydrate Regular/R-HT Water Perm. 1 to 3 2 sec. 5 Water spells inc. Destroy Water 5
 130 Delay Regular Meta-Spell 2 hrs. 3/3 10 sec. M3, 15 spells 18
 173 Delayed Message Area Sound Indef.# 3# 4 sec. M1, Voices, Sense Life 4
 24 Destroy Air Area Air Instant 2 1 sec. Create Air 2
 185 Destroy Water Area Water Perm. 3/S 1 sec. Create Water 3
 101 Detect Magic Regular Knowledge Instant 2 5 sec. M1 1
-166 Detect Poison Area/Information Protection/ Instant 2 2 sec. Sense Danger or Test Food 1
-Healing
+166 Detect Poison Area/Information Protection/Healing Instant 2 2 sec. Sense Danger or Test Food 1
 25 Devitalize Air Area Air varies 2 1 sec. Destroy Air 3
 120 Disintegrate* Regular Mk-Brk Perm. 1 to 4 1 sec. M2, Shatter, Ruin# 18
 135 Disorient Area/R-Will Mind Indef.# 1 10 sec. Foolishness 5
@@ -1072,8 +1070,7 @@ Page Spell Name Class College Duration Energy Time to cast Prerequisites Prerequ
 52 Earth to Water Regular Earth/Water Perm. 1/25 cu. ft.# 1 sec. M1, Create Water, Shape Earth 6
 51 Earth Vision Regular Earth/Know. 30 sec. 2/10 yds.# 1 sec. Shape Earth 2
 54 Earthquake Area Earth 1 min. 2/S 30 sec. M2, 6 Earth spells inc. Earth Vision 8
-107 Echoes of the Past Regular Knowledge/ 1 min. 2/2# 10 sec. M2, History, Voices 13
-Sound
+107 Echoes of the Past Regular Knowledge/Sound 1 min. 2/2# 10 sec. M2, History, Voices 13
 139 Ecstasy* Regular/R-Will Mind 10 sec. 6 3 sec. M2, Emotion Control 8
 71 Effigy* Enchantment Enchantment Perm. 1,000 – Enchant, Scryfool, Ward 17
 137 Emotion Control Area/R-Will Mind 1 hr. 2 1 sec. Loyalty or Mental Stun 5
