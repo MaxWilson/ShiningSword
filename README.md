@@ -28,3 +28,6 @@ If you are using VS Code + [Ionide](http://ionide.io/), you can also use the key
 
 Any modification you do to the F# code will be reflected in the web page after saving. When you want to output the JS code to disk, run `yarn build` (or `npm build`) and you'll get a minified JS bundle in the `public` folder.
 
+# Whitespace errors
+
+If you see superfluous ^Ms in git diff, do git config core.whitespace cr-at-eol
