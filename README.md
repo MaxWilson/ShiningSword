@@ -4,9 +4,9 @@
 
 Dungeons and Dragons combat game inspired by XCOM: UFO Defense and The Bard's Tale.
 
-Design goals:
+## Design goals for Shining Sword
 
-1.) Transparency: making it easy for spectators and after-the-fact viewers to understand what happened and why, e.g. that the Kraken hit the Barbarian but did only 9 points of damage due to rage. Hierarchical tree views of events to let people drill down to the level of detail they want; Bards Tale-style summary tables of HP and spell points and current status; animations showing movement and floating damage numbers showing changes to HP.
+1.) Transparency: making it easy for spectators and after-the-fact viewers to understand what happened and why, e.g. that the Kraken hit the Barbarian but did only 9 points of damage due to rage. Hierarchical tree views of events to let people drill down to the level of detail they want; Bards Tale-style summary tables of HP and spell points and current status; animations showing movement and floating damage numbers showing changes to HP. See Appendix A: Spectation, below.
 
 2.) Easy and optional automation: allows DMs to add new monsters on the fly with minimal data entry and have the monsters follow the rules on their own (attacks, crits, interactions with features like Rage) while still allowing the DM to manually intervene and e.g. impose an ad hoc -2 to hit on a given attack due to improvised partial cover, or change monster HP from its default values, or force a monster to flee instead of attacking for roleplaying reasons. Let the DM focus on DMing and not on tracking which monsters have attacked yet. Automation should allow gdb-style text commands like "Ragnar will attack Beholder" but also be available through button clicks, for both players and DMs. Automation should optionally be able to replace dice rolls while still allowing players to roll physical dice if they prefer and report the results.
 
@@ -31,3 +31,15 @@ Any modification you do to the F# code will be reflected in the web page after s
 # Whitespace errors
 
 If you see superfluous ^Ms in git diff, do git config core.whitespace cr-at-eol
+
+## Appendix A: Spectation
+
+One of my favorite points from the book _Characteristics of Games_ is that games vary in how much fun they are to spectate:
+
+_If one thinks of games as evolving and competing organisms, in the sense that they change over time and become more or less prevalent, it's clear that spectation is a big bonus for a game. Players will usually feel better about their choice of game knowing that people want to watch it. An audience may inspire them to want to play better, which in turns may make them spend more time playing and practicing so as to improve their skills. Members of the audience are in some sense participants in the game, and some of them may decide to become players later on._
+
+_Spectation does not even have to happen at the same time as the game itself. Watching a game can be interesting even if one knows the outcome. A newspaper article written about a game that happened the previous day is an example of delayed (and filtered) spectation--a friend describing the game to you is another._
+
+_Games that have distinct highlights rather than a more or less continuous stream of action tend to do better here, because they are easier to recount in a condensed yet still interesting form. In this sense, football is probably better than soccer, which is still better than basketball, and a marathon is worse than any of them. Another reflection of how easy it is to condense the events of a game can be seen in the amount of information that can useful be given in something like a box score._
+
+Desire to enable spectation has influenced the design goals for Shining Sword.
