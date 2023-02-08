@@ -39,6 +39,7 @@
     <Compile Include="Domain\Ribbit\Rules2e.fs" />
     <Compile Include="Domain\Ribbit\Rules5e.fs" />
     <Compile Include="Adventure.fs" />
+    <None Include="Scratch\Chargen1.fsx" />
     <PackageReference Remove="FSharp.Core" Version="5.0.0" />
     <PackageReference Include="FSharp.Core" Version="5.0.0" />
   </ItemGroup>
