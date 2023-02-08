@@ -19,6 +19,8 @@
     <None Include="Scratch\RibbitFromScratch2.fsx" />
     <None Include="Scratch\RibbitFromScratch3.fsx" />
     <None Include="Scratch\Sample.rbt" />
+    <None Include="Scratch\Chargen1.fsx" />
+    <None Include="scratch\Encounters1.fsx" />
     <Compile Include="Core\Optics.fs" />
     <Compile Include="Core\Common.fs" />
     <Compile Include="Core\Packrat.fs" />
@@ -39,7 +41,6 @@
     <Compile Include="Domain\Ribbit\Rules2e.fs" />
     <Compile Include="Domain\Ribbit\Rules5e.fs" />
     <Compile Include="Adventure.fs" />
-    <None Include="Scratch\Chargen1.fsx" />
     <PackageReference Remove="FSharp.Core" Version="5.0.0" />
     <PackageReference Include="FSharp.Core" Version="5.0.0" />
   </ItemGroup>

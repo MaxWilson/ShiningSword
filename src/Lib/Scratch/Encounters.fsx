@@ -122,7 +122,7 @@ let index = function
         ]
     | Epic -> [
         { title = "You raid a dragon's treasure hoard"; weight = 1; monsters = [monster "Ancient Red Dragon"]}
-        { title = "You must rescue a good friend from the deptch of a beholder tyrant ship"; weight = 1; monsters = [monster "Hive Mother"; monsters "Beholder" (1, 12, None)]}
+        { title = "You must rescue a good friend from the depths of a beholder tyrant ship"; weight = 1; monsters = [monster "Hive Mother"; monsters "Beholder" (1, 12, None)]}
         ]
     | Legendary -> [
         { title = "You raid a dragon's treasure hoard"; weight = 1; monsters = [monster "Ancient White Dragon"; monsters "Young White Dragon" (1, 12, None)]}
