@@ -127,9 +127,10 @@ module App =
         | ChargenMsg msg ->
             match model.current with
             | (Page.Generate chargenModel) ->
-                let cmd = (ChargenMsg >> Cmd.ofMsg)
-                let chargenModel, cmd = Chargen.View.update (ChargenMsg >> Cmd.ofMsg) (flip chargenControl >> Cmd.ofSub) msg chargenModel
-                { model with current = (Page.Generate chargenModel)}, cmd
+                notImpl()
+                //let cmd = (ChargenMsg >> Cmd.ofMsg)
+                //let chargenModel, cmd = Chargen.View.update (ChargenMsg >> Cmd.ofMsg) (flip chargenControl >> Cmd.ofSub) msg chargenModel
+                //{ model with current = (Page.Generate chargenModel)}, cmd
             | _ -> model, (Error $"Message '{msg}' not compatible with current page ({model.current}))" |> Cmd.ofMsg)
         | AdventureMsg msg ->
             match model.current with
@@ -311,13 +312,13 @@ open Elmish
 open Elmish.Navigation
 
 Program.mkProgram init update view
-|> Program.withSubscription(fun m -> Cmd.ofSub(fun dispatch ->
-    Browser.Dom.window.onerror <-
-    fun msg ->
-        if msg.ToString().Contains "SocketProtocolError" = false then
-            dispatch (sprintf "Error: %A" msg |> Error)
-            Browser.Dom.window.alert ("Unhandled Exception: " + msg.ToString())
-        ))
+//|> Program.withSubscription(fun m -> Cmd.ofSub(fun dispatch ->
+//    Browser.Dom.window.onerror <-
+//    fun msg ->
+//        if msg.ToString().Contains "SocketProtocolError" = false then
+//            dispatch (sprintf "Error: %A" msg |> Error)
+//            Browser.Dom.window.alert ("Unhandled Exception: " + msg.ToString())
+//        ))
 |> Program.toNavigable Url.parse Url.unpack
 |> Program.withReactBatched "feliz-app"
 |> Program.run
