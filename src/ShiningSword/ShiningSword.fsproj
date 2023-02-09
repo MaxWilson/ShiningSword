@@ -34,6 +34,5 @@
     </ItemGroup>
     <ItemGroup>
       <ProjectReference Include="..\Lib\Lib.fsproj" />
-      <PackageReference Update="FSharp.Core" Version="5.0.0" />
     </ItemGroup>
 </Project>

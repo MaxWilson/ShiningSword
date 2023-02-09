@@ -2,13 +2,14 @@
     "private": true,
     "scripts": {
         "prestart": "dotnet tool restore",
-        "start": "dotnet fable watch ./src/ShiningSword -s --run webpack-dev-server",
+        "start": "dotnet fable watch src/ShiningSword --sourceMaps --run vite",
         "prebuild": "dotnet tool restore",
-        "build": "dotnet fable ./src/ShiningSword && webpack",
+        "build": "dotnet fable src/ShiningSword --sourceMaps --run vite build",
         "test:live": "dotnet fable watch tests --run webpack-dev-server --config ./webpack.tests.js",
         "build:test": "dotnet fable tests && webpack --config webpack.tests.js",
         "pretest": "dotnet tool restore",
-        "test": "dotnet fable tests --outDir dist/tests && mocha dist/tests -r esm"
+        "test": "dotnet fable tests --outDir dist/tests && mocha dist/tests -r esm",
+        "serve": "vite serve"
     },
     "dependencies": {
         "bulma": "^0.9.1",
@@ -17,7 +18,8 @@
         "react": "^17.0.1",
         "react-dom": "^17.0.1",
         "react-drag-drop-container": "^6.1.1",
-        "react-konva": "^17.0.2-5"
+        "react-konva": "^17.0.2-5",
+        "vite": "^2.9.15"        
     },
     "devDependencies": {
         "@babel/core": "^7.12.10",
