@@ -21,9 +21,9 @@
         <Compile Include="Dev\Main.fs" />
     </ItemGroup>
     <ItemGroup>
-        <PackageReference Include="Elmish.Bridge.Client" Version="6.0.1" />
-        <PackageReference Include="Fable.Elmish.Browser" Version="3.0.4" />
-        <PackageReference Include="Fable.Elmish.React" Version="3.0.1" />
+        <PackageReference Include="Elmish.Bridge.Client" Version="7.0.2" />
+        <PackageReference Include="Fable.Elmish.Browser" Version="4.0.1" />
+        <PackageReference Include="Fable.Elmish.React" Version="4.0.0" />
         <PackageReference Include="Fable.Import.Browser" Version="1.4.0" />
         <PackageReference Include="Fable.React" Version="9.2.0" />
         <PackageReference Include="Feliz" Version="2.4.0" />
@@ -31,7 +31,7 @@
         <PackageReference Include="Fable.DateFunctions" Version="3.9.0" />
         <PackageReference Include="Feliz.UseElmish" Version="2.3.0" />
         <PackageReference Include="Fulma" Version="2.16.0" />
-        <PackageReference Include="Thoth.Json" Version="7.0.0" />
+        <PackageReference Include="Thoth.Json" Version="10.0.0" />
     </ItemGroup>
     <ItemGroup>
       <ProjectReference Include="..\Lib\Lib.fsproj" />
