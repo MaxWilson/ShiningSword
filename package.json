@@ -19,7 +19,7 @@
         "core-js": "^3.8.2",
         "esm": "^3.2.25",
         "graceful-fs": "^4.2.4",
-        "mocha": "^8.2.1",
+        "mocha": "^10.2.0",
         "react": "^18.2.0",
         "react-dom": "^18.2.0",
         "react-drag-drop-container": "^6.1.1",
