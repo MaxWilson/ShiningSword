@@ -155,7 +155,7 @@ let view model control dispatch =
                 {| title = "Name"; render = get personalNameP.Get |}
                 {| title = "AC"; render = get acP.Get |}
                 {| title = "HP"; render = getHP |}
-                {| title = "Status"; render = isDead >> toString |}
+                {| title = "Status"; render = isDead >> (function false -> "OK" | _ -> "Dead") |}
                 ]
             statusSummary rosterIds (snd >> isFriendly) isDead columns dispatch
         let finalSection elements = class' Html.div "finalize" elements
