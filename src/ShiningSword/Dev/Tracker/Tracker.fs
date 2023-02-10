@@ -3,12 +3,13 @@ module Dev.Tracker.App
 open Elmish
 open Elmish.React
 open Dev.Tracker.UI
+open Browser.Types
 
 let start() =
     Program.mkSimple init update view
     |> Program.withSubscription(fun _ ->
-        Cmd.ofSub(fun dispatch ->
-            Browser.Dom.window.onkeydown <- fun e ->
+        [[], fun dispatch ->
+            let handle (e: KeyboardEvent) =
                 if e.ctrlKey then
                     let mutable handled = true // shortcut so we don't have to type e.preventDefault() in every valid case
                     match e.key.ToLowerInvariant() with
@@ -30,7 +31,11 @@ let start() =
                         dispatch (LogNav(0, +1))
                     | _ -> handled <- false
                     if handled then e.preventDefault()
-
-            ))
+            Browser.Dom.window.onkeydown <- handle
+            { new System.IDisposable with
+                  member this.Dispose(): unit =
+                    Browser.Dom.window.onkeydown <- ignore
+                  }
+            ])
     |> Program.withReactBatched "feliz-dev"
     |> Program.run
