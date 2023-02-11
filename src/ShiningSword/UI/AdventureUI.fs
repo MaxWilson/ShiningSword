@@ -19,7 +19,7 @@ type Model = {
     }
 
 let getPotentialCompanions model =
-    let getId = function Detail2e (char: CharacterSheet2e) -> char.id | Detail5e (char: CharacterSheet5e) -> char.id
+    let getId = function Detail2e (char: CharacterSheet2e) -> char.id | Detail5e (char: CharacterSheet5e) -> char.id | DetailDF (char: CharacterSheetDF) -> char.id
     let isADND = model.state.mainCharacter.isADND
     let ineligibleIds = (model.state.mainCharacter::model.state.allies) |> List.map getId
     LocalStorage.PCs.read() |> Seq.filter(fun r -> r.isADND = isADND && not (ineligibleIds |> List.contains (getId r)))
@@ -36,7 +36,7 @@ let recruitCompanions model control dispatch =
         Recruit (candidates |> chooseRandomExponentialDecay 0.2 chooseRandom) |> dispatch
 
 let stillAlive (ribbit: Ribbit) (char: CharacterSheet) =
-    let name = char.converge((fun c -> c.name), (fun c -> c.name))
+    let name = char.converge((fun c -> c.name), (fun c -> c.name), (fun c -> c.name))
     match ribbit.data.roster |> Map.tryFind name with
     | Some id ->
         (Domain.Ribbit.Operations.hpP.Get id ribbit) > (Domain.Ribbit.Operations.damageTakenP.Get id ribbit)
@@ -155,7 +155,7 @@ let view model control dispatch =
                 {| title = "Name"; render = get personalNameP.Get |}
                 {| title = "AC"; render = get acP.Get |}
                 {| title = "HP"; render = getHP |}
-                {| title = "Status"; render = isDead >> (function true -> "OK" | _ -> "Dead") |}
+                {| title = "Status"; render = isDead >> (function false -> "OK" | _ -> "Dead") |}
                 ]
             statusSummary rosterIds (snd >> isFriendly) isDead columns dispatch
         let finalSection elements = class' Html.div "finalize" elements

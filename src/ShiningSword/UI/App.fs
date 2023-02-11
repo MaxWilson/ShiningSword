@@ -35,6 +35,7 @@ module App =
         | AddOrUpdateRoster of CharacterSheet * stillAlive: bool
         | ResumePlay of id: int
         | ClearRoster
+        | ClearGraveyard
         | DeleteCharacter of id: int
 
     let init initialCmd =
@@ -79,7 +80,7 @@ module App =
                 model, Cmd.Empty
         | AddOrUpdateRoster (characterSheet, stillAlive) ->
             // helper method for working with universal sheets
-            let getId (sheet1: CharacterSheet) = sheet1.converge((fun c -> c.id), (fun c -> c.id))
+            let getId (sheet1: CharacterSheet) = sheet1.converge((fun c -> c.id), (fun c -> c.id), (fun c -> c.id))
             let delete id' collection = collection |> Array.filter (fun r -> getId r <> id')
             let addOrUpdate collection =
                 // assign a unique id if one isn't already there
@@ -88,7 +89,7 @@ module App =
                     | Some id -> Some id, characterSheet
                     | None ->
                         let id' = (Array.append model.roster model.graveyard) |> Array.map (getId >> Option.get) |> Array.fold max 0 |> (+) 1 |> Some
-                        id', characterSheet.map2e(fun c -> { c with id = id' }).map5e(fun c -> { c with id = id' })
+                        id', characterSheet.map2e(fun c -> { c with id = id' }).map5e(fun c -> { c with id = id' }).mapDF(fun c -> { c with id = id' })
 
                 // recent updated entries should be at the head of the list, so filter and then re-add at front
                 Array.append [|sheet|] (delete id' collection)
@@ -106,13 +107,19 @@ module App =
                 { model with roster = roster'; graveyard = graveyard' }, Cmd.Empty
 
         | ClearRoster ->
-            let roster' = Array.empty
-            LocalStorage.PCs.write roster'
-            { model with roster = roster' }, Cmd.Empty
+            let roster = Array.empty
+            LocalStorage.PCs.write roster
+            { model with roster = roster }, Cmd.Empty
+        | ClearGraveyard ->
+            let graveyard = Array.empty
+            LocalStorage.Graveyard.write graveyard
+            { model with graveyard = graveyard }, Cmd.Empty
         | DeleteCharacter id ->
-            let roster' = model.roster |> Array.filter (function Detail2e char -> char.id <> Some id | Detail5e char -> char.id <> Some id)
-            LocalStorage.PCs.write roster'
-            { model with roster = roster' }, Cmd.Empty
+            let roster = model.roster |> Array.filter (function Detail2e char -> char.id <> Some id | Detail5e char -> char.id <> Some id | DetailDF char -> char.id <> Some id )
+            LocalStorage.PCs.write roster
+            let graveyard = model.graveyard |> Array.filter (function Detail2e char -> char.id <> Some id | Detail5e char -> char.id <> Some id | DetailDF char -> char.id <> Some id )
+            LocalStorage.Graveyard.write graveyard
+            { model with roster = roster; graveyard = graveyard }, Cmd.Empty
         | GoHome ->
             { model with current = Home; error = None }, Navigate "/" |> Cmd.ofMsg
         | Open(page, Some url) -> { model with current = page}, Navigate url |> Cmd.ofMsg
@@ -121,7 +128,7 @@ module App =
             match model.current with
             | (Page.Generate chargenModel) ->
                 let cmd = (ChargenMsg >> Cmd.ofMsg)
-                let chargenModel, cmd = Chargen.View.update (ChargenMsg >> Cmd.ofMsg) (flip chargenControl >> Cmd.ofSub) msg chargenModel
+                let chargenModel, cmd = Chargen.View.update (ChargenMsg >> Cmd.ofMsg) (fun msg -> [fun dispatch -> chargenControl dispatch msg]) msg chargenModel
                 { model with current = (Page.Generate chargenModel)}, cmd
             | _ -> model, (Error $"Message '{msg}' not compatible with current page ({model.current}))" |> Cmd.ofMsg)
         | AdventureMsg msg ->
@@ -130,10 +137,10 @@ module App =
                 { model with current = (Page.Adventure (Adventure.update msg model'))}, Cmd.Empty
             | _ -> model, (Error $"Message '{msg}' not compatible with current page ({model.current}))" |> Cmd.ofMsg)
         | ResumePlay id ->
-            match model.roster |> Array.tryFind (function Detail2e c -> c.id = Some id | Detail5e c -> c.id = Some id) with
+            match model.roster |> Array.tryFind (function Detail2e c -> c.id = Some id | Detail5e c -> c.id = Some id | DetailDF char -> char.id = Some id ) with
             | Some character ->
                 model, Open(Page.Adventure (Adventure.init character), Some $"resume/{id}") |> Cmd.ofMsg
-            | _ -> model, Error "There is no character with id #{id}" |> Cmd.ofMsg
+            | _ -> model, Error $"There is no character with id #{id}" |> Cmd.ofMsg
 
     open Feliz.Router
     let view (model: Model) dispatch =
@@ -155,7 +162,7 @@ module App =
             | Adventure.Save ->
                 // avoid saving unless an ID has already been assigned, partly to avoid duplications (because of different Ids)
                 // and partly because the player might not be ready to keep the character.
-                let hasAlreadyBeenSaved (char:CharacterSheet) = char.converge((fun c -> c.id.IsSome), (fun c -> c.id.IsSome))
+                let hasAlreadyBeenSaved (char:CharacterSheet) = char.converge((fun c -> c.id.IsSome), (fun c -> c.id.IsSome), (fun c -> c.id.IsSome))
                 for char in adventure.state.mainCharacter::adventure.state.allies |> List.filter hasAlreadyBeenSaved |> List.rev do
                     (char, stillAlive char) |> AddOrUpdateRoster |> dispatch
             | Adventure.SaveAndQuit ->
@@ -165,7 +172,7 @@ module App =
             | Adventure.Error msg ->
                 Error msg |> dispatch
             UI.Adventure.view adventure control (AdventureMsg >> dispatch)
-        | _ ->
+        | Home ->
             Html.div [
                 prop.className "homePage"
                 prop.children [
@@ -179,41 +186,63 @@ module App =
                         prop.text "Create a character"
                         // "remember" the user's ruleset preference
                         prop.onClick(fun _ ->
-                            if model.roster.Length = 0 || model.roster[0].isADND then
+                            match model.roster |> Array.tryHead with
+                            | None | Some (Detail2e _) ->
                                 Open(Page.Generate (Chargen.View.init()), Some "chargen/adnd") |> dispatch
-                            else
+                            | Some (Detail5e _)->
                                 Open(Page.Generate (Chargen.View.init()), Some "chargen/5e") |> dispatch
                                 ChargenMsg(Chargen.View.SetRuleset Chargen.View.WotC) |> dispatch
+                            | Some (DetailDF _)->
+                                Open(Page.Generate (Chargen.View.init()), Some "chargen/df") |> dispatch
+                                ChargenMsg(Chargen.View.SetRuleset Chargen.View.Ruleset.DungeonFantasy) |> dispatch
                             )
                         ]
                     class' Html.div "growToFill" [
-                        class' Html.div "existingCharacters" [
-                            for ch in model.roster do
-                                let txt, id, flair, cssClass =
-                                    match ch with
-                                    | Detail2e char ->
-                                        char.name, char.id, "AD&D", "flairADND"
-                                    | Detail5e char ->
-                                        char.name, char.id, "D&D 5E", "flairDND5e"
+                        let render stillAlive (ch: CharacterSheet) =
+                            let txt, id, flair, cssClass =
+                                match ch with
+                                | Detail2e char ->
+                                    char.name, char.id, "AD&D", "flair ADND"
+                                | Detail5e char ->
+                                    char.name, char.id, "D&D 5E", "flair DND5e"
+                                | DetailDF char ->
+                                    char.name, char.id, "DFRPG", "flair DF"
+                            [
                                 Html.span [
                                     prop.text flair
                                     prop.className cssClass
                                     ]
                                 Html.span [prop.text txt; prop.className "characterName"; prop.onClick (thunk1 dispatch (ResumePlay id.Value))]
-                                Html.button [
-                                    prop.text $"Resume"
-                                    prop.className "resumeCommand"
-                                    prop.onClick (thunk1 dispatch (ResumePlay id.Value))
-                                    ]
+                                if stillAlive then
+                                    Html.button [
+                                        prop.text $"Resume"
+                                        prop.className "resumeCommand"
+                                        prop.onClick (thunk1 dispatch (ResumePlay id.Value))
+                                        ]
+                                else
+                                    // placeholder to make the grids come out right
+                                    Html.div[prop.text ""]
                                 Html.button [
                                     prop.text $"Delete"
                                     prop.className "deleteCommand"
                                     prop.onClick (thunk1 dispatch (DeleteCharacter id.Value))
                                     ]
+                                ]
+
+                        class' Html.div "existingCharacters" [
+                            for ch in model.roster do
+                                yield! render true ch
 
                             if model.roster.Length > 0 then
                                 Html.button [prop.text "Delete all characters"; prop.className "deleteAllCommand"; prop.onClick (thunk1 dispatch ClearRoster)]
                             ]
+                        if(model.graveyard.Length > 0) then
+                            Html.h2 "The honored dead"
+                            class' Html.div "graveyard" [
+                                for ch in model.graveyard do
+                                    yield! render false ch
+                                Html.button [prop.text "Delete entire graveyard"; prop.className "deleteAllCommand"; prop.onClick (thunk1 dispatch ClearGraveyard)]
+                                ]
                         ]
 
                     Html.div [
@@ -282,13 +311,13 @@ open Elmish
 open Elmish.Navigation
 
 Program.mkProgram init update view
-|> Program.withSubscription(fun m -> Cmd.ofSub(fun dispatch ->
-    Browser.Dom.window.onerror <-
-    fun msg ->
-        if msg.ToString().Contains "SocketProtocolError" = false then
-            dispatch (sprintf "Error: %A" msg |> Error)
-            Browser.Dom.window.alert ("Unhandled Exception: " + msg.ToString())
-        ))
+//|> Program.withSubscription(fun m -> Cmd.ofSub(fun dispatch ->
+//    Browser.Dom.window.onerror <-
+//    fun msg ->
+//        if msg.ToString().Contains "SocketProtocolError" = false then
+//            dispatch (sprintf "Error: %A" msg |> Error)
+//            Browser.Dom.window.alert ("Unhandled Exception: " + msg.ToString())
+//        ))
 |> Program.toNavigable Url.parse Url.unpack
 |> Program.withReactBatched "feliz-app"
 |> Program.run

@@ -11,7 +11,6 @@
     <Compile Include="Main.fs" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Remove="FSharp.Core" Version="5.0.0" />
     <PackageReference Remove="System.Collections.Immutable" Version="6.0.0" />
     <PackageReference Remove="System.Runtime.CompilerServices.Unsafe" Version="6.0.0" />
     <PackageReference Remove="Expecto" Version="9.0.4" />
@@ -19,12 +18,11 @@
     <PackageReference Remove="Microsoft.NET.Test.Sdk" Version="16.11.0" />
     <PackageReference Remove="Unquote" Version="6.1.0" />
     <PackageReference Remove="YoloDev.Expecto.TestSdk" Version="0.13.3" />
-    <PackageReference Include="FSharp.Core" Version="5.0.0" />
-    <PackageReference Include="System.Collections.Immutable" Version="6.0.0" />
+    <PackageReference Include="System.Collections.Immutable" Version="7.0.0" />
     <PackageReference Include="System.Runtime.CompilerServices.Unsafe" Version="6.0.0" />
     <PackageReference Include="Expecto" Version="9.0.4" />
     <PackageReference Include="Expecto.FsCheck" Version="9.0.4" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.11.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.4.1" />
     <PackageReference Include="Unquote" Version="6.1.0" />
     <PackageReference Include="YoloDev.Expecto.TestSdk" Version="0.13.3" />
   </ItemGroup>

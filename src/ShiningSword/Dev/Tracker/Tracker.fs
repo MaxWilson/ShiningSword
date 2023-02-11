@@ -3,6 +3,17 @@ module Dev.Tracker.App
 open Elmish
 open Elmish.React
 open Dev.Tracker.UI
+open Browser.Types
+
+module Cmd =
+    let ofSub fnDispatch =
+        [   [], fnDispatch
+            ]
+    let onDispose f =
+        { new System.IDisposable with
+            member this.Dispose(): unit = f()
+            }
+    let noDispose = onDispose ignore
 
 let start() =
     Program.mkSimple init update view
@@ -32,7 +43,7 @@ let start() =
                     dispatch (LogNav(0, +1))
                 | _ -> handled <- false
                 if handled then e.preventDefault()
-
+            Cmd.noDispose
             ))
     |> Program.withReactBatched "feliz-dev"
     |> Program.run

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net5.0</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
     <OtherFlags></OtherFlags>
   </PropertyGroup>
   <ItemGroup>
@@ -39,7 +39,5 @@
     <Compile Include="Domain\Ribbit\Rules2e.fs" />
     <Compile Include="Domain\Ribbit\Rules5e.fs" />
     <Compile Include="Adventure.fs" />
-    <PackageReference Remove="FSharp.Core" Version="5.0.0" />
-    <PackageReference Include="FSharp.Core" Version="5.0.0" />
   </ItemGroup>
 </Project>

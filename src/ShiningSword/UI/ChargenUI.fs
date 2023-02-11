@@ -162,6 +162,9 @@ module Interaction =
             // kind of a hack to make the UI "faster than..." etc. work
             blank with mode = PointBuy; allocations = blank.allocations |> Array.append [|for stat in Stat.All -> 8, Some stat|]
         }
+    let dungeonFantasy assign =
+        assign [| 10; 10; 10; 10; 10; 10 |]
+
     let unassign (stat:Stat) (draft:Draft) =
         { draft with allocations = draft.allocations |> Array.map (function (ix, Some stat') when stat' = stat -> ix, None | same -> same) }
     let assign (rollIndex:int) (stat:Stat) (draft:Draft): Draft =
@@ -230,7 +233,7 @@ module Interaction =
                 allocate pointsLeft amount
             | _ -> draft // unchanged
         | _ -> shouldntHappen()
-    let create (traits: Universal.Detail<_,_>) method : Draft =
+    let create (traits: Universal.Detail<_,_,_>) method : Draft =
         let sex = chooseRandom [Male; Female]
         let nationalOrigin, name = makeName sex
         method(fun rolls -> {
@@ -265,9 +268,11 @@ module View =
         | DarkSun6d4
         | DarkSunMethodV
         | PointBuyN of int
+        | DungeonFantasy
         with
         static member ADND = [Roll3d6InOrder;Roll4d6k3;RollPHBMethodVI;DarkSunMethodI;DarkSun6d4;DarkSunMethodV]
         static member DND5e = [Roll3d6InOrder;Roll4d6k3;PointBuyN 27; PointBuyN 31]
+        static member DF = [DungeonFantasy]
         member this.info =
             match this with
                 | Roll3d6InOrder -> "3d6 in order", roll3d6InOrder
@@ -277,13 +282,14 @@ module View =
                 | DarkSun6d4 -> "Dark Sun 6d4 drop lowest", darkSun6d4
                 | DarkSunMethodV -> "Dark Sun Method V", darkSunMethodV
                 | PointBuyN n -> $"Point buy ({n})", pointBuy n
+                | DungeonFantasy -> "Dungeon Fantasy", dungeonFantasy
             |> MethodInfo
     and MethodInfo = MethodInfo of name: string * ((Rolls -> Draft) -> Draft)
         with
         member this.f = match this with (MethodInfo(name, f)) -> f
         member this.name' = match this with (MethodInfo(name, f)) -> name
 
-    type Ruleset = TSR | WotC
+    type Ruleset = TSR | WotC | DungeonFantasy
     type Model = {
         draft: Draft option
         method: ChargenMethod
@@ -316,7 +322,7 @@ module View =
             ruleset = Ruleset.TSR
             } |> reroll
     and reroll model =
-        let traits = if model.ruleset = TSR then Detail2e Map.empty else Detail5e Map.empty
+        let traits = match model.ruleset with | TSR -> Detail2e Map.empty | WotC -> Detail5e Map.empty | DungeonFantasy -> DetailDF ()
         let char = create traits model.method.info.f
         { model with draft = Some char }
     let update cmd informParent msg model =
@@ -337,8 +343,11 @@ module View =
             printfn "%A" draft'.Value.allocations
             { model with draft = draft' }, Cmd.Empty
         | SetRuleset ruleset ->
-            let msg = SetMethod (if ruleset = Ruleset.TSR then ChargenMethod.ADND.Head else ChargenMethod.DND5e.Head)
-            { model with ruleset = ruleset }, Cmd.batch [msg |> cmd;informParent (UpdateUrl (if ruleset = TSR then "adnd" else "5e"))]
+            match ruleset with
+            | Ruleset.TSR -> ChargenMethod.ADND.Head, "adnd"
+            | Ruleset.WotC -> ChargenMethod.DND5e.Head, "5e"
+            | Ruleset.DungeonFantasy -> ChargenMethod.DF.Head, "df"
+            |> fun (method, urlFragment) -> { model with ruleset = ruleset }, Cmd.batch [SetMethod method |> cmd;informParent (UpdateUrl urlFragment)]
         | SetName(name) ->
             { model with draft = model.draft |> Option.map (fun draft -> { draft with name = name; nationalOrigin = "" }) }, Cmd.Empty
         | SetEditMode mode ->
@@ -438,6 +447,8 @@ module View =
                 line $"""{char.traits.summary |> displayFilter |> Seq.map DND5e.describeTrait |> String.join "; "}"""
                 line $"{char.wealth} gp"
                 ]
+            | DetailDF (char:CharacterSheetDF) ->
+                []
 
     open Fable.Core.JsInterop
     open Fable.React
@@ -636,8 +647,10 @@ module View =
                     Html.text "Create a character for Advanced Dungeons and Dragons!"
                 | Ruleset.WotC ->
                     Html.text "Create a character for Fifth Edition Dungeons and Dragons!"
-                for ix, ruleset in [Ruleset.TSR; Ruleset.WotC] |> List.mapi tuple2 do
-                    let name = match ruleset with Ruleset.TSR -> "AD&D" | _ -> "5th Edition"
+                | Ruleset.DungeonFantasy ->
+                    Html.text "Create a character for Dungeon Fantasy RPG (powered by GURPS)!"
+                for ix, ruleset in [Ruleset.TSR; Ruleset.WotC; Ruleset.DungeonFantasy] |> List.mapi tuple2 do
+                    let name = match ruleset with Ruleset.TSR -> "AD&D" | WotC -> "5th Edition" | DungeonFantasy -> "Dungeon Fantasy RPG"
                     // there's probably a better way to navigate/set the URL...
                     Html.input [prop.type'.checkbox; prop.ariaChecked (model.ruleset = ruleset); prop.isChecked (model.ruleset = ruleset); prop.id name; prop.onClick (fun _ -> SetRuleset ruleset |> dispatch); prop.readOnly true]
                     Html.label [prop.htmlFor name; prop.text name]
@@ -695,8 +708,9 @@ module View =
                         let postRacialStatAssignments = racialStatMods |> Seq.fold (fun map (stat, n) -> map |> Map.change stat (addStat n)) preracialStatAssignments
                         let ctx : PreconditionContext2e = { preracialStats = preracialStatAssignments; postracialStats = postRacialStatAssignments }
                         Detail2e {| decisions = decisions; ctx = ctx; traits = decisions |> collect rules2e [Trait2e.PC] ctx |}
+                    | DetailDF _ -> DetailDF {| ctx = Map.empty |}
                 for stat in Stat.All do
-                    match statsAndTraits.converge((fun d -> d.ctx.postracialStats),(fun d -> d.ctx)) |> Map.tryFind stat with
+                    match statsAndTraits.converge((fun d -> d.ctx.postracialStats),(fun d -> d.ctx),(fun d -> d.ctx)) |> Map.tryFind stat with
                     | Some v -> describe stat (Some v)
                     | None ->
                         describe stat None
@@ -796,6 +810,8 @@ module View =
                                 Html.button [prop.text "OK"; prop.onClick (fun _ -> Universal.Detail2e sheet |> BeginAdventuring |> control)]
                                 ]
                         | _ -> ()
+                | DetailDF _ ->
+                    Html.button [prop.text "OK"; prop.onClick (fun _ -> Universal.DetailDF { name = draft.name; id = None } |> BeginAdventuring |> control)]
 
             | None -> ()
             ]
