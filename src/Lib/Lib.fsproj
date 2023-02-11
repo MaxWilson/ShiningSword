@@ -5,6 +5,7 @@
     <OtherFlags></OtherFlags>
   </PropertyGroup>
   <ItemGroup>
+    <None Include="scratch\DFRPGChargen.fsx" />
     <None Include="Scratch\NameMaker.fsx" />
     <None Include="Scratch\Encounters.fsx" />
     <None Include="Scratch\CommandGestures.fsx" />
