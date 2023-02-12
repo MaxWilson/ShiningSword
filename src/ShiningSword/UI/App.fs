@@ -187,14 +187,10 @@ module App =
                         // "remember" the user's ruleset preference
                         prop.onClick(fun _ ->
                             match model.roster |> Array.tryHead with
-                            | None | Some (Detail2e _) ->
-                                Open(Page.Generate (Chargen.View.init()), Some "chargen/adnd") |> dispatch
-                            | Some (Detail5e _)->
-                                Open(Page.Generate (Chargen.View.init()), Some "chargen/5e") |> dispatch
-                                ChargenMsg(Chargen.View.SetRuleset Chargen.View.WotC) |> dispatch
-                            | Some (DetailDF _)->
+                            | None | Some (DetailDF _)->
                                 Open(Page.Generate (Chargen.View.init()), Some "chargen/df") |> dispatch
                                 ChargenMsg(Chargen.View.SetRuleset Chargen.View.Ruleset.DungeonFantasy) |> dispatch
+                            | _ -> notImpl()
                             )
                         ]
                     class' Html.div "growToFill" [
@@ -271,7 +267,7 @@ module Url =
                 let model'= Chargen.View.init()
                 let cmd = [
                     Open (Page.Generate model', None)
-                    SetMethod DarkSunMethodI |> ChargenMsg
+                    //SetMethod DarkSunMethodI |> ChargenMsg
                     ]
                 Some(cmd, ctx)
             | Str "chargen/adnd" ctx ->
@@ -284,7 +280,7 @@ module Url =
                 let model' = Chargen.View.init()
                 let cmd = [
                     Open (Page.Generate model', None)
-                    ChargenMsg (SetRuleset Chargen.View.WotC)
+                    ChargenMsg (SetRuleset (Chargen.View.WotC initDnd))
                     ]
                 Some(cmd, ctx)
             | Str "chargen" ctx ->
