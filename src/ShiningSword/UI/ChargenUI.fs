@@ -16,7 +16,7 @@ module View =
     type Ruleset = TSR | WotC | DungeonFantasy
     type Model = {
         ruleset: Ruleset
-        nameExport: string option
+        roleplay: RoleplayingData
         }
     type ParentMsg =
         | SaveAndQuit of CharacterSheet
@@ -26,14 +26,14 @@ module View =
     type Msg =
         | Reroll
         | SetRuleset of Ruleset
-        | ReceiveNameExport of string
+        | Roleplaying of CharData.Msg
     let rec init _ =
         let sex = chooseRandom [Male; Female]
         let nationalOrigin, name = makeNameAnyNation sex
 
         {
             ruleset = DungeonFantasy
-            nameExport = None
+            roleplay = CharData.init()
             } |> reroll
     and reroll model =
         match model.ruleset with
@@ -53,8 +53,9 @@ module View =
                     Cmd.batch [
                         //SetMethod method |> cmd
                         informParent (UpdateUrl urlFragment)]
-        | ReceiveNameExport v ->
-            { model with nameExport = Some v }, []
+        | Roleplaying msg ->
+            let rp = CharData.update msg model.roleplay
+            { model with roleplay = rp }, []
     let getPercentile =
         // for a given stat like 18, how many people have a lower stat?
         let normalPersonDistribution =
@@ -152,7 +153,7 @@ module View =
             prop.children (children: _ list)
             ]
     [<ReactComponent>]
-    let autoFocusInput props =
+    let AutoFocusInput props =
         let self = React.useRef None
         React.useEffectOnce(fun _ ->
             if self.current.IsSome then
@@ -172,8 +173,5 @@ module View =
                 | Ruleset.DungeonFantasy ->
                     Html.text "Create a character for Dungeon Fantasy RPG (powered by GURPS)!"
                 ]
-            UI.CharData.View({ args = (); export = (fun (rp: RoleplayingData) -> dispatch (ReceiveNameExport rp.name))})
-            match model.nameExport with
-            | Some name -> classTxt' "summary" Html.div $"Official name: {name}"
-            | None -> ()
+            UI.CharData.View model.roleplay (Roleplaying >> dispatch)
     ]

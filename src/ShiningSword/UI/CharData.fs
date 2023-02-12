@@ -51,10 +51,7 @@ type Props = {
 // probably any state that would need to be exported should instead be mastered externally and passed in on props.
 // but the question is: how do we organize the messages and updates?
 [<ReactComponent>]
-let View (props: Props) =
-    let mkProgram() =
-        Program.mkSimple init update (fun _ _ -> ())
-    let model, dispatch = React.useElmish(mkProgram, arg = props.args)
+let View model dispatch =
     class' "characterHeader" Html.div [
         let char = model
         class' "title" Html.div [
@@ -67,5 +64,4 @@ let View (props: Props) =
         | place ->
             line $"{char.sex} from {place}"
         Html.button [prop.text "New name"; prop.onClick (thunk1 dispatch RecomputeName)]
-        Html.button [prop.text "Export"; prop.onClick (thunk1 props.export model)]
         ]
