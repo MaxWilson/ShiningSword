@@ -638,4 +638,11 @@ module View =
                     Html.text "Create a character for Fifth Edition Dungeons and Dragons!"
                 | Ruleset.DungeonFantasy ->
                     Html.text "Create a character for Dungeon Fantasy RPG (powered by GURPS)!"
-                ]]
+                ]
+            class' Html.div "characterHeader" [
+                let char = {| name = "Sethra Lavode" |}
+                class' Html.div "title" [
+                    Html.text $"{char.name}"
+                    ]
+                ]
+    ]
