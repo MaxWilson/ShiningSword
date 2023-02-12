@@ -298,6 +298,9 @@ module View =
     type Ruleset = TSR of DnDModel | WotC of DnDModel | DungeonFantasy
     type Model = {
         ruleset: Ruleset
+        name: string
+        sex: Sex
+        nationalOrigin: string
         }
     type ParentMsg =
         | SaveAndQuit of CharacterSheet
@@ -316,12 +319,18 @@ module View =
             editMode = NotEditingText
             }
     let rec init _ =
+        let sex = chooseRandom [Male; Female]
+        let nationalOrigin, name = makeName sex
+
         {
             ruleset = Ruleset.TSR {
                 draft = None
                 method = ChargenMethod.ADND.Head
                 editMode = NotEditingText
                 }
+            sex = sex
+            name = name
+            nationalOrigin = nationalOrigin
             } |> reroll
     and reroll model =
         match model.ruleset with
@@ -350,8 +359,8 @@ module View =
                     Cmd.batch [
                         //SetMethod method |> cmd
                         informParent (UpdateUrl urlFragment)]
-        | SetName v -> notImpl()
-        | SetSex v -> notImpl()
+        | SetName v -> { model with name = v }, []
+        | SetSex v -> { model with sex = v }, []
 
     let getPercentile =
         // for a given stat like 18, how many people have a lower stat?
@@ -640,9 +649,16 @@ module View =
                     Html.text "Create a character for Dungeon Fantasy RPG (powered by GURPS)!"
                 ]
             class' Html.div "characterHeader" [
-                let char = {| name = "Sethra Lavode" |}
+                let char = model
                 class' Html.div "title" [
                     Html.text $"{char.name}"
                     ]
+                let line (txt:string) = Html.div [prop.text txt]
+                match char.nationalOrigin with
+                | "" ->
+                    line $"{char.sex}"
+                | place ->
+                    line $"{char.sex} from {place}"
+
                 ]
     ]
