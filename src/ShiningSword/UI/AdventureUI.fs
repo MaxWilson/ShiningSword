@@ -110,7 +110,6 @@ let statusSummary (creatures: 'creature list) isFriendly isDead (columns: {| tit
 
 let view model control dispatch =
     class' Html.div "adventure" [
-        yield! Chargen.View.viewCharacter model.state.mainCharacter
         match model.title with | Some title -> Html.span [prop.text title; prop.className "header"] | _ -> ()
         match model.log, model.activity with
         // If you won or lost, you want to see the log of how it happened

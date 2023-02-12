@@ -43,10 +43,13 @@ open Elmish
 open Elmish.React
 
 type Props = {
-    export: (RoleplayingData -> unit) -> unit
+    export: (RoleplayingData -> unit)
     args: unit
     }
 
+// the existence of props.export is probably a sign that this is an abuse of useElmish: it means state isn't really local.
+// probably any state that would need to be exported should instead be mastered externally and passed in on props.
+// but the question is: how do we organize the messages and updates?
 [<ReactComponent>]
 let View (props: Props) =
     let mkProgram() =
@@ -64,4 +67,5 @@ let View (props: Props) =
         | place ->
             line $"{char.sex} from {place}"
         Html.button [prop.text "New name"; prop.onClick (thunk1 dispatch RecomputeName)]
+        Html.button [prop.text "Export"; prop.onClick (thunk1 props.export model)]
         ]

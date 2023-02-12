@@ -15,7 +15,6 @@ importSideEffects "../sass/main.sass"
 module App =
     open Domain.Character
     open Domain.Character.Universal
-    open UI.Chargen.Interaction
 
     type Page =
         | Home
@@ -155,7 +154,7 @@ module App =
                 Html.button [prop.text "Start over"; prop.onClick (thunk1 dispatch GoHome)]
                 ]
         | Page.Generate model ->
-            Chargen.View.view model (chargenControl dispatch) (ChargenMsg >> dispatch)
+            Chargen.View.View model (chargenControl dispatch) (ChargenMsg >> dispatch)
         | Page.Adventure adventure ->
             let stillAlive = Adventure.stillAlive (adventure.state.ribbit)
             let control = function
@@ -280,7 +279,7 @@ module Url =
                 let model' = Chargen.View.init()
                 let cmd = [
                     Open (Page.Generate model', None)
-                    ChargenMsg (SetRuleset (Chargen.View.WotC initDnd))
+                    //ChargenMsg (SetRuleset (Chargen.View.WotC initDnd))
                     ]
                 Some(cmd, ctx)
             | Str "chargen" ctx ->
