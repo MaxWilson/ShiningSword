@@ -12,16 +12,18 @@
         <Compile Include="Dev\Tracker\UI.Components.fs" />
         <Compile Include="Dev\Tracker\UI.fs" />
         <Compile Include="Dev\Tracker\Tracker.fs" />
+        <Compile Include="UI\CommonUI.fs" />
         <Compile Include="UI\LocalStorage.fs" />
         <Compile Include="UI\DragDrop.fs" />
         <Compile Include="UI\Konva.fs" />
+        <Compile Include="UI\CharData.fs" />
+        <Compile Include="UI\DFRPGChar.fs" />
         <Compile Include="UI\ChargenUI.fs" />
         <Compile Include="UI\AdventureUI.fs" />
         <Compile Include="UI\App.fs" />
         <Compile Include="Dev\Main.fs" />
     </ItemGroup>
     <ItemGroup>
-        <PackageReference Include="Elmish.Bridge.Client" Version="7.0.2" />
         <PackageReference Include="Fable.Elmish.Browser" Version="4.0.1" />
         <PackageReference Include="Fable.Elmish.HMR" Version="7.0.0" />
         <PackageReference Include="Fable.Elmish.React" Version="4.0.0" />
@@ -31,7 +33,6 @@
         <PackageReference Include="Feliz.Router" Version="4.0.0" />
         <PackageReference Include="Fable.DateFunctions" Version="3.9.0" />
         <PackageReference Include="Feliz.UseElmish" Version="2.3.0" />
-        <PackageReference Include="Fulma" Version="2.16.0" />
         <PackageReference Include="Thoth.Json" Version="10.0.0" />
     </ItemGroup>
     <ItemGroup>

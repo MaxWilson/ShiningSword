@@ -1,4 +1,4 @@
-module Domain.Character.Universal 
+module Domain.Character.Universal
 
 open Core.DerivedTraits
 open Domain
@@ -76,8 +76,9 @@ let levelUp (char: CharacterSheet) =
 let xpNeeded (char: CharacterSheet) =
     char.converge (ADND2nd.xpNeeded, DND5e.xpNeeded, thunk 0<Metrics.xp>)
 
-let rec makeName(sex: Sex) =
-    let nationOfOrigin = chooseRandom ["Tir na n'Og"; "Abysia"; "Kailasa"; "Ermor"; "Undauntra"; "Arboria"; "Mordor"]
+let randomNation _ = chooseRandom ["Tir na n'Og"; "Abysia"; "Kailasa"; "Ermor"; "Undauntra"; "Arboria"; "Mordor"]
+
+let makeName (nationOfOrigin: string) (sex: Sex) =
     let rec chooseFromLists =
         function
         | potentialCategory::rest ->
@@ -87,7 +88,7 @@ let rec makeName(sex: Sex) =
         | [] -> "" // sometimes e.g. there is no last name for a given national origin
     let firstName = chooseFromLists [sex.ToString()]
     match firstName with
-    | "" -> makeName(sex) // invalid nation/sex combination (e.g. no females in Mordor), try again
+    | "" -> None // invalid nation/sex combination (e.g. no females in Mordor), try again
     | _ ->
         let lastName name =
             let surname = chooseFromLists [$"Last";$"Cognomen{sex}";$"Last{sex}";]
@@ -99,5 +100,12 @@ let rec makeName(sex: Sex) =
             let suffixes = ["Defender of Humanity"; "Last of the Dwarflords"; "the Accursed"; "Esquire"; "the Undying"]
             $"{name}, {chooseRandom suffixes}".Trim()
         let allThree = (prefix >> lastName >> title)
-        nationOfOrigin, chooseRandomExponentialDecay 0.4 Seq.head [lastName; (lastName >> title); prefix; allThree] firstName
+        chooseRandomExponentialDecay 0.4 Seq.head [lastName; (lastName >> title); prefix; allThree] firstName
+        |> Some
 
+let makeNameAnyNation sex =
+    let rec recur nation =
+        match makeName nation sex with
+        | None -> recur (randomNation())
+        | Some name -> nation, name
+    recur (randomNation())
