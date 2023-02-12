@@ -23,6 +23,7 @@
     <ItemGroup>
         <PackageReference Include="Elmish.Bridge.Client" Version="7.0.2" />
         <PackageReference Include="Fable.Elmish.Browser" Version="4.0.1" />
+        <PackageReference Include="Fable.Elmish.HMR" Version="7.0.0" />
         <PackageReference Include="Fable.Elmish.React" Version="4.0.0" />
         <PackageReference Include="Fable.Import.Browser" Version="1.4.0" />
         <PackageReference Include="Fable.React" Version="9.2.0" />

@@ -2,7 +2,7 @@
     "private": true,
     "scripts": {
         "prestart": "dotnet tool restore",
-        "start": "dotnet fable watch ShiningSword --sourceMaps --run vite",
+        "start": "dotnet fable watch ShiningSword --sourceMaps --run vite --port 8080 --base / --open /",
         "prebuild": "dotnet tool restore",
         "build": "dotnet fable ShiningSword --sourceMaps --run vite build",
         "test:live": "dotnet fable watch tests --run webpack-dev-server --config ./webpack.tests.js",
@@ -12,20 +12,21 @@
         "serve": "vite serve"
     },
     "dependencies": {
-        "date-fns": "^2.16.1",
-        "vite": "^2.9.15"
+        "date-fns": "^2.29.3",
+        "vite": "^4.1.1"
     },
     "devDependencies": {
-        "core-js": "^3.8.2",
+        "@vitejs/plugin-react": "^3.1.0",
+        "core-js": "^3.27.2",
         "esm": "^3.2.25",
-        "graceful-fs": "^4.2.4",
-        "mocha": "^8.2.1",
+        "graceful-fs": "^4.2.10",
+        "mocha": "^10.2.0",
         "react": "^18.2.0",
         "react-dom": "^18.2.0",
         "react-drag-drop-container": "^6.1.1",
         "react-konva": "^18.2.4",
-        "react-refresh": "^0.9.0",
+        "react-refresh": "^0.14.0",
         "sass": "^1.58.0",
-        "terser": "^4.8.0"
+        "terser": "^5.16.3"
     }
 }

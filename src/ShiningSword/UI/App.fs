@@ -309,6 +309,7 @@ module Url =
 open App
 open Elmish
 open Elmish.Navigation
+open Elmish.HMR
 
 Program.mkProgram init update view
 //|> Program.withSubscription(fun m -> Cmd.ofSub(fun dispatch ->
