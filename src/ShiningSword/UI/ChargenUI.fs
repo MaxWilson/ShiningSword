@@ -289,14 +289,16 @@ module View =
         member this.f = match this with (MethodInfo(name, f)) -> f
         member this.name' = match this with (MethodInfo(name, f)) -> name
 
-    type Ruleset = TSR | WotC | DungeonFantasy
-    type Model = {
+    type TextEditMode = | NotEditingText | EditingName // "not editing" is a bit of a misnomer--you can still edit stats and choices, but they aren't text
+    type DnDModel = {
         draft: Draft option
         method: ChargenMethod
         editMode: TextEditMode
+        }
+    type Ruleset = TSR of DnDModel | WotC of DnDModel | DungeonFantasy
+    type Model = {
         ruleset: Ruleset
         }
-    and TextEditMode = | NotEditingText | EditingName // "not editing" is a bit of a misnomer--you can still edit stats and choices, but they aren't text
     type ParentMsg =
         | SaveAndQuit of CharacterSheet
         | BeginAdventuring of CharacterSheet
@@ -316,15 +318,25 @@ module View =
         | SetRuleset of Ruleset
     let rec init _ =
         {
-            draft = None
-            method = ChargenMethod.ADND.Head
-            editMode = NotEditingText
-            ruleset = Ruleset.TSR
+            ruleset = Ruleset.TSR {
+                draft = None
+                method = ChargenMethod.ADND.Head
+                editMode = NotEditingText
+                }
             } |> reroll
     and reroll model =
-        let traits = match model.ruleset with | TSR -> Detail2e Map.empty | WotC -> Detail5e Map.empty | DungeonFantasy -> DetailDF ()
-        let char = create traits model.method.info.f
-        { model with draft = Some char }
+        match model.ruleset with
+        | TSR m ->
+            let traits = Detail2e Map.empty
+            let char = create traits m.method.info.f
+            { model with ruleset = TSR { m with draft = Some char } }
+        | WotC m ->
+            let traits = Detail5e Map.empty
+            let char = create traits m.method.info.f
+            { model with ruleset = WotC { m with draft = Some char } }
+        | DungeonFantasy ->
+            model
+
     let update cmd informParent msg model =
         match msg with
         | Reroll ->
