@@ -6,7 +6,8 @@
 #load "AutoWizard.fs"
 #load @"Ribbit\Model.fs"
 #load "Parsing.fs"
-
+#load "Domain\Onomastikon.fs"
+Onomastikon.nameLists
 open System
 open Packrat
 

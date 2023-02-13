@@ -16,7 +16,7 @@ module View =
     type Ruleset = TSR | WotC | DungeonFantasy
     type Model = {
         ruleset: Ruleset
-        roleplay: RoleplayingData
+        dfChar: DF.Model
         }
     type ParentMsg =
         | SaveAndQuit of CharacterSheet
@@ -26,14 +26,14 @@ module View =
     type Msg =
         | Reroll
         | SetRuleset of Ruleset
-        | Roleplaying of CharData.Msg
+        | FwdDungeonFantasy of DF.Msg
     let rec init _ =
         let sex = chooseRandom [Male; Female]
         let nationalOrigin, name = makeNameAnyNation sex
 
         {
             ruleset = DungeonFantasy
-            roleplay = CharData.init()
+            dfChar = DF.init()
             } |> reroll
     and reroll model =
         match model.ruleset with
@@ -53,9 +53,11 @@ module View =
                     Cmd.batch [
                         //SetMethod method |> cmd
                         informParent (UpdateUrl urlFragment)]
-        | Roleplaying msg ->
-            let rp = CharData.update msg model.roleplay
-            { model with roleplay = rp }, []
+        | FwdDungeonFantasy msg ->
+            match model.ruleset with
+            | DungeonFantasy ->
+                { model with dfChar = DF.update msg model.dfChar }, []
+            | _ -> shouldntHappen()
     let getPercentile =
         // for a given stat like 18, how many people have a lower stat?
         let normalPersonDistribution =
@@ -173,5 +175,9 @@ module View =
                 | Ruleset.DungeonFantasy ->
                     Html.text "Create a character for Dungeon Fantasy RPG (powered by GURPS)!"
                 ]
-            UI.CharData.View model.roleplay (Roleplaying >> dispatch)
-    ]
+            match model.ruleset with
+                | Ruleset.TSR -> ()
+                | Ruleset.WotC -> ()
+                | Ruleset.DungeonFantasy ->
+                    DF.View model.dfChar (FwdDungeonFantasy >> dispatch)
+            ]

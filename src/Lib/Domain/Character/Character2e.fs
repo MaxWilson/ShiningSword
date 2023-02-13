@@ -3,6 +3,7 @@ open Core.DerivedTraits
 open Domain
 open Domain.Metrics
 open Domain.Random
+open Domain.Character.Core.TSRish
 
 type WorshipFocus =
     | Oghma
@@ -42,7 +43,7 @@ type Race =
     | ThriKreen
 type Trait =
     | PC
-    | StatMod of Stat * int
+    | StatMod of TSRish.Stat * int
     | RaceOf of Race
     | SingleClass
     | SwordBowBonus of int
@@ -380,7 +381,7 @@ let describeTrait = function
         $"%+d{n} {stat}"
     | (RaceOf Halfling) -> "Athasian halfling"
     | (RaceOf HalfGiant) -> "Half-giant"
-    | (RaceOf race) -> $"{race}" |> uncamel
+    | (RaceOf race) -> $"{race}" |> String.uncamel
     | HDMultiplier 2 -> "Double HP rolls"
     | LimitedRegeneration minutes -> $"Limited regeneration (1 HP every {minutes} minutes)"
     | SwordBowBonus n ->
@@ -396,5 +397,5 @@ let describeTrait = function
         | Telepathy -> "Telepath"
         | Metapsionics -> "Metapsionicist"
     | Level(class', 1) -> class'.ToString()
-    | stat -> uncamel (stat.ToString())
+    | stat -> String.uncamel (stat.ToString())
 

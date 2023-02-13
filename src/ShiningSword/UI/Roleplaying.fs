@@ -1,15 +1,11 @@
-[<AutoOpen>]
-module UI.CharData
+module UI.Roleplaying
 open Domain
+open Domain.Character.Core
 open Domain.Character.Universal
 open Feliz
 open Feliz.UseElmish
 
-type RoleplayingData = {
-    name: string
-    sex: Sex
-    nationalOrigin: string
-}
+type Model = RoleplayingData
 
 let init _ =
     let sex = chooseRandom [Male; Female]
@@ -51,7 +47,7 @@ type Props = {
 // probably any state that would need to be exported should instead be mastered externally and passed in on props.
 // but the question is: how do we organize the messages and updates?
 [<ReactComponent>]
-let View model dispatch =
+let View (model:Model) dispatch =
     class' "characterHeader" Html.div [
         let char = model
         class' "title" Html.div [

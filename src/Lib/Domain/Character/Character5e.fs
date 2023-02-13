@@ -3,6 +3,7 @@ open Core.DerivedTraits
 open Domain
 open Domain.Metrics
 open Domain.Random
+open TSRish
 
 type CharacterClass = Artificer | Bard | Barbarian | Cleric | Druid | Fighter | Monk | Paladin | Ranger | Rogue | Sorcerer | Warlock | Wizard
     with static member All = [Artificer; Bard; Barbarian; Cleric; Druid; Fighter; Monk; Paladin; Ranger; Rogue; Sorcerer; Warlock; Wizard]
@@ -36,7 +37,7 @@ type Trait =
     | HillDwarf
     | MountainDwarf
     | Goblin
-    | StatMod of Stat * int
+    | StatMod of TSRish.Stat * int
     | Feat
     | GreatWeaponMaster | PolearmMaster | Sharpshooter | CrossbowExpert | Tough | Lucky | Mobile | ModeratelyArmored
     | HeavyArmorMaster
@@ -69,9 +70,9 @@ let describeTrait = function
     | Level(cl, 0) ->
         $"{cl}"
     | Subclass(subclass) ->
-        let full = uncamel (subclass.ToString())
+        let full = String.uncamel (subclass.ToString())
         full[..(full.LastIndexOf " " - 1)]
-    | stat -> uncamel (stat.ToString())
+    | stat -> String.uncamel (stat.ToString())
 type CharacterSheet = {
     id: int option // for saving and loading
     name: Name

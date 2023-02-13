@@ -30,6 +30,7 @@
     <Compile Include="Domain\Random.fs" />
     <Compile Include="Domain\Treasure.fs" />
     <Compile Include="Domain\Character\Character.fs" />
+    <Compile Include="Domain\Character\DungeonFantasy.fs" />
     <Compile Include="Domain\Character\Character2e.fs" />
     <Compile Include="Domain\Character\Character5e.fs" />
     <Compile Include="Domain\Character\CharacterUniversal.fs" />
