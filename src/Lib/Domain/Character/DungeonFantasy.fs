@@ -127,3 +127,11 @@ let createRandom randomizeStats =
         stats = race.stats + professions[prof].stats + stats
         traits = race.traits @ professions[prof].traits
         }
+
+let changeProfession char prof =
+    let race = races |> List.find (fun r -> r.name = char.race)
+    { char
+        with
+        profession = prof;
+        stats = race.stats + professions[prof].stats + char.baseRolls
+        traits = race.traits @ professions[prof].traits}

@@ -10,12 +10,15 @@ let init _ = createRandom true
 type Msg =
     | Reroll of randomize: bool
     | FwdRoleplaying of UI.Roleplaying.Msg
+    | ChangeProfession of Profession
 
 let update msg model =
     match msg with
     | Reroll random -> createRandom random
     | FwdRoleplaying msg ->
         { model with header = model.header |> UI.Roleplaying.update msg }
+    | ChangeProfession prof ->
+        changeProfession model prof
 
 [<ReactComponent>]
 let View model dispatch =
@@ -53,6 +56,15 @@ let View model dispatch =
         for stat in [Move; Dodge] do
             Html.div $"{stat}: {stat.Get model.stats}"
         Html.button [prop.text "New name"; prop.onClick (thunk1 dispatch (FwdRoleplaying UI.Roleplaying.RecomputeName))]
+        Html.div [
+            for prof in professions do
+                let chkId = ("chk" + prof.Value.name)
+                Html.div [
+                    Html.input [prop.id chkId; prop.type'.checkbox; prop.isChecked (model.profession = prof.Key); prop.readOnly true; prop.onClick (fun _ -> prof.Key |> ChangeProfession |> dispatch)]
+                    Html.label [prop.htmlFor chkId; prop.text prof.Value.name]
+                    ]
+
+            ]
         let randomize, setRandomize = React.useState true
         Html.div [
             Html.button [prop.text "Reroll"; prop.onClick (thunk1 dispatch (Reroll randomize))]
