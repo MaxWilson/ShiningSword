@@ -17,7 +17,7 @@
         <Compile Include="UI\DragDrop.fs" />
         <Compile Include="UI\Konva.fs" />
         <Compile Include="UI\Roleplaying.fs" />
-        <Compile Include="UI\Chargen\DF.fs" />
+        <Compile Include="UI\Chargen\DFUI.fs" />
         <Compile Include="UI\ChargenUI.fs" />
         <Compile Include="UI\AdventureUI.fs" />
         <Compile Include="UI\App.fs" />

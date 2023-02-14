@@ -23,7 +23,7 @@ let update msg model =
 
 [<ReactComponent>]
 let View model dispatch =
-    class' "characterHeader" Html.div [
+    class' "character" Html.div [
         let char = model.header
         let name = char.name
         let sex = char.sex
