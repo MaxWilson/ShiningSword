@@ -34,6 +34,12 @@ let chooseRandomExponentialDecay (acceptRate: float) fallback (options: _ seq) =
     // fall back to first value in list if nothing else was accepted
     | [] -> options |> fallback
     recur (options |> List.ofSeq)
+let chooseWeightedRandom (options: (int * 't) seq) =
+    let choices = [
+        for weight, item in options do
+            yield! List.init weight (thunk item)
+        ]
+    chooseRandom choices
 
 // iterate a mutable value
 let iter (data: byref<_>) f =

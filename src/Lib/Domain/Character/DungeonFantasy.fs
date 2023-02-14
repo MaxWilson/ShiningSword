@@ -4,13 +4,14 @@ open Domain
 
 [<AutoOpen>]
 module Stats =
-    type Stat = ST | DX | IQ | HT | Will | Per | HP | FP | Move | SpeedTimesFour | Dodge
+    type Stat = ST | DX | IQ | HT | Will | Per | SZ | HP | FP | Move | SpeedTimesFour | Dodge
         with
         member this.Get (stats: Stats) =
             let baseline =
                 match this with
                 | ST | DX | IQ | HT -> 10
                 | Will | Per -> IQ.Get stats
+                | SZ -> 0
                 | HP -> ST.Get stats
                 | FP -> HT.Get stats
                 | SpeedTimesFour -> (DX.Get stats + HT.Get stats)
@@ -69,36 +70,35 @@ let elf = Package.Create("Elf", [ST, -1; DX, +1; Move, +1])
 let halfElf = Package.Create("Half-elf", [DX, +1])
 let halfOgre = Package.Create("Half-ogre", [ST, +4; HT, +1; IQ, -1; Will, +1])
 let coleopteran = Package.Create("Coleopteran", [ST, +1; IQ, -1; Per, +1])
+let halfling = Package.Create("Coleopteran", [ST, -3; DX, +1; HT, +1; SZ, -2; HP, +2; Move, -1])
 let monk = Package.Create("Martial Artist", [ST, +1; DX, +6; HT, +2; Will, +1; Move, +1])
 let swash = Package.Create("Swashbuckler", [ST, +1; DX, +5; HT, +3])
 let wizard = Package.Create("Wizard", [DX, +2; IQ, +5; HT, +1; Per, -3])
 let professions = Map.ofList [MartialArtist, monk; Swashbuckler, swash; Wizard, wizard]
-let races = [human; catfolk; dwarf; elf; halfElf; halfOgre; coleopteran]
+let races = [10, human; 1, catfolk; 2, dwarf; 1, elf; 2, halfElf; 2, halfOgre; 1, coleopteran; 1, halfling]
 
-let debug() =
-    for profession in professions.Values do
-        for race in races do
-            let stats = race.stats + profession.stats
-            let sex = chooseRandom [Male; Female]
-            let nation, name = makeNameAnyNation sex
-            printfn $"\n{name}, {sex} {race.name} {profession.name} from {nation}"
-            for stat in [ST; DX; IQ; HT; Will; Per; HP; FP; Move; SpeedTimesFour; Dodge] do
-                match stat with
-                | SpeedTimesFour ->
-                    printf  $"Speed: {(SpeedTimesFour.Get stats |> float) / 4.0}  "
-                | _ ->
-                    printf  $"{stat}: {stat.Get stats}  "
-
-let rollStats() =
-    [for stat in [ST;DX;IQ;HT] do
-        // in general we want strong deviations like IQ 6 and IQ 14 to be rare
-        let rec exponentialHalt accum stepSize rate =
-            if random.NextDouble() <= rate && abs accum <= 5 then
-                exponentialHalt (accum + stepSize) stepSize rate
-            else
-                accum
-        stat, exponentialHalt 0 (chooseRandom [-1; +1]) 0.5
-        ] |> Stats.Create
+type RandomizationMethod = NonRandom | Exponential | Average3d6
+let rollStats method =
+    match method with
+    | NonRandom ->
+        [] |> Stats.Create
+    | Exponential ->
+        [for stat in [ST;DX;IQ;HT] do
+            // in general we want strong deviations like IQ 6 and IQ 14 to be rare
+            let rec exponentialHalt accum stepSize rate =
+                if random.NextDouble() <= rate && abs accum <= 5 then
+                    exponentialHalt (accum + stepSize) stepSize rate
+                else
+                    accum
+            stat, exponentialHalt 0 (chooseRandom [-1; +1]) 0.5
+            ] |> Stats.Create
+    | Average3d6 ->
+        [for stat in [ST;DX;IQ;HT] do
+            // average 3d6, 3d6 should make values above 14 or below 6 quite rare, which
+            // fits conventional wisdom on GURPS vs. D&D: each +1 in GURPS is
+            // akin to +2 in D&D.
+            stat, (List.init 6 (thunk1 rand 6) |> List.sum) / 2 - 10
+            ] |> Stats.Create
 
 type Character = {
     header: RoleplayingData
@@ -109,10 +109,10 @@ type Character = {
     traits: Trait list
     }
 
-let createRandom randomizeStats =
+let createRandom (randomizationMethod: RandomizationMethod) =
     let prof = chooseRandom professions.Keys
-    let stats = if randomizeStats then rollStats() else Stats.Create []
-    let race = chooseRandom races
+    let stats = rollStats randomizationMethod
+    let race = chooseWeightedRandom races
     let sex = chooseRandom [Male; Female]
     let nation, name = makeNameAnyNation sex
     let rp = {
@@ -129,7 +129,7 @@ let createRandom randomizeStats =
         }
 
 let changeProfession char prof =
-    let race = races |> List.find (fun r -> r.name = char.race)
+    let race = races |> List.find (fun (_, r) -> r.name = char.race) |> snd
     { char
         with
         profession = prof;

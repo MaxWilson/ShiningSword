@@ -279,7 +279,14 @@ module Url =
                 let model' = Chargen.View.init()
                 let cmd = [
                     Open (Page.Generate model', None)
-                    //ChargenMsg (SetRuleset (Chargen.View.WotC initDnd))
+                    ChargenMsg (SetRuleset (Chargen.View.WotC))
+                    ]
+                Some(cmd, ctx)
+            | Str "chargen/df" ctx ->
+                let model' = Chargen.View.init()
+                let cmd = [
+                    Open (Page.Generate model', None)
+                    ChargenMsg (SetRuleset (Chargen.View.DungeonFantasy))
                     ]
                 Some(cmd, ctx)
             | Str "chargen" ctx ->

@@ -5,10 +5,10 @@ open UI
 
 type Model = Character
 
-let init _ = createRandom true
+let init _ = createRandom NonRandom
 
 type Msg =
-    | Reroll of randomize: bool
+    | Reroll of RandomizationMethod
     | FwdRoleplaying of UI.Roleplaying.Msg
     | ChangeProfession of Profession
 
@@ -44,12 +44,7 @@ let View model dispatch =
                 Html.div $"{stat}: (%+d{stat.Get model.baseRolls - stat.Get empty}) {stat.Get model.stats}"
             else
                 Html.div $"{stat}: {stat.Get model.stats}"
-        Html.div [
-            Html.input [prop.id "chkShowEffects"; prop.type'.checkbox;
-                        prop.isChecked showRandomEffects; prop.readOnly true;
-                        prop.onClick (fun _ -> showRandomEffects |> not |> setShowRandomEffects)]
-            Html.label [prop.htmlFor "chkShowEffects"; prop.text "Display randomization"]
-            ]
+        checkbox "chkShowRandom" "Display randomization" (showRandomEffects, fun _ -> showRandomEffects |> not |> setShowRandomEffects)
         for stat in [Will; Per; HP; FP] do
             Html.div $"{stat}: {stat.Get model.stats}"
         Html.div $"Speed: %.2f{(SpeedTimesFour.Get model.stats |> float) / 4.0}"
@@ -65,18 +60,13 @@ let View model dispatch =
                     ]
 
             ]
-        let randomize, setRandomize = React.useState true
-        Html.div [
+        let randomize, setRandomize = React.useState NonRandom
+
+        Html.fieldSet [
+            Html.legend "Stat generation"
+            checkbox "chkNoRandom" "Nonrandom" (randomize = NonRandom, fun _ -> setRandomize NonRandom)
+            checkbox "chkExponential" "Power curve" (randomize = Exponential, fun _ -> setRandomize Exponential)
+            checkbox "chk3d6Avg" "Average of 3d6 and 3d6" (randomize = Average3d6, fun _ -> setRandomize Average3d6)
             Html.button [prop.text "Reroll"; prop.onClick (thunk1 dispatch (Reroll randomize))]
-            Html.input [prop.id "chkRandomize"; prop.type'.checkbox; prop.isChecked randomize; prop.readOnly true; prop.onClick (fun _ -> randomize |> not |> setRandomize)]
-            Html.label [prop.htmlFor "chkRandomize"; prop.text "Randomize stats"]
             ]
         ]
-
-        //printfn $"\n{name}, {sex} {race.name} {profession.name} from {nation}"
-        //    for stat in [ST; DX; IQ; HT; Will; Per; HP; FP; Move; SpeedTimesFour; Dodge] do
-        //        match stat with
-        //        | SpeedTimesFour ->
-        //            printf  $"Speed: {(SpeedTimesFour.Get stats |> float) / 4.0}  "
-        //        | _ ->
-        //            printf  $"{stat}: {stat.Get stats}  "
