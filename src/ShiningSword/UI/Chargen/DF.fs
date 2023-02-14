@@ -1,14 +1,15 @@
 module UI.Chargen.DF
+open Domain.Character
 open Domain.Character.DungeonFantasy
 open Feliz
 open UI
 
 type Model = Character
 
-let init _ = createRandom NonRandom
+let init _ = createRandom { Constraints.fresh with randomizationMethod = NonRandom }
 
 type Msg =
-    | Reroll of RandomizationMethod
+    | Reroll of Constraints
     | FwdRoleplaying of UI.Roleplaying.Msg
     | ChangeProfession of Profession
 
@@ -24,19 +25,21 @@ let update msg model =
 let View model dispatch =
     class' "characterHeader" Html.div [
         let char = model.header
-        class' "title" Html.div [
-            Html.text $"{char.name}"
-            ]
-        let line (txt:string) = Html.div [prop.text txt]
         let name = char.name
         let sex = char.sex
         let race = model.race
         let profession = professions[model.profession]
         match char.nationalOrigin with
         | "" ->
-            line $"\n{name}, {sex} {race} {profession.name}"
+            Html.div [
+                classTxt' "title" Html.div name
+                classTxt' "subtitle" Html.div $"{sex} {race} {profession.name}"
+                ]
         | nation ->
-            line $"\n{name}, {sex} {race} {profession.name} from {nation}"
+            Html.div [
+                classTxt' "title" Html.div name
+                classTxt' "subtitle" Html.div $"{sex} {race} {profession.name} from {nation}"
+                ]
         let empty = (Stats.Create [])
         let showRandomEffects, setShowRandomEffects = React.useState true
         for stat in [ST; DX; IQ; HT] do
@@ -61,12 +64,26 @@ let View model dispatch =
 
             ]
         let randomize, setRandomize = React.useState NonRandom
-
+        let racePreference, setRacePreference = React.useState None
+        let sexPreference, setSexPreference = React.useState None
+        let nationPreference, setNationPreference = React.useState None
+        let selection (label:string) (options: _ seq) display (current, set) =
+            class' "selection" Html.div [
+                classTxt' "subtitle" Html.span label
+                checkbox ("chk" + label + "Any") "Flexible" (current = None, fun _ -> set None)
+                for o in options do
+                    let txt = (display o)
+                    checkbox ("chk" + label + txt) txt (current = Some o, fun _ -> set (Some o))
+                ]
         Html.fieldSet [
             Html.legend "Stat generation"
             checkbox "chkNoRandom" "Nonrandom" (randomize = NonRandom, fun _ -> setRandomize NonRandom)
             checkbox "chkExponential" "Power curve" (randomize = Exponential, fun _ -> setRandomize Exponential)
             checkbox "chk3d6Avg" "Average of 3d6 and 3d6" (randomize = Average3d6, fun _ -> setRandomize Average3d6)
-            Html.button [prop.text "Reroll"; prop.onClick (thunk1 dispatch (Reroll randomize))]
+            selection "Race" (races |> List.map (snd)) (fun r -> r.name) (racePreference, setRacePreference)
+            selection "Sex" [Male; Female] (sprintf "%A") (sexPreference, setSexPreference)
+            let nations = Onomastikon.nameLists.Keys |> Seq.map fst |> Seq.distinct
+            selection "Origin" nations id (nationPreference, setNationPreference)
+            Html.button [prop.text "Reroll"; prop.onClick (thunk1 dispatch (Reroll { Constraints.fresh with randomizationMethod = randomize; race = racePreference; sex = sexPreference; nationPreference = nationPreference }))]
             ]
         ]

@@ -109,12 +109,39 @@ type Character = {
     traits: Trait list
     }
 
-let createRandom (randomizationMethod: RandomizationMethod) =
+type Constraints = {
+    randomizationMethod: RandomizationMethod
+    race: Package option
+    sex: Sex option
+    nationPreference: string option
+    }
+    with
+    static member fresh = {
+        randomizationMethod = NonRandom
+        race = None
+        sex = None
+        nationPreference = None
+        }
+
+let createRandom (c: Constraints) =
     let prof = chooseRandom professions.Keys
-    let stats = rollStats randomizationMethod
-    let race = chooseWeightedRandom races
-    let sex = chooseRandom [Male; Female]
-    let nation, name = makeNameAnyNation sex
+    let stats = rollStats c.randomizationMethod
+    let race = c.race |> Option.defaultValue (chooseWeightedRandom races)
+    let sex = c.sex |> Option.defaultValue (chooseRandom [Male; Female])
+    let nation, name =
+        match c.nationPreference with
+        | None ->
+            makeNameAnyNation sex
+        | Some nation ->
+            // try again
+            match makeName nation sex with
+            | Some name -> nation, name
+            | None ->
+                // Maybe user specified an invalid combination. Give up on nation preference.
+                match makeName nation sex with
+                | Some name -> nation, name
+                | None -> makeNameAnyNation sex
+
     let rp = {
         RoleplayingData.name = name
         sex = sex
@@ -128,7 +155,7 @@ let createRandom (randomizationMethod: RandomizationMethod) =
         traits = race.traits @ professions[prof].traits
         }
 
-let changeProfession char prof =
+let changeProfession (char: Character) prof =
     let race = races |> List.find (fun (_, r) -> r.name = char.race) |> snd
     { char
         with
