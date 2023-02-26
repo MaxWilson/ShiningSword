@@ -5,8 +5,7 @@
     <ItemGroup>
         <None Include="Scripts\Scratch.fsx" />
         <None Include="sass\main.sass" />
-        <None Include="UI\index.html" />
-        <None Include="UI\dev.html" />
+        <None Include="index.html" />
         <Compile Include="Dev\Tracker\Game.fs" />
         <Compile Include="Dev\Tracker\Commands.fs" />
         <Compile Include="Dev\Tracker\UI.Components.fs" />
