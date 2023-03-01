@@ -1,9 +1,6 @@
 [<AutoOpen>]
 module Common
 
-open Optics
-open type Optics.Operations
-
 let flip f x y = f y x
 let random = System.Random()
 let rand x = 1 + random.Next x
@@ -58,6 +55,9 @@ let shuffleCopy =
         a |> Array.iteri (fun i _ -> swap a i (random.Next(i, Array.length a)))
         a // return the copy
 
+module Tuple2 =
+    let mapfst f (x,y) = (f x, y)
+    let mapsnd f (x,y) = (x, f y)
 // generic place for overloaded operations like add. Can be extended (see below).
 type Ops =
     static member add(key, value, data: Map<_,_>) = data |> Map.add key value
@@ -136,14 +136,6 @@ module Map =
         m |> Map.tryFind key |> Option.defaultValue Map.empty
     let (|Lookup|_|) key map =
         map |> Map.tryFind key
-
-type IdGenerator = NextId of int
-    with
-    static member fresh = NextId 1
-    static member newId (idGenerator_: Lens<'m, IdGenerator>) (model: 'm) =
-        let mutable id' = 0
-        let model' = model |> over idGenerator_ (fun (NextId id) -> id' <- id; NextId (id'+1))
-        id', model'
 
 module Queue =
     type 't d = 't list

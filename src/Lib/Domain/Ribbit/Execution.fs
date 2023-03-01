@@ -1,31 +1,29 @@
 namespace Domain.Ribbit
-
 open Domain
 open Domain.Random
-open Domain.Character
 open Delta
 
 [<AutoOpen>]
-module Core =
+module Execution =
     type RibbitMsg =
         | ReserveId of Id
-        | AssociateMonsterKind of monsterKind:Name * Id
-        | AssociateIndividual of personalName:Name * id: Id * monsterKind: Name option
+        | AssociateMonsterKind of monsterKind:RibbitName * Id
+        | AssociateIndividual of personalName:RibbitName * id: Id * monsterKind: RibbitName option
         | RegisterRequest of RibbitRequest
         | Set of Address * value: RuntimeValue
-        | ClearValue of RowId: Id * PropertyName: Name // clear a property value to prompt re-entry/re-calculation. Currently only used for current initiative. Allowing temporal scopes is probably a better solution, in which case this will turn from ClearValue(Address) to ClearScope(current round)
-        | SetRoster of Map<Name, Id>
-        | RemoveRosterEntry of Name
-        | RenameRosterEntry of Name * newName: Name
+        | ClearValue of RowId: Id * PropertyName: RibbitName // clear a property value to prompt re-entry/re-calculation. Currently only used for current initiative. Allowing temporal scopes is probably a better solution, in which case this will turn from ClearValue(Address) to ClearScope(current round)
+        | SetRoster of Map<RibbitName, Id>
+        | RemoveRosterEntry of RibbitName
+        | RenameRosterEntry of RibbitName * newName: RibbitName
         | AddLogEntry of trieIndex: int list * txt: string
 
     type RibbitData = {
         properties: PropertiesByType // used primarily in parsing and serialization scenarios. Otherwise use props directly via object references.
-        kindsOfMonsters: Map<Name, Id> // used for looking up kinds if necessary
-        roster: Map<Name, Id> // actual creatures, by specific name like "Orc #1" or "Ugly Orc"
-        categories: Map<Name, (Id*Name) list> // mapping from king like "Orc" to specific name. Used for generating unique specific names.
+        kindsOfMonsters: Map<RibbitName, Id> // used for looking up kinds if necessary
+        roster: Map<RibbitName, Id> // actual creatures, by specific name like "Orc #1" or "Ugly Orc"
+        categories: Map<RibbitName, (Id*RibbitName) list> // mapping from king like "Orc" to specific name. Used for generating unique specific names.
         scope: Scope
-        affordances: Map<Name, Ribbit Affordance>
+        affordances: Map<RibbitName, Ribbit Affordance>
         openRequests: RibbitError list // probably also need some way of knowing what to restart after a request is filled
         events: Map<Id, EventData>
         eventRoots: Id FastList.d // root events for display in the log; should generally map to affordances like choosing to attack, and not to things triggered by them like choosing to parry.
@@ -55,12 +53,12 @@ module Core =
         member this.rewindTo ix = this.transform (Delta.rewind ix)
 
     and PropertiesByType = {
-        number: Map<Name, Property<int, Ribbit>>
-        id: Map<Name, Property<Id, Ribbit>>
-        roll: Map<Name, Property<RollSpec, Ribbit>>
-        rolls: Map<Name, Property<RollSpec list, Ribbit>>
-        flags: Map<Name, Property<string Set, Ribbit>>
-        bool: Map<Name, Property<bool, Ribbit>>
+        number: Map<RibbitName, Property<int, Ribbit>>
+        id: Map<RibbitName, Property<Id, Ribbit>>
+        roll: Map<RibbitName, Property<RollSpec, Ribbit>>
+        rolls: Map<RibbitName, Property<RollSpec list, Ribbit>>
+        flags: Map<RibbitName, Property<string Set, Ribbit>>
+        bool: Map<RibbitName, Property<bool, Ribbit>>
         }
         with static member fresh = { number = Map.empty; id = Map.empty; roll = Map.empty; rolls = Map.empty; flags = Map.empty; bool = Map.empty }
 
@@ -72,7 +70,7 @@ module Core =
         | Assign of Address * Expression<RuntimeValue>
         | Jump of int
     and 'Ribbit Affordance = {
-        name: Name
+        name: RibbitName
         action: 'Ribbit Execution
         }
     and LogCategory = Good | Bad | Neither
@@ -104,7 +102,7 @@ module Core =
 
     let private (|Id|) = function Generic ix -> unbox<int> ix
 
-    let private _get (rowId: Id, propertyName: Name, fallback, getter) (ribbit: Ribbit) =
+    let private _get (rowId: Id, propertyName: RibbitName, fallback, getter) (ribbit: Ribbit) =
         let rec recur rowId' =
             match ribbit.data.scope.rows with
             | Map.Lookup rowId' (Map.Lookup propertyName value) -> getter value
@@ -112,7 +110,7 @@ module Core =
             | _ -> fallback()
         recur rowId
 
-    let getSynchronously (rowId: Id, propertyName: Name, defaultValue, getter) =
+    let getSynchronously (rowId: Id, propertyName: RibbitName, defaultValue, getter) =
         let fallback() =
             match defaultValue with
             | Some v -> Ok v
@@ -131,9 +129,9 @@ module Core =
         _get (rowId, propertyName, fallback, getter) ribbit
 
     // this doesn't smell quite right--why does it need to be specially synchronous? Used only for FlagsProperty. TODO: decide if upsert should be an expression instead
-    let upsertScope (rowId: Id, propertyName: Name, defaultValue: RuntimeValue, upsert: RuntimeValue option -> RuntimeValue) : StateChange<Ribbit,unit> = stateChange {
+    let upsertScope (rowId: Id, propertyName: RibbitName, defaultValue: RuntimeValue, upsert: RuntimeValue option -> RuntimeValue) : StateChange<Ribbit,unit> = stateChange {
         let! currentValue = Ribbit.GetM (_get (rowId, propertyName, thunk None, Some))
-        do! Set(PropertyAddress (rowId, propertyName), upsert currentValue) |> Ribbit.ExecuteM
+        do! Set((Explicit rowId, propertyName), upsert currentValue) |> Ribbit.ExecuteM
         }
 
     let hasValue (rowId, propertyName) (ribbit: RibbitData) =
@@ -158,7 +156,7 @@ module Core =
                     { ribbit with categories = ribbit.categories |> Map.add monsterKind ((id, personalName)::existing) }
             | None -> ribbit
         | RegisterRequest request -> notImpl()
-        | Set(PropertyAddress(rowId, propertyName), value) ->
+        | Set((Explicit rowId, propertyName), value) ->
             let rows = ribbit.scope.rows |> Map.change rowId (function
                 | Some row -> row |> Map.add propertyName value |> Some
                 | None -> Map.ofList [propertyName, value] |> Some
@@ -199,112 +197,3 @@ module Core =
     let getLog ix (ribbit:Ribbit) = ribbit.data.events[ribbit.data.eventRoots[ix]].log
     let getLogMsg ix (ribbit:Ribbit) = ribbit.data.events[ribbit.data.eventRoots[ix]].log.Value.msg // convenience helper for the common case where log is guaranteed to be completed, as for unit tests
 
-type GenericProperty<'t>(name, defaultValue: _ option, tryUnbox: obj -> 't option) =
-    inherit Property<'t, Ribbit>(name)
-    let extract = function Generic v -> Ok (unbox v)
-    // default conversion function for convenience--99% of the time you should use this via the convenience ctors
-    override this.Set(rowId, value) (state: Ribbit) =
-        state |> (Set(PropertyAddress(rowId, name), Generic value) |> Ribbit.Update)
-    override this.Get(rowId) (ribbit: Ribbit) =
-        match ribbit |> getSynchronously (rowId, name, defaultValue, extract) with
-        | Ok value -> value
-        | Error (BugReport msg) -> failwith msg // shouldn't use synchronous Get on a property that's lazy
-        | Error _ -> shouldntHappen() // shouldn't use synchronous Get on a property that's lazy
-    override this.GetM(rowId) =
-        getRibbit >> getAsync (rowId, name, defaultValue, extract)
-    // default conversion function for convenience--99% of the time you should use this via the convenience ctors
-    static member TypeConvert = unbox<'t> >> Some
-    new(name, defaultValue: 't) = GenericProperty<'t>(name, Some defaultValue, GenericProperty.TypeConvert)
-    new(name) = GenericProperty<'t>(name, None, GenericProperty.TypeConvert)
-    member this.Clear (rowId: Id) (ribbit: Ribbit) =
-        ribbit |> (ClearValue(rowId, name) |> Ribbit.Update)
-
-type GlobalGenericProperty<'t>(name, defaultValue: _ option, tryUnbox: obj -> 't option) =
-    inherit GlobalProperty<'t, Ribbit>(name)
-    let rowId = 0
-    let extract = function Generic v -> Ok (unbox v)
-    override this.Set(value) (state: Ribbit) =
-        state |> (Set(PropertyAddress(rowId, name), Generic value) |> Ribbit.Update)
-    override this.Get (ribbit: Ribbit) =
-        match ribbit |> getSynchronously (rowId, name, defaultValue, extract) with
-        | Ok value -> value
-        | Error (BugReport msg) -> failwith msg // shouldn't use synchronous Get on a property that's lazy
-        | Error _ -> shouldntHappen() // shouldn't use synchronous Get on a property that's lazy
-    override this.GetM =
-        getRibbit >> getAsync (rowId, name, defaultValue, extract)
-    // default conversion function for convenience--99% of the time you should use this via the convenience ctors
-    static member TypeConvert = unbox<'t> >> Some
-    new(name, defaultValue: 't) = GlobalGenericProperty<'t>(name, Some defaultValue, GlobalGenericProperty.TypeConvert)
-    new(name) = GlobalGenericProperty<'t>(name, None, GlobalGenericProperty.TypeConvert)
-    member this.Clear (rowId: Id) (ribbit: Ribbit) =
-        ribbit |> (ClearValue(rowId, name) |> Ribbit.Update)
-
-type NumberProperty = GenericProperty<int>
-type BoolProperty = GenericProperty<bool>
-type RollProperty = GenericProperty<RollSpec>
-type RollsProperty = GenericProperty<RollSpec list>
-type IdProperty = GenericProperty<Id>
-type TextProperty = GenericProperty<string>
-
-type FlagsProperty<'t>(name, defaultValue: string Set) =
-    inherit GenericProperty<string Set>(name, Some defaultValue, GenericProperty.TypeConvert)
-    member this.SetAll(rowId, value) = this.Set(rowId, value)
-    member this.SetFlag(rowId, targetFlag:'t, value) (state: Ribbit) =
-        let target = targetFlag.ToString()
-        let (|Flags|) = function Generic v -> unbox<string Set> v
-        let toFlag = box >> Generic
-        state |> upsertScope (rowId, name, Generic defaultValue, function
-            | (Some (Flags set)) ->
-                if value = (set.Contains target) then toFlag set
-                elif value then set.Add target |> toFlag
-                else set |> Set.filter ((<>) target) |> toFlag
-            | _ -> (if value then [target] else []) |> Set.ofList |> toFlag
-            )
-    member this.SetAllM(rowId, value) (state: Ribbit) = (), this.SetAll(rowId, value) state
-    member this.SetFlagM(rowId, targetFlag, value) (state: Ribbit) = (), this.SetFlag(rowId, targetFlag, value) state
-    member this.Check(rowId, targetFlag:'t) (ribbit: Ribbit) =
-        let target = targetFlag.ToString()
-        let check = fun (set: string Set) ->
-            set.Contains target
-        let (|Flags|) = function Generic v -> unbox<string Set> v
-        match ribbit |> getSynchronously (rowId, name, (Some false), function Flags flags -> check flags |> Ok) with
-        | Ok v -> v
-        | Error err -> shouldntHappen err
-    member this.CheckM(rowId, targetFlag) (ribbit: Ribbit) =
-        let target = targetFlag.ToString()
-        let check = fun (set: string Set) ->
-            set.Contains target
-        let (|Flags|) = function Generic v -> unbox<string Set> v
-        ribbit |> getAsync (rowId, name, (Some false), function Flags flags -> check flags |> Ok)
-    new(name) = FlagsProperty(name, Set.empty)
-
-//type BinaryExpression<'t, 'lhs, 'rhs>(lhs: 'lhs Expression, rhs: 'rhs Expression, f: 'lhs -> 'rhs -> Result<'t, RibbitError>) =
-//    inherit Expression<'t>()
-//    override this.Eval (ctx: Ribbit EvaluationContext) =
-//        lhs.Eval ctx |> Result.bind (fun lhs ->
-//            rhs.Eval ctx |> Result.bind (fun rhs ->
-//                f lhs rhs))
-
-//type PropertyExpression<'t>(rowId: Expression<Id>, prop: Property<'t>) =
-//    inherit Expression<'t>()
-//    override this.Eval (ctx: Ribbit EvaluationContext) =
-//        rowId.Eval ctx |> Result.bind (fun rowId -> prop.GetM rowId ctx)
-
-//type LocalExpression<'t>(paramName: string, prop: Property<'t>) =
-//    inherit Expression<'t>()
-//    override this.Eval (ctx: EvaluationContext) =
-//        match ctx.locals |> Map.tryFind paramName with
-//        | Some v -> Ok v
-//        | _ ->
-//            notImpl()
-            //let req = DataRequest(LocalAddress(), )
-            //Error (Awaiting req)
-
-//type UpcastExpression<'t>(inner: Expression<'t>, upcast': 't -> RuntimeValue) =
-//    inherit Expression<RuntimeValue>()
-//    override this.Eval (ctx: Ribbit EvaluationContext) =
-//        inner.Eval ctx |> Result.map (fun inner -> upcast' inner)
-
-//module Ops2 =
-//    let numberAssignment (name: Name, expr: int Expression) =
-//        Assign(LocalAddress name, UpcastExpression(expr, Number))

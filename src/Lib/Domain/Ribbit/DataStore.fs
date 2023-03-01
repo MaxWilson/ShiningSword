@@ -3,17 +3,23 @@
 module Domain.Ribbit.DataStore
 open Domain
 open Domain.Random
-open Domain.Character
 open Delta
 
 type Id = int
+type RibbitName = string
 
 type RuntimeValue = Generic of obj
-type Address = LocalAddress of variableName: Name | PropertyAddress of Id * propertyName: Name
-type RibbitRequest = DataRequest of Id * propertyName: Name
+type RowAddress =
+    | SelfRow // HP = [self.]ST + mods
+    | LocalAddress // if [local.]roll > [local.]toHit...
+    | Indirect of RowAddress * RibbitName // toHit = indirect([local.]src, skill) + [local.]mods
+    | Explicit of Id // show Bob.HP
+type Address = RowAddress * RibbitName
+
+type RibbitRequest = DataRequest of Id * propertyName: RibbitName
 type RibbitError = Awaiting of RibbitRequest | BugReport of msg: string
 
-type Row = Map<Name, RuntimeValue>
+type Row = Map<RibbitName, RuntimeValue>
 
 type 'Ribbit ExecutionContext = {
     agent: Id option // the creature, if any, which is acting to create this expression. E.g. the attacker during an attack.

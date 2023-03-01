@@ -6,11 +6,6 @@
         <None Include="Scripts\Scratch.fsx" />
         <None Include="sass\main.sass" />
         <None Include="index.html" />
-        <Compile Include="Dev\Tracker\Game.fs" />
-        <Compile Include="Dev\Tracker\Commands.fs" />
-        <Compile Include="Dev\Tracker\UI.Components.fs" />
-        <Compile Include="Dev\Tracker\UI.fs" />
-        <Compile Include="Dev\Tracker\Tracker.fs" />
         <Compile Include="UI\CommonUI.fs" />
         <Compile Include="UI\LocalStorage.fs" />
         <Compile Include="UI\DragDrop.fs" />
@@ -18,9 +13,7 @@
         <Compile Include="UI\Roleplaying.fs" />
         <Compile Include="UI\Chargen\DFUI.fs" />
         <Compile Include="UI\ChargenUI.fs" />
-        <Compile Include="UI\AdventureUI.fs" />
         <Compile Include="UI\App.fs" />
-        <Compile Include="Dev\Main.fs" />
     </ItemGroup>
     <ItemGroup>
         <PackageReference Include="Fable.Elmish.Browser" Version="4.0.1" />

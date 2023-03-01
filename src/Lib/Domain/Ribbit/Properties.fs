@@ -1,9 +1,4 @@
-// This script is purely for messing around with graph visualization.
-#I __SOURCE_DIRECTORY__
-#I ".."
-#I "..\Core"
-#load @"Optics.fs"
-#load @"Common.fs"
+module Domain.Ribbit.Properties
 
 [<AutoOpen>]
 module RValue =
@@ -23,6 +18,7 @@ module RValue =
         description: string option
         modifiers: ('t RDelta) list
         }
+
 [<AutoOpen>]
 module LValue =
     type 't Delta =
@@ -34,13 +30,16 @@ module LValue =
         description: string option
         modifiers: ('t Delta) list
         }
+        with member this.clear = { this with modifiers = [] }
     type 't Secondary = { modifiers: ('t Delta) list }
+        with member this.clear = { this with modifiers = [] }
+
 type Create =
     static member primary(baseValue, ?description, ?modifiers) =
         {   Primary.baseValue = baseValue;
             description = description;
             modifiers = modifiers |> Option.map (List.map Delta) |> Option.defaultValue [] }
-    static member secondary(expr, ?descr, ?mods) =
+    static member secondary(?mods) =
        { modifiers = List.map Delta (defaultArg mods []) }
     static member plus(lhs: 't Primary, rhs: ('t Delta) list) =
         { lhs with modifiers = rhs@lhs.modifiers }
@@ -54,24 +53,8 @@ type Create =
         Create.plus(rhs, lhs)
     static member plus(lhs: ('t RDelta) list, rhs: 't RValue) =
         Create.plus(rhs, lhs)
+
 open type Create
-
-type Ctx = { ST: int Primary; HP: int Secondary }
-
-// now, how do we make sure we can eval either a whole forest or just a single tree? Different eval
-// functions? Maybe a forest is a Map<Id, Ctx> and you just lookup the right Id and then eval that?
-
-// is a property a function? If so what's its signature?
-// Is it a lens?
-
-// a property is capable of taking a ctx and returning a rvalue.
-let ST' ctx = ctx.ST
-
-// but a property also needs to be capable of being set! Temporary bonuses/penalties, permanent value changes.
-module Change =
-    let ST f ctx = { ctx with ST = f ctx.ST }
-    let HP f ctx = { ctx with HP = f ctx.HP }
-let exampleCtx = { ST = primary 10; HP = secondary(PropertyRef "ST", mods=[+3, "Dwarven HP"]) }
 
 // so maybe it's really a lens? But if so, it's a different kind of lens for HP than for ST: ST is not derived from anything but HP is
 type Eval =
@@ -86,24 +69,13 @@ type Eval =
             }
     static member eval (lhs: 't RValue, rhs: 't Secondary) : 't RValue =
         Create.plus(lhs, rhs.modifiers |> List.map Eval.eval)
+    static member sum (arg: int RValue) =
+        arg.baseValue + (arg.modifiers |> List.sumBy fst)
+    static member sum (arg: float RValue) =
+        arg.baseValue + (arg.modifiers |> List.sumBy fst)
 
-let plusPrimary n because (attr: _ Primary) =
-    { attr with modifiers = Delta(n,because)::attr.modifiers }
-let plusSecondary n because (attr: _ Secondary) =
-    { attr with modifiers = Delta(n,because)::attr.modifiers }
-
-open type Eval
-
-let ST ctx = ctx.ST |> eval
-let HP ctx = eval (ST ctx, ctx.HP)
-
-let sum = function
-    | { RValue.baseValue = a; modifiers = b } -> a + (b |> List.sumBy fst)
-
-(exampleCtx |> HP |> sum)
-    = 13
-(exampleCtx |> Change.HP (fun p -> Create.plus(p, [Delta(5, "Purchased")])) |> HP |> sum)
-    = 13
-
-// resolved: you can change ATTRIBUTES, not properties, but properties are derived from attributes
+module Primary =
+    let plus n because (attr: _ Primary) = Create.plus(attr, [Delta(n, because)])
+module Secondary =
+    let plusSecondary n because (attr: _ Secondary) = Create.plus(attr, [Delta(n, because)])
 

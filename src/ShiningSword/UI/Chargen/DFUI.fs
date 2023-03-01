@@ -1,4 +1,6 @@
 module UI.Chargen.DF
+open Domain.Ribbit.Properties
+open type Eval
 open Domain.Character
 open Domain.Character.DungeonFantasy
 open Feliz
@@ -28,7 +30,7 @@ let View model dispatch =
         let name = char.name
         let sex = char.sex
         let race = model.race
-        let profession = professions[model.profession]
+        let profession = Templates.professions[model.profession]
         match char.nationalOrigin with
         | "" ->
             Html.div [
@@ -40,22 +42,22 @@ let View model dispatch =
                 classTxt' "title" Html.div name
                 classTxt' "subtitle" Html.div $"{sex} {race} {profession.name} from {nation}"
                 ]
-        let empty = (Stats.Create [])
         let showRandomEffects, setShowRandomEffects = React.useState true
-        for stat in [ST; DX; IQ; HT] do
-            if showRandomEffects && stat.Get model.baseRolls <> stat.Get empty then
-                Html.div $"{stat}: (%+d{stat.Get model.baseRolls - stat.Get empty}) {stat.Get model.stats}"
+        let stats = model.stats
+        for txt, attr, prop in ["ST", stats.ST, ST; "DX", stats.DX, DX; "IQ", stats.IQ, IQ; "HT", stats.HT, HT] do
+            if showRandomEffects && attr.baseValue <> 10 then
+                Html.div $"{txt}: (%+d{attr.baseValue - 10}) {prop stats |> sum}"
             else
-                Html.div $"{stat}: {stat.Get model.stats}"
+                Html.div $"{txt}: {prop stats |> sum}"
         checkbox "chkShowRandom" "Display randomization" (showRandomEffects, fun _ -> showRandomEffects |> not |> setShowRandomEffects)
-        for stat in [Will; Per; HP; FP] do
-            Html.div $"{stat}: {stat.Get model.stats}"
-        Html.div $"Speed: %.2f{(SpeedTimesFour.Get model.stats |> float) / 4.0}"
-        for stat in [Move; Dodge] do
-            Html.div $"{stat}: {stat.Get model.stats}"
+        for txt, stat in ["Will", Will; "Per", Per; "HP", HP; "FP", FP] do
+            Html.div $"{txt}: {stat model.stats |> sum}"
+        Html.div $"Speed: %.2f{Speed model.stats |> sum}"
+        for txt, stat in ["Move", Move; "Dodge", Dodge] do
+            Html.div $"{txt}: {stat model.stats |> sum}"
         Html.button [prop.text "New name"; prop.onClick (thunk1 dispatch (FwdRoleplaying UI.Roleplaying.RecomputeName))]
         Html.div [
-            for prof in professions do
+            for prof in Templates.professions do
                 let chkId = ("chk" + prof.Value.name)
                 Html.div [
                     Html.input [prop.id chkId; prop.type'.checkbox; prop.isChecked (model.profession = prof.Key); prop.readOnly true; prop.onClick (fun _ -> prof.Key |> ChangeProfession |> dispatch)]
@@ -80,7 +82,7 @@ let View model dispatch =
             checkbox "chkNoRandom" "Nonrandom" (randomize = NonRandom, fun _ -> setRandomize NonRandom)
             checkbox "chkExponential" "Power curve" (randomize = Exponential, fun _ -> setRandomize Exponential)
             checkbox "chk3d6Avg" "Average of 3d6 and 3d6" (randomize = Average3d6, fun _ -> setRandomize Average3d6)
-            selection "Race" (races |> List.map (snd)) (fun r -> r.name) (racePreference, setRacePreference)
+            selection "Race" (Templates.races |> List.map snd) (fun r -> r.name) (racePreference, setRacePreference)
             selection "Sex" [Male; Female] (sprintf "%A") (sexPreference, setSexPreference)
             let nations = Onomastikon.nameLists.Keys |> Seq.map fst |> Seq.distinct
             selection "Origin" nations id (nationPreference, setNationPreference)

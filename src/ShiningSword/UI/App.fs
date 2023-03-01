@@ -9,33 +9,31 @@ open Konva
 // make sure errors are not silent: show them as Alerts (ugly but better than nothing for now)
 open Fable.Core.JsInterop
 open Fable.Core
+open Domain.Character.DungeonFantasy
 
 importSideEffects "../sass/main.sass"
 
 module App =
     open Domain.Character
     open Domain.Character.Universal
-
     type Page =
         | Home
         | Generate of Chargen.View.Model
-        | Adventure of Adventure.Model
     type Model = { current: Page; currentUrl: string option; error: string option; roster: CharacterSheet array; graveyard: CharacterSheet array }
     type Msg =
         | Error of msg: string
         | ClearError
         | Transform of (Model -> Model)
         | ChargenMsg of Chargen.View.Msg
-        | AdventureMsg of Adventure.Msg
         | Open of Page * url: string option
         | GoHome
         | Navigate of url: string
         | UpdateUrl of url: string // change URL without adding it to history--use this when a user would be surprised/irritated if "back button" acted as "undo"
         | AddOrUpdateRoster of CharacterSheet * stillAlive: bool
-        | ResumePlay of id: int
+        | ResumePlay of id: string
         | ClearRoster
         | ClearGraveyard
-        | DeleteCharacter of id: int
+        | DeleteCharacter of id: string
 
     let init initialCmd =
         { current = Page.Home; currentUrl = None; error = None; roster = LocalStorage.PCs.read(); graveyard = LocalStorage.Graveyard.read() }, Cmd.batch initialCmd
@@ -48,7 +46,7 @@ module App =
             UpdateUrl $"chargen/{suffix}"
             |> dispatch
         | Chargen.View.BeginAdventuring character ->
-            Transform (fun m -> { m with current = Page.Adventure (Adventure.init character) }) |> dispatch
+            Transform (notImpl) |> dispatch
             UpdateUrl "/" |> dispatch // TODO: make a URL router directly to character's adventure
     let update msg model =
         let model = { model with error = None } // clear error message whenever a new command is received
@@ -79,19 +77,12 @@ module App =
                 model, Cmd.Empty
         | AddOrUpdateRoster (characterSheet, stillAlive) ->
             // helper method for working with universal sheets
-            let getId (sheet1: CharacterSheet) = sheet1.converge((fun c -> c.id), (fun c -> c.id), (fun c -> c.id))
+            let getId (sheet1: CharacterSheet) =
+                match sheet1 with DF c -> c.id
             let delete id' collection = collection |> Array.filter (fun r -> getId r <> id')
             let addOrUpdate collection =
-                // assign a unique id if one isn't already there
-                let id', sheet =
-                    match getId characterSheet with
-                    | Some id -> Some id, characterSheet
-                    | None ->
-                        let id' = (Array.append model.roster model.graveyard) |> Array.map (getId >> Option.get) |> Array.fold max 0 |> (+) 1 |> Some
-                        id', characterSheet.map2e(fun c -> { c with id = id' }).map5e(fun c -> { c with id = id' }).mapDF(fun c -> { c with id = id' })
-
                 // recent updated entries should be at the head of the list, so filter and then re-add at front
-                Array.append [|sheet|] (delete id' collection)
+                Array.append [|characterSheet|] (delete (getId characterSheet) collection)
 
             if stillAlive then
                 let roster' = addOrUpdate model.roster
@@ -114,9 +105,9 @@ module App =
             LocalStorage.Graveyard.write graveyard
             { model with graveyard = graveyard }, Cmd.Empty
         | DeleteCharacter id ->
-            let roster = model.roster |> Array.filter (function Detail2e char -> char.id <> Some id | Detail5e char -> char.id <> Some id | DetailDF char -> char.id <> Some id )
+            let roster = model.roster |> Array.filter (function DF char -> char.id <> id )
             LocalStorage.PCs.write roster
-            let graveyard = model.graveyard |> Array.filter (function Detail2e char -> char.id <> Some id | Detail5e char -> char.id <> Some id | DetailDF char -> char.id <> Some id )
+            let graveyard = model.graveyard |> Array.filter (function DF char -> char.id <> id)
             LocalStorage.Graveyard.write graveyard
             { model with roster = roster; graveyard = graveyard }, Cmd.Empty
         | GoHome ->
@@ -130,15 +121,11 @@ module App =
                 let chargenModel, cmd = Chargen.View.update (ChargenMsg >> Cmd.ofMsg) (fun msg -> [fun dispatch -> chargenControl dispatch msg]) msg chargenModel
                 { model with current = (Page.Generate chargenModel)}, cmd
             | _ -> model, (Error $"Message '{msg}' not compatible with current page ({model.current}))" |> Cmd.ofMsg)
-        | AdventureMsg msg ->
-            match model.current with
-            | (Page.Adventure model') ->
-                { model with current = (Page.Adventure (Adventure.update msg model'))}, Cmd.Empty
-            | _ -> model, (Error $"Message '{msg}' not compatible with current page ({model.current}))" |> Cmd.ofMsg)
         | ResumePlay id ->
-            match model.roster |> Array.tryFind (function Detail2e c -> c.id = Some id | Detail5e c -> c.id = Some id | DetailDF char -> char.id = Some id ) with
+            match model.roster |> Array.tryFind (function DF c -> c.id = id) with
             | Some character ->
-                model, Open(Page.Adventure (Adventure.init character), Some $"resume/{id}") |> Cmd.ofMsg
+                //model, Open(Page.Adventure (Adventure.init character), Some $"resume/{id}") |> Cmd.ofMsg
+                notImpl()
             | _ -> model, Error $"There is no character with id #{id}" |> Cmd.ofMsg
 
     open Feliz.Router
@@ -155,22 +142,6 @@ module App =
                 ]
         | Page.Generate model ->
             Chargen.View.View model (chargenControl dispatch) (ChargenMsg >> dispatch)
-        | Page.Adventure adventure ->
-            let stillAlive = Adventure.stillAlive (adventure.state.ribbit)
-            let control = function
-            | Adventure.Save ->
-                // avoid saving unless an ID has already been assigned, partly to avoid duplications (because of different Ids)
-                // and partly because the player might not be ready to keep the character.
-                let hasAlreadyBeenSaved (char:CharacterSheet) = char.converge((fun c -> c.id.IsSome), (fun c -> c.id.IsSome), (fun c -> c.id.IsSome))
-                for char in adventure.state.mainCharacter::adventure.state.allies |> List.filter hasAlreadyBeenSaved |> List.rev do
-                    (char, stillAlive char) |> AddOrUpdateRoster |> dispatch
-            | Adventure.SaveAndQuit ->
-                for char in adventure.state.mainCharacter::adventure.state.allies |> List.rev do
-                    (char, stillAlive char) |> AddOrUpdateRoster |> dispatch
-                GoHome |> dispatch
-            | Adventure.Error msg ->
-                Error msg |> dispatch
-            UI.Adventure.view adventure control (AdventureMsg >> dispatch)
         | Home ->
             Html.div [
                 prop.className "homePage"
@@ -186,33 +157,28 @@ module App =
                         // "remember" the user's ruleset preference
                         prop.onClick(fun _ ->
                             match model.roster |> Array.tryHead with
-                            | None | Some (DetailDF _)->
+                            | None | Some (DF _)->
                                 Open(Page.Generate (Chargen.View.init()), Some "chargen/df") |> dispatch
                                 ChargenMsg(Chargen.View.SetRuleset Chargen.View.Ruleset.DungeonFantasy) |> dispatch
-                            | _ -> notImpl()
                             )
                         ]
                     class' Html.div "growToFill" [
                         let render stillAlive (ch: CharacterSheet) =
                             let txt, id, flair, cssClass =
                                 match ch with
-                                | Detail2e char ->
-                                    char.name, char.id, "AD&D", "flair ADND"
-                                | Detail5e char ->
-                                    char.name, char.id, "D&D 5E", "flair DND5e"
-                                | DetailDF char ->
-                                    char.name, char.id, "DFRPG", "flair DF"
+                                | DF char ->
+                                    char.header.name, char.id, "DFRPG", "flair DF"
                             [
                                 Html.span [
                                     prop.text flair
                                     prop.className cssClass
                                     ]
-                                Html.span [prop.text txt; prop.className "characterName"; prop.onClick (thunk1 dispatch (ResumePlay id.Value))]
+                                Html.span [prop.text txt; prop.className "characterName"; prop.onClick (thunk1 dispatch (ResumePlay id))]
                                 if stillAlive then
                                     Html.button [
                                         prop.text $"Resume"
                                         prop.className "resumeCommand"
-                                        prop.onClick (thunk1 dispatch (ResumePlay id.Value))
+                                        prop.onClick (thunk1 dispatch (ResumePlay id))
                                         ]
                                 else
                                     // placeholder to make the grids come out right
@@ -220,7 +186,7 @@ module App =
                                 Html.button [
                                     prop.text $"Delete"
                                     prop.className "deleteCommand"
-                                    prop.onClick (thunk1 dispatch (DeleteCharacter id.Value))
+                                    prop.onClick (thunk1 dispatch (DeleteCharacter id))
                                     ]
                                 ]
 
@@ -295,7 +261,7 @@ module Url =
                     Open (Page.Generate model', None)
                     ]
                 Some(cmd, ctx)
-            | Str "resume/" (Int (id, ctx)) ->
+            | Str "resume/" (Any(id, ctx)) ->
                 Some([ResumePlay id], ctx)
             | Str "/" ctx | Str "" (End as ctx) ->
                 Some([GoHome], ctx)

@@ -7,11 +7,9 @@ module View =
     open Elmish
     open Domain
     open Domain.Character
-    open DND5e
-    open Feliz
-    open Core.DerivedTraits
+    open Domain.Character.DungeonFantasy
     open Domain.Character.Universal
-
+    open Feliz
 
     type Ruleset = TSR | WotC | DungeonFantasy
     type Model = {
@@ -28,9 +26,6 @@ module View =
         | SetRuleset of Ruleset
         | FwdDungeonFantasy of DF.Msg
     let rec init _ =
-        let sex = chooseRandom [Male; Female]
-        let nationalOrigin, name = makeNameAnyNation sex
-
         {
             ruleset = DungeonFantasy
             dfChar = DF.init()
@@ -78,69 +73,6 @@ module View =
             elif statValue > 0 then lessThanEqualGroups[statValue]
             else 0.
 
-    let describeCharacter =
-        let line (txt: string) = Html.div [Html.text txt]
-        function
-        | Detail2e (char: CharacterSheet2e) ->
-            [
-                let classes' =
-                    let classes = char.levels |> Array.map fst |> Array.distinct
-                    let getLevel class' =
-                        char.levels |> Array.filter (fst >> (=) class') |> Array.max
-                    let classLevels = classes |> Array.map getLevel
-                    classLevels |> Array.map (fun (class', lvl) -> $"{class'} {lvl}") |> String.join "/"
-                let race = char.traits.summary |> Seq.pick (function (Trait2e.RaceOf _) as race -> Some (ADND2nd.describeTrait race) | _ -> None)
-                match char.origin.nationalOrigin with
-                | "" ->
-                    line $"{char.sex} {race} {classes'} "
-                | place ->
-                    line $"{char.sex} {race} {classes'} from {place}"
-                line $"{char.origin.ruleSystem}, {char.origin.statRollMethod}, from level {char.origin.startingLevel}"
-                line ""
-                let hpTotal = char.hp |> Array.sumBy(fun (hpRoll,conBonus) -> hpRoll + conBonus)
-                let hpBreakdown =
-                    char.hp |> Array.map (function (hpRoll, 0) -> hpRoll.ToString() | (hpRoll, conBonus) -> $"{hpRoll}%+d{conBonus}")
-                    |> List.ofArray
-                    |> String.oxfordJoin
-                line $"AC: {char.ac}, HP: {hpTotal} ({hpBreakdown})"
-                line $"""{if char.attacks > 1 then $"{char.attacks} attacks, " else ""}THAC0 {20 - char.toHitBonus}, damage: {char.damage}"""
-                line $"XP: {char.xp}"
-                let displayFilter = Set.filter (function Trait2e.StatMod _ | Trait2e.RaceOf _ | Trait2e.Level _ | Trait2e.SingleClass -> false | _ -> true)
-                line $"""{char.traits.summary |> displayFilter |> Seq.map ADND2nd.describeTrait |> String.join "; "}"""
-                line $"{char.wealth} gp"
-                ]
-        | Detail5e (char: CharacterSheet5e) ->
-            [
-                let describe = DND5e.describeTrait
-                let race = char.traits.summary |> Seq.find (fun trait1 -> DND5e.races |> List.contains trait1)
-                let classes' =
-                    let classes = char.levels |> Array.map fst |> Array.distinct
-                    let getLevel class' =
-                        char.levels |> Array.filter (fst >> (=) class') |> Array.max
-                    let classLevels = classes |> Array.map getLevel
-                    classLevels |> Array.map (fun (class', lvl) -> $"{class'} {lvl}") |> String.join "/"
-                match char.origin.nationalOrigin with
-                | "" ->
-                    line $"{char.sex} {describe race} {classes'} "
-                | place ->
-                    line $"{char.sex} {describe race} {classes'} from {place}"
-                line $"{char.origin.ruleSystem}, {char.origin.statRollMethod}, from level {char.origin.startingLevel}"
-                line ""
-                let hpTotal = char.hp |> Array.sumBy(fun (hpRoll,conBonus) -> hpRoll + conBonus)
-                let hpBreakdown =
-                    char.hp |> Array.map (function (hpRoll, 0) -> hpRoll.ToString() | (hpRoll, conBonus) -> $"{hpRoll}%+d{conBonus}")
-                    |> List.ofArray
-                    |> String.oxfordJoin
-                line $"AC: {char.ac}, HP: {hpTotal} ({hpBreakdown})"
-                let attacks = char.traits.summary |> Seq.choose (function Trait5e.ExtraAttack n -> Some (n+1) | _ -> None) |> Seq.fold max 1
-                line $"""{if attacks > 1 then $"{attacks} attacks, " else ""}%+d{char.toHit} to hit, damage: {char.damage}"""
-                line $"XP: {char.xp}"
-                let displayFilter = Set.filter (function Trait5e.StatMod _  | Trait5e.Level _ | Trait5e.Race _ | Trait5e.StartingClass _ | Trait5e.Feat -> false | r when races |> List.contains r -> false | _ -> true)
-                line $"""{char.traits.summary |> displayFilter |> Seq.map DND5e.describeTrait |> String.join "; "}"""
-                line $"{char.wealth} gp"
-                ]
-            | DetailDF (char:CharacterSheetDF) ->
-                []
 
     open Fable.Core.JsInterop
     open Fable.React
