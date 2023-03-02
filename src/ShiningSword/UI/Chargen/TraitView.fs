@@ -12,7 +12,7 @@ type TraitMsg =
 type ReactBuilder(char: Character, dispatch: TraitMsg -> unit) =
     interface OutputBuilder<Trait, ReactElement> with
         // labeled binary
-        member _.binaryL(value, label) =
+        member _.binary(value, label) =
             let chkId = $"chk-{value}{label}"
             let isChecked = char.traits |> List.contains value
             let toggle newValue =
@@ -22,6 +22,6 @@ type ReactBuilder(char: Character, dispatch: TraitMsg -> unit) =
                 Html.input [prop.id chkId; prop.type'.checkbox; prop.isChecked isChecked; prop.onChange toggle]
                 Html.label [prop.text label; prop.htmlFor chkId]
                 ]
-        member this.binary(value) = this.up.binaryL(value, (value.ToString() |> String.uncamel))
+        member this.binary(value) = this.up.binary(value, (value.ToString() |> String.uncamel))
         member _.aggregate values = class' "gridContainer" Html.div values
     member private this.up = this :> OutputBuilder<_,_>

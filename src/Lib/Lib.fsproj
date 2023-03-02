@@ -39,4 +39,7 @@
     <Compile Include="Domain\Character\Universal.fs" />
     <Compile Include="Adventure.fs" />
   </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Fable.Core" Version="3.7.1" />
+  </ItemGroup>
 </Project>
