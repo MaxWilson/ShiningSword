@@ -140,7 +140,7 @@ let View (mkHeader: _ -> ReactElement) model dispatch =
             for txt, prop in ["Will", Will; "Per", Per; "HP", HP; "FP", FP] do
                 show(txt, prop stats)
             showF("Speed", Speed stats)
-            for txt, prop in ["Move", Move; "Dodge", Dodge; "SZ", SM] do
+            for txt, prop in ["Move", Move; "Dodge", Dodge; "SM", SM] do
                 show(txt, prop stats)
             ]
         checkbox "chkShowWork" "Show stat derivation" (showWork, fun _ -> showWork |> not |> setShowWork)
