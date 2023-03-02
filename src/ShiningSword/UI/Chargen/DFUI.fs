@@ -30,8 +30,48 @@ let update msg model =
         { model with traits = model.traits |> List.filter ((<>) t) }
 
 [<ReactComponent>]
-let View model dispatch =
+let View (mkHeader: _ -> ReactElement) model dispatch =
     class' "character" Html.div [
+        let showRerollPreferences, setShowRerollPreferences = React.useState true
+        let randomize, setRandomize = React.useState NonRandom
+        let racePreference, setRacePreference = React.useState None
+        let sexPreference, setSexPreference = React.useState None
+        let nationPreference, setNationPreference = React.useState None
+        let rerollSection =
+            let rerollButton = Html.button [prop.text "Reroll"; prop.onClick (thunk1 dispatch (Reroll { Constraints.fresh with randomizationMethod = randomize; race = racePreference; sex = sexPreference; nationPreference = nationPreference }))]
+            if showRerollPreferences then
+                class' "reroll" Html.fieldSet [
+                    Html.legend "Reroll settings"
+                    Html.button [prop.text "-"; prop.onClick (thunk1 setShowRerollPreferences false)]
+                    rerollButton
+                    let selection (label:string) (options: _ seq) display (current, set) =
+                        class' "selection" Html.div [
+                            classTxt' "subtitle" Html.span label
+                            checkbox ("chk" + label + "Any") "Flexible" (current = None, fun _ -> set None)
+                            for o in options do
+                                let txt = (display o)
+                                checkbox ("chk" + label + txt) txt (current = Some o, fun _ -> set (Some o))
+                            ]
+                    Html.fieldSet [
+                        Html.legend "Stat generation"
+                        checkbox "chkNoRandom" "Nonrandom" (randomize = NonRandom, fun _ -> setRandomize NonRandom)
+                        checkbox "chkExponential" "Power curve" (randomize = Exponential, fun _ -> setRandomize Exponential)
+                        checkbox "chk3d6Avg" "Average of 3d6 and 3d6" (randomize = Average3d6, fun _ -> setRandomize Average3d6)
+                        ]
+                    selection "Race" (Templates.races |> List.map snd) (fun r -> r.name) (racePreference, setRacePreference)
+                    selection "Sex" [Male; Female] (sprintf "%A") (sexPreference, setSexPreference)
+                    let nations = Onomastikon.nameLists.Keys |> Seq.map fst |> Seq.distinct
+                    selection "Origin" nations id (nationPreference, setNationPreference)
+                    ]
+            else
+                class' "reroll" Html.section [
+                    Html.button [prop.text "+"; prop.onClick (thunk1 setShowRerollPreferences true)]
+                    rerollButton
+                    ]
+        mkHeader (React.fragment [
+            rerollSection
+            Html.button [prop.text "New name"; prop.onClick (thunk1 dispatch (FwdRoleplaying UI.Roleplaying.RecomputeName))]
+            ])
         let char = model.header
         let name = char.name
         let sex = char.sex
@@ -103,28 +143,5 @@ let View model dispatch =
             if profession.name = "Swashbuckler" then
                 swash (TraitView.ReactBuilder(model, (TraitChange >> dispatch)))
             ]
-        Html.button [prop.text "New name"; prop.onClick (thunk1 dispatch (FwdRoleplaying UI.Roleplaying.RecomputeName))]
-        let randomize, setRandomize = React.useState NonRandom
-        let racePreference, setRacePreference = React.useState None
-        let sexPreference, setSexPreference = React.useState None
-        let nationPreference, setNationPreference = React.useState None
-        let selection (label:string) (options: _ seq) display (current, set) =
-            class' "selection" Html.div [
-                classTxt' "subtitle" Html.span label
-                checkbox ("chk" + label + "Any") "Flexible" (current = None, fun _ -> set None)
-                for o in options do
-                    let txt = (display o)
-                    checkbox ("chk" + label + txt) txt (current = Some o, fun _ -> set (Some o))
-                ]
-        Html.fieldSet [
-            Html.legend "Stat generation"
-            checkbox "chkNoRandom" "Nonrandom" (randomize = NonRandom, fun _ -> setRandomize NonRandom)
-            checkbox "chkExponential" "Power curve" (randomize = Exponential, fun _ -> setRandomize Exponential)
-            checkbox "chk3d6Avg" "Average of 3d6 and 3d6" (randomize = Average3d6, fun _ -> setRandomize Average3d6)
-            selection "Race" (Templates.races |> List.map snd) (fun r -> r.name) (racePreference, setRacePreference)
-            selection "Sex" [Male; Female] (sprintf "%A") (sexPreference, setSexPreference)
-            let nations = Onomastikon.nameLists.Keys |> Seq.map fst |> Seq.distinct
-            selection "Origin" nations id (nationPreference, setNationPreference)
-            Html.button [prop.text "Reroll"; prop.onClick (thunk1 dispatch (Reroll { Constraints.fresh with randomizationMethod = randomize; race = racePreference; sex = sexPreference; nationPreference = nationPreference }))]
-            ]
+
         ]
