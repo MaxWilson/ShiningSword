@@ -14,6 +14,7 @@ let init _ = createRandom { Constraints.fresh with randomizationMethod = NonRand
 type Msg =
     | Reroll of Constraints
     | FwdRoleplaying of UI.Roleplaying.Msg
+    | ChangeRace of Race
     | ChangeProfession of Profession
     | TraitChange of TraitView.TraitMsg
 
@@ -24,6 +25,8 @@ let update msg model =
         { model with header = model.header |> UI.Roleplaying.update msg }
     | ChangeProfession prof ->
         changeProfession model prof
+    | ChangeRace race ->
+        changeRace model race
     | TraitChange (TraitView.Add t) ->
         { model with traits = t :: model.traits }
     | TraitChange (TraitView.Remove t) ->
@@ -34,11 +37,13 @@ let View (mkHeader: _ -> ReactElement) model dispatch =
     class' "character" Html.div [
         let showRerollPreferences, setShowRerollPreferences = React.useState true
         let randomize, setRandomize = React.useState NonRandom
-        let racePreference, setRacePreference = React.useState None
-        let sexPreference, setSexPreference = React.useState None
+        let (raceConstraint: Race Templates.Package Constraint option), setRaceConstraint =
+            React.useState None
+            |> Tuple2.mapfst (function None when randomize <> NonRandom -> Some Arbitrary | _ when randomize = NonRandom -> None | v -> v)
+        let sexConstraint, setSexConstraint = React.useState Arbitrary
         let nationPreference, setNationPreference = React.useState None
         let rerollSection =
-            let rerollButton = Html.button [prop.text "Reroll"; prop.onClick (thunk1 dispatch (Reroll { Constraints.fresh with randomizationMethod = randomize; race = racePreference; sex = sexPreference; nationPreference = nationPreference }))]
+            let rerollButton = Html.button [prop.text "Reroll"; prop.onClick (thunk1 dispatch (Reroll { Constraints.fresh with randomizationMethod = randomize; race = raceConstraint; sex = sexConstraint; nationPreference = nationPreference }))]
             let renameButton = Html.button [prop.text "New name"; prop.onClick (thunk1 dispatch (FwdRoleplaying UI.Roleplaying.RecomputeName))]
 
             if showRerollPreferences then
@@ -50,12 +55,12 @@ let View (mkHeader: _ -> ReactElement) model dispatch =
                         renameButton
                         ]
                     let selection (label:string) (options: _ seq) display (current, set) =
-                        class' "selection" Html.div [
-                            classTxt' "subtitle" Html.span label
-                            checkbox ("chk" + label + "Any") "Flexible" (current = None, fun _ -> set None)
+                        class' "selection" Html.fieldSet [
+                            classTxt' "subtitle" Html.legend label
                             for o in options do
                                 let txt = (display o)
-                                checkbox ("chk" + label + txt) txt (current = Some o, fun _ -> set (Some o))
+                                let isChecked = current = Some o
+                                checkbox ("chk" + label + txt) txt (isChecked, fun _ -> set (if isChecked then None else Some o))
                             ]
                     Html.fieldSet [
                         Html.legend "Stat generation"
@@ -63,8 +68,10 @@ let View (mkHeader: _ -> ReactElement) model dispatch =
                         checkbox "chkExponential" "Power curve" (randomize = Exponential, fun _ -> setRandomize Exponential)
                         checkbox "chk3d6Avg" "Average of 3d6 and 3d6" (randomize = Average3d6, fun _ -> setRandomize Average3d6)
                         ]
-                    selection "Race" (Templates.races |> List.map snd) (fun r -> r.name) (racePreference, setRacePreference)
-                    selection "Sex" [Male; Female] (sprintf "%A") (sexPreference, setSexPreference)
+                    if randomize <> NonRandom then
+                        selection "Race" (Templates.races |> List.map (snd >> Specific)) (function Specific r -> r.name.ToString() | _ -> "Random") (raceConstraint, setRaceConstraint)
+
+                    selection "Sex" [Specific Male; Specific Female] (function Specific sex -> sprintf "%A" sex | _ -> "Random") (sexConstraint |> Some, (function Some (Specific v) -> Specific v | _ -> Arbitrary) >> setSexConstraint)
                     let nations = Onomastikon.nameLists.Keys |> Seq.map fst |> Seq.distinct
                     selection "Origin" nations id (nationPreference, setNationPreference)
                     ]
@@ -128,22 +135,31 @@ let View (mkHeader: _ -> ReactElement) model dispatch =
                 show(txt, prop stats)
             ]
         checkbox "chkShowWork" "Show stat derivation" (showWork, fun _ -> showWork |> not |> setShowWork)
+        if model.canChangeRace then
+            class' "selection" Html.fieldSet [
+                classTxt' "subtitle" Html.legend "Race"
+                for race in Templates.races |> List.map snd do
+                    let txt = race.displayName
+                    let isChecked = model.race = race.name
+                    checkbox ("chkCurrent" + txt) txt (isChecked, fun _ -> (if not isChecked then dispatch (ChangeRace race.name)))
+                ]
+
         Html.fieldSet [
             Html.legend "Profession"
             class' "gridContainer" Html.div [
                 for prof in Templates.professions do
-                    let chkId = ("chk" + prof.Value.name)
+                    let chkId = ("chk" + prof.Value.displayName)
                     Html.div [
                         Html.input [prop.id chkId; prop.type'.checkbox; prop.isChecked (model.profession = prof.Key); prop.onChange (fun select -> if select then prof.Key |> ChangeProfession |> dispatch)]
-                        Html.label [prop.htmlFor chkId; prop.text prof.Value.name]
+                        Html.label [prop.htmlFor chkId; prop.text prof.Value.displayName]
                         ]
 
                 ]
             Html.hr []
             ]
         Html.fieldSet [
-            Html.legend profession.name
-            if profession.name = "Swashbuckler" then
+            Html.legend profession.displayName
+            if profession.name = Swashbuckler then
                 swash (TraitView.ReactBuilder(model, (TraitChange >> dispatch)))
             ]
 

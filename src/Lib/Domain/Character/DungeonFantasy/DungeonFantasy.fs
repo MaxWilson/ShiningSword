@@ -68,8 +68,9 @@ module Stats =
             modifiers = char.Dodge.modifiers |> List.map Eval.eval
             }
 
-type Profession = Bard | Cleric | Knight | MartialArtist | Swashbuckler | Wizard
-type WeaponType = Unarmed | Rapier | Broadsword | Bow | Maingauche | Knife | Spear | Polearm | Staff
+type Race = Human | Catfolk | Dwarf | Elf | HalfElf | HalfOgre | Coleopteran | Halfling
+type Profession = Bard | Barbarian | Cleric | Druid | HolyWarrior | Knight | MartialArtist | Scout | Swashbuckler | Thief | Wizard
+type WeaponType = Unarmed | Rapier | Broadsword | Bow | MainGauche | Knife | Spear | Polearm | Staff
 type Trait =
     | HighPainThreshold
     | CombatReflexes
@@ -111,14 +112,16 @@ module Templates =
             | Dodge -> { char with Dodge = plus(char.Dodge, delta) }
     open Impl
 
-    type Package = {
-        name: string
+    type 't Package = {
+        name: 't
         stats: (StatAddress * int) list
         traits: Trait list
         }
         with
         member this.apply stats =
-            this.stats |> List.fold (apply this.name) stats
+            this.stats |> List.fold (apply (this.name.ToString() |> String.uncamel)) stats
+        member this.displayName =
+            this.name.ToString() |> String.uncamel
         static member Create(name, ?stats, ?traits) =
             {
             name = name
@@ -126,17 +129,17 @@ module Templates =
             traits = traits |> Option.defaultValue []
             }
 
-    let human = Package.Create("Human")
-    let catfolk = Package.Create("Catfolk", [ST, -1; DX, +1; Per, +1])
-    let dwarf = Package.Create("Dwarf", [HT, +1; FP, +3; Move, -1])
-    let elf = Package.Create("Elf", [ST, -1; DX, +1; Move, +1])
-    let halfElf = Package.Create("Half-elf", [DX, +1])
-    let halfOgre = Package.Create("Half-ogre", [ST, +4; HT, +1; IQ, -1; Will, +1])
-    let coleopteran = Package.Create("Coleopteran", [ST, +1; IQ, -1; Per, +1])
-    let halfling = Package.Create("Halfling", [ST, -3; DX, +1; HT, +1; SZ, -2; HP, +2; Move, -1])
-    let monk = Package.Create("Martial Artist", [ST, +1; DX, +6; HT, +2; Will, +1; Move, +1])
-    let swash = Package.Create("Swashbuckler", [ST, +1; DX, +5; HT, +3])
-    let wizard = Package.Create("Wizard", [DX, +2; IQ, +5; HT, +1; Per, -3])
+    let human = Package<Race>.Create(Human)
+    let catfolk = Package.Create<Race>(Catfolk, [ST, -1; DX, +1; Per, +1])
+    let dwarf = Package.Create<Race>(Dwarf, [HT, +1; FP, +3; Move, -1])
+    let elf = Package.Create<Race>(Elf, [ST, -1; DX, +1; Move, +1])
+    let halfElf = Package.Create<Race>(HalfElf, [DX, +1])
+    let halfOgre = Package.Create<Race>(HalfOgre, [ST, +4; HT, +1; IQ, -1; Will, +1])
+    let coleopteran = Package.Create<Race>(Coleopteran, [ST, +1; IQ, -1; Per, +1])
+    let halfling = Package.Create<Race>(Halfling, [ST, -3; DX, +1; HT, +1; SZ, -2; HP, +2; Move, -1])
+    let monk = Package.Create<Profession>(MartialArtist, [ST, +1; DX, +6; HT, +2; Will, +1; Move, +1])
+    let swash = Package.Create<Profession>(Swashbuckler, [ST, +1; DX, +5; HT, +3])
+    let wizard = Package.Create<Profession>(Wizard, [DX, +2; IQ, +5; HT, +1; Per, -3])
     let professions = Map.ofList [MartialArtist, monk; Swashbuckler, swash; Wizard, wizard]
     let races = [10, human; 1, catfolk; 2, dwarf; 1, elf; 2, halfElf; 2, halfOgre; 1, coleopteran; 1, halfling]
 
@@ -163,30 +166,37 @@ type Character = {
     id: string
     header: RoleplayingData
     profession: Profession
-    race: string
+    canChangeRace: bool
+    race: Race
     stats: Stats.Attributes
     traits: Trait list
     }
 
+type 't Constraint = Arbitrary | Specific of 't
+
 type Constraints = {
     randomizationMethod: RandomizationMethod
-    race: Package option
-    sex: Sex option
+    race: Race Package Constraint option
+    sex: Sex Constraint
     nationPreference: string option
     }
     with
     static member fresh = {
         randomizationMethod = NonRandom
         race = None
-        sex = None
+        sex = Arbitrary
         nationPreference = None
         }
 
+let materialize fallback = function Arbitrary -> fallback() | (Specific v) -> v
 let createRandom (c: Constraints) =
     let prof = chooseRandom professions.Keys
     let stats = rollStats c.randomizationMethod
-    let race = c.race |> Option.defaultValue (chooseWeightedRandom races)
-    let sex = c.sex |> Option.defaultValue (chooseRandom [Male; Female])
+    let race =
+        match c.race with
+        | None | Some Arbitrary -> chooseWeightedRandom races
+        | Some (Specific r) -> r
+    let sex = c.sex |> materialize (thunk1 chooseRandom [Male; Female])
     let nation, name =
         match c.nationPreference with
         | None ->
@@ -210,14 +220,22 @@ let createRandom (c: Constraints) =
         header = rp
         profession = prof
         race = race.name
+        canChangeRace = c.race.IsNone // can only change race if it was unconstrained originally, i.e. nonrandom stats
         stats = stats |> Templates.Impl.clear |> race.apply |> professions[prof].apply
         traits = race.traits @ professions[prof].traits
         }
 
-let changeProfession (char: Character) prof =
-    let race = races |> List.find (fun (_, r) -> r.name = char.race) |> snd
+let resetStatsAndTraits (char: Character) =
+    let race = Templates.races |> List.find (fun (_, r) -> r.name = char.race) |> snd
+    let prof = professions[char.profession]
     { char
         with
-        profession = prof
-        stats = char.stats |> Templates.Impl.clear |> race.apply |> professions[prof].apply
-        traits = race.traits @ professions[prof].traits}
+        stats = char.stats |> Templates.Impl.clear |> race.apply |> prof.apply
+        traits = race.traits @ prof.traits}
+
+let changeProfession (char: Character) prof =
+    { char with profession = prof } |> resetStatsAndTraits
+
+let changeRace (char: Character) race =
+    { char with race = race } |> resetStatsAndTraits
+
