@@ -69,7 +69,7 @@ module Stats =
             }
 
 type Race = Human | Catfolk | Dwarf | Elf | HalfElf | HalfOgre | Coleopteran | Halfling
-type Profession = Bard | Barbarian | Cleric | Druid | HolyWarrior | Knight | MartialArtist | Scout | Swashbuckler | Thief | Wizard
+type Profession = Barbarian | Bard | Cleric | Druid | HolyWarrior | Knight | MartialArtist | Scout | Swashbuckler | Thief | Wizard
 type WeaponType = Unarmed | Rapier | Broadsword | Bow | MainGauche | Knife | Spear | Polearm | Staff
 type Trait =
     | HighPainThreshold
@@ -137,10 +137,19 @@ module Templates =
     let halfOgre = Package.Create<Race>(HalfOgre, [ST, +4; HT, +1; IQ, -1; Will, +1])
     let coleopteran = Package.Create<Race>(Coleopteran, [ST, +1; IQ, -1; Per, +1])
     let halfling = Package.Create<Race>(Halfling, [ST, -3; DX, +1; HT, +1; SZ, -2; HP, +2; Move, -1])
-    let monk = Package.Create<Profession>(MartialArtist, [ST, +1; DX, +6; HT, +2; Will, +1; Move, +1])
-    let swash = Package.Create<Profession>(Swashbuckler, [ST, +1; DX, +5; HT, +3])
-    let wizard = Package.Create<Profession>(Wizard, [DX, +2; IQ, +5; HT, +1; Per, -3])
-    let professions = Map.ofList [MartialArtist, monk; Swashbuckler, swash; Wizard, wizard]
+    let professions = Map.ofList [
+        Barbarian, Package.Create<Profession>(Barbarian, [ST, +7; DX, +3; HT, +3; HP, +5; SpeedTimesFour, -2])
+        Bard, Package.Create<Profession>(Bard, [ST, +1; DX, +2; IQ, +4; HT, +1; SpeedTimesFour, +1])
+        Cleric, Package.Create<Profession>(Cleric, [ST, +2; DX, +2; IQ, +4; HT, +2])
+        Druid, Package.Create<Profession>(Druid, [ST, +1; DX, +2; IQ, +4; HT, +3; SpeedTimesFour, -1])
+        HolyWarrior, Package.Create<Profession>(HolyWarrior, [ST, +3; DX, +3; IQ, +2; HT, +3; Will, +2; SpeedTimesFour, -2])
+        Knight, Package.Create<Profession>(Knight, [ST, +4; DX, +4; HT, +3; SpeedTimesFour, -3])
+        MartialArtist, Package.Create<Profession>(MartialArtist, [ST, +1; DX, +6; HT, +2; Will, +1; Move, +1])
+        Scout, Package.Create<Profession>(Scout, [ST, +1; DX, +4; IQ, +1; HT, +2; Per, +3; SpeedTimesFour, +2])
+        Swashbuckler, Package.Create<Profession>(Swashbuckler, [ST, +1; DX, +5; HT, +3])
+        Thief, Package.Create<Profession>(Thief, [ST, +1; DX, +5; IQ, +3; HT, +1; Per, +1; SpeedTimesFour, -2; Move, +1])
+        Wizard, Package.Create<Profession>(Wizard, [DX, +2; IQ, +5; HT, +1; Per, -3; SpeedTimesFour, +1])
+        ]
     let races = [10, human; 1, catfolk; 2, dwarf; 1, elf; 2, halfElf; 2, halfOgre; 1, coleopteran; 1, halfling]
 
 open Templates

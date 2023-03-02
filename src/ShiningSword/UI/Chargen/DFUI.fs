@@ -32,6 +32,13 @@ let update msg model =
     | TraitChange (TraitView.Remove t) ->
         { model with traits = model.traits |> List.filter ((<>) t) }
 
+[<AutoOpen>]
+module Helpers =
+    let raceName = function
+        | HalfElf -> "Half-elf"
+        | HalfOgre -> "Half-ogre"
+        | v -> v.ToString()
+
 [<ReactComponent>]
 let View (mkHeader: _ -> ReactElement) model dispatch =
     class' "character" Html.div [
@@ -69,7 +76,7 @@ let View (mkHeader: _ -> ReactElement) model dispatch =
                         checkbox "chk3d6Avg" "Average of 3d6 and 3d6" (randomize = Average3d6, fun _ -> setRandomize Average3d6)
                         ]
                     if randomize <> NonRandom then
-                        selection "Race" (Templates.races |> List.map (snd >> Specific)) (function Specific r -> r.name.ToString() | _ -> "Random") (raceConstraint, setRaceConstraint)
+                        selection "Race" (Templates.races |> List.map (snd >> Specific)) (function Specific r -> r.name |> Helpers.raceName | _ -> "Random") (raceConstraint, setRaceConstraint)
 
                     selection "Sex" [Specific Male; Specific Female] (function Specific sex -> sprintf "%A" sex | _ -> "Random") (sexConstraint |> Some, (function Some (Specific v) -> Specific v | _ -> Arbitrary) >> setSexConstraint)
                     let nations = Onomastikon.nameLists.Keys |> Seq.map fst |> Seq.distinct
@@ -91,12 +98,12 @@ let View (mkHeader: _ -> ReactElement) model dispatch =
         | "" ->
             Html.div [
                 classTxt' "title" Html.div name
-                classTxt' "subtitle" Html.div $"{sex} {race} {profession.name}"
+                classTxt' "subtitle" Html.div $"{sex} {race |> raceName} {profession.name}"
                 ]
         | nation ->
             Html.div [
                 classTxt' "title" Html.div name
-                classTxt' "subtitle" Html.div $"{sex} {race} {profession.name} from {nation}"
+                classTxt' "subtitle" Html.div $"{sex} {race |> raceName} {profession.name} from {nation}"
                 ]
         let showWork, setShowWork = React.useState true
         let stats = model.stats
@@ -124,7 +131,7 @@ let View (mkHeader: _ -> ReactElement) model dispatch =
                         Html.span $"{txt}: {total}"
                         classTxt' "footnote" Html.span $"{v.baseValue}{s}"
                         ]
-            else vwAttribute [Html.text $"{txt}: {total}"]
+            else vwAttribute [Html.text $"{txt}: %.2f{total}"]
         class' "gridContainer" Html.div [
             for txt, attr, prop in ["ST", stats.ST, ST; "DX", stats.DX, DX; "IQ", stats.IQ, IQ; "HT", stats.HT, HT] do
                 show(txt, prop stats)
@@ -139,7 +146,7 @@ let View (mkHeader: _ -> ReactElement) model dispatch =
             class' "selection" Html.fieldSet [
                 classTxt' "subtitle" Html.legend "Race"
                 for race in Templates.races |> List.map snd do
-                    let txt = race.displayName
+                    let txt = race.name |> Helpers.raceName
                     let isChecked = model.race = race.name
                     checkbox ("chkCurrent" + txt) txt (isChecked, fun _ -> (if not isChecked then dispatch (ChangeRace race.name)))
                 ]
