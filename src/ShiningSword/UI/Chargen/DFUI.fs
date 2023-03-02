@@ -44,25 +44,37 @@ let View model dispatch =
                 ]
         let showWork, setShowWork = React.useState true
         let stats = model.stats
-        let show (v: int RValue) =
-            let total = match v.description with Some d when showWork -> $"{sum v} from {d}" | _ -> $"{sum v}"
-            if showWork && v.modifiers.Length > 0 then
-                v.modifiers |> List.map (fun (m, reason) -> $" %+d{m} for {reason}") |> String.concat ""
-                |> fun s -> $"{total} ({v.baseValue}{s})"
-            else $"{total}"
-        let showF (v: float RValue) =
-            let total = match v.description with Some d when showWork -> $"{sum v} from {d}" | _ -> $"{sum v}"
-            if showWork && v.modifiers.Length > 0 then
-                v.modifiers |> List.map (fun (m, reason) -> $" %+.2f{m} for {reason}") |> String.concat ""
-                |> fun s -> $"{total} ({v.baseValue}{s})"
-            else $"{total}"
+        let show (txt, v: int RValue) =
+            let total = sum v
+            if showWork && (v.description.IsSome || v.modifiers.Length > 0) then
+                (v.modifiers |> List.map (fun (m, reason) -> $" %+d{m} for {reason}"))
+                |> List.append [match v.description with Some d -> $" from {d}" | _ -> ()]
+                |> String.concat ""
+                |> fun s ->
+                    Html.div [
+                        Html.span $"{txt}: {total}"
+                        classTxt' "footnote" Html.span $"{v.baseValue}{s}"
+                        ]
+            else Html.div $"{txt}: {total}"
+        let showF (txt, v: float RValue) =
+            let total = sum v
+            if showWork && (v.description.IsSome || v.modifiers.Length > 0) then
+                v.modifiers |> List.map (fun (m, reason) -> $" %+.2f{m} for {reason}")
+                |> List.append [match v.description with Some d -> $" from {d}" | _ -> ()]
+                |> String.concat ""
+                |> fun s ->
+                    Html.div [
+                        Html.span $"{txt}: {total}"
+                        classTxt' "footnote" Html.span $"{v.baseValue}{s}"
+                        ]
+            else Html.div $"{txt}: {total}"
         for txt, attr, prop in ["ST", stats.ST, ST; "DX", stats.DX, DX; "IQ", stats.IQ, IQ; "HT", stats.HT, HT] do
-            Html.div $"{txt}: {prop stats |> show}"
-        for txt, stat in ["Will", Will; "Per", Per; "HP", HP; "FP", FP] do
-            Html.div $"{txt}: {stat model.stats |> show}"
-        Html.div $"Speed: {Speed model.stats |> showF}"
-        for txt, stat in ["Move", Move; "Dodge", Dodge] do
-            Html.div $"{txt}: {stat model.stats |> show}"
+            show(txt, prop stats)
+        for txt, prop in ["Will", Will; "Per", Per; "HP", HP; "FP", FP] do
+            show(txt, prop stats)
+        showF("Speed", Speed stats)
+        for txt, prop in ["Move", Move; "Dodge", Dodge] do
+            show(txt, prop stats)
         checkbox "chkShowWork" "Show stat derivation" (showWork, fun _ -> showWork |> not |> setShowWork)
         Html.button [prop.text "New name"; prop.onClick (thunk1 dispatch (FwdRoleplaying UI.Roleplaying.RecomputeName))]
         Html.div [
