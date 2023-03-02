@@ -15,11 +15,11 @@ type ReactBuilder(char: Character, dispatch: TraitMsg -> unit) =
         member _.binaryL(value, label) =
             let chkId = $"chk-{value}{label}"
             let isChecked = char.traits |> List.contains value
-            let toggle _ =
-                if isChecked then dispatch (Remove value)
-                else dispatch (Add value)
+            let toggle newValue =
+                if newValue then dispatch (Add value)
+                else dispatch (Remove value)
             class' "binary" Html.section [
-                Html.input [prop.id chkId; prop.type'.checkbox; prop.isChecked isChecked; prop.onClick toggle]
+                Html.input [prop.id chkId; prop.type'.checkbox; prop.isChecked isChecked; prop.onChange toggle]
                 Html.label [prop.text label; prop.htmlFor chkId]
                 ]
         member this.binary(value) = this.up.binaryL(value, (value.ToString() |> String.uncamel))

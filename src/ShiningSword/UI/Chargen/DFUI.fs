@@ -91,7 +91,7 @@ let View model dispatch =
                 for prof in Templates.professions do
                     let chkId = ("chk" + prof.Value.name)
                     Html.div [
-                        Html.input [prop.id chkId; prop.type'.checkbox; prop.isChecked (model.profession = prof.Key); prop.readOnly true; prop.onClick (fun _ -> prof.Key |> ChangeProfession |> dispatch)]
+                        Html.input [prop.id chkId; prop.type'.checkbox; prop.isChecked (model.profession = prof.Key); prop.onChange (fun select -> if select then prof.Key |> ChangeProfession |> dispatch)]
                         Html.label [prop.htmlFor chkId; prop.text prof.Value.name]
                         ]
 
