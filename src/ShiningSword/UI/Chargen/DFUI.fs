@@ -3,6 +3,7 @@ open Domain.Ribbit.Properties
 open type Eval
 open Domain.Character
 open Domain.Character.DungeonFantasy
+open Domain.Character.DungeonFantasy.Templates
 open Feliz
 open UI
 
@@ -76,7 +77,6 @@ let View model dispatch =
         for txt, prop in ["Move", Move; "Dodge", Dodge] do
             show(txt, prop stats)
         checkbox "chkShowWork" "Show stat derivation" (showWork, fun _ -> showWork |> not |> setShowWork)
-        Html.button [prop.text "New name"; prop.onClick (thunk1 dispatch (FwdRoleplaying UI.Roleplaying.RecomputeName))]
         Html.div [
             for prof in Templates.professions do
                 let chkId = ("chk" + prof.Value.name)
@@ -86,6 +86,12 @@ let View model dispatch =
                     ]
 
             ]
+        if profession.name = "Swashbuckler" then
+            Html.fieldSet [
+                Html.legend "Swashbuckler"
+                swash (TraitView.ReactBuilder(model, ignore))
+                ]
+        Html.button [prop.text "New name"; prop.onClick (thunk1 dispatch (FwdRoleplaying UI.Roleplaying.RecomputeName))]
         let randomize, setRandomize = React.useState NonRandom
         let racePreference, setRacePreference = React.useState None
         let sexPreference, setSexPreference = React.useState None

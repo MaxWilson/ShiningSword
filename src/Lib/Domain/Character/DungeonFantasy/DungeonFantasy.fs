@@ -1,8 +1,9 @@
-module Domain.Character.DungeonFantasy
+[<AutoOpen>]
+module Domain.Character.DungeonFantasy.Core
 
 open Domain
 open Domain.Ribbit.Properties
-
+open Domain.Character
 
 [<AutoOpen>]
 module Stats =

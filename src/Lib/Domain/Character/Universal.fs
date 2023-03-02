@@ -1,3 +1,3 @@
 module Domain.Character.Universal
 
-type CharacterSheet = DF of DungeonFantasy.Character
+type CharacterSheet = DF of DungeonFantasy.Core.Character
