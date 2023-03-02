@@ -35,8 +35,10 @@ let update msg model =
 [<AutoOpen>]
 module Helpers =
     let raceName = function
+        | Catfolk -> "Cat-folk"
         | HalfElf -> "Half-elf"
         | HalfOgre -> "Half-ogre"
+        | HalfOrc -> "Half-orc"
         | v -> v.ToString()
 
 [<ReactComponent>]
@@ -138,7 +140,7 @@ let View (mkHeader: _ -> ReactElement) model dispatch =
             for txt, prop in ["Will", Will; "Per", Per; "HP", HP; "FP", FP] do
                 show(txt, prop stats)
             showF("Speed", Speed stats)
-            for txt, prop in ["Move", Move; "Dodge", Dodge] do
+            for txt, prop in ["Move", Move; "Dodge", Dodge; "SZ", SM] do
                 show(txt, prop stats)
             ]
         checkbox "chkShowWork" "Show stat derivation" (showWork, fun _ -> showWork |> not |> setShowWork)

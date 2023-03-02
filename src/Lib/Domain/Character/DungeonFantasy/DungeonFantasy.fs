@@ -15,7 +15,7 @@ module Stats =
         HT: int Primary
         Will: int Secondary
         Per: int Secondary
-        SZ: int Primary
+        SM: int Primary
         HP: int Secondary
         FP: int Secondary
         Move: int Secondary
@@ -29,7 +29,7 @@ module Stats =
             HT = primary ht
             Will = secondary()
             Per = secondary()
-            SZ = primary 0
+            SM = primary 0
             HP = secondary()
             FP = secondary()
             Move = secondary()
@@ -43,7 +43,7 @@ module Stats =
     let HT char = Eval.eval char.HT
     let Will char = Eval.evalAndCondense (IQ char, Some "IQ", char.Will)
     let Per char = Eval.evalAndCondense (IQ char, Some "IQ", char.Per)
-    let SZ char = Eval.eval char.SZ
+    let SM char = Eval.eval char.SM
     let HP char = Eval.evalAndCondense(ST char, Some "ST", char.HP)
     let FP char = Eval.evalAndCondense(HT char, Some "HT", char.FP)
     let Speed char : float RValue =
@@ -68,7 +68,7 @@ module Stats =
             modifiers = char.Dodge.modifiers |> List.map Eval.eval
             }
 
-type Race = Human | Catfolk | Dwarf | Elf | HalfElf | HalfOgre | Coleopteran | Halfling
+type Race = Human | Catfolk | Dwarf | Elf | HalfElf | Gnome | HalfOgre | HalfOrc | Halfling | Coleopteran
 type Profession = Barbarian | Bard | Cleric | Druid | HolyWarrior | Knight | MartialArtist | Scout | Swashbuckler | Thief | Wizard
 type WeaponType = Unarmed | Rapier | Broadsword | Bow | MainGauche | Knife | Spear | Polearm | Staff
 type Trait =
@@ -84,7 +84,7 @@ type Skill =
 
 module Templates =
     module Impl =
-        type StatAddress = ST | DX | IQ | HT | Will | Per | SZ | HP | FP | Move | SpeedTimesFour | Dodge
+        type StatAddress = ST | DX | IQ | HT | Will | Per | SM | HP | FP | Move | SpeedTimesFour | Dodge
         open type Create
 
         let clear (char: Stats.Attributes) =
@@ -93,7 +93,7 @@ module Templates =
                     DX = char.DX.clear
                     IQ = char.IQ.clear
                     HT = char.HT.clear
-                    SZ = char.HT.clear }
+                    SM = char.SM.clear }
 
         let apply reason char (stat, value) =
             let delta = [Delta(value, reason)]
@@ -104,7 +104,7 @@ module Templates =
             | HT -> { char with HT = plus(char.HT, delta) }
             | Will -> { char with Will = plus(char.Will, delta) }
             | Per -> { char with Per = plus(char.Per, delta) }
-            | SZ -> { char with SZ = plus(char.SZ, delta) }
+            | SM -> { char with SM = plus(char.SM, delta) }
             | HP -> { char with HP = plus(char.HP, delta) }
             | FP -> { char with FP = plus(char.FP, delta) }
             | Move -> { char with Move = plus(char.Move, delta) }
@@ -129,14 +129,6 @@ module Templates =
             traits = traits |> Option.defaultValue []
             }
 
-    let human = Package<Race>.Create(Human)
-    let catfolk = Package.Create<Race>(Catfolk, [ST, -1; DX, +1; Per, +1])
-    let dwarf = Package.Create<Race>(Dwarf, [HT, +1; FP, +3; Move, -1])
-    let elf = Package.Create<Race>(Elf, [ST, -1; DX, +1; Move, +1])
-    let halfElf = Package.Create<Race>(HalfElf, [DX, +1])
-    let halfOgre = Package.Create<Race>(HalfOgre, [ST, +4; HT, +1; IQ, -1; Will, +1])
-    let coleopteran = Package.Create<Race>(Coleopteran, [ST, +1; IQ, -1; Per, +1])
-    let halfling = Package.Create<Race>(Halfling, [ST, -3; DX, +1; HT, +1; SZ, -2; HP, +2; Move, -1])
     let professions = Map.ofList [
         Barbarian, Package.Create<Profession>(Barbarian, [ST, +7; DX, +3; HT, +3; HP, +5; SpeedTimesFour, -2])
         Bard, Package.Create<Profession>(Bard, [ST, +1; DX, +2; IQ, +4; HT, +1; SpeedTimesFour, +1])
@@ -150,7 +142,18 @@ module Templates =
         Thief, Package.Create<Profession>(Thief, [ST, +1; DX, +5; IQ, +3; HT, +1; Per, +1; SpeedTimesFour, -2; Move, +1])
         Wizard, Package.Create<Profession>(Wizard, [DX, +2; IQ, +5; HT, +1; Per, -3; SpeedTimesFour, +1])
         ]
-    let races = [10, human; 1, catfolk; 2, dwarf; 1, elf; 2, halfElf; 2, halfOgre; 1, coleopteran; 1, halfling]
+    let races = [
+        10, Package<Race>.Create(Human)
+        1, Package.Create<Race>(Catfolk, [ST, -1; DX, +1; Per, +1])
+        2, Package.Create<Race>(Dwarf, [HT, +1; FP, +3; Move, -1])
+        1, Package.Create<Race>(Elf, [ST, -1; DX, +1; Move, +1])
+        2, Package.Create<Race>(HalfElf, [DX, +1])
+        1, Package.Create<Race>(Gnome, [SM, -1; FP, +3; Move, -1])
+        2, Package.Create<Race>(HalfOrc, [HT, +1; HP, +1])
+        2, Package.Create<Race>(HalfOgre, [ST, +4; HT, +1; IQ, -1; Will, +1])
+        1, Package.Create<Race>(Coleopteran, [ST, +1; IQ, -1; Per, +1])
+        1, Package.Create<Race>(Halfling, [ST, -3; DX, +1; HT, +1; SM, -2; HP, +2; Move, -1])
+        ]
 
 open Templates
 
