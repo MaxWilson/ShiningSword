@@ -15,6 +15,7 @@ type Msg =
     | Reroll of Constraints
     | FwdRoleplaying of UI.Roleplaying.Msg
     | ChangeProfession of Profession
+    | TraitChange of TraitView.TraitMsg
 
 let update msg model =
     match msg with
@@ -23,6 +24,10 @@ let update msg model =
         { model with header = model.header |> UI.Roleplaying.update msg }
     | ChangeProfession prof ->
         changeProfession model prof
+    | TraitChange (TraitView.Add t) ->
+        { model with traits = t :: model.traits }
+    | TraitChange (TraitView.Remove t) ->
+        { model with traits = model.traits |> List.filter ((<>) t) }
 
 [<ReactComponent>]
 let View model dispatch =
@@ -45,6 +50,7 @@ let View model dispatch =
                 ]
         let showWork, setShowWork = React.useState true
         let stats = model.stats
+        let vwAttribute (elements: _ seq) = Html.div elements
         let show (txt, v: int RValue) =
             let total = sum v
             if showWork && (v.description.IsSome || v.modifiers.Length > 0) then
@@ -52,11 +58,11 @@ let View model dispatch =
                 |> List.append [match v.description with Some d -> $" from {d}" | _ -> ()]
                 |> String.concat ""
                 |> fun s ->
-                    Html.div [
+                    vwAttribute [
                         Html.span $"{txt}: {total}"
                         classTxt' "footnote" Html.span $"{v.baseValue}{s}"
                         ]
-            else Html.div $"{txt}: {total}"
+            else vwAttribute [Html.text $"{txt}: {total}"]
         let showF (txt, v: float RValue) =
             let total = sum v
             if showWork && (v.description.IsSome || v.modifiers.Length > 0) then
@@ -64,33 +70,39 @@ let View model dispatch =
                 |> List.append [match v.description with Some d -> $" from {d}" | _ -> ()]
                 |> String.concat ""
                 |> fun s ->
-                    Html.div [
+                    vwAttribute [
                         Html.span $"{txt}: {total}"
                         classTxt' "footnote" Html.span $"{v.baseValue}{s}"
                         ]
-            else Html.div $"{txt}: {total}"
-        for txt, attr, prop in ["ST", stats.ST, ST; "DX", stats.DX, DX; "IQ", stats.IQ, IQ; "HT", stats.HT, HT] do
-            show(txt, prop stats)
-        for txt, prop in ["Will", Will; "Per", Per; "HP", HP; "FP", FP] do
-            show(txt, prop stats)
-        showF("Speed", Speed stats)
-        for txt, prop in ["Move", Move; "Dodge", Dodge] do
-            show(txt, prop stats)
-        checkbox "chkShowWork" "Show stat derivation" (showWork, fun _ -> showWork |> not |> setShowWork)
-        Html.div [
-            for prof in Templates.professions do
-                let chkId = ("chk" + prof.Value.name)
-                Html.div [
-                    Html.input [prop.id chkId; prop.type'.checkbox; prop.isChecked (model.profession = prof.Key); prop.readOnly true; prop.onClick (fun _ -> prof.Key |> ChangeProfession |> dispatch)]
-                    Html.label [prop.htmlFor chkId; prop.text prof.Value.name]
-                    ]
-
+            else vwAttribute [Html.text $"{txt}: {total}"]
+        class' "gridContainer" Html.div [
+            for txt, attr, prop in ["ST", stats.ST, ST; "DX", stats.DX, DX; "IQ", stats.IQ, IQ; "HT", stats.HT, HT] do
+                show(txt, prop stats)
+            for txt, prop in ["Will", Will; "Per", Per; "HP", HP; "FP", FP] do
+                show(txt, prop stats)
+            showF("Speed", Speed stats)
+            for txt, prop in ["Move", Move; "Dodge", Dodge] do
+                show(txt, prop stats)
             ]
-        if profession.name = "Swashbuckler" then
-            Html.fieldSet [
-                Html.legend "Swashbuckler"
-                swash (TraitView.ReactBuilder(model, ignore))
+        checkbox "chkShowWork" "Show stat derivation" (showWork, fun _ -> showWork |> not |> setShowWork)
+        Html.fieldSet [
+            Html.legend "Profession"
+            class' "gridContainer" Html.div [
+                for prof in Templates.professions do
+                    let chkId = ("chk" + prof.Value.name)
+                    Html.div [
+                        Html.input [prop.id chkId; prop.type'.checkbox; prop.isChecked (model.profession = prof.Key); prop.readOnly true; prop.onClick (fun _ -> prof.Key |> ChangeProfession |> dispatch)]
+                        Html.label [prop.htmlFor chkId; prop.text prof.Value.name]
+                        ]
+
                 ]
+            Html.hr []
+            ]
+        Html.fieldSet [
+            Html.legend profession.name
+            if profession.name = "Swashbuckler" then
+                swash (TraitView.ReactBuilder(model, (TraitChange >> dispatch)))
+            ]
         Html.button [prop.text "New name"; prop.onClick (thunk1 dispatch (FwdRoleplaying UI.Roleplaying.RecomputeName))]
         let randomize, setRandomize = React.useState NonRandom
         let racePreference, setRacePreference = React.useState None

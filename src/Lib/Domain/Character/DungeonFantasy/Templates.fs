@@ -6,5 +6,7 @@ type OutputBuilder<'inputElement, 'outputElement> =
     abstract aggregate: 'outputElement list -> 'outputElement
 
 let swash (b: OutputBuilder<_,_>) = b.aggregate [
-   b.binaryL(CombatReflexes, "Combat Reflexes")
+   b.binary(CombatReflexes)
+   b.binaryL(EnhancedParry(Rapier), "Enhanced Parry (Rapier)")
+   b.binary(HighPainThreshold)
    ]
