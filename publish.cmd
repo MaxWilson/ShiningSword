@@ -1,1 +1,1 @@
-pushd src && npm run build && popd && git push . head:publish -f && git checkout publish && xcopy /y src\ShiningSword\UI\publish\* . && xcopy /y src\ShiningSword\UI\publish\assets\* .\assets\ && mkdir img && xcopy /Y src\ShiningSword\public\img\* .\img && git add . && git commit -m publish && git push origin publish -f && git checkout main
+git push . head:publishDf && git push origin publishDf
