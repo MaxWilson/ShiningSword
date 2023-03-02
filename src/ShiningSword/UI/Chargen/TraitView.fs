@@ -18,7 +18,7 @@ type ReactBuilder(char: Character, dispatch: TraitMsg -> unit) =
             let toggle _ =
                 if isChecked then dispatch (Remove value)
                 else dispatch (Add value)
-            Html.section [
+            class' "binary" Html.section [
                 Html.input [prop.id chkId; prop.type'.checkbox; prop.isChecked isChecked; prop.onClick toggle]
                 Html.label [prop.text label; prop.htmlFor chkId]
                 ]
