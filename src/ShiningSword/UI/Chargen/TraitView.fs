@@ -23,5 +23,5 @@ type ReactBuilder(char: Character, dispatch: TraitMsg -> unit) =
                 Html.label [prop.text label; prop.htmlFor chkId]
                 ]
         member this.binary(value) = this.up.binary(value, (value.ToString() |> String.uncamel))
-        member _.aggregate values = class' "gridContainer" Html.div values
+        member _.aggregate values = class' "gridContainer selection" Html.div values
     member private this.up = this :> OutputBuilder<_,_>

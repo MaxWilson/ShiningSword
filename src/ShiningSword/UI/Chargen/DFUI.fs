@@ -154,8 +154,8 @@ let View (mkHeader: _ -> ReactElement) model dispatch =
                 ]
 
         Html.fieldSet [
-            Html.legend "Profession"
-            class' "gridContainer" Html.div [
+            classTxt' "subtitle" Html.legend "Profession"
+            class' "gridContainer selection" Html.div [
                 for prof in Templates.professions do
                     let chkId = ("chk" + prof.Value.displayName)
                     Html.div [
@@ -167,7 +167,7 @@ let View (mkHeader: _ -> ReactElement) model dispatch =
             Html.hr []
             ]
         Html.fieldSet [
-            Html.legend profession.displayName
+            classTxt' "subtitle" Html.legend profession.displayName
             if profession.name = Swashbuckler then
                 swash (TraitView.ReactBuilder(model, (TraitChange >> dispatch)))
             ]
