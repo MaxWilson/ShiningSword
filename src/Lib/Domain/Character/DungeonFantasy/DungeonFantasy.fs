@@ -63,8 +63,8 @@ module Stats =
             }
     let Dodge char: int RValue =
         let speed = Speed char |> Eval.sum
-        {   baseValue = speed |> int
-            description = Some "Speed, rounded down"
+        {   baseValue = (speed |> int) + 3
+            description = Some "Speed +3, rounded down"
             modifiers = char.Dodge.modifiers |> List.map Eval.eval
             }
 
