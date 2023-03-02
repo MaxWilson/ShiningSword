@@ -39,11 +39,16 @@ let View (mkHeader: _ -> ReactElement) model dispatch =
         let nationPreference, setNationPreference = React.useState None
         let rerollSection =
             let rerollButton = Html.button [prop.text "Reroll"; prop.onClick (thunk1 dispatch (Reroll { Constraints.fresh with randomizationMethod = randomize; race = racePreference; sex = sexPreference; nationPreference = nationPreference }))]
+            let renameButton = Html.button [prop.text "New name"; prop.onClick (thunk1 dispatch (FwdRoleplaying UI.Roleplaying.RecomputeName))]
+
             if showRerollPreferences then
                 class' "reroll" Html.fieldSet [
                     Html.legend "Reroll settings"
-                    Html.button [prop.text "-"; prop.onClick (thunk1 setShowRerollPreferences false)]
-                    rerollButton
+                    Html.div [
+                        Html.button [prop.text "-"; prop.onClick (thunk1 setShowRerollPreferences false)]
+                        rerollButton
+                        renameButton
+                        ]
                     let selection (label:string) (options: _ seq) display (current, set) =
                         class' "selection" Html.div [
                             classTxt' "subtitle" Html.span label
@@ -67,11 +72,9 @@ let View (mkHeader: _ -> ReactElement) model dispatch =
                 class' "reroll" Html.section [
                     Html.button [prop.text "+"; prop.onClick (thunk1 setShowRerollPreferences true)]
                     rerollButton
+                    renameButton
                     ]
-        mkHeader (React.fragment [
-            rerollSection
-            Html.button [prop.text "New name"; prop.onClick (thunk1 dispatch (FwdRoleplaying UI.Roleplaying.RecomputeName))]
-            ])
+        mkHeader rerollSection
         let char = model.header
         let name = char.name
         let sex = char.sex
