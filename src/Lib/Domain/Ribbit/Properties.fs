@@ -42,9 +42,9 @@ type Create =
     static member secondary(?mods) =
        { modifiers = List.map Delta (defaultArg mods []) }
     static member plus(lhs: 't Primary, rhs: ('t Delta) list) =
-        { lhs with modifiers = rhs@lhs.modifiers }
+        { lhs with modifiers = lhs.modifiers@rhs }
     static member plus(lhs: 't Secondary, rhs: ('t Delta) list) =
-        { modifiers = rhs@lhs.modifiers }
+        { modifiers = lhs.modifiers@rhs }
     static member plus(lhs: 't RValue, rhs: ('t RDelta) list) =
         { lhs with modifiers = (rhs@lhs.modifiers) }
     static member plus(lhs: ('t Delta) list, rhs: 't Primary) =
@@ -69,6 +69,9 @@ type Eval =
             }
     static member eval (lhs: 't RValue, rhs: 't Secondary) : 't RValue =
         Create.plus(lhs, rhs.modifiers |> List.map Eval.eval)
+    // in some cases, we don't want to keep the description of the lhs components, e.g. if you have IQ 10 +5 for wizard, Per doesn't have to say 10 +5 for wizard -3 for wizard. 15 IQ -3 for wizard is enough.
+    static member evalAndCondense (lhs: int RValue, description, rhs: int Secondary) : _ RValue =
+        Create.plus({ RValue.baseValue = Eval.sum lhs; description = description; modifiers = [] }, rhs.modifiers |> List.map (Eval.eval))
     static member sum (arg: int RValue) =
         arg.baseValue + (arg.modifiers |> List.sumBy fst)
     static member sum (arg: float RValue) =

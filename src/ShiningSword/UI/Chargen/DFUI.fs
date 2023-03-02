@@ -42,19 +42,28 @@ let View model dispatch =
                 classTxt' "title" Html.div name
                 classTxt' "subtitle" Html.div $"{sex} {race} {profession.name} from {nation}"
                 ]
-        let showRandomEffects, setShowRandomEffects = React.useState true
+        let showWork, setShowWork = React.useState true
         let stats = model.stats
+        let show (v: int RValue) =
+            let total = match v.description with Some d when showWork -> $"{sum v} from {d}" | _ -> $"{sum v}"
+            if showWork && v.modifiers.Length > 0 then
+                v.modifiers |> List.map (fun (m, reason) -> $" %+d{m} for {reason}") |> String.concat ""
+                |> fun s -> $"{total} ({v.baseValue}{s})"
+            else $"{total}"
+        let showF (v: float RValue) =
+            let total = match v.description with Some d when showWork -> $"{sum v} from {d}" | _ -> $"{sum v}"
+            if showWork && v.modifiers.Length > 0 then
+                v.modifiers |> List.map (fun (m, reason) -> $" %+.2f{m} for {reason}") |> String.concat ""
+                |> fun s -> $"{total} ({v.baseValue}{s})"
+            else $"{total}"
         for txt, attr, prop in ["ST", stats.ST, ST; "DX", stats.DX, DX; "IQ", stats.IQ, IQ; "HT", stats.HT, HT] do
-            if showRandomEffects && attr.baseValue <> 10 then
-                Html.div $"{txt}: (%+d{attr.baseValue - 10}) {prop stats |> sum}"
-            else
-                Html.div $"{txt}: {prop stats |> sum}"
-        checkbox "chkShowRandom" "Display randomization" (showRandomEffects, fun _ -> showRandomEffects |> not |> setShowRandomEffects)
+            Html.div $"{txt}: {prop stats |> show}"
         for txt, stat in ["Will", Will; "Per", Per; "HP", HP; "FP", FP] do
-            Html.div $"{txt}: {stat model.stats |> sum}"
-        Html.div $"Speed: %.2f{Speed model.stats |> sum}"
+            Html.div $"{txt}: {stat model.stats |> show}"
+        Html.div $"Speed: {Speed model.stats |> showF}"
         for txt, stat in ["Move", Move; "Dodge", Dodge] do
-            Html.div $"{txt}: {stat model.stats |> sum}"
+            Html.div $"{txt}: {stat model.stats |> show}"
+        checkbox "chkShowWork" "Show stat derivation" (showWork, fun _ -> showWork |> not |> setShowWork)
         Html.button [prop.text "New name"; prop.onClick (thunk1 dispatch (FwdRoleplaying UI.Roleplaying.RecomputeName))]
         Html.div [
             for prof in Templates.professions do

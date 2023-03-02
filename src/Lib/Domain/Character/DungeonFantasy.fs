@@ -41,7 +41,7 @@ module Stats =
     let IQ char = Eval.eval char.IQ
     let HT char = Eval.eval char.HT
     let Will char = Eval.eval (IQ char, char.Will)
-    let Per char = Eval.eval (IQ char, char.Per)
+    let Per char = Eval.evalAndCondense (IQ char, Some "IQ", char.Per)
     let SZ char = Eval.eval char.SZ
     let HP char = Eval.eval(ST char, char.HP)
     let FP char = Eval.eval(HT char, char.FP)
@@ -49,7 +49,7 @@ module Stats =
         let ht = HT char
         let dx = DX char
         {   baseValue = ((Eval.sum ht + Eval.sum dx) |> float) / 4.
-            description = Some "HT + DX/4"
+            description = Some $"(HT {ht |> Eval.sum} + DX {dx |> Eval.sum})/4"
             modifiers =
                 char.SpeedTimesFour.modifiers |> List.map Eval.eval
                 |> List.map (Tuple2.mapfst (float >> (flip (/) 4.)))
@@ -93,8 +93,8 @@ module Templates =
                     HT = char.HT.clear
                     SZ = char.HT.clear }
 
-        let apply char (stat, value) =
-            let delta = [Delta(value, "Racial modifier")]
+        let apply reason char (stat, value) =
+            let delta = [Delta(value, reason)]
             match stat with
             | ST -> { char with ST = plus(char.ST, delta) }
             | DX -> { char with DX = plus(char.DX, delta) }
@@ -117,7 +117,7 @@ module Templates =
         }
         with
         member this.apply stats =
-            this.stats |> List.fold apply stats
+            this.stats |> List.fold (apply this.name) stats
         static member Create(name, ?stats, ?traits) =
             {
             name = name
@@ -126,7 +126,7 @@ module Templates =
             }
 
     let human = Package.Create("Human")
-    let catfolk = Package.Create("Catfolk", [ST, -1; DX, +1; Per, +1; Move, -1])
+    let catfolk = Package.Create("Catfolk", [ST, -1; DX, +1; Per, +1])
     let dwarf = Package.Create("Dwarf", [HT, +1; FP, +3; Move, -1])
     let elf = Package.Create("Elf", [ST, -1; DX, +1; Move, +1])
     let halfElf = Package.Create("Half-elf", [DX, +1])
