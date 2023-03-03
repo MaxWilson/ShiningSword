@@ -34,6 +34,7 @@
     <Compile Include="Domain\Ribbit\DataStore.fs" />
     <Compile Include="Domain\Ribbit\Execution.fs" />
     <Compile Include="Domain\Character\Character.fs" />
+    <Compile Include="Domain\Character\DungeonFantasy\Traits.fs" />
     <Compile Include="Domain\Character\DungeonFantasy\DungeonFantasy.fs" />
     <Compile Include="Domain\Character\DungeonFantasy\Templates.fs" />
     <Compile Include="Domain\Character\Universal.fs" />
