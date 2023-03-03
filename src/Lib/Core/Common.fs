@@ -56,6 +56,7 @@ let shuffleCopy =
         a // return the copy
 
 module Tuple2 =
+    let create x y = x,y
     let mapfst f (x,y) = (f x, y)
     let mapsnd f (x,y) = (x, f y)
 // generic place for overloaded operations like add. Can be extended (see below).

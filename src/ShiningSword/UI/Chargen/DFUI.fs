@@ -168,8 +168,8 @@ let View (mkHeader: _ -> ReactElement) model dispatch =
             ]
         Html.fieldSet [
             classTxt' "subtitle" Html.legend profession.displayName
-            if profession.name = Swashbuckler then
-                swash (TraitView.ReactBuilder(model, (TraitChange >> dispatch)))
+            let builder = (TraitView.ReactBuilder(model, (TraitChange >> dispatch)))
+            Templates.menusFor builder profession.name
             ]
 
         ]

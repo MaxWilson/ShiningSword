@@ -4,14 +4,47 @@ open Domain.Ribbit.Properties
 
 type Race = Human | Catfolk | Dwarf | Elf | HalfElf | Gnome | HalfOgre | HalfOrc | Halfling | Coleopteran
 type Profession = Barbarian | Bard | Cleric | Druid | HolyWarrior | Knight | MartialArtist | Scout | Swashbuckler | Thief | Wizard
-type WeaponType = Unarmed | Rapier | Broadsword | Bow | MainGauche | Knife | Spear | Polearm | Staff
+type WeaponSkill =
+    | AxeOrMace
+    | Boxing | Brawling | Karate | Broadsword | Flail | Garrote | JitteOrSai
+    | Knife | Kusari | MainGauche
+    | Polearm | Rapier | Saber | Shield | Shortsword
+    | Smallsword | Spear | Staff | Tonfa | TwoHandedAxeOrMace | TwoHandedFlail
+    | TwoHandedSword | Whip
+    | Blowpipe | Bolas
+    | Bow | Crossbow | Lasso | Net | Sling | SpearThrower
+    | ThrownAxeOrMace | ThrownDart | ThrownHarpoon | ThrownKnife | ThrownShuriken | ThrownSpear | ThrownStick | ThrowingArt
+type AppearanceLevel = Attractive | Beautiful | VeryBeautiful
+type LuckLevel = Standard | Extraordinary | Ridiculous
+type Unknown() = do notImpl()
 type Trait =
-    | HighPainThreshold
+    | Ambidexterity
+    | Appearance of AppearanceLevel
+    | ArmorFamiliarity of int
+    | Charisma of int
     | CombatReflexes
-    | EnhancedParry of WeaponType
+    | Daredevil
+    | EnhancedBlock of int
+    | EnhancedDodge of int
+    | EnhancedParry of int * WeaponSkill
+    | EnhancedTimeSense
+    | EveryOnesACritical
+    | ExtraAttack of int
+    | GreatVoid
+    | HighPainThreshold
+    | Luck of LuckLevel
+    | PerfectBalance
+    | RapierWit
+    | Serendipity
+    | SignatureGear of string
+    | SpringingAttack
+    | StrikingST of int
+    | TrademarkMove of string
+    | WeaponBond of string
+    | WeaponMaster of Unknown
 
 type Skill =
-    | Weapon of WeaponType
+    | Weapon of WeaponSkill
     | Stealth
     | Camouflage
     | Observation

@@ -51,6 +51,13 @@ type Constraints = {
         nationPreference = None
         }
 
+let clear (char: Stats.Attributes) =
+    {   Stats.fresh with
+            ST = char.ST.clear
+            DX = char.DX.clear
+            IQ = char.IQ.clear
+            HT = char.HT.clear
+            SM = char.SM.clear }
 let materialize fallback = function Arbitrary -> fallback() | (Specific v) -> v
 let createRandom (c: Constraints) =
     let prof = chooseRandom professions.Keys
@@ -84,7 +91,7 @@ let createRandom (c: Constraints) =
         profession = prof
         race = race.name
         canChangeRace = c.race.IsNone // can only change race if it was unconstrained originally, i.e. nonrandom stats
-        stats = stats |> Templates.clear |> race.apply |> professions[prof].apply
+        stats = stats |> clear |> race.apply |> professions[prof].apply
         traits = race.traits @ professions[prof].traits
         }
 
@@ -93,7 +100,7 @@ let resetStatsAndTraits (char: Character) =
     let prof = professions[char.profession]
     { char
         with
-        stats = char.stats |> Templates.clear |> race.apply |> prof.apply
+        stats = char.stats |> clear |> race.apply |> prof.apply
         traits = race.traits @ prof.traits}
 
 let changeProfession (char: Character) prof =
