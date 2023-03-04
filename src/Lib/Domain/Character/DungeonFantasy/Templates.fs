@@ -20,6 +20,9 @@ type OutputBuilder<'choice, 'reactElement> = // for clarity, might as well name 
     abstract binary: 'choice * string -> 'reactElement
     abstract chooseWithStringInput: Constructor<string, 'choice> * string -> 'reactElement
     abstract chooseLevels: (Constructor<'arg, 'choice> * 'arg list) -> 'reactElement
+    // chooseLevels and chooseOne are different in the sense that chooseOne has no implied total ordering,
+    //   so will have a different UI without + and - buttons.
+    abstract chooseOne: (Constructor<'arg, 'choice> * 'arg list) -> 'reactElement
     abstract choose2D: (Constructor<'arg1 * 'arg2, 'choice> * 'arg1 list * 'arg2 list) -> 'reactElement
     abstract chooseOneFromHierarchy: (Constructor<'arg, 'choice> * Multi.DistinctValues<'subArg, 'arg> list) -> 'reactElement
     abstract grantOne: (Constructor<'arg, 'choice> * 'arg list) -> 'reactElement
@@ -28,6 +31,7 @@ type OutputBuilder<'choice, 'reactElement> = // for clarity, might as well name 
     // aggregations
     abstract aggregate: 'reactElement list -> 'reactElement
     abstract chooseUpToBudget: int -> 'reactElement list -> 'reactElement
+    abstract chooseUpToBudgetWithSuggestions: int -> (int option * 'reactElement list) list -> 'reactElement
 
 module _Stats = // Implementation detail: would be private if it didn't get used in Package, which is public
                 //   but other parts of code outside this file should view ST, etc. as properties, not as addresses
@@ -51,6 +55,23 @@ module Menus =
         static member Trait (ctor: Constructor<_,_>) = ctor => Common.Ctor.ctor(Trait, function Trait t -> Some t | _ -> None)
     open type Convert
     let thunktor v = ctor(thunk v, function v2 when v = v2 -> Some () | _ -> None)
+    let severity = [Mild; Moderate; Serious; Severe]
+    let allDisadvantages (b: OutputBuilder<_,_>) =
+        [   b.binary (Chummy |> Trait)
+            b.binary (Gregarious |> Trait)
+            b.chooseLevels (CompulsiveCarousing |> Trait, severity)
+            b.chooseLevels (CompulsiveSpending |> Trait, severity)
+            b.chooseLevels (Greed |> Trait, severity)
+            b.chooseLevels (Impulsiveness |> Trait, severity)
+            b.chooseLevels (Jealousy |> Trait, severity)
+            b.chooseLevels (Lecherousness |> Trait, severity)
+            b.binary(OneEye |> Trait)
+            b.chooseLevels (Overconfidence |> Trait, severity)
+            b.binary (Trait.SenseOfDuty AdventuringCompanions |> Trait)
+            b.chooseLevels (ShortAttentionSpan |> Trait, severity)
+            b.chooseLevels (Trickster |> Trait, severity)
+            b.binary (Wounded |> Trait)
+            ]
     let swash (b: OutputBuilder<_,'reactElement>) = b.aggregate [
         let swashMeleeWeapons = [Broadsword; Rapier; Saber; Shortsword; Smallsword; MainGauche]
         b.aggregate [
@@ -96,6 +117,30 @@ module Menus =
                     DistinctTwo(TwoWeapon, swashMeleeWeapons, swashMeleeWeapons)
                     ]
                 )
+            ]
+        b.chooseUpToBudgetWithSuggestions -50 [
+            Some -15,
+                [   b.chooseOne (CodeOfHonor |> Trait, [Gentlemans; Outlaws])
+                    b.chooseLevels (tuple2bind1 BecomeBestSwordsman => Obsession |> Trait, severity)
+                    b.chooseOne (Vow |> Trait, [UseOnlyWeaponOfChoice; NeverRefuseAChallengeToCombat; ChallengeEverySwordsmanToCombat; NeverWearArmor])
+                    ]
+            Some -35,
+                [   b.binary (Chummy |> Trait)
+                    b.binary (Gregarious |> Trait)
+                    b.chooseLevels (CompulsiveCarousing |> Trait, severity)
+                    b.chooseLevels (CompulsiveSpending |> Trait, severity)
+                    b.chooseLevels (Greed |> Trait, severity)
+                    b.chooseLevels (Impulsiveness |> Trait, severity)
+                    b.chooseLevels (Jealousy |> Trait, severity)
+                    b.chooseLevels (Lecherousness |> Trait, severity)
+                    b.binary(OneEye |> Trait)
+                    b.chooseLevels (Overconfidence |> Trait, severity)
+                    b.binary (Trait.SenseOfDuty AdventuringCompanions |> Trait)
+                    b.chooseLevels (ShortAttentionSpan |> Trait, severity)
+                    b.chooseLevels (Trickster |> Trait, severity)
+                    b.binary (Wounded |> Trait)
+                    ]
+            None, allDisadvantages b
             ]
         ]
 

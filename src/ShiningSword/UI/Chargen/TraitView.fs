@@ -11,6 +11,8 @@ type TraitMsg =
     | Remove of Trait
 type ReactBuilder(char: Character, dispatch: TraitMsg -> unit) =
     interface OutputBuilder<Menus.Chosen, ReactElement> with
+        member this.chooseOne(arg1) = notImpl()
+        member this.chooseUpToMultiBudget(arg1) = notImpl()
         member this.chooseOneFromHierarchy(arg1) = notImpl()
         member this.chooseWithStringInput(arg1, arg2) = notImpl()
         member this.grant(arg1) = notImpl()
