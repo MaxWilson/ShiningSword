@@ -59,6 +59,22 @@ module Tuple2 =
     let create x y = x,y
     let mapfst f (x,y) = (f x, y)
     let mapsnd f (x,y) = (x, f y)
+
+
+[<AutoOpen>]
+module Ctor =
+    type Constructor<'args, 'Type> = {
+        create: 'args -> 'Type
+        extract: 'Type -> 'args option
+        }
+
+    let ctor(create, extract) = { create = create; extract = extract }
+
+    type Constructor<'args, 'Type>
+        with
+        static member (=>) (lhs: Constructor<_, 't1>, rhs: Constructor<'t1, _>) =
+            ctor(rhs.create << lhs.create, rhs.extract >> Option.bind lhs.extract)
+
 // generic place for overloaded operations like add. Can be extended (see below).
 type Ops =
     static member add(key, value, data: Map<_,_>) = data |> Map.add key value

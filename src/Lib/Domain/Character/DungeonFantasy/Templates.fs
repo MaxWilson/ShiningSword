@@ -3,17 +3,27 @@ open Domain.Ribbit.Properties
 open Domain.Character.DungeonFantasy.TraitsAndAttributes
 open Fable.Core
 
+module Multi =
+    // I don't have a good way to describe what this is except that it is an abstraction over WeaponMaster
+    // that's not too coupled to it. You can either pick the broad Const categories, or something that
+    // requires you to make some choices.
+    type DistinctValues<'inType, 't> =
+        | Const of 't
+        | One of Constructor<'inType, 't> * 'inType list
+        | DistinctTwo of Constructor<'inType * 'inType, 't> * 'inType list * 'inType list
+
 [<Mangle>]
-type OutputBuilder<'choice, 'reactElement> = // for clairty, might as well name the elements for their intended role, even though 'reactElement is not strictly required to be a ReactElement
+type OutputBuilder<'choice, 'reactElement> = // for clarity, might as well name the elements for their intended role, even though 'reactElement is not strictly required to be a ReactElement
     // individual traits
     abstract grant: 'choice -> 'reactElement
     abstract binary: 'choice -> 'reactElement
     abstract binary: 'choice * string -> 'reactElement
-    abstract chooseWithStringInput: string * (string -> 'choice) -> 'reactElement
-    abstract chooseLevels: (('arg -> 'choice) * 'arg list) -> 'reactElement
-    abstract choose2D: (('arg1 * 'arg2 -> 'choice) * 'arg1 list * 'arg2 list) -> 'reactElement
-    abstract grantOne: (('arg -> 'choice) * 'arg list) -> 'reactElement
-    abstract grantWithStringInput: string * (string -> 'choice) -> 'reactElement
+    abstract chooseWithStringInput: Constructor<string, 'choice> * string -> 'reactElement
+    abstract chooseLevels: (Constructor<'arg, 'choice> * 'arg list) -> 'reactElement
+    abstract choose2D: (Constructor<'arg1 * 'arg2, 'choice> * 'arg1 list * 'arg2 list) -> 'reactElement
+    abstract chooseOneFromHierarchy: (Constructor<'arg, 'choice> * Multi.DistinctValues<'subArg, 'arg> list) -> 'reactElement
+    abstract grantOne: (Constructor<'arg, 'choice> * 'arg list) -> 'reactElement
+    abstract grantWithStringInput: Constructor<string, 'choice> * string  -> 'reactElement
 
     // aggregations
     abstract aggregate: 'reactElement list -> 'reactElement
@@ -27,46 +37,65 @@ module _Stats = // Implementation detail: would be private if it didn't get used
 open _Stats
 
 module Menus =
+    open TraitsAndAttributes.Ctor
+    open Multi
     type Chosen =
         | StatBonus of StatAddress * int
         | Trait of Trait
-    let StatBonus stat n = StatBonus(stat, n)
+    let private tuple2bind1 arg1 = ctor((fun arg2 -> arg1, arg2), function (_, arg2) -> Some arg2)
+    let private StatBonus stat =
+        (tuple2bind1 stat)
+            => (ctor(StatBonus, function StatBonus(stat, n) -> Some (stat, n) | _ -> None))
+    type Convert =
+        static member Trait (t: Trait) = Chosen.Trait t
+        static member Trait (ctor: Constructor<_,_>) = ctor => Common.Ctor.ctor(Trait, function Trait t -> Some t | _ -> None)
+    open type Convert
+    let thunktor v = ctor(thunk v, function v2 when v = v2 -> Some () | _ -> None)
     let swash (b: OutputBuilder<_,'reactElement>) = b.aggregate [
         let swashMeleeWeapons = [Broadsword; Rapier; Saber; Shortsword; Smallsword; MainGauche]
         b.aggregate [
-            b.grant (Trait CombatReflexes)
-            b.grant (Luck Standard |> Trait)
-            b.grantOne(Tuple2.create 1 >> EnhancedParry >> Trait, swashMeleeWeapons)
-            b.grantWithStringInput("Describe", WeaponBond >> Trait)
-            b.grantOne((fun weapon -> WeaponMaster(notImpl "oneWeapon(weapon)") |> Trait), swashMeleeWeapons)
+            b.grant (CombatReflexes |> Trait)
+            b.grant (Trait.Luck Standard |> Trait)
+            b.grantOne(tuple2bind1 1 => EnhancedParry |> Trait, swashMeleeWeapons)
+            b.grantWithStringInput(WeaponBond |> Trait, "Describe")
+            b.grantOne(OneWeapon => WeaponMaster |> Trait, swashMeleeWeapons)
             ]
         b.chooseUpToBudget 60 [
             b.chooseLevels(StatBonus HP, [1..6])
             b.chooseLevels(StatBonus DX, [1..3])
             b.chooseLevels(StatBonus SpeedTimesFour, [4..4..12])
             b.binary(Trait Ambidexterity)
-            b.chooseLevels(Appearance >> Trait, [Attractive;Beautiful;VeryBeautiful])
-            b.chooseLevels(ArmorFamiliarity >> Trait, [1..4])
-            b.chooseLevels(Charisma >> Trait, [1..4])
-            b.chooseLevels(Charisma >> Trait, [1..4])
+            b.chooseLevels(Appearance |> Trait, [Attractive;Beautiful;VeryBeautiful])
+            b.chooseLevels(ArmorFamiliarity |> Trait, [1..4])
+            b.chooseLevels(Charisma |> Trait, [1..4])
+            b.chooseLevels(Charisma |> Trait, [1..4])
             b.binary(Trait Daredevil)
-            b.chooseLevels(EnhancedBlock >> Trait, [1..3])
-            b.binary(EnhancedDodge 1 |> Trait)
-            b.choose2D(EnhancedParry >> Trait, [2..3], swashMeleeWeapons)
+            b.chooseLevels(EnhancedBlock |> Trait, [1..3])
+            b.binary(Trait.EnhancedDodge 1 |> Trait)
+            b.choose2D(EnhancedParry |> Trait, [2..3], swashMeleeWeapons)
             b.binary(Trait EnhancedTimeSense)
             b.binary(Trait EveryOnesACritical)
-            b.chooseLevels(ExtraAttack >> Trait, [1..2])
-            b.chooseLevels(Luck >> Trait, [Extraordinary; Ridiculous])
+            b.chooseLevels(ExtraAttack |> Trait, [1..2])
+            b.chooseLevels(Luck |> Trait, [Extraordinary; Ridiculous])
             b.binary(Trait GreatVoid)
             b.binary(Trait PerfectBalance)
             b.binary(Trait RapierWit)
             b.binary(Trait Serendipity)
-            b.chooseWithStringInput("Describe", SignatureGear >> Trait)
+            b.chooseWithStringInput(SignatureGear |> Trait, "Describe")
             b.binary(Trait SpringingAttack)
-            b.chooseLevels(StrikingST >> Trait, [1..2])
-            b.chooseWithStringInput("Describe maneuver, weapon, hit locations, Rapid or Deceptive Strike",
-                TrademarkMove >> Trait)
-            notImpl "Weapon master: 2 weapon, fencing, swords"
+            b.chooseLevels(StrikingST |> Trait, [1..2])
+            b.chooseWithStringInput(TrademarkMove |> Trait, "Describe maneuver, weapon, hit locations, Rapid or Deceptive Strike")
+            b.chooseOneFromHierarchy(WeaponMaster |> Trait,
+                // I don't love this Const/One/DistinctTwo schema, but I don't currently have a better idea
+                //  and I want to unblock myself. This is good enough to correctly express WeaponMaster,
+                //  and yet isn't tightly coupled to it.
+                [   Const WeaponMasterFocus.All
+                    Const Swords
+                    Const FencingWeapons
+                    One(OneWeapon, swashMeleeWeapons)
+                    DistinctTwo(TwoWeapon, swashMeleeWeapons, swashMeleeWeapons)
+                    ]
+                )
             ]
         ]
 

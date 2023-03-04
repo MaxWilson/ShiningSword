@@ -6,6 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <None Include="scratch\CalcVariables.fsx" />
+    <None Include="scratch\Constructor.fsx" />
     <None Include="scratch\DFRPGChargen.fsx" />
     <None Include="Scratch\NameMaker.fsx" />
     <None Include="Scratch\Encounters.fsx" />
@@ -34,9 +35,9 @@
     <Compile Include="Domain\Ribbit\DataStore.fs" />
     <Compile Include="Domain\Ribbit\Execution.fs" />
     <Compile Include="Domain\Character\Character.fs" />
-    <Compile Include="Domain\Character\DungeonFantasy\Traits.fs" />
-    <Compile Include="Domain\Character\DungeonFantasy\DungeonFantasy.fs" />
+    <Compile Include="Domain\Character\DungeonFantasy\TraitsAndAttributes.fs" />
     <Compile Include="Domain\Character\DungeonFantasy\Templates.fs" />
+    <Compile Include="Domain\Character\DungeonFantasy\DungeonFantasy.fs" />
     <Compile Include="Domain\Character\Universal.fs" />
     <Compile Include="Adventure.fs" />
   </ItemGroup>

@@ -11,6 +11,11 @@ type TraitMsg =
     | Remove of Trait
 type ReactBuilder(char: Character, dispatch: TraitMsg -> unit) =
     interface OutputBuilder<Menus.Chosen, ReactElement> with
+        member this.chooseOneFromHierarchy(arg1) = notImpl()
+        member this.chooseWithStringInput(arg1, arg2) = notImpl()
+        member this.grant(arg1) = notImpl()
+        member this.grantOne(arg1) = notImpl()
+        member this.grantWithStringInput(arg1, arg2) = notImpl()
         member this.choose2D(arg1) = notImpl()
         member this.chooseLevels(arg1) = notImpl()
         member this.chooseUpToBudget arg1 arg2 = notImpl()

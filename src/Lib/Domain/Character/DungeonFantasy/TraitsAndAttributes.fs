@@ -16,7 +16,7 @@ type WeaponSkill =
     | ThrownAxeOrMace | ThrownDart | ThrownHarpoon | ThrownKnife | ThrownShuriken | ThrownSpear | ThrownStick | ThrowingArt
 type AppearanceLevel = Attractive | Beautiful | VeryBeautiful
 type LuckLevel = Standard | Extraordinary | Ridiculous
-type Unknown() = do notImpl()
+type WeaponMasterFocus = All | Swords | FencingWeapons | TwoWeapon of WeaponSkill * WeaponSkill | OneWeapon of WeaponSkill
 type Trait =
     | Ambidexterity
     | Appearance of AppearanceLevel
@@ -41,7 +41,25 @@ type Trait =
     | StrikingST of int
     | TrademarkMove of string
     | WeaponBond of string
-    | WeaponMaster of Unknown
+    | WeaponMaster of WeaponMasterFocus
+
+module Ctor =
+    let Appearance = ctor(Appearance, function Appearance v -> Some v | _ -> None)
+    let ArmorFamiliarity = ctor(ArmorFamiliarity, function ArmorFamiliarity v -> Some v | _ -> None)
+    let Charisma = ctor(Charisma, function Charisma v -> Some v | _ -> None)
+    let EnhancedBlock = ctor(EnhancedBlock, function EnhancedBlock v -> Some v | _ -> None)
+    let EnhancedDodge = ctor(EnhancedDodge, function EnhancedDodge v -> Some v | _ -> None)
+    let EnhancedParry = ctor(EnhancedParry, function EnhancedParry(name, skill) -> Some (name, skill) | _ -> None)
+    let ExtraAttack = ctor(ExtraAttack, function ExtraAttack v -> Some v | _ -> None)
+    let Luck = ctor(Luck, function Luck v -> Some v | _ -> None)
+    let SignatureGear = ctor(SignatureGear, function SignatureGear v -> Some v | _ -> None)
+    let StrikingST = ctor(StrikingST, function StrikingST v -> Some v | _ -> None)
+    let TrademarkMove = ctor(TrademarkMove, function TrademarkMove v -> Some v | _ -> None)
+    let WeaponBond = ctor(WeaponBond, function WeaponBond t -> Some t | _ -> None)
+    let WeaponMaster = ctor(WeaponMaster, function WeaponMaster v -> Some v | _ -> None)
+
+    let OneWeapon = ctor(OneWeapon, function OneWeapon(v) -> Some (v) | _ -> None)
+    let TwoWeapon = ctor(TwoWeapon, function TwoWeapon(weapon1, weapon2) -> Some (weapon1, weapon2) | _ -> None)
 
 type Skill =
     | Weapon of WeaponSkill
