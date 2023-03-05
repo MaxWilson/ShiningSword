@@ -28,7 +28,7 @@ module View =
     let rec init _ =
         {
             ruleset = DungeonFantasy
-            dfChar = DF.init()
+            dfChar = DF.init None
             } |> reroll
     and reroll model =
         match model.ruleset with

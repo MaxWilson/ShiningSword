@@ -103,9 +103,9 @@ let resetStatsAndTraits (char: Character) =
         stats = char.stats |> clear |> race.apply |> prof.apply
         traits = race.traits @ prof.traits}
 
-let changeProfession (char: Character) prof =
+let changeProfession prof (char: Character) =
     { char with profession = prof } |> resetStatsAndTraits
 
-let changeRace (char: Character) race =
+let changeRace race (char: Character) =
     { char with race = race } |> resetStatsAndTraits
 

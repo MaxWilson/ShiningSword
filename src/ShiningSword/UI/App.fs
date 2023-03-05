@@ -280,13 +280,15 @@ open Elmish.Navigation
 open Elmish.HMR
 
 Program.mkProgram init update view
-//|> Program.withSubscription(fun m -> Cmd.ofSub(fun dispatch ->
-//    Browser.Dom.window.onerror <-
-//    fun msg ->
-//        if msg.ToString().Contains "SocketProtocolError" = false then
-//            dispatch (sprintf "Error: %A" msg |> Error)
-//            Browser.Dom.window.alert ("Unhandled Exception: " + msg.ToString())
-//        ))
+|> Program.withSubscription(fun m -> [
+    [], fun dispatch ->
+            Browser.Dom.window.onerror <-
+                fun msg ->
+                    if msg.ToString().Contains "SocketProtocolError" = false then
+                        dispatch (sprintf "Error: %A" msg |> Error)
+                        // Browser.Dom.window.alert ("Unhandled Exception: " + msg.ToString())
+            React.createDisposable (fun () -> Browser.Dom.window.onerror <- ignore)
+        ])
 |> Program.toNavigable Url.parse Url.unpack
 |> Program.withReactBatched "feliz-app"
 |> Program.run

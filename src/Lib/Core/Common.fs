@@ -66,14 +66,21 @@ module Ctor =
     type Constructor<'args, 'Type> = {
         create: 'args -> 'Type
         extract: 'Type -> 'args option
+        name: string option
         }
-
-    let ctor(create, extract) = { create = create; extract = extract }
-
-    type Constructor<'args, 'Type>
         with
         static member (=>) (lhs: Constructor<_, 't1>, rhs: Constructor<'t1, _>) =
-            ctor(rhs.create << lhs.create, rhs.extract >> Option.bind lhs.extract)
+            {   create = rhs.create << lhs.create
+                extract = rhs.extract >> Option.bind lhs.extract
+                name =  match lhs.name, rhs.name with
+                        | Some lhs, Some rhs -> Some ($"{rhs} ({lhs})")
+                        | Some lhs, _ -> Some lhs
+                        | _, Some rhs -> Some rhs
+                        | _ -> None
+                }
+
+    let ctor(create, extract) = { create = create; extract = extract; name = None }
+    let namedCtor(name, create, extract) = { create = create; extract = extract; name = Some name }
 
 // generic place for overloaded operations like add. Can be extended (see below).
 type Ops =
@@ -372,3 +379,9 @@ module Trie =
             | (value, None), _ -> // treat unusable indexes as no-op
                 node // treat unusable indexes as no-op
         recur ixs trie
+
+let inline trace v =
+#if DEBUG
+    printfn "Trace: %A" v
+#endif
+    v

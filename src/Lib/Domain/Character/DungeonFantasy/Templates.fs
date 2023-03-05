@@ -7,10 +7,10 @@ module Multi =
     // I don't have a good way to describe what this is except that it is an abstraction over WeaponMaster
     // that's not too coupled to it. You can either pick the broad Const categories, or something that
     // requires you to make some choices.
-    type DistinctValues<'inType, 't> =
+    type DistinctValues<'inType , 't when 'inType: equality> =
         | Const of 't
         | One of Constructor<'inType, 't> * 'inType list
-        | DistinctTwo of Constructor<'inType * 'inType, 't> * 'inType list * 'inType list
+        | DistinctTwo of Constructor<'inType * 'inType , 't> * 'inType list
 
 [<Mangle>]
 type OutputBuilder<'choice, 'reactElement> = // for clarity, might as well name the elements for their intended role, even though 'reactElement is not strictly required to be a ReactElement
@@ -19,36 +19,37 @@ type OutputBuilder<'choice, 'reactElement> = // for clarity, might as well name 
     abstract binary: 'choice -> 'reactElement
     abstract binary: 'choice * string -> 'reactElement
     abstract chooseWithStringInput: Constructor<string, 'choice> * string -> 'reactElement
-    abstract chooseLevels: (Constructor<'arg, 'choice> * 'arg list) -> 'reactElement
+    abstract chooseLevels: Constructor<'arg, 'choice> * 'arg list -> 'reactElement
     // chooseLevels and chooseOne are different in the sense that chooseOne has no implied total ordering,
     //   so will have a different UI without + and - buttons.
-    abstract chooseOne: (Constructor<'arg, 'choice> * 'arg list) -> 'reactElement
-    abstract choose2D: (Constructor<'arg1 * 'arg2, 'choice> * 'arg1 list * 'arg2 list) -> 'reactElement
-    abstract chooseOneFromHierarchy: (Constructor<'arg, 'choice> * Multi.DistinctValues<'subArg, 'arg> list) -> 'reactElement
-    abstract grantOne: (Constructor<'arg, 'choice> * 'arg list) -> 'reactElement
+    abstract chooseOne: Constructor<'arg, 'choice> * 'arg list -> 'reactElement
+    abstract choose2D: Constructor<'arg1 * 'arg2, 'choice> * 'arg1 list * 'arg2 list -> 'reactElement
+    abstract chooseOneFromHierarchy: Constructor<'arg, 'choice> * Multi.DistinctValues<'subArg, 'arg> list -> 'reactElement
+    abstract grantOne: Constructor<'arg, 'choice> * 'arg list -> 'reactElement
     abstract grantWithStringInput: Constructor<string, 'choice> * string  -> 'reactElement
 
     // aggregations
-    abstract aggregate: 'reactElement list -> 'reactElement
-    abstract chooseUpToBudget: int -> 'reactElement list -> 'reactElement
-    abstract chooseUpToBudgetWithSuggestions: int -> (int option * 'reactElement list) list -> 'reactElement
+    abstract aggregate: label:string -> (OutputBuilder<'choice, 'reactElement> -> 'reactElement list) -> 'reactElement
+    abstract chooseUpToBudget: int -> label:string -> (OutputBuilder<'choice, 'reactElement> -> 'reactElement list) -> 'reactElement
+    abstract chooseUpToBudgetWithSuggestions: int -> label:string -> (OutputBuilder<'choice, 'reactElement> -> (int option * 'reactElement list) list) -> 'reactElement
 
-module _Stats = // Implementation detail: would be private if it didn't get used in Package, which is public
-                //   but other parts of code outside this file should view ST, etc. as properties, not as addresses
+module Addresses =
     type StatAddress = ST | DX | IQ | HT | Will | Per | SM | HP | FP | Move | SpeedTimesFour | Dodge
-    open type Create
+    type MagicSource = Clerical | Druidic | Wizardly
+    type Chosen =
+        | StatBonus of StatAddress * int
+        | Trait of Trait
+        | Skill of Skill * level: int
+        | Spell of Skill * MagicSource * level: int
 
-open _Stats
+open Addresses
 
 module Menus =
     open TraitsAndAttributes.Ctor
     open Multi
-    type Chosen =
-        | StatBonus of StatAddress * int
-        | Trait of Trait
-    let private tuple2bind1 arg1 = ctor((fun arg2 -> arg1, arg2), function (_, arg2) -> Some arg2)
+    let private tuple2bind1 name arg1 = namedCtor(name, (fun arg2 -> arg1, arg2), function (_, arg2) -> Some arg2)
     let private StatBonus stat =
-        (tuple2bind1 stat)
+        (tuple2bind1 $"More {stat}" stat)
             => (ctor(StatBonus, function StatBonus(stat, n) -> Some (stat, n) | _ -> None))
     type Convert =
         static member Trait (t: Trait) = Chosen.Trait t
@@ -57,8 +58,7 @@ module Menus =
     let thunktor v = ctor(thunk v, function v2 when v = v2 -> Some () | _ -> None)
     let severity = [Mild; Moderate; Serious; Severe]
     let allDisadvantages (b: OutputBuilder<_,_>) =
-        [   b.binary (Chummy |> Trait)
-            b.binary (Gregarious |> Trait)
+        [   b.chooseLevels (Chummy |> Trait, [ChummyLevel.Standard; Gregarious])
             b.chooseLevels (CompulsiveCarousing |> Trait, severity)
             b.chooseLevels (CompulsiveSpending |> Trait, severity)
             b.chooseLevels (Greed |> Trait, severity)
@@ -72,23 +72,22 @@ module Menus =
             b.chooseLevels (Trickster |> Trait, severity)
             b.binary (Wounded |> Trait)
             ]
-    let swash (b: OutputBuilder<_,'reactElement>) = b.aggregate [
+    let swash (b: OutputBuilder<_,'reactElement>) = b.aggregate "Swashbuckler" <| fun b -> [
         let swashMeleeWeapons = [Broadsword; Rapier; Saber; Shortsword; Smallsword; MainGauche]
-        b.aggregate [
+        b.aggregate "Free" <| fun b -> [
             b.grant (CombatReflexes |> Trait)
-            b.grant (Trait.Luck Standard |> Trait)
-            b.grantOne(tuple2bind1 1 => EnhancedParry |> Trait, swashMeleeWeapons)
+            b.grantOne (Luck |> Trait, [Standard])
+            b.grantOne({ (tuple2bind1 "Enhanced Parry 1" 1 => EnhancedParry) with name = Some "Enhanced Parry 1" } |> Trait, swashMeleeWeapons)
             b.grantWithStringInput(WeaponBond |> Trait, "Describe")
-            b.grantOne(OneWeapon => WeaponMaster |> Trait, swashMeleeWeapons)
+            b.grantOne({ (OneWeapon => WeaponMaster) with name = Some "Weapon Master" } |> Trait, swashMeleeWeapons)
             ]
-        b.chooseUpToBudget 60 [
+        b.chooseUpToBudget 60 "Advantages" <| fun b -> [
             b.chooseLevels(StatBonus HP, [1..6])
             b.chooseLevels(StatBonus DX, [1..3])
             b.chooseLevels(StatBonus SpeedTimesFour, [4..4..12])
             b.binary(Trait Ambidexterity)
             b.chooseLevels(Appearance |> Trait, [Attractive;Beautiful;VeryBeautiful])
             b.chooseLevels(ArmorFamiliarity |> Trait, [1..4])
-            b.chooseLevels(Charisma |> Trait, [1..4])
             b.chooseLevels(Charisma |> Trait, [1..4])
             b.binary(Trait Daredevil)
             b.chooseLevels(EnhancedBlock |> Trait, [1..3])
@@ -97,7 +96,7 @@ module Menus =
             b.binary(Trait EnhancedTimeSense)
             b.binary(Trait EveryOnesACritical)
             b.chooseLevels(ExtraAttack |> Trait, [1..2])
-            b.chooseLevels(Luck |> Trait, [Extraordinary; Ridiculous])
+            b.chooseLevels({ Luck with name = Some "More Luck" }|> Trait, [Extraordinary; Ridiculous])
             b.binary(Trait GreatVoid)
             b.binary(Trait PerfectBalance)
             b.binary(Trait RapierWit)
@@ -114,19 +113,18 @@ module Menus =
                     Const Swords
                     Const FencingWeapons
                     One(OneWeapon, swashMeleeWeapons)
-                    DistinctTwo(TwoWeapon, swashMeleeWeapons, swashMeleeWeapons)
+                    DistinctTwo(TwoWeapon, swashMeleeWeapons)
                     ]
                 )
             ]
-        b.chooseUpToBudgetWithSuggestions -50 [
+        b.chooseUpToBudgetWithSuggestions -50 "Disadvantages" <| fun b -> [
             Some -15,
                 [   b.chooseOne (CodeOfHonor |> Trait, [Gentlemans; Outlaws])
-                    b.chooseLevels (tuple2bind1 BecomeBestSwordsman => Obsession |> Trait, severity)
+                    b.chooseLevels (tuple2bind1 "Become best swordsman in the world" BecomeBestSwordsman => Obsession |> Trait, severity)
                     b.chooseOne (Vow |> Trait, [UseOnlyWeaponOfChoice; NeverRefuseAChallengeToCombat; ChallengeEverySwordsmanToCombat; NeverWearArmor])
                     ]
             Some -35,
-                [   b.binary (Chummy |> Trait)
-                    b.binary (Gregarious |> Trait)
+                [   b.chooseLevels (Chummy |> Trait, [ChummyLevel.Standard; Gregarious])
                     b.chooseLevels (CompulsiveCarousing |> Trait, severity)
                     b.chooseLevels (CompulsiveSpending |> Trait, severity)
                     b.chooseLevels (Greed |> Trait, severity)
@@ -135,7 +133,7 @@ module Menus =
                     b.chooseLevels (Lecherousness |> Trait, severity)
                     b.binary(OneEye |> Trait)
                     b.chooseLevels (Overconfidence |> Trait, severity)
-                    b.binary (Trait.SenseOfDuty AdventuringCompanions |> Trait)
+                    b.binary (Trait.SenseOfDuty AdventuringCompanions |> Trait, "Sense of Duty (Adventuring Companions)")
                     b.chooseLevels (ShortAttentionSpan |> Trait, severity)
                     b.chooseLevels (Trickster |> Trait, severity)
                     b.binary (Wounded |> Trait)
@@ -207,4 +205,4 @@ module Templates =
 
     let menusFor builder = function
         | Swashbuckler -> Menus.swash builder
-        | v -> notImpl v
+        | v -> builder.aggregate $"{v} Placeholder" (fun _ -> [])

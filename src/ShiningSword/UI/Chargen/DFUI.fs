@@ -6,10 +6,17 @@ open Domain.Character.DungeonFantasy
 open Domain.Character.DungeonFantasy.Templates
 open Feliz
 open UI
+open Optics
+open type Optics.Operations
 
-type Model = Character
+type Model =
+    {   char: Character
+        queue: Map<TraitView.Key, string>
+        }
 
-let init _ = createRandom { Constraints.fresh with randomizationMethod = NonRandom }
+let init constraints =
+    {   char = createRandom (defaultArg constraints { Constraints.fresh with randomizationMethod = NonRandom })
+        queue = Map.empty }
 
 type Msg =
     | Reroll of Constraints
@@ -19,18 +26,37 @@ type Msg =
     | TraitChange of TraitView.TraitMsg
 
 let update msg model =
+    let Char = Lens.create (fun m -> m.char) (fun v m -> { m with char = v })
+    let Queue = Lens.create (fun m -> m.queue) (fun v m -> { m with queue = v })
+    let Header = Lens.create (fun c -> c.header) (fun v c -> { c with header = v })
+    let Profession = Lens.create (fun c -> c.profession) (fun v c -> { c with profession = v })
     match msg with
-    | Reroll random -> createRandom random
+    | Reroll random -> init (Some random)
     | FwdRoleplaying msg ->
-        { model with header = model.header |> UI.Roleplaying.update msg }
+        model |> over (Char => Header) (UI.Roleplaying.update msg)
     | ChangeProfession prof ->
-        changeProfession model prof
+        model |> over Char (changeProfession prof)
     | ChangeRace race ->
-        changeRace model race
-    | TraitChange (TraitView.Add t) ->
-        { model with traits = t :: model.traits }
-    | TraitChange (TraitView.Remove t) ->
-        { model with traits = model.traits |> List.filter ((<>) t) }
+        model |> over Char (changeRace race)
+    | TraitChange (TraitView.Queue key) ->
+        model |> over Queue (Map.add key "")
+    | TraitChange (TraitView.QueueData(key,data)) ->
+        model |> over Queue (Map.add key data)
+    | TraitChange (TraitView.Unqueue key) ->
+        model |> over Queue (Map.remove key)
+    | TraitChange (TraitView.ClearStrictlyUnder key) ->
+        let clearUnder (queue: Map<TraitView.Key,_>) =
+            let len = key.Length
+            let rec under (k: TraitView.Key) =
+                if k = key then true
+                elif k.Length > len then under k.Tail
+                else false
+            let rec strictlyUnder (key': TraitView.Key) =
+                if key'.Length > len then // in order to be strictly under, key' has to be longer (more specific) than key
+                    under key'.Tail
+                else false
+            queue |> Map.filter (fun k v -> k |> strictlyUnder |> not)
+        model |> over Queue clearUnder
 
 [<AutoOpen>]
 module Helpers =
@@ -43,6 +69,7 @@ module Helpers =
 
 [<ReactComponent>]
 let View (mkHeader: _ -> ReactElement) model dispatch =
+    let char = model.char
     class' "character" Html.div [
         let showRerollPreferences, setShowRerollPreferences = React.useState true
         let randomize, setRandomize = React.useState NonRandom
@@ -91,12 +118,12 @@ let View (mkHeader: _ -> ReactElement) model dispatch =
                     renameButton
                     ]
         mkHeader rerollSection
-        let char = model.header
-        let name = char.name
-        let sex = char.sex
-        let race = model.race
-        let profession = Templates.professions[model.profession]
-        match char.nationalOrigin with
+        let rp = char.header
+        let name = rp.name
+        let sex = rp.sex
+        let race = char.race
+        let profession = Templates.professions[char.profession]
+        match rp.nationalOrigin with
         | "" ->
             Html.div [
                 classTxt' "title" Html.div name
@@ -108,7 +135,7 @@ let View (mkHeader: _ -> ReactElement) model dispatch =
                 classTxt' "subtitle" Html.div $"{sex} {race |> raceName} {profession.name} from {nation}"
                 ]
         let showWork, setShowWork = React.useState true
-        let stats = model.stats
+        let stats = char.stats
         let vwAttribute (elements: _ seq) = Html.div elements
         let show (txt, v: int RValue) =
             let total = sum v
@@ -144,12 +171,12 @@ let View (mkHeader: _ -> ReactElement) model dispatch =
                 show(txt, prop stats)
             ]
         checkbox "chkShowWork" "Show stat derivation" (showWork, fun _ -> showWork |> not |> setShowWork)
-        if model.canChangeRace then
+        if char.canChangeRace then
             class' "selection" Html.fieldSet [
                 classTxt' "subtitle" Html.legend "Race"
                 for race in Templates.races |> List.map snd do
                     let txt = race.name |> Helpers.raceName
-                    let isChecked = model.race = race.name
+                    let isChecked = char.race = race.name
                     checkbox ("chkCurrent" + txt) txt (isChecked, fun _ -> (if not isChecked then dispatch (ChangeRace race.name)))
                 ]
 
@@ -159,17 +186,13 @@ let View (mkHeader: _ -> ReactElement) model dispatch =
                 for prof in Templates.professions do
                     let chkId = ("chk" + prof.Value.displayName)
                     Html.div [
-                        Html.input [prop.id chkId; prop.type'.checkbox; prop.isChecked (model.profession = prof.Key); prop.onChange (fun select -> if select then prof.Key |> ChangeProfession |> dispatch)]
+                        Html.input [prop.id chkId; prop.type'.checkbox; prop.isChecked (char.profession = prof.Key); prop.onChange (fun select -> if select then prof.Key |> ChangeProfession |> dispatch)]
                         Html.label [prop.htmlFor chkId; prop.text prof.Value.displayName]
                         ]
 
                 ]
             Html.hr []
             ]
-        Html.fieldSet [
-            classTxt' "subtitle" Html.legend profession.displayName
-            let builder = (TraitView.ReactBuilder(model, (TraitChange >> dispatch)))
-            Templates.menusFor builder profession.name
-            ]
-
+        TraitView.TraitView(profession, char, model.queue, (TraitChange >> dispatch))
+        Html.button [prop.text "OK"]
         ]

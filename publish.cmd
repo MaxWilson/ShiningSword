@@ -1,1 +1,1 @@
-git push . head:publishDf && git push origin publishDf
+git push -f . head:publishDf && git push -f origin publishDf

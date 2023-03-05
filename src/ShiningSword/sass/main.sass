@@ -55,12 +55,28 @@ input[type=checkbox]
             margin-right: auto
     .selection
         display: grid
-        grid-template-columns: repeat(auto-fill, 100px)
+        grid-template-columns: repeat(auto-fill, minmax(100px, auto))
         column-gap: 0.875rem
         user-select: none
         legend
             grid-column: 1/-1
+    .traitview
+        user-select: none
+        .aggregate
+            padding: 0.5rem
+            margin-bottom: 0.5rem
+            .aggregate
+                columns: 2 250px
+                column-rule: 1px solid #ccc
+        .potentialChoice
+            .potentialChoice
+                margin-left: 1rem
+            .subchoice
+                margin-left: 1rem
 
 
 button
     min-width: 1.5rem
+
+.placeholder
+    border: thin solid red
