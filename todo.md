@@ -20,3 +20,7 @@ Known bugs/feature gaps:
 that we don't go over the max of N.
 
 * Budgets: should they be implemented at the visual layer, the data layer, or both? It seems like the visual layer is more flexible, for allowing budget overages and such, and I think DataBuilder still guarantees that only things currently displayed on the screen wind up in the final data, so visual layer enforcement should still work.
+
+* Budget costs on WeaponMaster don't quite work for OneWeapon and TwoWeapon.
+
+* Need some kind of a way to link Weapon of Choice for Enhanced Parry 1 vs 2-3 on Swashbuckler, so that it doesn't show up as [10]. Probably also want -/+ buttons.

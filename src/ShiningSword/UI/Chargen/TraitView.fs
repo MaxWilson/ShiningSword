@@ -5,6 +5,7 @@ open Fable.React
 open Feliz
 open Fable.Core
 open UI
+open Domain.Character.DungeonFantasy.TraitsAndAttributes.Data
 
 type Key = string list
 type TraitMsg =
@@ -27,11 +28,12 @@ type DataBuilder(char: Character, prefix: Key, queue: Map<Key, string>, dispatch
     let has key = queue.ContainsKey key
     let fulfilled key options = options |> List.tryFind (fun pick -> has(keyOf key pick))
     let fulfilledFilter key options = options |> List.filter (fun pick -> has(keyOf key pick))
-    interface OutputBuilder<Addresses.Chosen, Addresses.Chosen list> with
+
+    interface OutputBuilder<Chosen, Chosen list> with
         member _.aggregate label f = List.concat (extend label |> f)
-        member _.binary(value: Addresses.Chosen, label: string): Addresses.Chosen list =
+        member _.binary(value: Chosen, label: string): Chosen list =
             [if has (keyOf prefix value) then value]
-        member _.binary(value: Addresses.Chosen): Addresses.Chosen list =
+        member _.binary(value: Chosen): Chosen list =
             [if has (keyOf prefix value) then value]
         member _.choose2D(ctor, options1, options2) =
             [   let key = keyOf prefix ctor.name.Value
@@ -87,6 +89,7 @@ type DataBuilder(char: Character, prefix: Key, queue: Map<Key, string>, dispatch
             [   let key = keyOf prefix ctor.name.Value
                 match (fulfilled key options) with
                 | Some v -> ctor.create(v)
+                | _ when options.Length = 1 -> ctor.create(options[0]) // default to first
                 | _ -> ()
                 ]
         member _.grantWithStringInput(ctor, label) =
@@ -94,6 +97,56 @@ type DataBuilder(char: Character, prefix: Key, queue: Map<Key, string>, dispatch
                 let stringArg = queue |> Map.tryFind key |> Option.defaultValue ""
                 ctor.create stringArg
                 ]
+
+type CostBuilder(char: Character, prefix: Key, queue: Map<Key, string>, dispatch: TraitMsg -> unit) =
+    let extend entry = CostBuilder(char, entry::prefix, queue, dispatch)
+    let dataBuilder(): OutputBuilder<_,_> = DataBuilder(char, prefix, queue, dispatch)
+    let keyOf (prefix: Key) (pick: 't) =
+        (pick.ToString())::prefix
+    let has key = queue.ContainsKey key
+    let fulfilled key options = options |> List.tryFind (fun pick -> has(keyOf key pick))
+    let fulfilledFilter key options = options |> List.filter (fun pick -> has(keyOf key pick))
+
+    interface OutputBuilder<Chosen, int> with
+        member _.aggregate label f = notImpl()
+        member _.binary(value: Chosen, label: string) = cost value
+        member _.binary(value: Chosen) = cost value
+        member _.choose2D(ctor, options1, options2) =
+            // if a specific value is already chosen, give its cost, otherwise give the minimum possible cost for the whole family of options
+            match dataBuilder().choose2D(ctor, options1, options2) with
+            | [v] -> cost v
+            | _ -> List.allPairs options1 options2 |> List.minBy' (ctor.create >> cost)
+
+        // similar to chooseOne but can default to lowest value
+        member _.chooseLevels(ctor, levels) =
+            // if a specific value is already chosen, give its cost, otherwise give the minimum possible cost for the whole family of options
+            match dataBuilder().chooseLevels(ctor, levels) with
+            | [v] -> cost v
+            | _ -> levels |> List.minBy' (ctor.create >> cost)
+        member _.chooseOne(ctor, options) =
+            // if a specific value is already chosen, give its cost, otherwise give the minimum possible cost for the whole family of options
+            match dataBuilder().chooseLevels(ctor, options) with
+            | [v] -> cost v
+            | _ -> options |> List.minBy' (ctor.create >> cost)
+        member _.chooseOneFromHierarchy(ctor, options) =
+            // if a specific value is already chosen, give its cost, otherwise give the minimum possible cost for the whole family of options
+            match dataBuilder().chooseOneFromHierarchy(ctor, options) with
+            | [v] -> cost v
+            | _ ->
+                let expand = function
+                    | Multi.Const v -> [ctor.create v]
+                    | Multi.One(ctor1, options) -> options |> List.map (ctor1.create >> ctor.create)
+                    // for cost-evaluation purposes we are going to ignore the "distinct" requirement, e.g. we will check the cost on WeaponMaster(TwoWeapon(Rapier, Rapier)) because it's not worth excluding it.
+                    | Multi.DistinctTwo(ctor1, options) -> options |> List.allPairs options |> List.map (ctor1.create >> ctor.create)
+                options |> List.minBy' (expand >> List.minBy' cost)
+        // visually but not semantically distinct from aggregate
+        member _.chooseUpToBudget budget label optionsFunc = notImpl()
+        // visually but not semantically distinct from aggregate
+        member _.chooseUpToBudgetWithSuggestions budget label optionsFunc = notImpl()
+        member _.chooseWithStringInput(ctor, placeholder) = (ctor.create "") |> cost
+        member _.grant(value) = cost value
+        member _.grantOne(ctor, options) = options |> List.minBy' (ctor.create >> cost)
+        member _.grantWithStringInput(ctor, label) = (ctor.create "") |> cost
 
 type ReactBuilder(char: Character, prefix: Key, queue: Map<Key, string>, dispatch: TraitMsg -> unit) =
     let extend entry = ReactBuilder(char, entry::prefix, queue, dispatch)
@@ -107,35 +160,38 @@ type ReactBuilder(char: Character, prefix: Key, queue: Map<Key, string>, dispatc
     let chkId (key:Key) (v:'t) =
         ("chk" + (key |> String.concat "-") + (v.ToString())).Replace(" ", "")
 
-    let checkboxBase(isChecked, label: string, key, uniqueId, toggleFunc, childrenFunc) =
+    let checkboxBase(isChecked, label: string, cost: int option, key, uniqueId, toggleFunc, childrenFunc) =
         let chkId = defaultArg uniqueId (chkId key label)
         let toggle select =
             if select then dispatch (Queue key)
             else dispatch (Unqueue key)
         class' "potentialChoice" Html.div [
             Html.input [prop.id chkId; prop.type'.checkbox; prop.isChecked isChecked; prop.readOnly true; prop.onChange (match toggleFunc with Some f -> f key | None -> toggle)]
-            Html.label [prop.text label; prop.htmlFor chkId]
+            let txt = match cost with Some cost -> $"{label} [{cost}]" | _ -> label
+            Html.label [prop.text txt; prop.htmlFor chkId]
             if isChecked then
                 yield! childrenFunc()
             ]
-    let checkbox(isChecked, label, key, uniqueId, childrenFunc) =
-        checkboxBase(isChecked, label, key, uniqueId, None, childrenFunc)
-    let checkboxWithExplicitToggle(isChecked, label, key, uniqueId, toggle, childrenFunc) =
-        checkboxBase(isChecked, label, key, uniqueId, Some toggle, childrenFunc)
+    let checkbox(isChecked, label, cost, key, uniqueId, childrenFunc) =
+        checkboxBase(isChecked, label, cost, key, uniqueId, None, childrenFunc)
+    let checkboxWithExplicitToggle(isChecked, label, cost, key, uniqueId, toggle, childrenFunc) =
+        checkboxBase(isChecked, label, cost, key, uniqueId, Some toggle, childrenFunc)
 
-    let binary (isGrant, prefix: Key, (label:string option), value) =
+    let binary (isGrant, cost, prefix: Key, (label:string option), value) =
         match value with
-        | Addresses.Trait trait1 as value ->
+        | Data.Trait trait1 as value ->
             let label = label |> Option.defaultWith (fun _ -> trait1 |> traitName)
             let key = keyOf prefix value
             let isQueued = isGrant || queue |> Map.containsKey key
             // if it's a grant, then we don't care what its chkId is because clicking it will have no effect.
             // reserve the "real" id for something later.
             let chkId = chkId key trait1
-            checkbox(isQueued, label, key, Some chkId, fun () -> [])
+            checkbox(isQueued, label, cost, key, Some chkId, fun () -> [])
         | _ -> notImpl() // probably not needed--why would we ever have a binary skill/attribute mod instead of a level?
-    let subchoice (prefix, ctor: Constructor<_,_>, pick: 't) =
-        let txt = pick.ToString() |> String.uncamel
+    let subchoice (prefix, ctor: Constructor<_,_>, costFunc, pick: 't) =
+        let txt = match costFunc with
+                    | Some f -> $"{pick.ToString() |> String.uncamel} [{f pick}]"
+                    | None -> pick.ToString() |> String.uncamel
         let chkId = chkId prefix pick
         let key = keyOf prefix pick
         let toggle select =
@@ -149,29 +205,31 @@ type ReactBuilder(char: Character, prefix: Key, queue: Map<Key, string>, dispatc
             Html.label [prop.text txt; prop.htmlFor chkId]
             ]
 
-    let refineN (n: int, ctor: Constructor<_, _>, prefix, options: 't list) =
+    let refineN (n: int, ctor: Constructor<_, _>, costFunc, prefix, options: 't list) =
         [   if options.Length > n then
                 match options |> List.choose(fun pick -> if queue.ContainsKey (keyOf prefix pick) then Some pick else None) with
                 | picks when picks.Length >= n ->
                     for pick in picks do
-                        subchoice(prefix, ctor, pick)
+                        subchoice(prefix, ctor, costFunc, pick)
                 | _ ->
                     for pick in options do
-                        subchoice(prefix, ctor, pick)
-            else checkbox(true, ctor.name.Value, prefix, None, fun () -> [])
+                        subchoice(prefix, ctor, costFunc, pick)
+            else checkbox(true, ctor.name.Value, (costFunc |> Option.map (fun f -> f options[0])), prefix, None, fun () -> [])
             ]
 
-    interface OutputBuilder<Addresses.Chosen, ReactElement> with
-        member _.grant(value) = binary(true, prefix, None, value)
-        member _.binary(value) = binary(false, prefix, None, value)
+    let costOf = cost >> Some
+
+    interface OutputBuilder<Chosen, ReactElement> with
+        member _.grant(value) = binary(true, costOf value, prefix, None, value)
+        member _.binary(value) = binary(false, costOf value, prefix, None, value)
         // labeled binary
-        member _.binary(value, label) = binary(false, prefix, Some label, value)
+        member _.binary(value, label) = binary(false, costOf value, prefix, Some label, value)
         member _.chooseWithStringInput(ctor, placeholder) =
             let id = ctor.name.Value
             let key = id::prefix
-            Html.div [
+            class' "potentialChoice" Html.div [
                 Html.input [prop.id id; prop.type'.checkbox; prop.isChecked (has key); prop.onChange(fun (check:bool) -> if check then Queue key |> dispatch else Unqueue key |> dispatch)]
-                Html.label [prop.htmlFor id; prop.text id]
+                Html.label [prop.htmlFor id; prop.text $"""{id} [{ctor.create "" |> cost}]"""]
                 if has key then
                     Html.input [prop.type'.text; prop.valueOrDefault queue[key]; prop.placeholder placeholder; prop.onChange(fun (text:string) -> QueueData(key, text) |> dispatch)]
                 ]
@@ -183,17 +241,26 @@ type ReactBuilder(char: Character, prefix: Key, queue: Map<Key, string>, dispatc
             let key = (ctor.name.Value)::prefix
             match options |> List.tryFindIndex(fun v -> has (keyOf key v)) with
             | Some ix when ix > 0 ->
-                checkbox(has key, $"{ctor.name.Value} {options[ix]}", key, None, fun () -> [Html.button [prop.text "-"]; Html.button [prop.text "+"]])
+                checkbox(has key, $"{ctor.name.Value} {options[ix]}", costOf (ctor.create options[ix]), key, None, fun () -> [Html.button [prop.text "-"]; Html.button [prop.text "+"]])
             | _ ->
-                checkbox(has key, ctor.name.Value, key, None, fun () -> [Html.button [prop.text "-"]; Html.button [prop.text "+"]])
+                checkbox(has key, ctor.name.Value, costOf (ctor.create options[0]), key, None, fun () -> [Html.button [prop.text "-"]; Html.button [prop.text "+"]])
 
         member _.chooseOne(ctor, options) =
             let key = (ctor.name.Value)::prefix
-            checkbox(has key, ctor.name.Value, key, None, fun () -> refineN(1, ctor, key, options))
+            let cost' =
+                match dataBuilder().chooseOne(ctor, options) with
+                | [v] -> Some (cost v)
+                | _ -> None
+            checkbox(has key, ctor.name.Value, cost', key, None, fun () -> refineN(1, ctor, Some (ctor.create >> cost), key, options))
 
         member _.choose2D(ctor, options1, options2) =
             let key = (ctor.name.Value)::prefix
-            checkbox(has key, ctor.name.Value, key, None, fun () -> (refineN(1, ctor, key, options1))@(refineN(1, ctor, key, options2)))
+            let cost =
+                match dataBuilder().choose2D(ctor, options1, options2) with
+                | [v] -> cost v
+                | _ -> List.allPairs options1 options2 |> List.minBy' (ctor.create >> cost)
+                |> Some
+            checkbox(has key, ctor.name.Value, cost, key, None, fun () -> (refineN(1, ctor, None, key, options1))@(refineN(1, ctor, None, key, options2)))
 
         member _.chooseOneFromHierarchy(ctor, lst) =
             let key = keyOf prefix (ctor.name.Value)
@@ -210,31 +277,37 @@ type ReactBuilder(char: Character, prefix: Key, queue: Map<Key, string>, dispatc
             let makeReactElement = function
                 | Multi.Const v ->
                     let key = (keyOf key v)
-                    [checkboxWithExplicitToggle(queue.ContainsKey key, (traitName (unbox v)), key, None, toggle [ancestorKey; key], thunk [])]
+                    [checkboxWithExplicitToggle(queue.ContainsKey key, (traitName (unbox v)), None, key, None, toggle [ancestorKey; key], thunk [])]
                 | Multi.One(ctor1, options1) ->
                     let key = keyOf key ctor1.name.Value
-                    [checkboxWithExplicitToggle(queue.ContainsKey key, ctor1.name.Value, key, None, toggle [ancestorKey; key], thunk <| refineN(1, ctor1, key, options1))]
+                    [checkboxWithExplicitToggle(has key, ctor1.name.Value, None, key, None, toggle [ancestorKey; key], thunk <| refineN(1, ctor1, None, key, options1))]
                 | Multi.DistinctTwo(ctor1, options1) ->
                     let key = keyOf key ctor1.name.Value
-                    [checkboxWithExplicitToggle(queue.ContainsKey key, ctor1.name.Value, key, None, toggle [ancestorKey; key], thunk <| refineN(2, ctor1, key, options1))]
+                    [checkboxWithExplicitToggle(has key, ctor1.name.Value, None, key, None, toggle [ancestorKey; key], thunk <| refineN(2, ctor1, None, key, options1))]
             match dataBuilder().chooseOneFromHierarchy(ctor, lst) with
             | [] ->
-                checkbox(has key, ctor.name.Value, key, None, thunk (lst |> List.collect makeReactElement))
+                checkbox(has key, ctor.name.Value, None, key, None, thunk (lst |> List.collect makeReactElement))
             | _ ->
                 let pick = lst |> List.find(function
                     | Multi.Const v -> has (keyOf key v)
                     | Multi.One(ctor, values) -> has (keyOf key ctor.name.Value) && (values |> List.filter (keyOf (keyOf key ctor.name.Value) >> has)).Length = 1
                     | Multi.DistinctTwo(ctor, values) -> has (keyOf key ctor.name.Value) && (values |> List.filter (keyOf (keyOf key ctor.name.Value) >> has)).Length = 2
                     )
-                checkbox(has key, ctor.name.Value, key, None, thunk1 makeReactElement pick)
+                let cost = (dataBuilder().chooseOneFromHierarchy(ctor, lst))[0] |> costOf
+                checkbox(has key, ctor.name.Value, cost, key, None, thunk1 makeReactElement pick)
 
         member _.grantOne(ctor, options) =
             let key = (ctor.name.Value)::prefix
-            checkbox(true, ctor.name.Value, key, None, fun () -> refineN(1, ctor, key, options))
+            // code smell: maybe tuple2bind1 is a code smell. Maybe Enhanced Parry and Luck are DIFFERENT.
+            if options.Length = 1 then
+                React.fragment (refineN(1, ctor, Some(ctor.create >> cost), key, options))
+            else
+                let cost = (dataBuilder().grantOne(ctor, options)) |> List.tryHead |> Option.map cost
+                checkbox(true, ctor.name.Value, cost, key, None, fun () -> refineN(1, ctor, None, key, options))
 
         member _.grantWithStringInput(ctor, placeholder) =
             let key = (ctor.name.Value)::prefix
-            checkbox(true, ctor.name.Value, key, None,
+            checkbox(true, ctor.name.Value, (costOf (ctor.create "")), key, None,
                             fun () -> [
                                 Html.input [
                                     prop.type'.text

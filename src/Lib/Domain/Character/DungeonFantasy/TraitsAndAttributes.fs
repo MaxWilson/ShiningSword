@@ -54,7 +54,7 @@ type Trait =
     | PerfectBalance
     | RapierWit
     | SenseOfDuty of Duty
-    | Serendipity
+    | Serendipity of int
     | ShortAttentionSpan of Severity
     | SignatureGear of string
     | SpringingAttack
@@ -65,10 +65,6 @@ type Trait =
     | WeaponBond of string
     | WeaponMaster of WeaponMasterFocus
     | Wounded
-
-let traitName = function
-    | EveryOnesACritical -> "Every One's A Critical"
-    | v -> v.ToString() |> String.uncamel
 
 module Ctor =
     let namedCtor(name, ctor, f) = namedCtor(name |> String.uncamel, ctor, f)
@@ -92,6 +88,7 @@ module Ctor =
     let Obsession = namedCtor(nameof(Obsession), Obsession, function Obsession(obsession, severity) -> Some (obsession, severity) | _ -> None)
     let Overconfidence = namedCtor(nameof(Overconfidence), Overconfidence, function Overconfidence v -> Some v | _ -> None)
     let SenseOfDuty = namedCtor(nameof(SenseOfDuty), SenseOfDuty, function SenseOfDuty v -> Some v | _ -> None)
+    let Serendipity = namedCtor(nameof(Serendipity), Serendipity, function Serendipity v -> Some v | _ -> None)
     let ShortAttentionSpan = namedCtor(nameof(ShortAttentionSpan), ShortAttentionSpan, function ShortAttentionSpan v -> Some v | _ -> None)
     let SignatureGear = namedCtor(nameof(SignatureGear), SignatureGear, function SignatureGear v -> Some v | _ -> None)
     let StrikingST = namedCtor(nameof(StrikingST), StrikingST, function StrikingST v -> Some v | _ -> None)
@@ -172,3 +169,87 @@ module Stats =
             description = Some "Speed +3, rounded down"
             modifiers = char.Dodge.modifiers |> List.map Eval.eval
             }
+
+module Data =
+    type StatAddress = ST | DX | IQ | HT | Will | Per | SM | HP | FP | Move | SpeedTimesFour | Dodge
+    type MagicSource = Clerical | Druidic | Wizardly
+    type Difficulty = Easy | Average | Hard | VeryHard
+    type Chosen =
+        | StatBonus of StatAddress * int
+        | Trait of Trait
+        | Skill of Skill * StatAddress * Difficulty * level: int
+        | Spell of Skill * MagicSource * Difficulty * level: int
+
+    let traitName = function
+        | EveryOnesACritical -> "Every One's A Critical"
+        | v -> v.ToString() |> String.uncamel
+
+    let traitCost trait1 =
+        let (|Severity|) = function
+            | Severe -> float >> ((*)2.0) >> int
+            | Serious -> float >> ((*)1.5) >> int
+            | Moderate -> id
+            | Mild -> float >> ((*)0.5) >> int
+        match trait1 with
+        | Ambidexterity -> 5
+        | Appearance level ->
+            match level with Attractive -> 4 | Beautiful -> 12 | VeryBeautiful -> 16
+        | ArmorFamiliarity n -> n
+        | Charisma n -> n * 5
+        | Chummy level -> match level with ChummyLevel.Standard -> -5 | Gregarious -> -10
+        | CodeOfHonor creed -> match creed with Outlaws -> -5 | Gentlemans -> -10
+        | CombatReflexes -> 15
+        | CompulsiveCarousing(Severity sev) -> sev -5
+        | CompulsiveGambling(Severity sev) -> sev -5
+        | CompulsiveSpending(Severity sev) -> sev -5
+        | Daredevil -> 15
+        | EnhancedBlock n -> n * 5
+        | EnhancedDodge n -> n * 15
+        | EnhancedParry(n, _) -> n * 5
+        | EnhancedTimeSense -> 45
+        | EveryOnesACritical -> 15
+        | ExtraAttack n -> n * 25
+        | GreatVoid -> 10
+        | Greed(Severity sev) -> sev -15
+        | HighPainThreshold -> 10
+        | Impulsiveness(Severity sev) -> sev -10
+        | Jealousy(Severity sev) -> sev -10
+        | Lecherousness(Severity sev) -> sev -15
+        | Luck level -> match level with Standard -> 15 | Extraordinary -> 30 | Ridiculous -> 60
+        | Obsession(_, Severity sev) -> sev -10
+        | OneEye -> -15
+        | Overconfidence(Severity sev) -> sev -5
+        | PerfectBalance -> 15
+        | RapierWit -> 5
+        | SenseOfDuty duty -> match duty with AdventuringCompanions -> -5
+        | Serendipity n -> n * 15
+        | ShortAttentionSpan(Severity sev) -> sev -10
+        | SignatureGear _ -> 1
+        | SpringingAttack -> 10
+        | StrikingST n -> n * 5
+        | TrademarkMove _ -> 1
+        | Trickster(Severity sev) -> sev -15
+        | Vow subject -> match subject with UseOnlyWeaponOfChoice -> -5 | NeverRefuseAChallengeToCombat -> -10 | ChallengeEverySwordsmanToCombat -> -15 | NeverWearArmor -> -15
+        | WeaponBond _ -> 1
+        | WeaponMaster focus ->
+            match focus with
+            | All -> 45
+            | Swords -> 35
+            | FencingWeapons -> 30
+            | TwoWeapon(w1, w2) -> 25
+            | OneWeapon(w) -> 20
+        | Wounded -> -5
+
+    let cost = function
+        | Trait tr -> traitCost tr
+        | StatBonus((ST | HT), n) -> n * 10
+        | StatBonus((DX | IQ), n) -> n * 20
+        | StatBonus((Will | Per | Move | SpeedTimesFour), n) -> n * 5
+        | StatBonus(HP, n) -> n * 2
+        | StatBonus(FP, n) -> n * 3
+        | StatBonus(Dodge, _) -> shouldntHappen "You're not supposed to buy Dodge as a stat, only as Enhanced Dodge. How did the player get this? It's a bug."
+        | StatBonus(SM, _) -> shouldntHappen "You're not supposed to buy more SM as a stat. How did the player get this? It's a bug."
+        | Skill(_, _, _, n) | Spell(_, _, _, n) ->
+            if n > 2 then 4 * (n - 2)
+            elif n = 2 then 2
+            else 1

@@ -33,16 +33,7 @@ type OutputBuilder<'choice, 'reactElement> = // for clarity, might as well name 
     abstract chooseUpToBudget: int -> label:string -> (OutputBuilder<'choice, 'reactElement> -> 'reactElement list) -> 'reactElement
     abstract chooseUpToBudgetWithSuggestions: int -> label:string -> (OutputBuilder<'choice, 'reactElement> -> (int option * 'reactElement list) list) -> 'reactElement
 
-module Addresses =
-    type StatAddress = ST | DX | IQ | HT | Will | Per | SM | HP | FP | Move | SpeedTimesFour | Dodge
-    type MagicSource = Clerical | Druidic | Wizardly
-    type Chosen =
-        | StatBonus of StatAddress * int
-        | Trait of Trait
-        | Skill of Skill * level: int
-        | Spell of Skill * MagicSource * level: int
-
-open Addresses
+open Data
 
 module Menus =
     open TraitsAndAttributes.Ctor
@@ -100,7 +91,7 @@ module Menus =
             b.binary(Trait GreatVoid)
             b.binary(Trait PerfectBalance)
             b.binary(Trait RapierWit)
-            b.binary(Trait Serendipity)
+            b.chooseLevels(Serendipity |> Trait, [1..3])
             b.chooseWithStringInput(SignatureGear |> Trait, "Describe")
             b.binary(Trait SpringingAttack)
             b.chooseLevels(StrikingST |> Trait, [1..2])

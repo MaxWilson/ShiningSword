@@ -42,8 +42,10 @@ body
     grid-template-columns: repeat(auto-fit, minmax(min(12rem, 100%), 1fr))
 
 input[type=checkbox]
-    margin-right: 3px
-    margin-left: 2px
+    padding: 3px 3px 3px 4px
+
+button, input[type=checkbox]
+    min-width: 1.5rem
 
 .character
     .header
@@ -70,13 +72,11 @@ input[type=checkbox]
                 column-rule: 1px solid #ccc
         .potentialChoice
             .potentialChoice
-                margin-left: 1rem
+                padding-left: 1rem
             .subchoice
-                margin-left: 1rem
+                padding-left: 1rem
 
 
-button
-    min-width: 1.5rem
 
 .placeholder
     border: thin solid red

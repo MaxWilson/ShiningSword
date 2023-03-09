@@ -144,6 +144,9 @@ module List =
         | h::t -> match f state h with
                     | Ok state' -> tryMapFold f state' t
                     | e -> e
+    let rec maxBy' f (lst: _ List) = lst |> Seq.map f |> Seq.max
+    let rec minBy' f (lst: _ List) = lst |> Seq.map f |> Seq.min
+
 
 module Map =
     let keys (m:Map<_,_>) = m |> Seq.map(fun (KeyValue(k,_)) -> k)
