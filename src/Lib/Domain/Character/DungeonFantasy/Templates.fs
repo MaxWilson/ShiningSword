@@ -12,6 +12,11 @@ module Multi =
         | One of Constructor<'inType, 't> * 'inType list
         | DistinctTwo of Constructor<'inType * 'inType , 't> * 'inType list
 
+type 'arg DisplayOptions = {
+    // ctor name * arg, e.g. "HP" * 1
+    valueFormatter: (string * 'arg) -> string
+    }
+
 [<Mangle>]
 type OutputBuilder<'choice, 'reactElement> = // for clarity, might as well name the elements for their intended role, even though 'reactElement is not strictly required to be a ReactElement
     // individual traits
@@ -20,6 +25,7 @@ type OutputBuilder<'choice, 'reactElement> = // for clarity, might as well name 
     abstract binary: 'choice * string -> 'reactElement
     abstract chooseWithStringInput: Constructor<string, 'choice> * string -> 'reactElement
     abstract chooseLevels: Constructor<'arg, 'choice> * 'arg list -> 'reactElement
+    abstract chooseLevels: Constructor<'arg, 'choice> * 'arg list * 'arg DisplayOptions -> 'reactElement
     // chooseLevels and chooseOne are different in the sense that chooseOne has no implied total ordering,
     //   so will have a different UI without + and - buttons.
     abstract chooseOne: Constructor<'arg, 'choice> * 'arg list -> 'reactElement
@@ -40,7 +46,7 @@ module Menus =
     open Multi
     let private tuple2bind1 name arg1 = namedCtor(name, (fun arg2 -> arg1, arg2), function (_, arg2) -> Some arg2)
     let private StatBonus stat =
-        (tuple2bind1 $"More {stat}" stat)
+        (tuple2bind1 $"{stat}" stat)
             => (ctor(StatBonus, function StatBonus(stat, n) -> Some (stat, n) | _ -> None))
     type Convert =
         static member Trait (t: Trait) = Chosen.Trait t
@@ -63,6 +69,9 @@ module Menus =
             b.chooseLevels (Trickster |> Trait, severity)
             b.binary (Wounded |> Trait)
             ]
+    let Speed =
+        namedCtor("Speed", (fun n -> Data.StatBonus(SpeedTimesFour, n*4)), function Data.StatBonus(stat, n) -> Some (n/4) | _ -> None)
+    let showBonuses = { valueFormatter = (fun (ctorName, n) -> $"{ctorName} %+d{n}") }
     let swash (b: OutputBuilder<_,'reactElement>) = b.aggregate "Swashbuckler" <| fun b -> [
         let swashMeleeWeapons = [Broadsword; Rapier; Saber; Shortsword; Smallsword; MainGauche]
         b.aggregate "Free" <| fun b -> [
@@ -73,13 +82,13 @@ module Menus =
             b.grantOne({ (OneWeapon => WeaponMaster) with name = Some "Weapon Master" } |> Trait, swashMeleeWeapons)
             ]
         b.chooseUpToBudget 60 "Advantages" <| fun b -> [
-            b.chooseLevels(StatBonus HP, [1..6])
-            b.chooseLevels(StatBonus DX, [1..3])
-            b.chooseLevels(StatBonus SpeedTimesFour, [4..4..12])
+            b.chooseLevels(StatBonus HP, [1..6], showBonuses)
+            b.chooseLevels(StatBonus DX, [1..3], showBonuses)
+            b.chooseLevels(Speed, [1..3], showBonuses)
             b.binary(Trait Ambidexterity)
             b.chooseLevels(Appearance |> Trait, [Attractive;Beautiful;VeryBeautiful])
             b.chooseLevels(ArmorFamiliarity |> Trait, [1..4])
-            b.chooseLevels(Charisma |> Trait, [1..4])
+            b.chooseLevels(Charisma |> Trait, [1..4], showBonuses)
             b.binary(Trait Daredevil)
             b.chooseLevels(EnhancedBlock |> Trait, [1..3])
             b.binary(Trait.EnhancedDodge 1 |> Trait)
@@ -87,14 +96,14 @@ module Menus =
             b.binary(Trait EnhancedTimeSense)
             b.binary(Trait EveryOnesACritical)
             b.chooseLevels(ExtraAttack |> Trait, [1..2])
-            b.chooseLevels({ Luck with name = Some "More Luck" }|> Trait, [Extraordinary; Ridiculous])
+            b.chooseLevels(Luck |> Trait, [Extraordinary; Ridiculous])
             b.binary(Trait GreatVoid)
             b.binary(Trait PerfectBalance)
             b.binary(Trait RapierWit)
             b.chooseLevels(Serendipity |> Trait, [1..3])
             b.chooseWithStringInput(SignatureGear |> Trait, "Describe")
             b.binary(Trait SpringingAttack)
-            b.chooseLevels(StrikingST |> Trait, [1..2])
+            b.chooseLevels(StrikingST |> Trait, [1..2], showBonuses)
             b.chooseWithStringInput(TrademarkMove |> Trait, "Describe maneuver, weapon, hit locations, Rapid or Deceptive Strike")
             b.chooseOneFromHierarchy(WeaponMaster |> Trait,
                 // I don't love this Const/One/DistinctTwo schema, but I don't currently have a better idea

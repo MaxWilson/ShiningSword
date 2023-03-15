@@ -50,6 +50,7 @@ type DataBuilder(char: Character, prefix: Key, queue: Map<Key, string>, dispatch
                     | Some v -> ctor.create(v)
                     | None -> ctor.create(levels[0])
                 ]
+        member this.chooseLevels(ctor, levels, format) = this.up.chooseLevels(ctor, levels)
         member _.chooseOne(ctor, options) =
             [   let key = keyOf prefix ctor.name.Value
                 if has key then
@@ -97,6 +98,7 @@ type DataBuilder(char: Character, prefix: Key, queue: Map<Key, string>, dispatch
                 let stringArg = queue |> Map.tryFind key |> Option.defaultValue ""
                 ctor.create stringArg
                 ]
+    member private this.up = this :> OutputBuilder<_,_>
 
 type CostBuilder(char: Character, prefix: Key, queue: Map<Key, string>, dispatch: TraitMsg -> unit) =
     let extend entry = CostBuilder(char, entry::prefix, queue, dispatch)
@@ -123,6 +125,7 @@ type CostBuilder(char: Character, prefix: Key, queue: Map<Key, string>, dispatch
             match dataBuilder().chooseLevels(ctor, levels) with
             | [v] -> cost v
             | _ -> levels |> List.minBy' (ctor.create >> cost)
+        member this.chooseLevels(ctor, levels, format) = this.up.chooseLevels(ctor, levels)
         member _.chooseOne(ctor, options) =
             // if a specific value is already chosen, give its cost, otherwise give the minimum possible cost for the whole family of options
             match dataBuilder().chooseLevels(ctor, options) with
@@ -147,6 +150,7 @@ type CostBuilder(char: Character, prefix: Key, queue: Map<Key, string>, dispatch
         member _.grant(value) = cost value
         member _.grantOne(ctor, options) = options |> List.minBy' (ctor.create >> cost)
         member _.grantWithStringInput(ctor, label) = (ctor.create "") |> cost
+    member private this.up = this :> OutputBuilder<_,_>
 
 type ReactBuilder(char: Character, prefix: Key, queue: Map<Key, string>, dispatch: TraitMsg -> unit) =
     let extend entry = ReactBuilder(char, entry::prefix, queue, dispatch)
@@ -234,16 +238,32 @@ type ReactBuilder(char: Character, prefix: Key, queue: Map<Key, string>, dispatc
                     Html.input [prop.type'.text; prop.valueOrDefault queue[key]; prop.placeholder placeholder; prop.onChange(fun (text:string) -> QueueData(key, text) |> dispatch)]
                 ]
 
-        member _.chooseLevels(ctor, options) =
+        member _.chooseLevels(ctor, options, format) =
             // chooseLevels and chooseOne are different in the sense that chooseOne has no implied total ordering,
             //   so will have a different UI without + and - buttons.
             if ctor.name.IsNone then shouldntHappen $"ctor had no name! This isn't supposed to happen with the ctors that actually get used, only with low-level ctors like Trait that get composed into other ctors."
             let key = (ctor.name.Value)::prefix
+            let setChoice ix =
+                if betweenInclusive 0 (options.Length - 1) ix then
+                    dispatch (ClearStrictlyUnder key)
+                    dispatch (Queue (keyOf key options[ix]))
             match options |> List.tryFindIndex(fun v -> has (keyOf key v)) with
             | Some ix when ix > 0 ->
-                checkbox(has key, $"{ctor.name.Value} {options[ix]}", costOf (ctor.create options[ix]), key, None, fun () -> [Html.button [prop.text "-"]; Html.button [prop.text "+"]])
+                let incr _ = setChoice (ix+1)
+                let decr _ = setChoice (ix-1)
+                checkbox(has key, format.valueFormatter(ctor.name.Value, options[ix]),
+                    costOf (ctor.create options[ix]), key, None,
+                        fun () ->
+                            [   Html.button [prop.text "-"; prop.onClick decr]
+                                Html.button [prop.text "+"; prop.onClick incr]])
             | _ ->
-                checkbox(has key, ctor.name.Value, costOf (ctor.create options[0]), key, None, fun () -> [Html.button [prop.text "-"]; Html.button [prop.text "+"]])
+                let incr _ = setChoice 1
+                checkbox(has key, format.valueFormatter(ctor.name.Value, options[0]),
+                    costOf (ctor.create options[0]), key, None,
+                        fun () ->
+                            [   Html.button [prop.text "-"; prop.disabled true]
+                                Html.button [prop.text "+"; prop.onClick incr]])
+        member this.chooseLevels(ctor, levels) = this.up.chooseLevels(ctor, levels, { valueFormatter = sprintf "%A" })
 
         member _.chooseOne(ctor, options) =
             let key = (ctor.name.Value)::prefix

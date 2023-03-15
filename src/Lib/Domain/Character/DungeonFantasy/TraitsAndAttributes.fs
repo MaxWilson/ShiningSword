@@ -66,41 +66,6 @@ type Trait =
     | WeaponMaster of WeaponMasterFocus
     | Wounded
 
-module Ctor =
-    let namedCtor(name, ctor, f) = namedCtor(name |> String.uncamel, ctor, f)
-    let Appearance = namedCtor(nameof(Appearance), Appearance, function Appearance v -> Some v | _ -> None)
-    let ArmorFamiliarity = namedCtor(nameof(ArmorFamiliarity), ArmorFamiliarity, function ArmorFamiliarity v -> Some v | _ -> None)
-    let Chummy = namedCtor(nameof(Chummy), Chummy, function Chummy v -> Some v | _ -> None)
-    let CodeOfHonor = namedCtor(nameof(CodeOfHonor), CodeOfHonor, function CodeOfHonor v -> Some v | _ -> None)
-    let CompulsiveCarousing = namedCtor(nameof(CompulsiveCarousing), CompulsiveCarousing, function CompulsiveCarousing v -> Some v | _ -> None)
-    let CompulsiveGambling = namedCtor(nameof(CompulsiveGambling), CompulsiveGambling, function CompulsiveGambling v -> Some v | _ -> None)
-    let CompulsiveSpending = namedCtor(nameof(CompulsiveSpending), CompulsiveSpending, function CompulsiveSpending v -> Some v | _ -> None)
-    let Charisma = namedCtor(nameof(Charisma), Charisma, function Charisma v -> Some v | _ -> None)
-    let EnhancedBlock = namedCtor(nameof(EnhancedBlock), EnhancedBlock, function EnhancedBlock v -> Some v | _ -> None)
-    let EnhancedDodge = namedCtor(nameof(EnhancedDodge), EnhancedDodge, function EnhancedDodge v -> Some v | _ -> None)
-    let EnhancedParry = namedCtor(nameof(EnhancedParry), EnhancedParry, function EnhancedParry(name, skill) -> Some (name, skill) | _ -> None)
-    let ExtraAttack = namedCtor(nameof(ExtraAttack), ExtraAttack, function ExtraAttack v -> Some v | _ -> None)
-    let Greed = namedCtor(nameof(Greed), Greed, function Greed v -> Some v | _ -> None)
-    let Impulsiveness = namedCtor(nameof(Impulsiveness), Impulsiveness, function Impulsiveness v -> Some v | _ -> None)
-    let Jealousy = namedCtor(nameof(Jealousy), Jealousy, function Jealousy v -> Some v | _ -> None)
-    let Lecherousness = namedCtor(nameof(Lecherousness), Lecherousness, function Lecherousness v -> Some v | _ -> None)
-    let Luck = namedCtor(nameof(Luck), Luck, function Luck v -> Some v | _ -> None)
-    let Obsession = namedCtor(nameof(Obsession), Obsession, function Obsession(obsession, severity) -> Some (obsession, severity) | _ -> None)
-    let Overconfidence = namedCtor(nameof(Overconfidence), Overconfidence, function Overconfidence v -> Some v | _ -> None)
-    let SenseOfDuty = namedCtor(nameof(SenseOfDuty), SenseOfDuty, function SenseOfDuty v -> Some v | _ -> None)
-    let Serendipity = namedCtor(nameof(Serendipity), Serendipity, function Serendipity v -> Some v | _ -> None)
-    let ShortAttentionSpan = namedCtor(nameof(ShortAttentionSpan), ShortAttentionSpan, function ShortAttentionSpan v -> Some v | _ -> None)
-    let SignatureGear = namedCtor(nameof(SignatureGear), SignatureGear, function SignatureGear v -> Some v | _ -> None)
-    let StrikingST = namedCtor(nameof(StrikingST), StrikingST, function StrikingST v -> Some v | _ -> None)
-    let TrademarkMove = namedCtor(nameof(TrademarkMove), TrademarkMove, function TrademarkMove v -> Some v | _ -> None)
-    let Trickster = namedCtor(nameof(Trickster), Trickster, function Trickster v -> Some v | _ -> None)
-    let Vow = namedCtor(nameof(Vow), Vow, function Vow v -> Some v | _ -> None)
-    let WeaponBond = namedCtor(nameof(WeaponBond), WeaponBond, function WeaponBond t -> Some t | _ -> None)
-    let WeaponMaster = namedCtor(nameof(WeaponMaster), WeaponMaster, function WeaponMaster v -> Some v | _ -> None)
-
-    let OneWeapon = namedCtor(nameof(OneWeapon), OneWeapon, function OneWeapon(v) -> Some (v) | _ -> None)
-    let TwoWeapon = namedCtor(nameof(TwoWeapon), TwoWeapon, function TwoWeapon(weapon1, weapon2) -> Some (weapon1, weapon2) | _ -> None)
-
 type Skill =
     | Weapon of WeaponSkill
     | Stealth
@@ -253,3 +218,40 @@ module Data =
             if n > 2 then 4 * (n - 2)
             elif n = 2 then 2
             else 1
+
+module Ctor =
+    open Data
+    let namedCtor(name, ctor, f) = namedCtor(name |> String.uncamel, ctor, f)
+    let Appearance = namedCtor(nameof(Appearance), Appearance, function Appearance v -> Some v | _ -> None)
+    let ArmorFamiliarity = namedCtor(nameof(ArmorFamiliarity), ArmorFamiliarity, function ArmorFamiliarity v -> Some v | _ -> None)
+    let Chummy = namedCtor(nameof(Chummy), Chummy, function Chummy v -> Some v | _ -> None)
+    let CodeOfHonor = namedCtor(nameof(CodeOfHonor), CodeOfHonor, function CodeOfHonor v -> Some v | _ -> None)
+    let CompulsiveCarousing = namedCtor(nameof(CompulsiveCarousing), CompulsiveCarousing, function CompulsiveCarousing v -> Some v | _ -> None)
+    let CompulsiveGambling = namedCtor(nameof(CompulsiveGambling), CompulsiveGambling, function CompulsiveGambling v -> Some v | _ -> None)
+    let CompulsiveSpending = namedCtor(nameof(CompulsiveSpending), CompulsiveSpending, function CompulsiveSpending v -> Some v | _ -> None)
+    let Charisma = namedCtor(nameof(Charisma), Charisma, function Charisma v -> Some v | _ -> None)
+    let EnhancedBlock = namedCtor(nameof(EnhancedBlock), EnhancedBlock, function EnhancedBlock v -> Some v | _ -> None)
+    let EnhancedDodge = namedCtor(nameof(EnhancedDodge), EnhancedDodge, function EnhancedDodge v -> Some v | _ -> None)
+    let EnhancedParry = namedCtor(nameof(EnhancedParry), EnhancedParry, function EnhancedParry(name, skill) -> Some (name, skill) | _ -> None)
+    let ExtraAttack = namedCtor(nameof(ExtraAttack), ExtraAttack, function ExtraAttack v -> Some v | _ -> None)
+    let Greed = namedCtor(nameof(Greed), Greed, function Greed v -> Some v | _ -> None)
+    let Impulsiveness = namedCtor(nameof(Impulsiveness), Impulsiveness, function Impulsiveness v -> Some v | _ -> None)
+    let Jealousy = namedCtor(nameof(Jealousy), Jealousy, function Jealousy v -> Some v | _ -> None)
+    let Lecherousness = namedCtor(nameof(Lecherousness), Lecherousness, function Lecherousness v -> Some v | _ -> None)
+    let Luck = namedCtor(nameof(Luck), Luck, function Luck v -> Some v | _ -> None)
+    let Obsession = namedCtor(nameof(Obsession), Obsession, function Obsession(obsession, severity) -> Some (obsession, severity) | _ -> None)
+    let Overconfidence = namedCtor(nameof(Overconfidence), Overconfidence, function Overconfidence v -> Some v | _ -> None)
+    let SenseOfDuty = namedCtor(nameof(SenseOfDuty), SenseOfDuty, function SenseOfDuty v -> Some v | _ -> None)
+    let Serendipity = namedCtor(nameof(Serendipity), Serendipity, function Serendipity v -> Some v | _ -> None)
+    let ShortAttentionSpan = namedCtor(nameof(ShortAttentionSpan), ShortAttentionSpan, function ShortAttentionSpan v -> Some v | _ -> None)
+    let SignatureGear = namedCtor(nameof(SignatureGear), SignatureGear, function SignatureGear v -> Some v | _ -> None)
+    let StrikingST = namedCtor(nameof(StrikingST), StrikingST, function StrikingST v -> Some v | _ -> None)
+    let TrademarkMove = namedCtor(nameof(TrademarkMove), TrademarkMove, function TrademarkMove v -> Some v | _ -> None)
+    let Trickster = namedCtor(nameof(Trickster), Trickster, function Trickster v -> Some v | _ -> None)
+    let Vow = namedCtor(nameof(Vow), Vow, function Vow v -> Some v | _ -> None)
+    let WeaponBond = namedCtor(nameof(WeaponBond), WeaponBond, function WeaponBond t -> Some t | _ -> None)
+    let WeaponMaster = namedCtor(nameof(WeaponMaster), WeaponMaster, function WeaponMaster v -> Some v | _ -> None)
+
+    let OneWeapon = namedCtor(nameof(OneWeapon), OneWeapon, function OneWeapon(v) -> Some (v) | _ -> None)
+    let TwoWeapon = namedCtor(nameof(TwoWeapon), TwoWeapon, function TwoWeapon(weapon1, weapon2) -> Some (weapon1, weapon2) | _ -> None)
+
