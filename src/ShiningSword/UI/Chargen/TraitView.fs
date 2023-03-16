@@ -340,14 +340,17 @@ type ReactBuilder(char: Character, prefix: Key, queue: Map<Key, string>, dispatc
             (class' "aggregate" Html.div elements)
         member _.chooseUpToBudget budget label elementsFunc =
             let elements = elementsFunc (extend label)
+            let expenditures =
+                dataBuilder().chooseUpToBudget budget label elementsFunc
+                |> List.sumBy cost
             Html.fieldSet [
-                Html.legend $"{label} ({budget} points)"
+                Html.legend $"{label} ({expenditures}/{budget} points)"
                 (class' "aggregate" Html.div elements)
                 ]
         member _.chooseUpToBudgetWithSuggestions budget label elementsFunc =
             let budgetsAndElements = elementsFunc (extend label)
             React.fragment [
-                        for budget, section in budgetsAndElements do
+                        for (budget, section), expenditure in budgetsAndElements do
                             if budget.IsSome then
                                 Html.fieldSet [
                                         Html.legend $"{label} (at least {budget} points)"
