@@ -77,9 +77,12 @@ type DataBuilder(char: Character, prefix: Key, queue: Map<Key, string>, dispatch
                     | None -> ()
                 ]
         // visually but not semantically distinct from aggregate
-        member _.chooseUpToBudget budget label optionsFunc = List.concat (extend label |> optionsFunc)
+        member _.chooseUpToBudget budget label optionsFunc =
+            let builder = extend label
+            let results = optionsFunc builder.up
+            List.concat ((extend label |> optionsFunc |> unbox))
         // visually but not semantically distinct from aggregate
-        member _.chooseUpToBudgetWithSuggestions budget label optionsFunc = List.concat (extend label |> optionsFunc |> List.collect snd)
+        member _.chooseUpToBudgetWithSuggestions budget label optionsFunc = List.concat (extend label |> unbox optionsFunc |> List.collect snd)
         member _.chooseWithStringInput(ctor, placeholder) =
             [   let key = keyOf prefix ctor.name.Value
                 if has key then
@@ -340,14 +343,22 @@ type ReactBuilder(char: Character, prefix: Key, queue: Map<Key, string>, dispatc
             (class' "aggregate" Html.div elements)
         member _.chooseUpToBudget budget label elementsFunc =
             let elements = elementsFunc (extend label)
+            let expenditures =
+                dataBuilder().chooseUpToBudget budget label elementsFunc
+                |> List.sumBy cost
             Html.fieldSet [
-                Html.legend $"{label} ({budget} points)"
+                Html.legend $"{label} ({expenditures}/{budget} points)"
                 (class' "aggregate" Html.div elements)
                 ]
         member _.chooseUpToBudgetWithSuggestions budget label elementsFunc =
-            let budgetsAndElements = elementsFunc (extend label)
+            let (budgetsAndElements: int option * ReactElement list) = elementsFunc (extend label)
+            let chosen =
+                dataBuilder().chooseUpToBudget budget label elementsFunc
+            let expenditures =
+                dataBuilder().chooseUpToBudget budget label elementsFunc
+                |> List.sumBy cost
             React.fragment [
-                        for budget, section in budgetsAndElements do
+                        for (budget, section), expenditure in budgetsAndElements do
                             if budget.IsSome then
                                 Html.fieldSet [
                                         Html.legend $"{label} (at least {budget} points)"

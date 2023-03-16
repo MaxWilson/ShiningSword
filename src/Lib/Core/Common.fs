@@ -1,6 +1,7 @@
 [<AutoOpen>]
 module Common
 
+
 let flip f x y = f y x
 let random = System.Random()
 let rand x = 1 + random.Next x
@@ -16,6 +17,10 @@ exception BugException of msg: string
 let notImpl _ = failwith "Not implemented yet. Email Max if you want this feature."
 let shouldntHappen arg =
     $"This shouldn't ever happen. If it does there's a bug. Details: {arg}" |> BugException |> raise
+
+type Any = obj
+let viaAny<'t>() = box<'t>, unbox<'t>
+
 let emptyString = System.String.Empty
 let toString x = x.ToString()
 let betweenInclusive a b n = min a b <= n && n <= max a b
@@ -81,6 +86,9 @@ module Ctor =
 
     let ctor(create, extract) = { create = create; extract = extract; name = None }
     let namedCtor(name, create, extract) = { create = create; extract = extract; name = Some name }
+
+type Polymorphic<'arg, 'result> =
+    abstract member Apply: 'arg -> 'result
 
 // generic place for overloaded operations like add. Can be extended (see below).
 type Ops =

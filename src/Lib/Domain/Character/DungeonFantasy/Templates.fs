@@ -17,6 +17,91 @@ type 'arg DisplayOptions = {
     valueFormatter: (string * 'arg) -> string
     }
 
+module Template =
+    type 'trait1 Choose =
+        abstract generate: Polymorphic<Constructor<Any, 'trait1> * (Any * string) list, Any> -> Any
+
+    type Choose<'arg, 'trait1>(ctor: Constructor<'arg, 'trait1>, values: 'arg list, ?formatter: string * 'arg -> string) =
+        let packArg, unpackArg = viaAny<'arg>()
+        let boxedCtor: Constructor<Any, 'trait1> = { name = ctor.name; create = (unpackArg >> ctor.create); extract = ctor.extract >> Option.map packArg }
+        let boxedValuesAndLabels: (Any * string) list =
+            [   for v in values do
+                    packArg v, match formatter with Some format -> format(ctor.name.Value, v) | None -> $"{ctor.name}: {v}"
+                ]
+        interface 'trait1 Choose with
+            member this.generate (f: Polymorphic<Constructor<Any, 'trait1> * (Any * string) list, Any>) =
+                f.Apply(boxedCtor, boxedValuesAndLabels)
+
+    type 'trait1 Choose2D =
+        abstract generate: Polymorphic<Constructor<Any * Any, 'trait1> * (Any * string) list * (Any * string) list, Any> -> Any
+
+    type Choose2D<'arg1, 'arg2, 'trait1>(ctor: Constructor<'arg1 * 'arg2, 'trait1>, values1: 'arg1 list, values2: 'arg2 list, ?formatter1: string * 'arg1 -> string, ?formatter2: string * 'arg2 -> string) =
+        let packArg1, unpackArg1 = viaAny<'arg1>()
+        let packArg2, unpackArg2 = viaAny<'arg2>()
+        let boxedCtor: Constructor<Any * Any, 'trait1> = { name = ctor.name; create = (fun (arg1, arg2) -> ctor.create(unpackArg1 arg1, unpackArg2 arg2)); extract = (fun packed -> match ctor.extract packed with Some (arg1, arg2) -> Some (packArg1 arg1, packArg2 arg2) | None -> None) }
+        let boxedValuesAndLabels1: (Any * string) list =
+            [   for v in values1 do
+                    packArg1 v, match formatter1 with Some format -> format(ctor.name.Value, v) | None -> $"{ctor.name}: {v}"
+                ]
+        let boxedValuesAndLabels2: (Any * string) list =
+            [   for v in values2 do
+                    packArg2 v, match formatter2 with Some format -> format(ctor.name.Value, v) | None -> $"{ctor.name}: {v}"
+                ]
+        interface 'trait1 Choose2D with
+            member this.generate (f: Polymorphic<Constructor<Any * Any, 'trait1> * (Any * string) list * (Any * string) list, Any>) =
+                f.Apply(boxedCtor, boxedValuesAndLabels1, boxedValuesAndLabels2)
+
+    // Each template OneResult can be in one of several states:
+    // selected-and-ready, selected-but-incomplete, and not selected.
+    // So for example a Binary: Combat Reflexes can only be
+    // selected or unselected, but a Choose: Sense of Duty [Adventuring Companions; Nature]
+    // needs more data before it can be ready.
+    // A Template.Many can hold multiple Template.OneResults and allow more than
+    // one to be selected-and-ready.
+    type Metadata = { label: string option; keySegment: string option }
+        with
+        static member fresh = { label = None; keySegment = None }
+        static member label' v = { Metadata.fresh with label = Some v } 
+    type 't Many =
+        | Aggregate of Metadata * 't Many list
+        | ChooseOneAggregate of Metadata * 't Many list
+        | GrantItems of 't Many
+        | Items of Metadata * 't OneResult list
+        | Budget of int * Metadata * 't OneResult list
+        | NestedBudgets of totalBudget:int * Metadata * suggestions:(int option * Metadata * 't OneResult list) list
+    and 't OneResult =
+        | Binary of Metadata * 't
+        | ChooseOne of Metadata * 't Choose
+        | ChooseLevels of Metadata * 't Choose // choose and chooseLevels are similar in logic but chooseLevels will show -/+ buttons on UI
+        | Choose2D of Metadata * 't Choose2D
+        | ChooseWithStringInput of Metadata * Constructor<string, 't> * placeholder:string
+        | Grant of Metadata * 't OneResult
+        | ChooseOneFromHierarchy of Metadata * 't OneHierarchy
+    and 't OneHierarchy =
+        | Leaf of Metadata * 't
+        | Interior of Metadata * 't OneHierarchy list
+    type Create =
+        static member binary v = Binary(Metadata.fresh, v)
+        static member binaryf (v, formatter) = Binary(Metadata.label' (formatter v), v)
+        static member chooseOne (ctor, options, ?formatter) = ChooseLevels(Metadata.fresh, new Choose<_,_>(ctor, options, ?formatter=formatter))
+        static member chooseLevels(ctor, options, ?formatter) = ChooseLevels(Metadata.fresh, new Choose<_,_>(ctor, options, ?formatter=formatter))
+        static member choose2D(ctor, arg1Options, arg2Options) = Choose2D(Metadata.fresh, new Choose2D<_,_,_>(ctor, arg1Options, arg2Options))
+        static member chooseWithStringInput(ctor, placeholderText) = ChooseWithStringInput(Metadata.fresh, ctor, placeholderText)
+        static member grant (choice: 't OneResult) = Grant(Metadata.fresh, choice)
+        static member chooseOneFromHierarchy v = ChooseOneFromHierarchy(Metadata.fresh, v)
+        static member leaf v = Leaf(Metadata.fresh, v)
+        static member interior v = Interior(Metadata.fresh, v)
+
+        static member aggregate (label: string) choices = Aggregate(Metadata.label' label, choices)
+        static member items choices = Items(Metadata.fresh, choices)
+        static member items (label: string, choices) = Items(Metadata.label' label, choices)
+        static member grantAll (choices: 't OneResult list) = GrantItems(Create.items choices)
+        static member grantAll (label: string, choices: 't OneResult list) = GrantItems(Create.items(label, choices))
+        static member budget budget (label: string) choices = Budget(budget, Metadata.label' label, choices)
+        static member nestedBudgets totalBudget label (suggestions: (int option * _ OneResult list) list) = NestedBudgets(totalBudget, { Metadata.fresh with label = Some label }, suggestions |> List.map (fun (budget, choices) -> budget, Metadata.fresh, choices))
+        static member nestedBudgets' totalBudget label (suggestions: (int option * string * _ OneResult list) list) = NestedBudgets(totalBudget, { Metadata.fresh with label = Some label }, suggestions |> List.map (fun (budget, label, choices) -> budget, Metadata.label' label, choices))
+        static member chooseOneAggregate label aggregates = ChooseOneAggregate(Metadata.label' label, aggregates)
+
 [<Mangle>]
 type OutputBuilder<'choice, 'reactElement> = // for clarity, might as well name the elements for their intended role, even though 'reactElement is not strictly required to be a ReactElement
     // individual traits
@@ -36,8 +121,8 @@ type OutputBuilder<'choice, 'reactElement> = // for clarity, might as well name 
 
     // aggregations
     abstract aggregate: label:string -> (OutputBuilder<'choice, 'reactElement> -> 'reactElement list) -> 'reactElement
-    abstract chooseUpToBudget: int -> label:string -> (OutputBuilder<'choice, 'reactElement> -> 'reactElement list) -> 'reactElement
-    abstract chooseUpToBudgetWithSuggestions: int -> label:string -> (OutputBuilder<'choice, 'reactElement> -> (int option * 'reactElement list) list) -> 'reactElement
+    abstract chooseUpToBudget: int -> label:string -> (OutputBuilder<'choice, 'someElement> -> 'someElement list) -> 'reactElement
+    abstract chooseUpToBudgetWithSuggestions: int -> label:string -> (OutputBuilder<'choice, 'someElement> -> (int option * 'someElement list) list) -> 'reactElement
 
 open Data
 
@@ -54,91 +139,100 @@ module Menus =
     open type Convert
     let thunktor v = ctor(thunk v, function v2 when v = v2 -> Some () | _ -> None)
     let severity = [Mild; Moderate; Serious; Severe]
-    let allDisadvantages (b: OutputBuilder<_,_>) =
-        [   b.chooseLevels (Chummy |> Trait, [ChummyLevel.Standard; Gregarious])
-            b.chooseLevels (CompulsiveCarousing |> Trait, severity)
-            b.chooseLevels (CompulsiveSpending |> Trait, severity)
-            b.chooseLevels (Greed |> Trait, severity)
-            b.chooseLevels (Impulsiveness |> Trait, severity)
-            b.chooseLevels (Jealousy |> Trait, severity)
-            b.chooseLevels (Lecherousness |> Trait, severity)
-            b.binary(OneEye |> Trait)
-            b.chooseLevels (Overconfidence |> Trait, severity)
-            b.binary (Trait.SenseOfDuty AdventuringCompanions |> Trait)
-            b.chooseLevels (ShortAttentionSpan |> Trait, severity)
-            b.chooseLevels (Trickster |> Trait, severity)
-            b.binary (Wounded |> Trait)
+    open type Template.Create
+    let allDisadvantages =
+        [   chooseLevels (Chummy |> Trait, [ChummyLevel.Standard; Gregarious])
+            chooseLevels (CompulsiveCarousing |> Trait, severity)
+            chooseLevels (CompulsiveSpending |> Trait, severity)
+            chooseLevels (Greed |> Trait, severity)
+            chooseLevels (Impulsiveness |> Trait, severity)
+            chooseLevels (Jealousy |> Trait, severity)
+            chooseLevels (Lecherousness |> Trait, severity)
+            binary(OneEye |> Trait)
+            chooseLevels (Overconfidence |> Trait, severity)
+            binary (Trait.SenseOfDuty AdventuringCompanions |> Trait)
+            chooseLevels (ShortAttentionSpan |> Trait, severity)
+            chooseLevels (Trickster |> Trait, severity)
+            binary (Wounded |> Trait)
             ]
     let Speed =
         namedCtor("Speed", (fun n -> Data.StatBonus(SpeedTimesFour, n*4)), function Data.StatBonus(stat, n) -> Some (n/4) | _ -> None)
     let showBonuses = { valueFormatter = (fun (ctorName, n) -> $"{ctorName} %+d{n}") }
-    let swash (b: OutputBuilder<_,'reactElement>) = b.aggregate "Swashbuckler" <| fun b -> [
+    open type Template.Create
+    open Template
+    let swash = aggregate "Swashbuckler" [
         let swashMeleeWeapons = [Broadsword; Rapier; Saber; Shortsword; Smallsword; MainGauche]
-        b.aggregate "Free" <| fun b -> [
-            b.grant (CombatReflexes |> Trait)
-            b.grantOne (Luck |> Trait, [Standard])
-            b.grantOne({ (tuple2bind1 "Enhanced Parry 1" 1 => EnhancedParry) with name = Some "Enhanced Parry 1" } |> Trait, swashMeleeWeapons)
-            b.grantWithStringInput(WeaponBond |> Trait, "Describe")
-            b.grantOne({ (OneWeapon => WeaponMaster) with name = Some "Weapon Master" } |> Trait, swashMeleeWeapons)
+        let showBonuses = showBonuses.valueFormatter
+        let label' = Template.Metadata.label'
+        grantAll [
+            binary (CombatReflexes |> Trait)
+            (grant << chooseLevels) (Luck |> Trait, [Standard])
+            (grant << chooseLevels) ({ (tuple2bind1 "Enhanced Parry 1" 1 => EnhancedParry) with name = Some "Enhanced Parry 1" } |> Trait, [Broadsword; Rapier; Saber; Shortsword; Smallsword; MainGauche])
+            (grant << chooseWithStringInput)(WeaponBond |> Trait, "Describe")
+            (grant << chooseOne)({ (OneWeapon => WeaponMaster) with name = Some "Weapon Master" } |> Trait, [Broadsword; Rapier; Saber; Shortsword; Smallsword; MainGauche])
             ]
-        b.chooseUpToBudget 60 "Advantages" <| fun b -> [
-            b.chooseLevels(StatBonus HP, [1..6], showBonuses)
-            b.chooseLevels(StatBonus DX, [1..3], showBonuses)
-            b.chooseLevels(Speed, [1..3], showBonuses)
-            b.binary(Trait Ambidexterity)
-            b.chooseLevels(Appearance |> Trait, [Attractive;Beautiful;VeryBeautiful])
-            b.chooseLevels(ArmorFamiliarity |> Trait, [1..4])
-            b.chooseLevels(Charisma |> Trait, [1..4], showBonuses)
-            b.binary(Trait Daredevil)
-            b.chooseLevels(EnhancedBlock |> Trait, [1..3])
-            b.binary(Trait.EnhancedDodge 1 |> Trait)
-            b.choose2D(EnhancedParry |> Trait, [2..3], swashMeleeWeapons)
-            b.binary(Trait EnhancedTimeSense)
-            b.binary(Trait EveryOnesACritical)
-            b.chooseLevels(ExtraAttack |> Trait, [1..2])
-            b.chooseLevels(Luck |> Trait, [Extraordinary; Ridiculous])
-            b.binary(Trait GreatVoid)
-            b.binary(Trait PerfectBalance)
-            b.binary(Trait RapierWit)
-            b.chooseLevels(Serendipity |> Trait, [1..3])
-            b.chooseWithStringInput(SignatureGear |> Trait, "Describe")
-            b.binary(Trait SpringingAttack)
-            b.chooseLevels(StrikingST |> Trait, [1..2], showBonuses)
-            b.chooseWithStringInput(TrademarkMove |> Trait, "Describe maneuver, weapon, hit locations, Rapid or Deceptive Strike")
-            b.chooseOneFromHierarchy(WeaponMaster |> Trait,
-                // I don't love this Const/One/DistinctTwo schema, but I don't currently have a better idea
-                //  and I want to unblock myself. This is good enough to correctly express WeaponMaster,
-                //  and yet isn't tightly coupled to it.
-                [   Const WeaponMasterFocus.All
-                    Const Swords
-                    Const FencingWeapons
-                    One(OneWeapon, swashMeleeWeapons)
-                    DistinctTwo(TwoWeapon, swashMeleeWeapons)
-                    ]
-                )
+        budget 60 "Advantages" [
+            chooseLevels(StatBonus HP, [1..6])
+            chooseLevels(StatBonus DX, [1..3])
+            chooseLevels(Speed, [1..3])
+            binary(Trait Ambidexterity)
+            chooseLevels(Appearance |> Trait, [Attractive;Beautiful;VeryBeautiful])
+            chooseLevels(ArmorFamiliarity |> Trait, [1..4])
+            chooseLevels(Charisma |> Trait, [1..4], showBonuses)
+            binary(Trait Daredevil)
+            chooseLevels(EnhancedBlock |> Trait, [1..3])
+            binary(Trait.EnhancedDodge 1 |> Trait)
+            choose2D(EnhancedParry |> Trait, [2..3], swashMeleeWeapons)
+            binary(Trait EnhancedTimeSense)
+            binary(Trait EveryOnesACritical)
+            chooseLevels(ExtraAttack |> Trait, [1..2])
+            chooseLevels(Luck |> Trait, [Extraordinary; Ridiculous])
+            binary(Trait GreatVoid)
+            binary(Trait PerfectBalance)
+            binary(Trait RapierWit)
+            chooseLevels(Serendipity |> Trait, [1..3])
+            chooseWithStringInput(SignatureGear |> Trait, "Describe")
+            binary(Trait SpringingAttack)
+            chooseLevels(StrikingST |> Trait, [1..2], showBonuses)
+            chooseWithStringInput(TrademarkMove |> Trait, "Describe maneuver, weapon, hit locations, Rapid or Deceptive Strike")
+            ChooseOneFromHierarchy(label' "Weapon Master", Interior(label' "Weapon master", [
+                Leaf(label' "(All)", Trait.WeaponMaster(WeaponMasterFocus.All) |> Trait)
+                Leaf(label' "(Swords)", Trait.WeaponMaster(WeaponMasterFocus.Swords) |> Trait)
+                Leaf(label' "(Fencing Weapons)", Trait.WeaponMaster(WeaponMasterFocus.FencingWeapons) |> Trait)
+                Interior(label' "(Weapon of choice)", [
+                    for weapon in swashMeleeWeapons do
+                        Leaf(label' $"({weapon})", Trait.WeaponMaster(WeaponMasterFocus.OneWeapon(weapon)) |> Trait)
+                    ])
+                Interior(label' "Two-weapon", [
+                    for weapon in swashMeleeWeapons do
+                        for weapon2 in [Shortsword; Smallsword; MainGauche; Knife] do
+                        if weapon <> weapon2 then
+                            Leaf(label' $"({weapon} and {weapon2})", Trait.WeaponMaster(WeaponMasterFocus.TwoWeapon(weapon, weapon2)) |> Trait)
+                    ])
+                ]))
             ]
-        b.chooseUpToBudgetWithSuggestions -50 "Disadvantages" <| fun b -> [
+        nestedBudgets -50 "Disadvantages" [
             Some -15,
-                [   b.chooseOne (CodeOfHonor |> Trait, [Gentlemans; Outlaws])
-                    b.chooseLevels (tuple2bind1 "Become best swordsman in the world" BecomeBestSwordsman => Obsession |> Trait, severity)
-                    b.chooseOne (Vow |> Trait, [UseOnlyWeaponOfChoice; NeverRefuseAChallengeToCombat; ChallengeEverySwordsmanToCombat; NeverWearArmor])
+                [   chooseOne (CodeOfHonor |> Trait, [Gentlemans; Outlaws])
+                    chooseLevels (tuple2bind1 "Become best swordsman in the world" BecomeBestSwordsman => Obsession |> Trait, severity)
+                    chooseOne (Vow |> Trait, [UseOnlyWeaponOfChoice; NeverRefuseAChallengeToCombat; ChallengeEverySwordsmanToCombat; NeverWearArmor])
                     ]
             Some -35,
-                [   b.chooseLevels (Chummy |> Trait, [ChummyLevel.Standard; Gregarious])
-                    b.chooseLevels (CompulsiveCarousing |> Trait, severity)
-                    b.chooseLevels (CompulsiveSpending |> Trait, severity)
-                    b.chooseLevels (Greed |> Trait, severity)
-                    b.chooseLevels (Impulsiveness |> Trait, severity)
-                    b.chooseLevels (Jealousy |> Trait, severity)
-                    b.chooseLevels (Lecherousness |> Trait, severity)
-                    b.binary(OneEye |> Trait)
-                    b.chooseLevels (Overconfidence |> Trait, severity)
-                    b.binary (Trait.SenseOfDuty AdventuringCompanions |> Trait, "Sense of Duty (Adventuring Companions)")
-                    b.chooseLevels (ShortAttentionSpan |> Trait, severity)
-                    b.chooseLevels (Trickster |> Trait, severity)
-                    b.binary (Wounded |> Trait)
+                [   chooseLevels (Chummy |> Trait, [ChummyLevel.Standard; Gregarious])
+                    chooseLevels (CompulsiveCarousing |> Trait, severity)
+                    chooseLevels (CompulsiveSpending |> Trait, severity)
+                    chooseLevels (Greed |> Trait, severity)
+                    chooseLevels (Impulsiveness |> Trait, severity)
+                    chooseLevels (Jealousy |> Trait, severity)
+                    chooseLevels (Lecherousness |> Trait, severity)
+                    binary(OneEye |> Trait)
+                    chooseLevels (Overconfidence |> Trait, severity)
+                    binaryf (Trait.SenseOfDuty AdventuringCompanions |> Trait, fun _ -> "Sense of Duty (Adventuring Companions)")
+                    chooseLevels (ShortAttentionSpan |> Trait, severity)
+                    chooseLevels (Trickster |> Trait, severity)
+                    binary (Wounded |> Trait)
                     ]
-            None, allDisadvantages b
+            None, allDisadvantages
             ]
         ]
 
@@ -203,6 +297,6 @@ module Templates =
         1, Package.Create<Race>(Halfling, [ST, -3; DX, +1; HT, +1; SM, -2; HP, +2; Move, -1])
         ]
 
-    let menusFor builder = function
-        | Swashbuckler -> Menus.swash builder
-        | v -> builder.aggregate $"{v} Placeholder" (fun _ -> [])
+    let menusFor = function
+        | Swashbuckler -> Menus.swash
+        | v -> Template.Create.aggregate $"{v} Placeholder" []

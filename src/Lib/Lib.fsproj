@@ -11,6 +11,7 @@
     <None Include="Scratch\NameMaker.fsx" />
     <None Include="Scratch\Encounters.fsx" />
     <None Include="Scratch\CommandGestures.fsx" />
+    <None Include="scratch\Scratch.fsx" />
     <None Include="Scratch\XPTracking.fsx" />
     <None Include="Scratch\ScenarioScratch.fsx" />
     <None Include="Scratch\Script1.fsx" />
