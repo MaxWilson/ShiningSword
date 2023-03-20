@@ -20,88 +20,164 @@ type TraitMsg =
 // for 30 points, and doesn't have Kiai at all. ReactBuilder is for adding stuff to
 // the queue, while DataBuilder is for extracting all of the stuff in the queue and
 // dispatching it to the underlying character.
-
-type DataBuilder(char: Character, prefix: Key, queue: Map<Key, string>, dispatch: TraitMsg -> unit) =
-    let extend entry = DataBuilder(char, entry::prefix, queue, dispatch)
-    let keyOf (prefix: Key) (pick: 't) =
-        (pick.ToString())::prefix
-    let has key = queue.ContainsKey key
-    let fulfilled key options = options |> List.tryFind (fun pick -> has(keyOf key pick))
-    let fulfilledFilter key options = options |> List.filter (fun pick -> has(keyOf key pick))
-
-    interface OutputBuilder<Chosen, Chosen list> with
-        member _.aggregate label f = List.concat (extend label |> f)
-        member _.binary(value: Chosen, label: string): Chosen list =
-            [if has (keyOf prefix value) then value]
-        member _.binary(value: Chosen): Chosen list =
-            [if has (keyOf prefix value) then value]
-        member _.choose2D(ctor, options1, options2) =
-            [   let key = keyOf prefix ctor.name.Value
-                if has key then
-                    match (fulfilled key options1), (fulfilled key options2) with
-                    | Some v1, Some v2 -> ctor.create(v1, v2)
-                    | _ -> ()
-                ]
-        // similar to chooseOne but can default to lowest value
-        member _.chooseLevels(ctor, levels) =
-            [   let key = keyOf prefix ctor.name.Value
-                if has key then
-                    match (fulfilled key levels) with
-                    | Some v -> ctor.create(v)
-                    | None -> ctor.create(levels[0])
-                ]
-        member this.chooseLevels(ctor, levels, format) = this.up.chooseLevels(ctor, levels)
-        member _.chooseOne(ctor, options) =
-            [   let key = keyOf prefix ctor.name.Value
-                if has key then
-                    match (fulfilled key options) with
-                    | Some v -> ctor.create(v)
-                    | _ -> ()
-                ]
-        member _.chooseOneFromHierarchy(ctor, options) =
-            [   let key = keyOf prefix ctor.name.Value
-                if has key then
-                    let fulfilledParam = function
-                        | Multi.Const v when has (keyOf key v) -> Some v
-                        | Multi.One(ctor1, options1) when has (keyOf key ctor1.name.Value) ->
-                            match fulfilled (keyOf key ctor1.name.Value) options1 with
-                            | Some v -> Some (ctor1.create v)
-                            | None -> None
-                        | Multi.DistinctTwo(ctor1, options1) when has (keyOf key ctor1.name.Value) ->
-                            match fulfilledFilter (keyOf key ctor1.name.Value) options1 with
-                            | v1::v2::_ -> Some (ctor1.create(v1, v2))
-                            | _ -> None
-                        | _ -> None
-                    match (options |> List.tryPick fulfilledParam) with
-                    | Some v -> ctor.create(v)
-                    | None -> ()
-                ]
-        // visually but not semantically distinct from aggregate
-        member _.chooseUpToBudget budget label optionsFunc =
-            let builder = extend label
-            let results = optionsFunc builder.up
-            List.concat ((extend label |> optionsFunc |> unbox))
-        // visually but not semantically distinct from aggregate
-        member _.chooseUpToBudgetWithSuggestions budget label optionsFunc = List.concat (extend label |> unbox optionsFunc |> List.collect snd)
-        member _.chooseWithStringInput(ctor, placeholder) =
-            [   let key = keyOf prefix ctor.name.Value
-                if has key then
-                    ctor.create(queue.[key])
-                ]
-        member _.grant(value) = [value]
-        member _.grantOne(ctor, options) =
-            [   let key = keyOf prefix ctor.name.Value
-                match (fulfilled key options) with
-                | Some v -> ctor.create(v)
-                | _ when options.Length = 1 -> ctor.create(options[0]) // default to first
-                | _ -> ()
-                ]
-        member _.grantWithStringInput(ctor, label) =
-            [   let key = keyOf prefix ctor.name.Value
-                let stringArg = queue |> Map.tryFind key |> Option.defaultValue ""
-                ctor.create stringArg
-                ]
-    member private this.up = this :> OutputBuilder<_,_>
+type DataCtx = { char: Character; prefix: Key; queue: Map<Key, string>; grantThisNextItem: bool; dispatch: TraitMsg -> unit }
+let dataBuilder (ctx: DataCtx) =
+    let keyOf (prefix: Key) (meta: Metadata) =
+        match meta.keySegment with
+        | Some key ->
+            key::prefix
+        | None -> prefix
+    let extend (ctx: DataCtx) (meta:Metadata) =
+        { ctx with prefix = keyOf ctx.prefix meta; grantThisNextItem = false }
+    let hasKey ctx key = ctx.queue.ContainsKey key
+    let has ctx meta =
+        ctx.grantThisNextItem || hasKey ctx (keyOf ctx.prefix meta)
+    //let fulfilled key options = options |> List.tryFind (fun pick -> has(keyOf key pick))
+    //let fulfilledFilter key options = options |> List.filter (fun pick -> has(keyOf key pick))
+    let rec ofMany (ctx: DataCtx) = function
+        | Aggregate(meta: Metadata, manyList: 't Many list) ->
+            manyList |> List.collect (ofMany (extend ctx meta))
+        | ChoosePackage(packages: (Metadata * 't Many) list) ->
+            // unlike items, we can only pick one package. E.g. a Swashbuckler
+            // can't pick the 20-point package for Sword! and also pick
+            // the 20-point package for Sword and Dagger.
+            let evalAggregate (meta: Metadata, many: 't Many) =
+                if has ctx meta then
+                    Some (many |> ofMany (extend ctx meta))
+                else None
+            packages |> List.tryPick evalAggregate |> Option.defaultValue []
+        | GrantItems(many: 't Many) ->
+            ofMany { ctx with grantThisNextItem = true } many
+        | Items(meta: Metadata, items: 't OneResult list) ->
+            items |> List.collect (ofOne (extend ctx meta))
+        | Budget(budget: int, meta: Metadata, items: 't OneResult list) ->
+            // dataBuilder doesn't enforce budgets (that's done by reactBuilder, if at all, based on settings),
+            // so this is basically just like items
+            items |> List.collect (ofOne (extend ctx meta))
+        | NestedBudgets(totalBudget: int, meta: Metadata, suggestions: (int option * Metadata * 't OneResult list) list) ->
+            // dataBuilder doesn't enforce budgets (that's done by reactBuilder, if at all, based on settings),
+            // so this is basically just like items
+            suggestions |> List.collect (fun (_,_,items) -> items |> List.collect (ofOne (extend ctx meta)))
+    and ofOne (ctx: DataCtx) = function
+        | Binary(meta: Metadata, v: 't) -> [if has ctx meta then v]
+        | ChooseOne(meta: Metadata, choose: 't Choose) -> [
+            if has ctx meta then
+                let pack, unpack = viaAny<'t list>()
+                let f = {   new Polymorphic<Constructor<Any, 't> * (Any * string) list, Any>
+                                with
+                                member _.Apply ((ctor, args)) =
+                                    match args |> List.map fst |> List.tryFind (fun arg -> hasKey ctx (arg.ToString()::ctx.prefix)) with
+                                    | Some chosenArg -> [chosenArg |> ctor.create] |> pack
+                                    | None -> [] }
+                yield! choose.generate f |> unpack
+            ]
+        | ChooseLevels(meta: Metadata, choose: 't Choose) ->
+            // choose and chooseLevels are similar in logic but chooseLevels will show -/+ buttons on UI
+            ChooseOne(meta, choose) |> ofOne ctx
+        | Choose2D(meta: Metadata, choose2d: 't Choose2D) -> [
+            if has ctx meta then
+                let pack, unpack = viaAny<'t list>()
+                let f = {   new Polymorphic<Constructor<Any * Any, 't> * (Any * string) list * (Any * string) list, Any>
+                                with
+                                member _.Apply ((ctor, args1, args2)) =
+                                    let eval args = args |> List.map fst |> List.tryFind (fun arg -> hasKey ctx (arg.ToString()::ctx.prefix))
+                                    match eval args1, eval args2 with
+                                    | Some chosenArg1, Some chosenArg2 -> [ctor.create(chosenArg1, chosenArg2)] |> pack
+                                    | _ -> [] }
+                yield! choose2d.generate f |> unpack
+            ]
+        | ChooseWithStringInput(meta: Metadata, ctor: Constructor<string, 't>, placeholder: string) -> [
+            if has ctx meta then
+                let key = keyOf ctx.prefix meta
+                ctor.create(ctx.queue[key])
+            ]
+        | Grant(meta: Metadata, v: 't OneResult) ->
+            v |> ofOne { extend ctx meta with grantThisNextItem = true }
+        | ChooseOneFromHierarchy(meta: Metadata, hierarchy: 't OneHierarchy) ->
+            hierarchy |> ofHierarchy (extend ctx meta)
+    and ofHierarchy (ctx: DataCtx) = function
+        | Leaf(meta: Metadata, v: 't) -> [
+            if has ctx meta then
+                v
+            ]
+        | Interior(meta: Metadata, hierarchy: 't OneHierarchy list) -> [
+            if has ctx meta then
+                yield! (hierarchy |> List.collect (ofHierarchy (extend ctx meta)))
+            ]
+    ofMany
+//type foo() =
+//        member _.aggregate label f = List.concat (extend label |> f)
+//        member _.binary(value: Chosen, label: string): Chosen list =
+//            [if has (keyOf prefix value) then value]
+//        member _.binary(value: Chosen): Chosen list =
+//            [if has (keyOf prefix value) then value]
+//        member _.choose2D(ctor, options1, options2) =
+//            [   let key = keyOf prefix ctor.name.Value
+//                if has key then
+//                    match (fulfilled key options1), (fulfilled key options2) with
+//                    | Some v1, Some v2 -> ctor.create(v1, v2)
+//                    | _ -> ()
+//                ]
+//        // similar to chooseOne but can default to lowest value
+//        member _.chooseLevels(ctor, levels) =
+//            [   let key = keyOf prefix ctor.name.Value
+//                if has key then
+//                    match (fulfilled key levels) with
+//                    | Some v -> ctor.create(v)
+//                    | None -> ctor.create(levels[0])
+//                ]
+//        member this.chooseLevels(ctor, levels, format) = this.up.chooseLevels(ctor, levels)
+//        member _.chooseOne(ctor, options) =
+//            [   let key = keyOf prefix ctor.name.Value
+//                if has key then
+//                    match (fulfilled key options) with
+//                    | Some v -> ctor.create(v)
+//                    | _ -> ()
+//                ]
+//        member _.chooseOneFromHierarchy(ctor, options) =
+//            [   let key = keyOf prefix ctor.name.Value
+//                if has key then
+//                    let fulfilledParam = function
+//                        | Multi.Const v when has (keyOf key v) -> Some v
+//                        | Multi.One(ctor1, options1) when has (keyOf key ctor1.name.Value) ->
+//                            match fulfilled (keyOf key ctor1.name.Value) options1 with
+//                            | Some v -> Some (ctor1.create v)
+//                            | None -> None
+//                        | Multi.DistinctTwo(ctor1, options1) when has (keyOf key ctor1.name.Value) ->
+//                            match fulfilledFilter (keyOf key ctor1.name.Value) options1 with
+//                            | v1::v2::_ -> Some (ctor1.create(v1, v2))
+//                            | _ -> None
+//                        | _ -> None
+//                    match (options |> List.tryPick fulfilledParam) with
+//                    | Some v -> ctor.create(v)
+//                    | None -> ()
+//                ]
+//        // visually but not semantically distinct from aggregate
+//        member _.chooseUpToBudget budget label optionsFunc =
+//            let builder = extend label
+//            let results = optionsFunc builder.up
+//            List.concat ((extend label |> optionsFunc |> unbox))
+//        // visually but not semantically distinct from aggregate
+//        member _.chooseUpToBudgetWithSuggestions budget label optionsFunc = List.concat (extend label |> unbox optionsFunc |> List.collect snd)
+//        member _.chooseWithStringInput(ctor, placeholder) =
+//            [   let key = keyOf prefix ctor.name.Value
+//                if has key then
+//                    ctor.create(queue.[key])
+//                ]
+//        member _.grant(value) = [value]
+//        member _.grantOne(ctor, options) =
+//            [   let key = keyOf prefix ctor.name.Value
+//                match (fulfilled key options) with
+//                | Some v -> ctor.create(v)
+//                | _ when options.Length = 1 -> ctor.create(options[0]) // default to first
+//                | _ -> ()
+//                ]
+//        member _.grantWithStringInput(ctor, label) =
+//            [   let key = keyOf prefix ctor.name.Value
+//                let stringArg = queue |> Map.tryFind key |> Option.defaultValue ""
+//                ctor.create stringArg
+//                ]
+//    member private this.up = this :> OutputBuilder<_,_>
 
 type CostBuilder(char: Character, prefix: Key, queue: Map<Key, string>, dispatch: TraitMsg -> unit) =
     let extend entry = CostBuilder(char, entry::prefix, queue, dispatch)

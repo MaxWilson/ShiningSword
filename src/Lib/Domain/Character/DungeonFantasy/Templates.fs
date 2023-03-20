@@ -3,132 +3,94 @@ open Domain.Ribbit.Properties
 open Domain.Character.DungeonFantasy.TraitsAndAttributes
 open Fable.Core
 
-module Multi =
-    // I don't have a good way to describe what this is except that it is an abstraction over WeaponMaster
-    // that's not too coupled to it. You can either pick the broad Const categories, or something that
-    // requires you to make some choices.
-    type DistinctValues<'inType , 't when 'inType: equality> =
-        | Const of 't
-        | One of Constructor<'inType, 't> * 'inType list
-        | DistinctTwo of Constructor<'inType * 'inType , 't> * 'inType list
+type 'trait1 Choose =
+    abstract generate: Polymorphic<Constructor<Any, 'trait1> * (Any * string) list, Any> -> Any
 
-type 'arg DisplayOptions = {
-    // ctor name * arg, e.g. "HP" * 1
-    valueFormatter: (string * 'arg) -> string
-    }
+type Choose<'arg, 'trait1>(ctor: Constructor<'arg, 'trait1>, values: 'arg list, ?formatter: string * 'arg -> string) =
+    let packArg, unpackArg = viaAny<'arg>()
+    let boxedCtor: Constructor<Any, 'trait1> = { name = ctor.name; create = (unpackArg >> ctor.create); extract = ctor.extract >> Option.map packArg }
+    let boxedValuesAndLabels: (Any * string) list =
+        [   for v in values do
+                packArg v, match formatter with Some format -> format(ctor.name.Value, v) | None -> $"{ctor.name}: {v}"
+            ]
+    interface 'trait1 Choose with
+        member this.generate (f: Polymorphic<Constructor<Any, 'trait1> * (Any * string) list, Any>) =
+            f.Apply(boxedCtor, boxedValuesAndLabels)
 
-module Template =
-    type 'trait1 Choose =
-        abstract generate: Polymorphic<Constructor<Any, 'trait1> * (Any * string) list, Any> -> Any
+type 'trait1 Choose2D =
+    abstract generate: Polymorphic<Constructor<Any * Any, 'trait1> * (Any * string) list * (Any * string) list, Any> -> Any
 
-    type Choose<'arg, 'trait1>(ctor: Constructor<'arg, 'trait1>, values: 'arg list, ?formatter: string * 'arg -> string) =
-        let packArg, unpackArg = viaAny<'arg>()
-        let boxedCtor: Constructor<Any, 'trait1> = { name = ctor.name; create = (unpackArg >> ctor.create); extract = ctor.extract >> Option.map packArg }
-        let boxedValuesAndLabels: (Any * string) list =
-            [   for v in values do
-                    packArg v, match formatter with Some format -> format(ctor.name.Value, v) | None -> $"{ctor.name}: {v}"
-                ]
-        interface 'trait1 Choose with
-            member this.generate (f: Polymorphic<Constructor<Any, 'trait1> * (Any * string) list, Any>) =
-                f.Apply(boxedCtor, boxedValuesAndLabels)
+type Choose2D<'arg1, 'arg2, 'trait1>(ctor: Constructor<'arg1 * 'arg2, 'trait1>, values1: 'arg1 list, values2: 'arg2 list, ?formatter1: string * 'arg1 -> string, ?formatter2: string * 'arg2 -> string) =
+    let packArg1, unpackArg1 = viaAny<'arg1>()
+    let packArg2, unpackArg2 = viaAny<'arg2>()
+    let boxedCtor: Constructor<Any * Any, 'trait1> = { name = ctor.name; create = (fun (arg1, arg2) -> ctor.create(unpackArg1 arg1, unpackArg2 arg2)); extract = (fun packed -> match ctor.extract packed with Some (arg1, arg2) -> Some (packArg1 arg1, packArg2 arg2) | None -> None) }
+    let boxedValuesAndLabels1: (Any * string) list =
+        [   for v in values1 do
+                packArg1 v, match formatter1 with Some format -> format(ctor.name.Value, v) | None -> $"{ctor.name}: {v}"
+            ]
+    let boxedValuesAndLabels2: (Any * string) list =
+        [   for v in values2 do
+                packArg2 v, match formatter2 with Some format -> format(ctor.name.Value, v) | None -> $"{ctor.name}: {v}"
+            ]
+    interface 'trait1 Choose2D with
+        member this.generate (f: Polymorphic<Constructor<Any * Any, 'trait1> * (Any * string) list * (Any * string) list, Any>) =
+            f.Apply(boxedCtor, boxedValuesAndLabels1, boxedValuesAndLabels2)
 
-    type 'trait1 Choose2D =
-        abstract generate: Polymorphic<Constructor<Any * Any, 'trait1> * (Any * string) list * (Any * string) list, Any> -> Any
+// Each template OneResult can be in one of several states:
+// selected-and-ready, selected-but-incomplete, and not selected.
+// So for example a Binary: Combat Reflexes can only be
+// selected or unselected, but a Choose: Sense of Duty [Adventuring Companions; Nature]
+// needs more data before it can be ready.
+// A Template.Many can hold multiple Template.OneResults and allow more than
+// one to be selected-and-ready.
+type Metadata = { label: string option; keySegment: string option }
+    with
+    static member fresh = { label = None; keySegment = None }
+    static member label' v = { Metadata.fresh with label = Some v; keySegment = Some v }
+type 't Many =
+    | Aggregate of Metadata * 't Many list
+    | ChoosePackage of (Metadata * 't Many) list
+    | GrantItems of 't Many
+    | Items of Metadata * 't OneResult list
+    | Budget of int * Metadata * 't OneResult list
+    | NestedBudgets of totalBudget:int * Metadata * suggestions:(int option * Metadata * 't OneResult list) list
+and 't OneResult =
+    | Binary of Metadata * 't
+    | ChooseOne of Metadata * 't Choose
+    | ChooseLevels of Metadata * 't Choose // choose and chooseLevels are similar in logic but chooseLevels will show -/+ buttons on UI
+    | Choose2D of Metadata * 't Choose2D
+    | ChooseWithStringInput of Metadata * Constructor<string, 't> * placeholder:string
+    | Grant of Metadata * 't OneResult
+    | ChooseOneFromHierarchy of Metadata * 't OneHierarchy
+and 't OneHierarchy =
+    | Leaf of Metadata * 't
+    | Interior of Metadata * 't OneHierarchy list
 
-    type Choose2D<'arg1, 'arg2, 'trait1>(ctor: Constructor<'arg1 * 'arg2, 'trait1>, values1: 'arg1 list, values2: 'arg2 list, ?formatter1: string * 'arg1 -> string, ?formatter2: string * 'arg2 -> string) =
-        let packArg1, unpackArg1 = viaAny<'arg1>()
-        let packArg2, unpackArg2 = viaAny<'arg2>()
-        let boxedCtor: Constructor<Any * Any, 'trait1> = { name = ctor.name; create = (fun (arg1, arg2) -> ctor.create(unpackArg1 arg1, unpackArg2 arg2)); extract = (fun packed -> match ctor.extract packed with Some (arg1, arg2) -> Some (packArg1 arg1, packArg2 arg2) | None -> None) }
-        let boxedValuesAndLabels1: (Any * string) list =
-            [   for v in values1 do
-                    packArg1 v, match formatter1 with Some format -> format(ctor.name.Value, v) | None -> $"{ctor.name}: {v}"
-                ]
-        let boxedValuesAndLabels2: (Any * string) list =
-            [   for v in values2 do
-                    packArg2 v, match formatter2 with Some format -> format(ctor.name.Value, v) | None -> $"{ctor.name}: {v}"
-                ]
-        interface 'trait1 Choose2D with
-            member this.generate (f: Polymorphic<Constructor<Any * Any, 'trait1> * (Any * string) list * (Any * string) list, Any>) =
-                f.Apply(boxedCtor, boxedValuesAndLabels1, boxedValuesAndLabels2)
+type Create =
+    static member binary v = Binary(Metadata.fresh, v)
+    static member binaryf (v, formatter) = Binary(Metadata.label' (formatter v), v)
+    static member chooseOne (ctor, options, ?formatter) = ChooseLevels(Metadata.fresh, new Choose<_,_>(ctor, options, ?formatter=formatter))
+    static member chooseLevels(ctor, options, ?formatter) = ChooseLevels(Metadata.fresh, new Choose<_,_>(ctor, options, ?formatter=formatter))
+    static member choose2D(ctor, arg1Options, arg2Options) = Choose2D(Metadata.fresh, new Choose2D<_,_,_>(ctor, arg1Options, arg2Options))
+    static member chooseWithStringInput(ctor, placeholderText) = ChooseWithStringInput(Metadata.fresh, ctor, placeholderText)
+    static member grant (choice: 't OneResult) = Grant(Metadata.fresh, choice)
+    static member chooseOneFromHierarchy v = ChooseOneFromHierarchy(Metadata.fresh, v)
+    static member leaf v = Leaf(Metadata.fresh, v)
+    static member interior v = Interior(Metadata.fresh, v)
 
-    // Each template OneResult can be in one of several states:
-    // selected-and-ready, selected-but-incomplete, and not selected.
-    // So for example a Binary: Combat Reflexes can only be
-    // selected or unselected, but a Choose: Sense of Duty [Adventuring Companions; Nature]
-    // needs more data before it can be ready.
-    // A Template.Many can hold multiple Template.OneResults and allow more than
-    // one to be selected-and-ready.
-    type Metadata = { label: string option; keySegment: string option }
-        with
-        static member fresh = { label = None; keySegment = None }
-        static member label' v = { Metadata.fresh with label = Some v } 
-    type 't Many =
-        | Aggregate of Metadata * 't Many list
-        | ChooseOneAggregate of Metadata * 't Many list
-        | GrantItems of 't Many
-        | Items of Metadata * 't OneResult list
-        | Budget of int * Metadata * 't OneResult list
-        | NestedBudgets of totalBudget:int * Metadata * suggestions:(int option * Metadata * 't OneResult list) list
-    and 't OneResult =
-        | Binary of Metadata * 't
-        | ChooseOne of Metadata * 't Choose
-        | ChooseLevels of Metadata * 't Choose // choose and chooseLevels are similar in logic but chooseLevels will show -/+ buttons on UI
-        | Choose2D of Metadata * 't Choose2D
-        | ChooseWithStringInput of Metadata * Constructor<string, 't> * placeholder:string
-        | Grant of Metadata * 't OneResult
-        | ChooseOneFromHierarchy of Metadata * 't OneHierarchy
-    and 't OneHierarchy =
-        | Leaf of Metadata * 't
-        | Interior of Metadata * 't OneHierarchy list
-    type Create =
-        static member binary v = Binary(Metadata.fresh, v)
-        static member binaryf (v, formatter) = Binary(Metadata.label' (formatter v), v)
-        static member chooseOne (ctor, options, ?formatter) = ChooseLevels(Metadata.fresh, new Choose<_,_>(ctor, options, ?formatter=formatter))
-        static member chooseLevels(ctor, options, ?formatter) = ChooseLevels(Metadata.fresh, new Choose<_,_>(ctor, options, ?formatter=formatter))
-        static member choose2D(ctor, arg1Options, arg2Options) = Choose2D(Metadata.fresh, new Choose2D<_,_,_>(ctor, arg1Options, arg2Options))
-        static member chooseWithStringInput(ctor, placeholderText) = ChooseWithStringInput(Metadata.fresh, ctor, placeholderText)
-        static member grant (choice: 't OneResult) = Grant(Metadata.fresh, choice)
-        static member chooseOneFromHierarchy v = ChooseOneFromHierarchy(Metadata.fresh, v)
-        static member leaf v = Leaf(Metadata.fresh, v)
-        static member interior v = Interior(Metadata.fresh, v)
-
-        static member aggregate (label: string) choices = Aggregate(Metadata.label' label, choices)
-        static member items choices = Items(Metadata.fresh, choices)
-        static member items (label: string, choices) = Items(Metadata.label' label, choices)
-        static member grantAll (choices: 't OneResult list) = GrantItems(Create.items choices)
-        static member grantAll (label: string, choices: 't OneResult list) = GrantItems(Create.items(label, choices))
-        static member budget budget (label: string) choices = Budget(budget, Metadata.label' label, choices)
-        static member nestedBudgets totalBudget label (suggestions: (int option * _ OneResult list) list) = NestedBudgets(totalBudget, { Metadata.fresh with label = Some label }, suggestions |> List.map (fun (budget, choices) -> budget, Metadata.fresh, choices))
-        static member nestedBudgets' totalBudget label (suggestions: (int option * string * _ OneResult list) list) = NestedBudgets(totalBudget, { Metadata.fresh with label = Some label }, suggestions |> List.map (fun (budget, label, choices) -> budget, Metadata.label' label, choices))
-        static member chooseOneAggregate label aggregates = ChooseOneAggregate(Metadata.label' label, aggregates)
-
-[<Mangle>]
-type OutputBuilder<'choice, 'reactElement> = // for clarity, might as well name the elements for their intended role, even though 'reactElement is not strictly required to be a ReactElement
-    // individual traits
-    abstract grant: 'choice -> 'reactElement
-    abstract binary: 'choice -> 'reactElement
-    abstract binary: 'choice * string -> 'reactElement
-    abstract chooseWithStringInput: Constructor<string, 'choice> * string -> 'reactElement
-    abstract chooseLevels: Constructor<'arg, 'choice> * 'arg list -> 'reactElement
-    abstract chooseLevels: Constructor<'arg, 'choice> * 'arg list * 'arg DisplayOptions -> 'reactElement
-    // chooseLevels and chooseOne are different in the sense that chooseOne has no implied total ordering,
-    //   so will have a different UI without + and - buttons.
-    abstract chooseOne: Constructor<'arg, 'choice> * 'arg list -> 'reactElement
-    abstract choose2D: Constructor<'arg1 * 'arg2, 'choice> * 'arg1 list * 'arg2 list -> 'reactElement
-    abstract chooseOneFromHierarchy: Constructor<'arg, 'choice> * Multi.DistinctValues<'subArg, 'arg> list -> 'reactElement
-    abstract grantOne: Constructor<'arg, 'choice> * 'arg list -> 'reactElement
-    abstract grantWithStringInput: Constructor<string, 'choice> * string  -> 'reactElement
-
-    // aggregations
-    abstract aggregate: label:string -> (OutputBuilder<'choice, 'reactElement> -> 'reactElement list) -> 'reactElement
-    abstract chooseUpToBudget: int -> label:string -> (OutputBuilder<'choice, 'someElement> -> 'someElement list) -> 'reactElement
-    abstract chooseUpToBudgetWithSuggestions: int -> label:string -> (OutputBuilder<'choice, 'someElement> -> (int option * 'someElement list) list) -> 'reactElement
+    static member aggregate (label: string) choices = Aggregate(Metadata.label' label, choices)
+    static member items choices = Items(Metadata.fresh, choices)
+    static member items (label: string, choices) = Items(Metadata.label' label, choices)
+    static member grantAll (choices: 't OneResult list) = GrantItems(Create.items choices)
+    static member grantAll (label: string, choices: 't OneResult list) = GrantItems(Create.items(label, choices))
+    static member budget budget (label: string) choices = Budget(budget, Metadata.label' label, choices)
+    static member nestedBudgets totalBudget label (suggestions: (int option * _ OneResult list) list) = NestedBudgets(totalBudget, { Metadata.fresh with label = Some label }, suggestions |> List.map (fun (budget, choices) -> budget, Metadata.fresh, choices))
+    static member nestedBudgets' totalBudget label (suggestions: (int option * string * _ OneResult list) list) = NestedBudgets(totalBudget, { Metadata.fresh with label = Some label }, suggestions |> List.map (fun (budget, label, choices) -> budget, Metadata.label' label, choices))
+    static member choosePackage aggregates = ChoosePackage(aggregates)
 
 open Data
-
 module Menus =
     open TraitsAndAttributes.Ctor
-    open Multi
     let private tuple2bind1 name arg1 = namedCtor(name, (fun arg2 -> arg1, arg2), function (_, arg2) -> Some arg2)
     let private StatBonus stat =
         (tuple2bind1 $"{stat}" stat)
@@ -139,7 +101,7 @@ module Menus =
     open type Convert
     let thunktor v = ctor(thunk v, function v2 when v = v2 -> Some () | _ -> None)
     let severity = [Mild; Moderate; Serious; Severe]
-    open type Template.Create
+    open type Create
     let allDisadvantages =
         [   chooseLevels (Chummy |> Trait, [ChummyLevel.Standard; Gregarious])
             chooseLevels (CompulsiveCarousing |> Trait, severity)
@@ -157,13 +119,11 @@ module Menus =
             ]
     let Speed =
         namedCtor("Speed", (fun n -> Data.StatBonus(SpeedTimesFour, n*4)), function Data.StatBonus(stat, n) -> Some (n/4) | _ -> None)
-    let showBonuses = { valueFormatter = (fun (ctorName, n) -> $"{ctorName} %+d{n}") }
-    open type Template.Create
-    open Template
+    let showBonuses = (fun (ctorName, n) -> $"{ctorName} %+d{n}")
+    open type Create
     let swash = aggregate "Swashbuckler" [
         let swashMeleeWeapons = [Broadsword; Rapier; Saber; Shortsword; Smallsword; MainGauche]
-        let showBonuses = showBonuses.valueFormatter
-        let label' = Template.Metadata.label'
+        let label' = Metadata.label'
         grantAll [
             binary (CombatReflexes |> Trait)
             (grant << chooseLevels) (Luck |> Trait, [Standard])
@@ -237,7 +197,7 @@ module Menus =
         ]
 
 module Templates =
-    open type Create
+    open type Domain.Ribbit.Properties.Create
     let apply reason char (stat, value) =
         let delta = [Delta(value, reason)]
         match stat with
@@ -299,4 +259,4 @@ module Templates =
 
     let menusFor = function
         | Swashbuckler -> Menus.swash
-        | v -> Template.Create.aggregate $"{v} Placeholder" []
+        | v -> Create.aggregate $"{v} Placeholder" []
