@@ -35,7 +35,11 @@ let dataBuilder =
     let has ctx meta =
         hasKey ctx (keyOf ctx.prefix meta)
     // modifies ctx so that the given metadata will consider to have been chosen, no matter what the user has selected
-    let ctxAugment meta ctx = { ctx with queue = ctx.queue |> Map.add (keyOf ctx.prefix meta) "" }
+    let ctxAugment meta ctx =
+        let key = (keyOf ctx.prefix meta)
+        if ctx.queue.ContainsKey key |> not then
+            { ctx with queue = ctx.queue |> Map.add key "" }
+        else ctx
     // for a limited subset of things that make sense to grant, such as binary and choose, unpacks their metadata and augments
     let ctxGrantOne ctx = function
             | Binary(meta, _)
@@ -115,11 +119,8 @@ let dataBuilder =
                 yield! choose2d.generate f |> unpack
             ]
         | ChooseWithStringInput(meta: Metadata, ctor: Constructor<string, 't>, placeholder: string) -> [
-            System.Console.Error.WriteLine $"ChooseOne: prefix={ctx.prefix}, meta.keySegment={meta.keySegment}: {has ctx meta}"
-            System.Console.Error.WriteLine $"""Is it there? {ctx.queue |> Map.tryFind ["Weapon Bond"; "Swashbuckler"] |> Option.defaultValue "Nope"}"""
             if has ctx meta then
                 let key = keyOf ctx.prefix meta
-                System.Console.Error.WriteLine $"{key} => {ctx.queue[key]} ==> {ctor.create(ctx.queue[key])}"
                 ctor.create(ctx.queue[key])
             ]
         | Grant(meta: Metadata, v: 't OneResult) ->

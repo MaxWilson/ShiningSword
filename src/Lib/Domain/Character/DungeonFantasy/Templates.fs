@@ -85,8 +85,8 @@ type Create =
     static member grantAll (choices: 't OneResult list) = GrantItems(Create.items choices)
     static member grantAll (label: string, choices: 't OneResult list) = GrantItems(Create.items(label, choices))
     static member budget budget (label: string) choices = Budget(budget, Metadata.label' label, choices)
-    static member nestedBudgets totalBudget label (suggestions: (int option * _ OneResult list) list) = NestedBudgets(totalBudget, { Metadata.fresh with label = Some label }, suggestions |> List.map (fun (budget, choices) -> budget, Metadata.fresh, choices))
-    static member nestedBudgets' totalBudget label (suggestions: (int option * string * _ OneResult list) list) = NestedBudgets(totalBudget, { Metadata.fresh with label = Some label }, suggestions |> List.map (fun (budget, label, choices) -> budget, Metadata.label' label, choices))
+    static member nestedBudgets totalBudget label (suggestions: (int option * _ OneResult list) list) = NestedBudgets(totalBudget, Metadata.label' label, suggestions |> List.map (fun (budget, choices) -> budget, Metadata.fresh, choices))
+    static member nestedBudgets' totalBudget label (suggestions: (int option * string * _ OneResult list) list) = NestedBudgets(totalBudget, Metadata.label' label, suggestions |> List.map (fun (budget, label, choices) -> budget, Metadata.label' label, choices))
     static member choosePackage aggregates = ChoosePackage(aggregates)
 
 open Data
