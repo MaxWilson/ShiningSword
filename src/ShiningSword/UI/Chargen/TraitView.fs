@@ -475,12 +475,130 @@ let dataBuilder =
 //                                        ]
 //                            ]
 //    member private this.up = this :> OutputBuilder<_,_>
+type ReactCtx = { prefix: Key; queue: Map<Key, string>; dispatch: TraitMsg -> unit }
+    with
+    static member fresh = { prefix = []; queue = Map.empty; dispatch = ignore }
+    static member create(queue, dispatch: TraitMsg -> unit) = { prefix = []; queue = queue; dispatch = dispatch }
+let reactBuilder : ReactCtx -> Chosen Many -> ReactElement =
+    let keyOf (prefix: Key) (meta: Metadata) =
+        match meta.keySegment with
+        | Some key ->
+            key::prefix
+        | None -> prefix
+    let extend (ctx: ReactCtx) (meta:Metadata) =
+        { ctx with prefix = keyOf ctx.prefix meta }
+    let hasKey ctx key =
+        ctx.queue.ContainsKey key
+    let has ctx meta =
+        hasKey ctx (keyOf ctx.prefix meta)
+    // modifies ctx so that the given metadata will consider to have been chosen, no matter what the user has selected
+    let ctxAugment meta ctx =
+        let key = (keyOf ctx.prefix meta)
+        if ctx.queue.ContainsKey key |> not then
+            { ctx with queue = ctx.queue |> Map.add key "" }
+        else ctx
+    // for a limited subset of things that make sense to grant, such as binary and choose, unpacks their metadata and augments
+    let ctxGrantOne ctx = function
+            | Binary(meta, _)
+            | ChooseOne(meta, _)
+            | ChooseLevels(meta, _)
+            | Choose2D(meta, _)
+            | ChooseWithStringInput(meta, _, _) ->
+                ctx |> ctxAugment meta
+            | otherwise -> notImpl $"Unexpected grant type: '{otherwise}'"
+    let ctxGrantMany ctx many =
+        match many with
+                | Aggregate(meta, _) -> ctx |> ctxAugment meta
+                | Items(meta, items) ->
+                    let ctx = ctx |> ctxAugment meta
+                    items |> List.fold ctxGrantOne ctx
+                | otherwise -> notImpl $"Unexpected grant type: '{otherwise}'" // I don't think we create any other grant types yet
+
+    //let fulfilled key options = options |> List.tryFind (fun pick -> has(keyOf key pick))
+    //let fulfilledFilter key options = options |> List.filter (fun pick -> has(keyOf key pick))
+    let rec ofMany (ctx: ReactCtx) = function
+        | Aggregate(meta: Metadata, manyList: 't Many list) ->
+            manyList |> List.collect (ofMany (extend ctx meta))
+        | ChoosePackage(packages: (Metadata * 't Many) list) ->
+            // unlike items, we can only pick one package. E.g. a Swashbuckler
+            // can't pick the 20-point package for Sword! and also pick
+            // the 20-point package for Sword and Dagger.
+            let evalAggregate (meta: Metadata, many: 't Many) =
+                if has ctx meta then
+                    Some (many |> ofMany (extend ctx meta))
+                else None
+            packages |> List.tryPick evalAggregate |> Option.defaultValue []
+        | GrantItems(many: 't Many) ->
+            ofMany (ctxGrantMany ctx many) many
+        | Items(meta: Metadata, items: 't OneResult list) ->
+            items |> List.collect (ofOne (extend ctx meta))
+        | Budget(budget: int, meta: Metadata, items: 't OneResult list) ->
+            // dataBuilder doesn't enforce budgets (that's done by reactBuilder, if at all, based on settings),
+            // so this is basically just like items
+            items |> List.collect (ofOne (extend ctx meta))
+        | NestedBudgets(totalBudget: int, meta: Metadata, suggestions: (int option * Metadata * 't OneResult list) list) ->
+            // dataBuilder doesn't enforce budgets (that's done by reactBuilder, if at all, based on settings),
+            // so this is basically just like items
+            suggestions |> List.collect (fun (_,_,items) -> items |> List.collect (ofOne (extend ctx meta)))
+    and ofOne (ctx: ReactCtx) = function
+        | Binary(meta: Metadata, v: 't) -> [if has ctx meta then v]
+        | ChooseOne(meta: Metadata, choose: 't Choose) -> [
+            if has ctx meta then
+                let ctx = extend ctx meta
+                let pack, unpack = viaAny<'t list>()
+                let f = {   new Polymorphic<Constructor<Any, 't> * (Any * string) list, Any>
+                                with
+                                member _.Apply ((ctor, args)) =
+                                    match args |> List.map fst |> List.tryFind (fun arg -> hasKey ctx (arg.ToString()::ctx.prefix)) with
+                                    | Some chosenArg -> [chosenArg |> ctor.create] |> pack
+                                    // if there's only one alternative, that's the same as no alternatives. Pick it.
+                                    | None when args.Length = 1 -> [args[0] |> fst |> ctor.create] |> pack
+                                    | None -> [] |> pack }
+                yield! choose.generate f |> unpack
+            ]
+        | ChooseLevels(meta: Metadata, choose: 't Choose) ->
+            // choose and chooseLevels are similar in logic but chooseLevels will show -/+ buttons on UI
+            ChooseOne(meta, choose) |> ofOne ctx
+        | Choose2D(meta: Metadata, choose2d: 't Choose2D) -> [
+            if has ctx meta then
+                let ctx = extend ctx meta
+                let pack, unpack = viaAny<'t list>()
+                let f = {   new Polymorphic<Constructor<Any * Any, 't> * (Any * string) list * (Any * string) list, Any>
+                                with
+                                member _.Apply ((ctor, args1, args2)) =
+                                    let eval args =
+                                        args |> List.map fst |> List.tryFind (fun arg -> hasKey ctx (arg.ToString()::ctx.prefix))
+                                        // if there's only one alternative, that's the same as no alternatives. Pick it.
+                                        |> Option.orElseWith (fun () -> if args.Length = 1 then Some (fst args[0]) else None)
+                                    match eval args1, eval args2 with
+                                    | Some chosenArg1, Some chosenArg2 -> [ctor.create(chosenArg1, chosenArg2)] |> pack
+                                    | _ -> [] |> pack}
+                yield! choose2d.generate f |> unpack
+            ]
+        | ChooseWithStringInput(meta: Metadata, ctor: Constructor<string, 't>, placeholder: string) -> [
+            if has ctx meta then
+                let key = keyOf ctx.prefix meta
+                ctor.create(ctx.queue[key])
+            ]
+        | Grant(meta: Metadata, v: 't OneResult) ->
+            v |> ofOne (ctxGrantOne (ctx |> ctxAugment meta) v)
+        | ChooseOneFromHierarchy(meta: Metadata, hierarchy: 't OneHierarchy) ->
+            hierarchy |> ofHierarchy (extend ctx meta)
+    and ofHierarchy (ctx: ReactCtx) = function
+        | Leaf(meta: Metadata, v: 't) -> [
+            if has ctx meta then
+                v
+            ]
+        | Interior(meta: Metadata, hierarchy: 't OneHierarchy list) -> [
+            if has ctx meta then
+                yield! (hierarchy |> List.collect (ofHierarchy (extend ctx meta)))
+            ]
+    ofMany
 
 [<ReactComponent>]
 let TraitView (profession: Templates.Package<Profession>, char: Character, queue: Map<Key, string>, dispatch: TraitMsg -> unit) =
-    //let builder = (ReactBuilder(char, [], queue, dispatch))
-    //class' "traitview" Html.fieldSet [
-    //    classTxt' "subtitle" Html.legend profession.displayName
-    //    Templates.menusFor builder profession.name
-    //    ]
-    notImpl()
+    let builder = reactBuilder(ReactCtx.create(queue, dispatch))
+    class' "traitview" Html.fieldSet [
+        classTxt' "subtitle" Html.legend profession.displayName
+        (Templates.menusFor profession.name |> builder)
+        ]
