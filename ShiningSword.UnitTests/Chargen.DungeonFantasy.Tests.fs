@@ -36,7 +36,7 @@ let tests = testList "Chargen" [
 
     test "Verify Swashbuckler traits after a few clicks" {
         let addKeys keys ctx =
-            let keys = keys |> List.map List.rev
+            let keys = keys |> List.collect (List.rev >> List.prefixes)
             { ctx with queue = keys |> List.fold (fun q k -> q |> Map.add k "") ctx.queue }
         let addData keyVals ctx =
             let keyVals = keyVals |> List.map (Tuple2.mapfst List.rev)
@@ -51,6 +51,39 @@ let tests = testList "Chargen" [
                 ["Swashbuckler"; "Free"; "Weapon Bond"], "Ancestral Rapier"
                 ]
         let traits0 = Menus.swash |> dataBuilder ctx |> List.sort
+        let expected =
+            [   Trait CombatReflexes
+                Trait (Luck Standard)
+                Trait (WeaponBond "Ancestral Rapier")
+                ]
+            |> List.sort
+        verify <@ expected = traits0 @>
+        }
+    test "Debug: Swashbuckler traits after a few clicks" {
+        let addKeys keys ctx =
+            let keys = keys |> List.collect (List.rev >> List.prefixes)
+            { ctx with queue = keys |> List.fold (fun q k -> q |> Map.add k "") ctx.queue }
+        let addData keyVals ctx =
+            let keyVals = keyVals |> List.map (Tuple2.mapfst List.rev)
+            { ctx with queue = keyVals |> List.fold (fun q (k,v) -> q |> Map.add k v) ctx.queue }
+        let ctx =
+            DataCtx.fresh
+            |> addKeys [
+                ["Swashbuckler"; "Free"; "Enhanced Parry 1"; "Rapier"]
+                ["Swashbuckler"; "Free"; "Weapon Master"; "OneWeapon"; "Rapier"]
+                ]
+            |> addData [
+                ["Swashbuckler"; "Free"; "Weapon Bond"], "Ancestral Rapier"
+                ]
+        let swash = Create.aggregate "Swashbuckler" [
+            let swashMeleeWeapons = [Broadsword; Rapier; Saber; Shortsword; Smallsword; MainGauche]
+            let label' = Metadata.label'
+            Create.grantAll [
+                Create.binary (CombatReflexes |> Menus.Convert.Trait)
+                Create.chooseLevels (Ctor.Luck |> Menus.Convert.Trait, [Standard])
+                ]
+            ]
+        let traits0 = swash |> dataBuilder ctx |> List.sort
         let expected =
             [   Trait CombatReflexes
                 Trait (Luck Standard)

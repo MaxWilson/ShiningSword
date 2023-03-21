@@ -30,7 +30,9 @@ let dataBuilder =
         | None -> prefix
     let extend (ctx: DataCtx) (meta:Metadata) =
         { ctx with prefix = keyOf ctx.prefix meta }
-    let hasKey ctx key = ctx.queue.ContainsKey key
+    let hasKey ctx key =
+        System.Console.Error.WriteLine $"hasKey rev({key |> List.rev}): {ctx.queue.ContainsKey key}"
+        ctx.queue.ContainsKey key
     let has ctx meta =
         hasKey ctx (keyOf ctx.prefix meta)
     // modifies ctx so that the given metadata will consider to have been chosen, no matter what the user has selected
@@ -82,6 +84,7 @@ let dataBuilder =
         | Binary(meta: Metadata, v: 't) -> [if has ctx meta then v]
         | ChooseOne(meta: Metadata, choose: 't Choose) -> [
             if has ctx meta then
+                let ctx = extend ctx meta
                 let pack, unpack = viaAny<'t list>()
                 let f = {   new Polymorphic<Constructor<Any, 't> * (Any * string) list, Any>
                                 with
@@ -98,6 +101,7 @@ let dataBuilder =
             ChooseOne(meta, choose) |> ofOne ctx
         | Choose2D(meta: Metadata, choose2d: 't Choose2D) -> [
             if has ctx meta then
+                let ctx = extend ctx meta
                 let pack, unpack = viaAny<'t list>()
                 let f = {   new Polymorphic<Constructor<Any * Any, 't> * (Any * string) list * (Any * string) list, Any>
                                 with
