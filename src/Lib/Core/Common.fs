@@ -14,7 +14,7 @@ let matchfail v = sprintf "No match found for %A. This is a bug." v |> invalidOp
 let ignoreM (_, monad) = (), monad
 exception BugException of msg: string
 /// Placeholder while we're doing type-focused development, before implementation
-let notImpl _ = failwith "Not implemented yet. Email Max if you want this feature."
+let notImpl v = failwith $"Not implemented yet. Email Max if you want this feature. {v}"
 let shouldntHappen arg =
     $"This shouldn't ever happen. If it does there's a bug. Details: {arg}" |> BugException |> raise
 
@@ -154,8 +154,11 @@ module List =
                     | e -> e
     let rec maxBy' f (lst: _ List) = lst |> Seq.map f |> Seq.max
     let rec minBy' f (lst: _ List) = lst |> Seq.map f |> Seq.min
-
-
+    let prefixes (lst: _ List) =
+        let rec recur = function
+            | [] -> []
+            | h::t -> t::(recur t)
+        lst::(recur lst)
 module Map =
     let keys (m:Map<_,_>) = m |> Seq.map(fun (KeyValue(k,_)) -> k)
     let values (m:Map<_,_>) = m |> Seq.map(fun (KeyValue(_,v)) -> v)

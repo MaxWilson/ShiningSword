@@ -126,10 +126,10 @@ module Menus =
         let label' = Metadata.label'
         grantAll [
             binary (CombatReflexes |> Trait)
-            (grant << chooseLevels) (Luck |> Trait, [Standard])
-            (grant << chooseLevels) ({ (tuple2bind1 "Enhanced Parry 1" 1 => EnhancedParry) with name = Some "Enhanced Parry 1" } |> Trait, [Broadsword; Rapier; Saber; Shortsword; Smallsword; MainGauche])
-            (grant << chooseWithStringInput)(WeaponBond |> Trait, "Describe")
-            (grant << chooseOne)({ (OneWeapon => WeaponMaster) with name = Some "Weapon Master" } |> Trait, [Broadsword; Rapier; Saber; Shortsword; Smallsword; MainGauche])
+            chooseLevels (Luck |> Trait, [Standard])
+            chooseLevels ({ (tuple2bind1 "Enhanced Parry 1" 1 => EnhancedParry) with name = Some "Enhanced Parry 1" } |> Trait, [Broadsword; Rapier; Saber; Shortsword; Smallsword; MainGauche])
+            chooseWithStringInput (WeaponBond |> Trait, "Describe")
+            chooseOne ({ (OneWeapon => WeaponMaster) with name = Some "Weapon Master" } |> Trait, [Broadsword; Rapier; Saber; Shortsword; Smallsword; MainGauche])
             ]
         budget 60 "Advantages" [
             chooseLevels(StatBonus HP, [1..6])

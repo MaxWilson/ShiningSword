@@ -8,6 +8,7 @@
     <Compile Include="DataStructures.Tests.fs" />
     <Compile Include="Packrat.Parsing.Tests.fs" />
     <Compile Include="Ribbit.Tests.fs" />
+    <Compile Include="Chargen.DungeonFantasy.Tests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
   <ItemGroup>
@@ -28,5 +29,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\src\Lib\Lib.fsproj" />
+    <ProjectReference Include="..\src\ShiningSword\ShiningSword.fsproj" />
   </ItemGroup>
 </Project>
