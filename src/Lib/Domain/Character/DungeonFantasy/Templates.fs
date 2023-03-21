@@ -47,6 +47,7 @@ type Metadata = { label: string option; keySegment: string option }
     with
     static member fresh = { label = None; keySegment = None }
     static member label' v = { Metadata.fresh with label = Some v; keySegment = Some v }
+    static member key' v = { Metadata.fresh with keySegment = Some v }
 type 't Many =
     | Aggregate of Metadata * 't Many list
     | ChoosePackage of (Metadata * 't Many) list
@@ -69,12 +70,12 @@ and 't OneHierarchy =
 type Create =
     static member binary v = Binary(Metadata.fresh, v)
     static member binaryf (v, formatter) = Binary(Metadata.label' (formatter v), v)
-    static member chooseOne (ctor, options, ?formatter) = ChooseLevels(Metadata.fresh, new Choose<_,_>(ctor, options, ?formatter=formatter))
-    static member chooseLevels(ctor, options, ?formatter) = ChooseLevels(Metadata.fresh, new Choose<_,_>(ctor, options, ?formatter=formatter))
-    static member choose2D(ctor, arg1Options, arg2Options) = Choose2D(Metadata.fresh, new Choose2D<_,_,_>(ctor, arg1Options, arg2Options))
-    static member chooseWithStringInput(ctor, placeholderText) = ChooseWithStringInput(Metadata.fresh, ctor, placeholderText)
+    static member chooseOne (ctor: Constructor<_,_>, options, ?formatter) = ChooseLevels(Metadata.key' ctor.name.Value, new Choose<_,_>(ctor, options, ?formatter=formatter))
+    static member chooseLevels(ctor: Constructor<_,_>, options, ?formatter) = ChooseLevels(Metadata.key' ctor.name.Value, new Choose<_,_>(ctor, options, ?formatter=formatter))
+    static member choose2D(ctor: Constructor<_,_>, arg1Options, arg2Options) = Choose2D(Metadata.key' ctor.name.Value, new Choose2D<_,_,_>(ctor, arg1Options, arg2Options))
+    static member chooseWithStringInput(ctor: Constructor<_,_>, placeholderText) = ChooseWithStringInput(Metadata.key' ctor.name.Value, ctor, placeholderText)
     static member grant (choice: 't OneResult) = Grant(Metadata.fresh, choice)
-    static member chooseOneFromHierarchy v = ChooseOneFromHierarchy(Metadata.fresh, v)
+    static member chooseOneFromHierarchy keySegment v = ChooseOneFromHierarchy(Metadata.key' keySegment, v)
     static member leaf v = Leaf(Metadata.fresh, v)
     static member interior v = Interior(Metadata.fresh, v)
 

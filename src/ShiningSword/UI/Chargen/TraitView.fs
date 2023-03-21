@@ -31,7 +31,6 @@ let dataBuilder =
     let extend (ctx: DataCtx) (meta:Metadata) =
         { ctx with prefix = keyOf ctx.prefix meta }
     let hasKey ctx key =
-        System.Console.Error.WriteLine $"hasKey rev({key |> List.rev}): {ctx.queue.ContainsKey key}"
         ctx.queue.ContainsKey key
     let has ctx meta =
         hasKey ctx (keyOf ctx.prefix meta)
@@ -116,8 +115,11 @@ let dataBuilder =
                 yield! choose2d.generate f |> unpack
             ]
         | ChooseWithStringInput(meta: Metadata, ctor: Constructor<string, 't>, placeholder: string) -> [
+            System.Console.Error.WriteLine $"ChooseOne: prefix={ctx.prefix}, meta.keySegment={meta.keySegment}: {has ctx meta}"
+            System.Console.Error.WriteLine $"""Is it there? {ctx.queue |> Map.tryFind ["Weapon Bond"; "Swashbuckler"] |> Option.defaultValue "Nope"}"""
             if has ctx meta then
                 let key = keyOf ctx.prefix meta
+                System.Console.Error.WriteLine $"{key} => {ctx.queue[key]} ==> {ctor.create(ctx.queue[key])}"
                 ctor.create(ctx.queue[key])
             ]
         | Grant(meta: Metadata, v: 't OneResult) ->
