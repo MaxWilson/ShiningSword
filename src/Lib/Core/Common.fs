@@ -122,7 +122,7 @@ module String =
         | Some(v:string) -> v.Trim().Split(' ') |> Seq.head
         | None -> input
     let trim (s:string) = s.Trim()
-
+    let isntWhitespace s = System.String.IsNullOrWhiteSpace(s) |> not
     // turn camel casing back into words with spaces, for display to user
     let uncamel = memoize (fun (str: string) ->
         let caps = ['A'..'Z'] |> Set.ofSeq

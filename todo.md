@@ -24,3 +24,7 @@ that we don't go over the max of N.
 * Budget costs on WeaponMaster don't quite work for OneWeapon and TwoWeapon.
 
 * Need some kind of a way to link Weapon of Choice for Enhanced Parry 1 vs 2-3 on Swashbuckler, so that it doesn't show up as [10]. Probably also want -/+ buttons.
+
+* need to have some kind of budgetary context to prevent selecting too-expensive disadvantages, sometimes.
+
+* need to finish adding disadvantages and skill packages.

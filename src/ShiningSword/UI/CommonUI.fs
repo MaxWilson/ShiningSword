@@ -11,3 +11,18 @@ let checkbox (id: string) (text:string) (isChecked, onClick) =
         Html.input [prop.id id; prop.type'.checkbox; prop.isChecked isChecked; prop.readOnly true; prop.onClick (onClick)]
         Html.label [prop.htmlFor id; prop.text text]
         ]
+
+[<ReactComponent>]
+let textEntryForm(placeholder, onFinished) =
+    let txt, update = React.useState ""
+    Html.form [
+        prop.children [
+            Html.input [prop.valueOrDefault txt; prop.type'.text; prop.placeholder placeholder; prop.onChange update]
+            Html.button [prop.type'.submit; prop.text "OK"]
+            ]
+        prop.onSubmit(fun e ->
+            e.preventDefault()
+            if txt |> String.isntWhitespace then
+                onFinished txt
+            )
+        ]
