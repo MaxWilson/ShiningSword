@@ -48,10 +48,13 @@ type Trait =
     | Jealousy of Severity
     | Lecherousness of Severity
     | Luck of LuckLevel
+    | Magery of int
     | Obsession of ObsessionSubject * Severity
     | OneEye
     | Overconfidence of Severity
     | PerfectBalance
+    | PowerInvestitureClerical of int
+    | PowerInvestitureDruidic of int
     | RapierWit
     | SenseOfDuty of Duty
     | Serendipity of int
@@ -72,6 +75,13 @@ type Skill =
     | Camouflage
     | Observation
 
+type Spell =
+    | Blink
+    | BlinkOther
+    | DeathVision
+    | Phantom
+    | Telepathy
+
 [<AutoOpen>]
 module Stats =
     open type Create
@@ -88,6 +98,7 @@ module Stats =
         Move: int Secondary
         SpeedTimesFour: int Secondary
         Dodge: int Secondary
+        Traits: Map<string, Trait> // traitName -> Trait details
         }
     let freshFrom(st, dx, iq, ht) =
         {   ST = primary st
@@ -102,6 +113,7 @@ module Stats =
             Move = secondary()
             SpeedTimesFour = secondary()
             Dodge = secondary()
+            Traits = Map.empty
             }
     let fresh = freshFrom(10, 10, 10, 10)
     let ST char = Eval.eval char.ST
@@ -142,13 +154,10 @@ module Data =
     type Chosen =
         | StatBonus of StatAddress * int
         | Trait of Trait
-        | Skill of Skill * StatAddress * Difficulty * level: int
-        | Spell of Skill * MagicSource * Difficulty * level: int
-
-    let traitName = function
-        | EveryOnesACritical -> "Every One's A Critical"
-        | v -> v.ToString() |> String.uncamel
-
+        | Skill of Skill  * level: int
+        | Spell of Spell * MagicSource * level: int
+    type SkillData = { stat: StatAddress; difficulty: Difficulty }
+    type SpellData = { difficulty: Difficulty }
     let traitCost trait1 =
         let (|Severity|) = function
             | Severe -> float >> ((*)2.0) >> int
@@ -181,10 +190,13 @@ module Data =
         | Jealousy(Severity sev) -> sev -10
         | Lecherousness(Severity sev) -> sev -15
         | Luck level -> match level with Standard -> 15 | Extraordinary -> 30 | Ridiculous -> 60
+        | Magery n -> 5 + 10 * n
         | Obsession(_, Severity sev) -> sev -10
         | OneEye -> -15
         | Overconfidence(Severity sev) -> sev -5
         | PerfectBalance -> 15
+        | PowerInvestitureClerical n -> 10 * n
+        | PowerInvestitureDruidic n -> 10 * n
         | RapierWit -> 5
         | SenseOfDuty duty -> match duty with AdventuringCompanions -> -5
         | Serendipity n -> n * 15
@@ -204,6 +216,17 @@ module Data =
             | TwoWeapon(w1, w2) -> 25
             | OneWeapon(w) -> 20
         | Wounded -> -5
+    let skillData = memoize (function
+        | Stealth -> { stat = DX; difficulty = Average }
+        | Camouflage -> { stat = IQ; difficulty = Easy }
+        | Weapon(Net) -> { stat = DX; difficulty = Hard }
+        | Observation -> { stat = Per; difficulty = Average }
+        | _ -> notImpl()
+        )
+    let spellData = memoize (function
+        | Telepathy | Phantom | BlinkOther -> { difficulty = VeryHard }
+        | _ -> { difficulty = Hard }
+        )
 
     let cost = function
         | Trait tr -> traitCost tr
@@ -214,7 +237,7 @@ module Data =
         | StatBonus(FP, n) -> n * 3
         | StatBonus(Dodge, _) -> shouldntHappen "You're not supposed to buy Dodge as a stat, only as Enhanced Dodge. How did the player get this? It's a bug."
         | StatBonus(SM, _) -> shouldntHappen "You're not supposed to buy more SM as a stat. How did the player get this? It's a bug."
-        | Skill(_, _, _, n) | Spell(_, _, _, n) ->
+        | Skill(_, n) | Spell(_, _, n) ->
             if n > 2 then 4 * (n - 2)
             elif n = 2 then 2
             else 1
@@ -239,8 +262,11 @@ module Ctor =
     let Jealousy = namedCtor(nameof(Jealousy), Jealousy, function Jealousy v -> Some v | _ -> None)
     let Lecherousness = namedCtor(nameof(Lecherousness), Lecherousness, function Lecherousness v -> Some v | _ -> None)
     let Luck = namedCtor(nameof(Luck), Luck, function Luck v -> Some v | _ -> None)
+    let Magery = namedCtor(nameof(Magery), Magery, function Magery v -> Some v | _ -> None)
     let Obsession = namedCtor(nameof(Obsession), Obsession, function Obsession(obsession, severity) -> Some (obsession, severity) | _ -> None)
     let Overconfidence = namedCtor(nameof(Overconfidence), Overconfidence, function Overconfidence v -> Some v | _ -> None)
+    let PowerInvestitureClerical = namedCtor(nameof(PowerInvestitureClerical), PowerInvestitureClerical, function PowerInvestitureClerical v -> Some v | _ -> None)
+    let PowerInvestitureDruidic = namedCtor(nameof(PowerInvestitureDruidic), PowerInvestitureDruidic, function PowerInvestitureDruidic v -> Some v | _ -> None)
     let SenseOfDuty = namedCtor(nameof(SenseOfDuty), SenseOfDuty, function SenseOfDuty v -> Some v | _ -> None)
     let Serendipity = namedCtor(nameof(Serendipity), Serendipity, function Serendipity v -> Some v | _ -> None)
     let ShortAttentionSpan = namedCtor(nameof(ShortAttentionSpan), ShortAttentionSpan, function ShortAttentionSpan v -> Some v | _ -> None)
@@ -255,3 +281,89 @@ module Ctor =
     let OneWeapon = namedCtor(nameof(OneWeapon), OneWeapon, function OneWeapon(v) -> Some (v) | _ -> None)
     let TwoWeapon = namedCtor(nameof(TwoWeapon), TwoWeapon, function TwoWeapon(weapon1, weapon2) -> Some (weapon1, weapon2) | _ -> None)
 
+open Data
+open Ctor
+type Format() =
+    static let boost char (source: MagicSource) =
+        let lookup (ctor: Constructor<int, Trait>) =
+            match char.Traits |> Map.tryFind ctor.name.Value with
+            | Some data -> ctor.extract(data)
+            | _ -> None
+        match source with
+        | Clerical -> PowerInvestitureClerical
+        | Druidic -> PowerInvestitureDruidic
+        | Wizardly -> Magery
+        |> lookup
+        |> Option.defaultValue 0
+    static let ofDifficulty level = function
+        | Easy -> level - 1 // e.g. 1 point gives +0
+        | Average -> level - 2 // e.g. 1 point gives +1
+        | Hard -> level - 3
+        | VeryHard -> level - 4
+    static let traitName = function
+        | EveryOnesACritical -> "Every One's A Critical"
+        | Luck(level) ->
+            match level with
+            | Standard -> "Luck"
+            | lvl -> $"{lvl} Luck"
+        | EnhancedParry(n, weapon) ->
+            $"Enhanced Parry {n} ({weapon})"
+        | v -> v.ToString() |> String.uncamel
+    static let skillName = function
+        | Weapon(weapon) -> weapon.ToString() |> String.uncamel
+        | v -> v.ToString() |> String.uncamel
+    static let spellName name = String.uncamel (name.ToString())
+
+    static member name (v: Trait) = traitName v
+    static member name v =
+        match v with
+        | StatBonus(stat, n) -> $"{stat} %+d{n}"
+        | Trait t -> Format.name t
+        | Skill(name, level) ->
+            let skill = Data.skillData name
+            let relativeBonus = (ofDifficulty level skill.difficulty)
+            $"{skillName name}/{skill.stat} %+d{relativeBonus}"
+        | Spell(name, source, level) ->
+            let relativeBonus = (ofDifficulty level (Data.spellData name).difficulty)
+            $"{spellName name} (IQ %+d{relativeBonus})"
+    static member value (char:Attributes) = function
+        | StatBonus(stat, n) ->
+            match stat with
+            | SpeedTimesFour ->
+                $"{stat} {Stats.Speed char |> Eval.sum} (%+d{n/4})"
+            | _ ->
+                let property = 
+                    match stat with
+                        | ST -> Stats.ST
+                        | DX -> Stats.DX
+                        | IQ -> Stats.IQ
+                        | HT -> Stats.HT
+                        | Will -> Stats.Will
+                        | Per -> Stats.Per
+                        | SM -> Stats.SM
+                        | HP -> Stats.HP
+                        | FP -> Stats.FP
+                        | Move -> Stats.Move
+                        | SpeedTimesFour -> shouldntHappen()
+                        | Dodge -> Stats.Will
+                $"{stat} {(property char |> Eval.sum) + n} (%+d{n})"
+        | Trait t -> Format.name t
+        | Skill(name, level) ->
+            let baseLevel =
+                let property = 
+                    match (Data.skillData name).stat with
+                        | ST -> Stats.ST
+                        | DX -> Stats.DX
+                        | IQ -> Stats.IQ
+                        | HT -> Stats.HT
+                        | Per -> Stats.Per
+                        | Will -> Stats.Will
+                        | otherwise -> shouldntHappen otherwise // skills are only supposed to be based off of the six main stats, and usually just DX/IQ
+                property char |> Eval.sum
+            let skill = Data.skillData name
+            let relativeBonus = (ofDifficulty level skill.difficulty)
+            $"{skillName name}-{baseLevel + relativeBonus} ({skill.stat} %+d{relativeBonus})"
+        | Spell(name, source, level) ->
+            let boost1, diff = boost char source, (ofDifficulty level (Data.spellData name).difficulty)
+            let relativeBonus = boost char source + (ofDifficulty level (Data.spellData name).difficulty)
+            $"{spellName name}-{(Stats.IQ char |> Eval.sum) + relativeBonus} (IQ %+d{relativeBonus})"

@@ -21,6 +21,16 @@ let shouldntHappen arg =
 type Any = obj
 let viaAny<'t>() = box<'t>, unbox<'t>
 
+let memoize f =
+    let mutable cache = Map.empty
+    fun x ->
+        match cache |> Map.tryFind x with
+        | Some v -> v
+        | None ->
+            let v = f x
+            cache <- cache |> Map.add x v
+            v
+
 let emptyString = System.String.Empty
 let toString x = x.ToString()
 let betweenInclusive a b n = min a b <= n && n <= max a b
@@ -114,7 +124,7 @@ module String =
     let trim (s:string) = s.Trim()
 
     // turn camel casing back into words with spaces, for display to user
-    let uncamel (str: string) =
+    let uncamel = memoize (fun (str: string) ->
         let caps = ['A'..'Z'] |> Set.ofSeq
         let lower = ['a'..'z'] |> Set.ofSeq
         let mutable spaceNeededBefore = []
@@ -133,7 +143,7 @@ module String =
             | [] -> workingCopy
             | index::rest ->
                 recur $"{workingCopy[0..(index-1)]} {workingCopy[index..]}" rest
-        recur str spaceNeededBefore
+        recur str spaceNeededBefore)
 
 module List =
     let join delimiter (lst: _ list) =

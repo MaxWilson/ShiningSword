@@ -34,6 +34,7 @@ let dataBuilder =
         ctx.queue.ContainsKey key
     let has ctx meta =
         hasKey ctx (keyOf ctx.prefix meta)
+
     // modifies ctx so that the given metadata will consider to have been chosen, no matter what the user has selected
     let ctxAugment meta ctx =
         let key = (keyOf ctx.prefix meta)
@@ -57,8 +58,6 @@ let dataBuilder =
                     items |> List.fold ctxGrantOne ctx
                 | otherwise -> notImpl $"Unexpected grant type: '{otherwise}'" // I don't think we create any other grant types yet
 
-    //let fulfilled key options = options |> List.tryFind (fun pick -> has(keyOf key pick))
-    //let fulfilledFilter key options = options |> List.filter (fun pick -> has(keyOf key pick))
     let rec ofMany (ctx: DataCtx) = function
         | Aggregate(meta: Metadata, manyList: 't Many list) ->
             manyList |> List.collect (ofMany (extend ctx meta))
@@ -514,6 +513,22 @@ let reactBuilder : ReactCtx -> Chosen Many -> ReactElement =
                     items |> List.fold ctxGrantOne ctx
                 | otherwise -> notImpl $"Unexpected grant type: '{otherwise}'" // I don't think we create any other grant types yet
 
+    let chkId (key:Key) (v:'t) =
+        ("chk" + (key |> String.concat "-") + (v.ToString())).Replace(" ", "")
+
+    //let binary (isGrant, cost, prefix: Key, (label:string option), value) =
+    //    match value with
+    //    | Data.Trait trait1 as value ->
+    //        let label = label |> Option.defaultWith (fun _ -> trait1 |> traitName)
+    //        let key = keyOf prefix value
+    //        let isQueued = isGrant || queue |> Map.containsKey key
+    //        // if it's a grant, then we don't care what its chkId is because clicking it will have no effect.
+    //        // reserve the "real" id for something later.
+    //        let chkId = chkId key trait1
+    //        checkbox(isQueued, label, cost, key, Some chkId, fun () -> [])
+    //    | _ -> notImpl() // probably not needed--why would we ever have a binary skill/attribute mod instead of a level?
+
+
     //let fulfilled key options = options |> List.tryFind (fun pick -> has(keyOf key pick))
     //let fulfilledFilter key options = options |> List.filter (fun pick -> has(keyOf key pick))
     let rec ofMany (ctx: ReactCtx) = function
@@ -593,7 +608,8 @@ let reactBuilder : ReactCtx -> Chosen Many -> ReactElement =
             if has ctx meta then
                 yield! (hierarchy |> List.collect (ofHierarchy (extend ctx meta)))
             ]
-    ofMany
+    //ofMany
+    notImpl()
 
 [<ReactComponent>]
 let TraitView (profession: Templates.Package<Profession>, char: Character, queue: Map<Key, string>, dispatch: TraitMsg -> unit) =
