@@ -34,7 +34,7 @@ module PCs =
     let key = "PCs"
     let cacheRead, cacheInvalidate = Cache.create()
     let read (): CharacterSheet array =
-        cacheRead (fun _ -> read key Array.empty) ()
+        cacheRead (read key) Array.empty
     let write (v: CharacterSheet array) =
         write key v
         cacheInvalidate()
@@ -42,5 +42,5 @@ module PCs =
 module Graveyard =
     let key = "Graveyard"
     let cacheRead, cacheInvalidate = Cache.create()
-    let read (): CharacterSheet array = cacheRead (fun _ -> read key Array.empty) ()
+    let read (): CharacterSheet array = cacheRead (read key) Array.empty
     let write (v: CharacterSheet array) = cacheInvalidate(); write key v
