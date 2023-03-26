@@ -778,7 +778,7 @@ module ReactBuilder =
                 else
                     let sendData (txt: string) =
                         QueueData(ctx.prefix, txt) |> ctx.dispatch
-                    textEntryForm(placeholder, sendData)
+                    TextEntryForm(placeholder, sendData)
             [   checkbox(ctx, meta, Some label, cost, None, Some textEntry)
                 ] |> visuallyGroup None
         | Grant(meta: Metadata, v: _ OneResult) ->

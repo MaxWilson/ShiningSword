@@ -13,7 +13,7 @@ let checkbox (id: string) (text:string) (isChecked, onClick) =
         ]
 
 [<ReactComponent>]
-let textEntryForm(placeholder, onFinished) =
+let TextEntryForm(placeholder, onFinished) =
     let txt, update = React.useState ""
     Html.form [
         prop.children [
