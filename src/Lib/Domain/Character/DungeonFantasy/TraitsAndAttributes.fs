@@ -300,7 +300,16 @@ type Format() =
         | Average -> level - 2 // e.g. 1 point gives +1
         | Hard -> level - 3
         | VeryHard -> level - 4
-    static let traitName = function
+    static let traitName trait1 =
+        let selfControl(baseName, severity) =
+            let sev =
+                match severity with
+                | Mild -> "15 (Mild)"
+                | Moderate -> "12 (Moderate)"
+                | Serious -> "9 (Serious)"
+                | Severe -> "6 (Severe)"
+            $"{String.uncamel baseName}-{sev}"
+        match trait1 with
         | EveryOnesACritical -> "Every One's A Critical"
         | Luck(level) ->
             match level with
@@ -308,6 +317,18 @@ type Format() =
             | lvl -> $"{lvl} Luck"
         | EnhancedParry(n, weapon) ->
             $"Enhanced Parry {n} ({weapon})"
+        | CompulsiveCarousing sev -> selfControl(nameof(CompulsiveCarousing), sev)
+        | CompulsiveGambling sev -> selfControl(nameof(CompulsiveGambling), sev)
+        | CompulsiveSpending sev -> selfControl(nameof(CompulsiveSpending), sev)
+        | Greed sev -> selfControl(nameof(Greed), sev)
+        | Impulsiveness sev -> selfControl(nameof(Impulsiveness), sev)
+        | Jealousy sev -> selfControl(nameof(Jealousy), sev)
+        | Lecherousness sev -> selfControl(nameof(Lecherousness), sev)
+        | Obsession(subject,  sev) -> $"{selfControl(nameof(Obsession), sev)} ({subject.ToUncameledString()})"
+        | Overconfidence sev -> selfControl(nameof(Overconfidence), sev)
+        | ShortAttentionSpan sev -> selfControl(nameof(ShortAttentionSpan), sev)
+        | Trickster sev -> selfControl(nameof(Trickster), sev)
+        | StrikingST n -> $"{nameof(Trait.StrikingST) |> String.uncamel} %+d{n}"
         | v -> v.ToString() |> String.uncamel
     static let skillName = function
         | Weapon(weapon) -> weapon.ToString() |> String.uncamel
@@ -332,7 +353,7 @@ type Format() =
             | SpeedTimesFour ->
                 $"{stat} {Stats.Speed char |> Eval.sum} (%+d{n/4})"
             | _ ->
-                let property = 
+                let property =
                     match stat with
                         | ST -> Stats.ST
                         | DX -> Stats.DX
@@ -350,7 +371,7 @@ type Format() =
         | Trait t -> Format.name t
         | Skill(name, level) ->
             let baseLevel =
-                let property = 
+                let property =
                     match (Data.skillData name).stat with
                         | ST -> Stats.ST
                         | DX -> Stats.DX

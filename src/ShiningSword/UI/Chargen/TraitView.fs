@@ -674,10 +674,10 @@ module ReactBuilder =
                                         if ix > 0 then
                                             setChoice (ix-1)
                                         elif ix = 0 then
-                                            printfn $"{(Unqueue rootKey)}"
                                             ctx.dispatch (Unqueue rootKey) // unqueue the root item because the user doesn't want the trait at all
 
-                                    let txt = $"{ctor.name.Value} {args[ix] |> snd}"
+                                    let trait1 = ctor.create (args[ix] |> fst)
+                                    let txt = $"{trait1 |> Format.name} [{cost trait1}]"
                                     txt, React.fragment [
                                             if args.Length > 1 then
                                                 Html.button [prop.text "-"; prop.onClick decr]
@@ -766,7 +766,7 @@ module ReactBuilder =
             [   choose2d.generate f |> unpack
                 ] |> visuallyGroup None
         | ChooseWithStringInput(meta: Metadata, ctor: Constructor<string, _>, placeholder: string) ->
-            let cost = DataBuilder.ofOne (toDataCtx ctx) one |> List.tryHead |> Option.map cost
+            let cost = ctor.create "" |> cost
             let ctx = extend ctx meta
             let label =
                 if isSatisfied ctx && String.isntWhitespace ctx.queue[ctx.prefix] then
@@ -779,7 +779,7 @@ module ReactBuilder =
                     let sendData (txt: string) =
                         QueueData(ctx.prefix, txt) |> ctx.dispatch
                     TextEntryForm(placeholder, sendData)
-            [   checkbox(ctx, meta, Some label, cost, None, Some textEntry)
+            [   checkbox(ctx, meta, Some label, Some cost, None, Some textEntry)
                 ] |> visuallyGroup None
         | Grant(meta: Metadata, v: _ OneResult) ->
             v |> ofOne (ctxGrantOne (ctx |> ctxAugment meta) v)
