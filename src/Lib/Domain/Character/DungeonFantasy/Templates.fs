@@ -67,8 +67,8 @@ and 't OneResult =
     | Grant of Metadata * 't OneResult
     | ChooseOneFromHierarchy of Metadata * 't OneHierarchy
 and 't OneHierarchy =
-    | Leaf of Metadata * 't
-    | Interior of Metadata * 't OneHierarchy list
+    | Const of Metadata * 't
+    | Constructed of Metadata * 't Choose
 
 type Create =
     static member binary v = Binary(Metadata.key' (v.ToString()), v)
