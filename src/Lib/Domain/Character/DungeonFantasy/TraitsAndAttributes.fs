@@ -330,6 +330,11 @@ type Format() =
         | Trickster sev -> selfControl(nameof(Trickster), sev)
         | StrikingST n -> $"{nameof(Trait.StrikingST) |> String.uncamel} %+d{n}"
         | Vow subject -> $"Vow ({subject.ToUncameledString()})"
+        | WeaponMaster(v) ->
+            match v with
+            | OneWeapon w -> $"Weapon Master ({w})"
+            | TwoWeapon(w1, w2) -> $"Weapon Master ({w1}, {w2})"
+            | _ -> $"Weapon Master ({v})"
         | v -> v.ToString() |> String.uncamel
     static let skillName = function
         | Weapon(weapon) -> weapon.ToString() |> String.uncamel

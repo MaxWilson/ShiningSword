@@ -39,25 +39,25 @@ let (|PickedArg|_|) isSatisfied = function
 // dispatching it to the underlying character.
 [<AutoOpen>]
 module DataBuilder =
-    type DataCtx = { prefix: Key; queue: Map<Key, string>; includePotentials: bool }
-        with static member fresh = { prefix = []; queue = Map.empty; includePotentials = false }
+    type DataCtx = { searchPrefix: Key; queue: Map<Key, string>; includePotentials: bool }
+        with static member fresh = { searchPrefix = []; queue = Map.empty; includePotentials = false }
     let keyOf (prefix: Key) (meta: Metadata) =
         match meta.keySegment with
         | Some key ->
             key::prefix
         | None -> prefix
     let extend (ctx: DataCtx) (meta:Metadata) =
-        { ctx with prefix = keyOf ctx.prefix meta }
+        { ctx with searchPrefix = keyOf ctx.searchPrefix meta }
     let hasKey ctx key =
         ctx.queue.ContainsKey key
     let has ctx meta =
-        hasKey ctx (keyOf ctx.prefix meta)
+        hasKey ctx (keyOf ctx.searchPrefix meta)
     let isSatisfied ctx =
-        hasKey ctx ctx.prefix
+        hasKey ctx ctx.searchPrefix
 
     // modifies ctx so that the given metadata will consider to have been chosen, no matter what the user has selected
     let ctxAugment meta ctx =
-        let key = (keyOf ctx.prefix meta)
+        let key = (keyOf ctx.searchPrefix meta)
         if ctx.queue.ContainsKey key |> not then
             { ctx with queue = ctx.queue |> Map.add key "" }
         else ctx
@@ -147,7 +147,7 @@ module DataBuilder =
             ]
         | ChooseWithStringInput(meta: Metadata, ctor: Constructor<string, 't>, placeholder: string) -> [
             if has ctx meta || ctx.includePotentials then
-                let key = keyOf ctx.prefix meta
+                let key = keyOf ctx.searchPrefix meta
                 ctor.create(ctx.queue[key])
             ]
         | Grant(meta: Metadata, v: 't OneResult) ->
@@ -183,28 +183,28 @@ let VisuallyGroup label (elements: ReactElement list) =
 
 [<AutoOpen>]
 module ReactBuilder =
-    type ReactCtx = { char: Character; prefix: Key; queue: Map<Key, string>; dispatch: TraitMsg -> unit; collapsing: bool }
+    type ReactCtx = { char: Character; searchPrefix: Key; queue: Map<Key, string>; dispatch: TraitMsg -> unit; collapsing: bool }
         with
-        static member fresh char = { char = char; prefix = []; queue = Map.empty; dispatch = ignore; collapsing = false }
-        static member create(char, queue, dispatch: TraitMsg -> unit) = { char = char; prefix = []; queue = queue; dispatch = dispatch; collapsing = false }
+        static member fresh char = { char = char; searchPrefix = []; queue = Map.empty; dispatch = ignore; collapsing = false }
+        static member create(char, queue, dispatch: TraitMsg -> unit) = { char = char; searchPrefix = []; queue = queue; dispatch = dispatch; collapsing = false }
     let toDataCtx (ctx: ReactCtx) : DataCtx =
-        { prefix = ctx.prefix; queue = ctx.queue; includePotentials = false }
+        { searchPrefix = ctx.searchPrefix; queue = ctx.queue; includePotentials = false }
     let keyOf (prefix: Key) (meta: Metadata) : Key =
         match meta.keySegment with
         | Some key ->
             key::prefix
         | None -> prefix
     let extend (ctx: ReactCtx) (meta:Metadata) =
-        { ctx with prefix = keyOf ctx.prefix meta }
+        { ctx with searchPrefix = keyOf ctx.searchPrefix meta }
     let hasKey ctx key =
         ctx.queue.ContainsKey key
     let has ctx meta =
-        hasKey ctx (keyOf ctx.prefix meta)
+        hasKey ctx (keyOf ctx.searchPrefix meta)
     let isSatisfied ctx =
-        hasKey ctx ctx.prefix
+        hasKey ctx ctx.searchPrefix
     // modifies ctx so that the given metadata will consider to have been chosen, no matter what the user has selected
     let ctxAugment meta ctx =
-        let key = (keyOf ctx.prefix meta)
+        let key = (keyOf ctx.searchPrefix meta)
         if ctx.queue.ContainsKey key |> not then
             { ctx with queue = ctx.queue |> Map.add key "" }
         else ctx
@@ -247,11 +247,11 @@ module ReactBuilder =
     #if DEBUG
         // assume: ctx already has meta in it
         match meta.keySegment with
-        | Some k when ctx.prefix.Head <> k ->
-            shouldntHappen $"The ctx passed to checkbox should always already be extended with meta (prefix={ctx.prefix}, meta.keySegment={k})"
+        | Some k when ctx.searchPrefix.Head <> k ->
+            shouldntHappen $"The ctx passed to checkbox should always already be extended with meta (prefix={ctx.searchPrefix}, meta.keySegment={k})"
         | _ -> ()
     #endif
-        let key = ctx.prefix
+        let key = ctx.searchPrefix
         let chkId = (chkId key)
         let isChecked = isSatisfied ctx // do not use has ctx meta! because ctx already has meta in it.
         let label' = label' |> Option.defaultWith (fun _ -> meta.label |> Option.defaultWith (fun _ -> meta.keySegment.Value))
@@ -315,7 +315,7 @@ module ReactBuilder =
             let cost' = DataBuilder.ofOne (toDataCtx ctx) one |> List.tryHead |> Option.map cost
             let ctx = { extend ctx meta with collapsing = true }
             let rootctx = ctx
-            let rootKey = rootctx.prefix
+            let rootKey = rootctx.searchPrefix
             let rootMeta = meta
 
             let pack, unpack = viaAny<ReactElement>()
@@ -333,7 +333,7 @@ module ReactBuilder =
                                     let cost = cost trait1
                                     checkbox(ctx, meta, Some txt, Some cost, None, None)
                                 let levels ctx ix =
-                                    let keyOf j = keyOf ctx.prefix (Metadata.key' (args[j] |> snd))
+                                    let keyOf j = keyOf ctx.searchPrefix (Metadata.key' (args[j] |> snd))
                                     let setChoice ix' =
                                         if betweenInclusive 0 (args.Length - 1) ix' then
                                             ctx.dispatch (Unqueue (keyOf ix))
@@ -373,7 +373,7 @@ module ReactBuilder =
             let cost' = DataBuilder.ofOne (toDataCtx ctx) one |> List.tryHead |> Option.map cost
             let ctx = { extend ctx meta with collapsing = true }
             let rootctx = ctx
-            let rootKey = rootctx.prefix
+            let rootKey = rootctx.searchPrefix
             let rootMeta = meta
             let toggleChoice key select =
                 if select then
@@ -394,7 +394,7 @@ module ReactBuilder =
                                     let ctx = extend ctx meta
                                     checkbox(ctx, meta, Some txt, None, None, None)
                                 let levels (args: _ list) ctx ix =
-                                    let keyOf j = keyOf ctx.prefix (Metadata.key' (args[j] |> snd))
+                                    let keyOf j = keyOf ctx.searchPrefix (Metadata.key' (args[j] |> snd))
                                     let setChoice ix' =
                                         if betweenInclusive 0 (args.Length - 1) ix' then
                                             ctx.dispatch (Unqueue (keyOf ix))
@@ -438,31 +438,33 @@ module ReactBuilder =
             let cost = ctor.create "" |> cost
             let ctx = extend ctx meta
             let label =
-                if isSatisfied ctx && String.isntWhitespace ctx.queue[ctx.prefix] then
-                    $"{ctor.name} ({ctx.queue[ctx.prefix]})"
+                if isSatisfied ctx && String.isntWhitespace ctx.queue[ctx.searchPrefix] then
+                    $"{ctor.name} ({ctx.queue[ctx.searchPrefix]})"
                 else $"{ctor.name}"
                 |> String.uncamel
             let textEntry () =
-                if String.isntWhitespace ctx.queue[ctx.prefix] then Html.div []
+                if String.isntWhitespace ctx.queue[ctx.searchPrefix] then Html.div []
                 else
                     let sendData (txt: string) =
-                        QueueData(ctx.prefix, txt) |> ctx.dispatch
+                        QueueData(ctx.searchPrefix, txt) |> ctx.dispatch
                     TextEntryForm(placeholder, sendData)
             [   checkbox(ctx, meta, Some label, Some cost, None, Some textEntry)
                 ] |> VisuallyGroup None
         | Grant(meta: Metadata, v: _ OneResult) ->
             v |> ofOne (ctxGrantOne (ctx |> ctxAugment meta) v)
         | ChooseOneFromHierarchy(meta: Metadata, hierarchy: _ OneHierarchy) ->
-            hierarchy |> ofHierarchy (extend ctx meta) |> placeholder
+            let choice = DataBuilder.ofOne (toDataCtx ctx) one |> List.tryHead
+            let cost' = choice |> Option.map cost
+            match choice with
+            | None ->
+                checkbox(extend ctx meta, meta, None, cost', None, Some (fun () -> hierarchy |> ofHierarchy (extend ctx meta)))
+            | Some trait1 ->
+                checkbox(extend ctx meta, meta, Some(Format.value trait1), cost', None, None)
     and ofHierarchy (ctx: ReactCtx) = function
-        | Leaf(meta: Metadata, v) -> [
-            if has ctx meta then
-                v
-            ]
-        | Interior(meta: Metadata, hierarchy: _ OneHierarchy list) -> [
-            if has ctx meta then
-                yield! (hierarchy |> List.collect (ofHierarchy (extend ctx meta)))
-            ]
+        | Leaf(meta: Metadata, v) ->
+            checkbox(extend ctx meta, meta, Some(Format.value ctx.char.stats v), Some (cost v), None, None)
+        | Interior(meta: Metadata, hierarchy: _ OneHierarchy list) ->
+            VisuallyGroup None (hierarchy |> List.map (ofHierarchy (extend ctx meta)))
     let reactBuilder : ReactCtx -> Chosen Many -> ReactElement =
         ofMany
 
