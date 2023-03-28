@@ -182,7 +182,7 @@ module Menus =
             Some -15,
                 [   chooseOne (CodeOfHonor |> Trait, [Gentlemans; Outlaws])
                     chooseLevels (tuple2bind1 "Become best swordsman in the world" BecomeBestSwordsman => Obsession |> Trait, severity)
-                    chooseOne (Vow |> Trait, [UseOnlyWeaponOfChoice; NeverRefuseAChallengeToCombat; ChallengeEverySwordsmanToCombat; NeverWearArmor])
+                    chooseOne (Vow |> Trait, [UseOnlyWeaponOfChoice; NeverRefuseAChallengeToCombat; ChallengeEverySwordsmanToCombat; NeverWearArmor], (fun (_, v) -> v.ToUncameledString()))
                     ]
             Some -35,
                 [   chooseLevels (Chummy |> Trait, [ChummyLevel.Standard; Gregarious])

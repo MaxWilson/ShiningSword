@@ -329,6 +329,7 @@ type Format() =
         | ShortAttentionSpan sev -> selfControl(nameof(ShortAttentionSpan), sev)
         | Trickster sev -> selfControl(nameof(Trickster), sev)
         | StrikingST n -> $"{nameof(Trait.StrikingST) |> String.uncamel} %+d{n}"
+        | Vow subject -> $"Vow ({subject.ToUncameledString()})"
         | v -> v.ToString() |> String.uncamel
     static let skillName = function
         | Weapon(weapon) -> weapon.ToString() |> String.uncamel
