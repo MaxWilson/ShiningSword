@@ -52,6 +52,33 @@ type Metadata = { label: string option; keySegment: string option }
     static member label' v = { Metadata.fresh with label = Some v; keySegment = Some v }
     static member labelOnly v = { Metadata.fresh with label = Some v }
     static member key' v = { Metadata.fresh with keySegment = Some v }
+
+type ChooseCtorArg<'arg, 't> =
+    | Const of Metadata * 't
+    | ConstructFrom of Metadata * n:int * Constructor<'arg list, 't> * 'arg list
+
+type 'trait1 ChooseChoice =
+    abstract generate: Polymorphic<Constructor<Any, 'trait1> * LabeledChoiceOption, Any> -> Any
+
+type ChooseChoice<'arg, 'trait1>(ctor: Constructor<'arg, 'trait1>, values: ChooseCtorArg<'arg, 't> ChoiceOption, ?formatter: string * 'arg -> string) =
+    let packArg, unpackArg = viaAny<'arg>()
+    let boxedCtor: Constructor<Any, 'trait1> = { name = ctor.name; create = (unpackArg >> ctor.create); extract = ctor.extract >> Option.map packArg }
+    let boxedValuesAndLabels: (Any * string) list =
+        [   for v in snd values do
+                match v with
+                | Const(meta, arg) ->
+                    packArg arg, match formatter with Some format -> format(ctor.name.Value, arg) | None -> $"{v}"
+                | ConstructFrom(meta, n, argCtor, inputs) ->
+                    notImpl()
+            ]
+    interface 'trait1 ChooseChoice with
+        member this.generate (f: Polymorphic<Constructor<Any, 'trait1> * LabeledChoiceOption, Any>) =
+            f.Apply(boxedCtor, (fst values, boxedValuesAndLabels))
+
+let constant(meta:Metadata, v: 'arg) = Const(meta, v)
+let chooseN(meta:Metadata,n:int,ctor: ('input list -> 'arg),lst: 'input list) = notImpl()
+let chooseChoice(ctor: Constructor<'arg,Chosen>, _: _ list) = notImpl()
+
 type 't Many =
     | Aggregate of Metadata * 't Many list
     | ChoosePackage of (Metadata * 't Many) list
@@ -65,10 +92,7 @@ and 't OneResult =
     | Choose2D of Metadata * 't Choose2D
     | ChooseWithStringInput of Metadata * Constructor<string, 't> * placeholder:string
     | Grant of Metadata * 't OneResult
-    | ChooseOneFromHierarchy of Metadata * 't OneHierarchy
-and 't OneHierarchy =
-    | Const of Metadata * 't
-    | Constructed of Metadata * 't Choose
+    | ChooseCtor of Metadata * 't ChooseCtor
 
 type Create =
     static member binary v = Binary(Metadata.key' (v.ToString()), v)
@@ -80,9 +104,7 @@ type Create =
     static member selection options = (Selection, options)
     static member chooseWithStringInput(ctor: Constructor<_,_>, placeholderText) = ChooseWithStringInput(Metadata.key' ctor.name.Value, ctor, placeholderText)
     static member grant (choice: 't OneResult) = Grant(Metadata.fresh, choice)
-    static member chooseOneFromHierarchy keySegment v = ChooseOneFromHierarchy(Metadata.key' keySegment, v)
-    static member leaf v = Leaf(Metadata.fresh, v)
-    static member interior v = Interior(Metadata.fresh, v)
+    static member chooseCtor v = notImpl()
 
     static member aggregate choices = Aggregate(Metadata.fresh, choices)
     static member aggregate (label: string) = fun choices -> Aggregate(Metadata.label' label, choices)
@@ -162,21 +184,18 @@ module Menus =
             binary(Trait SpringingAttack)
             chooseLevels(StrikingST |> Trait, [1..2], showBonuses)
             chooseWithStringInput(TrademarkMove |> Trait, "Describe maneuver, weapon, hit locations, Rapid or Deceptive Strike")
-            ChooseOneFromHierarchy(label' "Weapon Master", Interior(label' "Weapon master", [
-                Leaf(label' "(All)", Trait.WeaponMaster(WeaponMasterFocus.All) |> Trait)
-                Leaf(label' "(Swords)", Trait.WeaponMaster(WeaponMasterFocus.Swords) |> Trait)
-                Leaf(label' "(Fencing Weapons)", Trait.WeaponMaster(WeaponMasterFocus.FencingWeapons) |> Trait)
-                Interior(label' "(Weapon of choice)", [
-                    for weapon in swashMeleeWeapons do
-                        Leaf(label' $"({weapon})", Trait.WeaponMaster(WeaponMasterFocus.OneWeapon(weapon)) |> Trait)
-                    ])
-                Interior(label' "Two-weapon", [
-                    for weapon in swashMeleeWeapons do
-                        for weapon2 in [Shortsword; Smallsword; MainGauche; Knife] do
-                        if weapon <> weapon2 then
-                            Leaf(label' $"({weapon} and {weapon2})", Trait.WeaponMaster(WeaponMasterFocus.TwoWeapon(weapon, weapon2)) |> Trait)
-                    ])
-                ]))
+            chooseChoice(WeaponMaster |> Trait,
+                [
+                constant(label' "(All)", WeaponMasterFocus.All)
+                constant(label' "(Swords)", WeaponMasterFocus.Swords)
+                constant(label' "(Fencing Weapons)", WeaponMasterFocus.FencingWeapons)
+                chooseN(label' "(Weapon of choice)" , 1,
+                    WeaponMasterFocus.OneWeapon.create << List.head,
+                    swashMeleeWeapons)
+                chooseN(label' "(Weapon of choice)", 2,
+                    WeaponMasterFocus.TwoWeapon.create << (function [x,y] -> x,y | otherwise -> shouldntHappen otherwise),
+                    swashMeleeWeapons)
+                ])
             ]
         nestedBudgets -50 "Disadvantages" [
             Some -15,

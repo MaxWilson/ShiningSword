@@ -37,3 +37,4 @@ let map = Map.ofList [
     ["OneWeapon";"Weapon Master"; "Advantages"; "Swashbuckler"], ""
     ]
 map |> clearUnder ["Weapon Master"; "Advantages"; "Swashbuckler"]
+
