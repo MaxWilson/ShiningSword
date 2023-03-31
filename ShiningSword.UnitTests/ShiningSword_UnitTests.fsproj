@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
@@ -28,7 +28,6 @@
     <PackageReference Include="YoloDev.Expecto.TestSdk" Version="0.13.3" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\src\Lib\Lib.fsproj" />
     <ProjectReference Include="..\src\ShiningSword\ShiningSword.fsproj" />
   </ItemGroup>
 </Project>
