@@ -286,7 +286,7 @@ open Ctor
 type Format() =
     static let boost char (source: MagicSource) =
         let lookup (ctor: Constructor<int, Trait>) =
-            match char.Traits |> Map.tryFind ctor.name.Value with
+            match char.Traits |> Map.tryFind ctor.name with
             | Some data -> ctor.extract(data)
             | _ -> None
         match source with

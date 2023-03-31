@@ -5,16 +5,17 @@ open Fable.Core
 
 type ChoiceType = Leveled | Selection
 type 't ChoiceOption = ChoiceType * ('t list)
-type LabeledChoiceOption = (Any * string) ChoiceOption
+type LabeledChoice = (Any * string)
+type LabeledChoiceOption = LabeledChoice ChoiceOption
 type 'trait1 Choose =
     abstract generate: Polymorphic<Constructor<Any, 'trait1> * LabeledChoiceOption, Any> -> Any
 
 type Choose<'arg, 'trait1>(ctor: Constructor<'arg, 'trait1>, values: 'arg ChoiceOption, ?formatter: string * 'arg -> string) =
     let packArg, unpackArg = viaAny<'arg>()
     let boxedCtor: Constructor<Any, 'trait1> = { name = ctor.name; create = (unpackArg >> ctor.create); extract = ctor.extract >> Option.map packArg }
-    let boxedValuesAndLabels: (Any * string) list =
+    let boxedValuesAndLabels: LabeledChoice list =
         [   for v in snd values do
-                packArg v, match formatter with Some format -> format(ctor.name.Value, v) | None -> $"{v}"
+                packArg v, match formatter with Some format -> format(ctor.name, v) | None -> $"{v}"
             ]
     interface 'trait1 Choose with
         member this.generate (f: Polymorphic<Constructor<Any, 'trait1> * LabeledChoiceOption, Any>) =
@@ -27,13 +28,13 @@ type Choose2D<'arg1, 'arg2, 'trait1>(ctor: Constructor<'arg1 * 'arg2, 'trait1>, 
     let packArg1, unpackArg1 = viaAny<'arg1>()
     let packArg2, unpackArg2 = viaAny<'arg2>()
     let boxedCtor: Constructor<Any * Any, 'trait1> = { name = ctor.name; create = (fun (arg1, arg2) -> ctor.create(unpackArg1 arg1, unpackArg2 arg2)); extract = (fun packed -> match ctor.extract packed with Some (arg1, arg2) -> Some (packArg1 arg1, packArg2 arg2) | None -> None) }
-    let boxedValuesAndLabels1: (Any * string) list =
+    let boxedValuesAndLabels1: LabeledChoice list =
         [   for v in snd values1 do
-                packArg1 v, match formatter1 with Some format -> format(ctor.name.Value, v) | None -> $"{v}"
+                packArg1 v, match formatter1 with Some format -> format(ctor.name, v) | None -> $"{v}"
             ]
-    let boxedValuesAndLabels2: (Any * string) list =
+    let boxedValuesAndLabels2: LabeledChoice list =
         [   for v in snd values2 do
-                packArg2 v, match formatter2 with Some format -> format(ctor.name.Value, v) | None -> $"{v}"
+                packArg2 v, match formatter2 with Some format -> format(ctor.name, v) | None -> $"{v}"
             ]
     interface 'trait1 Choose2D with
         member this.generate (f: Polymorphic<Constructor<Any * Any, 'trait1> * LabeledChoiceOption * LabeledChoiceOption, Any>) =
@@ -53,31 +54,27 @@ type Metadata = { label: string option; keySegment: string option }
     static member labelOnly v = { Metadata.fresh with label = Some v }
     static member key' v = { Metadata.fresh with keySegment = Some v }
 
-type ChooseCtorArg<'arg, 't> =
-    | Const of Metadata * 't
-    | ConstructFrom of Metadata * n:int * Constructor<'arg list, 't> * 'arg list
+type ChooseCtorArg<'input, 'arg> =
+    | Const of Metadata * 'arg
+    | ConstructFrom of Metadata * n:int * Constructor<'input list, 'arg> * 'input list
 
 type 'trait1 ChooseChoice =
-    abstract generate: Polymorphic<Constructor<Any, 'trait1> * LabeledChoiceOption, Any> -> Any
+    abstract generate: Polymorphic<Constructor<Any, 'trait1> * ChooseCtorArg<LabeledChoice, LabeledChoice> ChoiceOption, Any> -> Any
 
-type ChooseChoice<'arg, 'trait1>(ctor: Constructor<'arg, 'trait1>, values: ChooseCtorArg<'arg, 't> ChoiceOption, ?formatter: string * 'arg -> string) =
+type ChooseChoice<'input, 'arg, 'trait1>(ctor: Constructor<'arg, 'trait1>, values: ChooseCtorArg<'input, 'arg> ChoiceOption, ?formatArg: string * 'arg -> string, ?formatInput: string * 'input -> string) =
+    let kind, argOptions = values
     let packArg, unpackArg = viaAny<'arg>()
-    let boxedCtor: Constructor<Any, 'trait1> = { name = ctor.name; create = (unpackArg >> ctor.create); extract = ctor.extract >> Option.map packArg }
-    let boxedValuesAndLabels: (Any * string) list =
-        [   for v in snd values do
-                match v with
-                | Const(meta, arg) ->
-                    packArg arg, match formatter with Some format -> format(ctor.name.Value, arg) | None -> $"{v}"
-                | ConstructFrom(meta, n, argCtor, inputs) ->
-                    notImpl()
-            ]
+    let packInput, unpackInput = viaAny<'input>()
+    let mappedOptions : ChooseCtorArg<LabeledChoice, LabeledChoice> list =
+        argOptions |> List.map (function
+            | Const(meta, (v: 'arg)) -> Const(meta, (packArg v, match formatArg with Some format -> format(ctor.name, v) | None -> v.ToUncameledString()))
+            | ConstructFrom(meta, n, ctor, inputs: 'input list) ->
+                ConstructFrom(meta, n, notImpl(), inputs |> List.map (fun input -> packInput input, match formatInput with Some format -> format(ctor.name, input) | None -> input.ToUncameledString()))
+            )
     interface 'trait1 ChooseChoice with
-        member this.generate (f: Polymorphic<Constructor<Any, 'trait1> * LabeledChoiceOption, Any>) =
-            f.Apply(boxedCtor, (fst values, boxedValuesAndLabels))
-
-let constant(meta:Metadata, v: 'arg) = Const(meta, v)
-let chooseN(meta:Metadata, n:int, (ctor: 'input list -> 'arg), lst: 'input list) = notImpl()
-let chooseChoice(ctor: Constructor<'arg,_>, _: _ list) = notImpl()
+        member this.generate (f: Polymorphic<Constructor<Any, 'trait1> * ChooseCtorArg<LabeledChoice, LabeledChoice> ChoiceOption, Any>) =
+            let boxedCtor = Ctor.ctor(unpackArg, packArg >> Some) => ctor
+            f.Apply(boxedCtor, (kind, mappedOptions))
 
 type 't Many =
     | Aggregate of Metadata * 't Many list
@@ -96,15 +93,17 @@ and 't OneResult =
 
 type Create =
     static member binary v = Binary(Metadata.key' (v.ToString()), v)
-    static member chooseOne (ctor: Constructor<_,_>, options, ?formatter) = Choose(Metadata.key' ctor.name.Value, new Choose<_,_>(ctor, (Selection, options), ?formatter=formatter))
-    static member chooseLevels(ctor: Constructor<_,_>, options, ?formatter) = Choose(Metadata.key' ctor.name.Value, new Choose<_,_>(ctor, (Leveled, options), ?formatter=formatter))
-    static member choose2D(ctor: Constructor<_,_>, arg1Options, arg2Options, ?formatter1, ?formatter2) = Choose2D(Metadata.key' ctor.name.Value, new Choose2D<_,_,_>(ctor, (Selection, arg1Options), (Selection, arg2Options), ?formatter1=formatter1, ?formatter2=formatter2))
-    static member choose2D(ctor: Constructor<_,_>, arg1Options: _ ChoiceOption, arg2Options: _ ChoiceOption, ?formatter1, ?formatter2) = Choose2D(Metadata.key' ctor.name.Value, new Choose2D<_,_,_>(ctor, arg1Options, arg2Options, ?formatter1=formatter1, ?formatter2=formatter2))
+    static member chooseOne (ctor: Constructor<_,_>, options, ?formatter) = Choose(Metadata.key' ctor.name, new Choose<_,_>(ctor, (Selection, options), ?formatter=formatter))
+    static member chooseLevels(ctor: Constructor<_,_>, options, ?formatter) = Choose(Metadata.key' ctor.name, new Choose<_,_>(ctor, (Leveled, options), ?formatter=formatter))
+    static member choose2D(ctor: Constructor<_,_>, arg1Options, arg2Options, ?formatter1, ?formatter2) = Choose2D(Metadata.key' ctor.name, new Choose2D<_,_,_>(ctor, (Selection, arg1Options), (Selection, arg2Options), ?formatter1=formatter1, ?formatter2=formatter2))
+    static member choose2D(ctor: Constructor<_,_>, arg1Options: _ ChoiceOption, arg2Options: _ ChoiceOption, ?formatter1, ?formatter2) = Choose2D(Metadata.key' ctor.name, new Choose2D<_,_,_>(ctor, arg1Options, arg2Options, ?formatter1=formatter1, ?formatter2=formatter2))
     static member leveled options = (Leveled, options)
     static member selection options = (Selection, options)
-    static member chooseWithStringInput(ctor: Constructor<_,_>, placeholderText) = ChooseWithStringInput(Metadata.key' ctor.name.Value, ctor, placeholderText)
+    static member chooseWithStringInput(ctor: Constructor<_,_>, placeholderText) = ChooseWithStringInput(Metadata.key' ctor.name, ctor, placeholderText)
     static member grant (choice: 't OneResult) = Grant(Metadata.fresh, choice)
-    static member chooseCtor v = notImpl()
+    static member chooseChoice (ctor: Constructor<'arg, 't>, options: ChooseCtorArg<'input, 'arg> ChoiceOption) = ChooseCtor(Metadata.label' ctor.name, ChooseChoice<'input, 'arg, 't>(ctor, options))
+    static member constant(meta:Metadata, v: 'arg) = Const(meta, v)
+    static member chooseN(n:int, (ctor: Constructor<'input list, 'arg>), lst: 'input list) = ConstructFrom(Metadata.label' ctor.name, n, ctor, lst)
 
     static member aggregate choices = Aggregate(Metadata.fresh, choices)
     static member aggregate (label: string) = fun choices -> Aggregate(Metadata.label' label, choices)
@@ -158,7 +157,7 @@ module Menus =
             chooseLevels (Luck |> Trait, [Standard])
             choose2D (Ctor.EnhancedParry |> Trait, leveled [1], selection swashMeleeWeapons, formatter1=(fun (_,arg) -> $"%+d{arg}"))
             chooseWithStringInput (WeaponBond |> Trait, "Describe")
-            chooseOne ({ (OneWeapon => WeaponMaster) with name = Some "Weapon Master" } |> Trait, [Broadsword; Rapier; Saber; Shortsword; Smallsword; MainGauche])
+            chooseOne ({ (OneWeapon => WeaponMaster) with name = "Weapon Master" } |> Trait, [Broadsword; Rapier; Saber; Shortsword; Smallsword; MainGauche])
             ]
         budget 60 "Advantages" [
             chooseLevels(StatBonus HP, [1..6], showBonuses)
@@ -185,17 +184,17 @@ module Menus =
             chooseLevels(StrikingST |> Trait, [1..2], showBonuses)
             chooseWithStringInput(TrademarkMove |> Trait, "Describe maneuver, weapon, hit locations, Rapid or Deceptive Strike")
             chooseChoice(WeaponMaster |> Trait,
-                [
-                constant(label' "(All)", WeaponMasterFocus.All)
-                constant(label' "(Swords)", WeaponMasterFocus.Swords)
-                constant(label' "(Fencing Weapons)", WeaponMasterFocus.FencingWeapons)
-                chooseN(label' "(Weapon of choice)" , 1,
-                    List.head >> WeaponMasterFocus.OneWeapon,
-                    swashMeleeWeapons)
-                chooseN(label' "(Weapon of choice)", 2,
-                    (function [x,y] -> TwoWeapon.create(x,y) | otherwise -> shouldntHappen otherwise),
-                    swashMeleeWeapons)
-                ])
+                (Selection, [
+                    constant(label' "(All)", WeaponMasterFocus.All)
+                    constant(label' "(Swords)", WeaponMasterFocus.Swords)
+                    constant(label' "(Fencing Weapons)", WeaponMasterFocus.FencingWeapons)
+                    ConstructFrom(Metadata.label' "Weapon of Choice", 1,
+                        namedCtor("Weapon of Choice", List.head >> OneWeapon.create, OneWeapon.extract >> Option.map List.wrap),
+                        swashMeleeWeapons)
+                    ConstructFrom(Metadata.label' "Two-weapon", 2,
+                        namedCtor("Two-weapon", Tuple2.ofList >> TwoWeapon.create, TwoWeapon.extract >> Option.map Tuple2.toList),
+                        swashMeleeWeapons)
+                    ]))
             ]
         nestedBudgets -50 "Disadvantages" [
             Some -15,

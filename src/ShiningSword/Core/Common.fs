@@ -75,28 +75,41 @@ module Tuple2 =
     let create x y = x,y
     let mapfst f (x,y) = (f x, y)
     let mapsnd f (x,y) = (x, f y)
-
+    let ofList = function
+        | [x;y] -> x,y
+        | _ -> shouldntHappen "Tuple2.ofList: list must have exactly 2 elements"
+    let toList (x,y) = [x;y]
 
 [<AutoOpen>]
 module Ctor =
+    type AnonymousConstructor<'args, 'Type> = {
+        create: 'args -> 'Type
+        extract: 'Type -> 'args option
+        }
     type Constructor<'args, 'Type> = {
         create: 'args -> 'Type
         extract: 'Type -> 'args option
-        name: string option
+        name: string
         }
         with
         static member (=>) (lhs: Constructor<_, 't1>, rhs: Constructor<'t1, _>) =
             {   create = rhs.create << lhs.create
                 extract = rhs.extract >> Option.bind lhs.extract
-                name =  match lhs.name, rhs.name with
-                        | Some lhs, Some rhs -> Some ($"{rhs} ({lhs})")
-                        | Some lhs, _ -> Some lhs
-                        | _, Some rhs -> Some rhs
-                        | _ -> None
+                name =  $"{rhs.name} ({lhs.name})"
+                }
+        static member (=>) (lhs: Constructor<_, 't1>, rhs: AnonymousConstructor<'t1, _>) =
+            {   create = rhs.create << lhs.create
+                extract = rhs.extract >> Option.bind lhs.extract
+                name = lhs.name
+                }
+        static member (=>) (lhs: AnonymousConstructor<_, 't1>, rhs: Constructor<'t1, _>) =
+            {   create = rhs.create << lhs.create
+                extract = rhs.extract >> Option.bind lhs.extract
+                name = rhs.name
                 }
 
-    let ctor(create, extract) = { create = create; extract = extract; name = None }
-    let namedCtor(name, create, extract) = { create = create; extract = extract; name = Some name }
+    let ctor(create, extract): AnonymousConstructor<_,_> = { create = create; extract = extract }
+    let namedCtor(name, create, extract) = { create = create; extract = extract; name = name }
 
 type Polymorphic<'arg, 'result> =
     abstract member Apply: 'arg -> 'result
@@ -155,6 +168,7 @@ module List =
         | [] | [_] -> lst
         | head::tail ->
             head :: (tail |> List.collect (fun x -> [delimiter; x]))
+    let wrap v = [v]
     let ofOption = function
         | None -> []
         | Some v -> [v]

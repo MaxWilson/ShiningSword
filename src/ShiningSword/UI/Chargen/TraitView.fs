@@ -357,13 +357,13 @@ module ReactBuilder =
                                     let txt, fragment = levels ctx ix
                                     checkbox(rootctx, rootMeta, Some txt, cost', None, Some (thunk fragment)) |> pack
                                 | PickedArgAndLabel attempt chosenArg, Selection ->
-                                    checkbox(rootctx, rootMeta, Some ctor.name.Value, None, None, Some (fun () -> selection ctx chosenArg))
+                                    checkbox(rootctx, rootMeta, Some ctor.name, None, None, Some (fun () -> selection ctx chosenArg))
                                     |> pack
                                 | _, Leveled ->
                                     shouldntHappen()
                                 | _, Selection ->
                                     // otherwise, show all the options
-                                    checkbox(rootctx, rootMeta, Some ctor.name.Value, None, None, Some (fun () ->
+                                    checkbox(rootctx, rootMeta, Some ctor.name, None, None, Some (fun () ->
                                         args |> List.map (selection ctx) |> VisuallyGroup None))
                                     |> pack
                         }
@@ -407,7 +407,7 @@ module ReactBuilder =
                                             printfn $"{(Unqueue rootKey)}"
                                             ctx.dispatch (Unqueue rootKey) // unqueue the root item because the user doesn't want the trait at all
 
-                                    let txt = $"{ctor.name.Value} {args[ix] |> snd}"
+                                    let txt = $"{ctor.name} {args[ix] |> snd}"
                                     txt, React.fragment [
                                             if args.Length > 1 then
                                                 Html.button [prop.text "-"; prop.onClick decr]
@@ -428,7 +428,7 @@ module ReactBuilder =
                                 let append2 (lhs1, lhs2) (rhs1, rhs2) = lhs1@rhs1, lhs2@rhs2
                                 let txts, fragments = append2 (getTxtAndFragments options1) (getTxtAndFragments options2)
                                 let txt = match txts with
-                                          | [] -> ctor.name.Value
+                                          | [] -> ctor.name
                                           | t -> String.concat " " t
                                 checkbox(rootctx, rootMeta, Some txt, cost', None, Some (fun () -> React.fragment fragments))
                         }
