@@ -76,8 +76,8 @@ type ChooseChoice<'arg, 'trait1>(ctor: Constructor<'arg, 'trait1>, values: Choos
             f.Apply(boxedCtor, (fst values, boxedValuesAndLabels))
 
 let constant(meta:Metadata, v: 'arg) = Const(meta, v)
-let chooseN(meta:Metadata,n:int,ctor: ('input list -> 'arg),lst: 'input list) = notImpl()
-let chooseChoice(ctor: Constructor<'arg,Chosen>, _: _ list) = notImpl()
+let chooseN(meta:Metadata, n:int, (ctor: 'input list -> 'arg), lst: 'input list) = notImpl()
+let chooseChoice(ctor: Constructor<'arg,_>, _: _ list) = notImpl()
 
 type 't Many =
     | Aggregate of Metadata * 't Many list
@@ -92,7 +92,7 @@ and 't OneResult =
     | Choose2D of Metadata * 't Choose2D
     | ChooseWithStringInput of Metadata * Constructor<string, 't> * placeholder:string
     | Grant of Metadata * 't OneResult
-    | ChooseCtor of Metadata * 't ChooseCtor
+    | ChooseCtor of Metadata * 't ChooseChoice
 
 type Create =
     static member binary v = Binary(Metadata.key' (v.ToString()), v)
@@ -190,10 +190,10 @@ module Menus =
                 constant(label' "(Swords)", WeaponMasterFocus.Swords)
                 constant(label' "(Fencing Weapons)", WeaponMasterFocus.FencingWeapons)
                 chooseN(label' "(Weapon of choice)" , 1,
-                    WeaponMasterFocus.OneWeapon.create << List.head,
+                    List.head >> WeaponMasterFocus.OneWeapon,
                     swashMeleeWeapons)
                 chooseN(label' "(Weapon of choice)", 2,
-                    WeaponMasterFocus.TwoWeapon.create << (function [x,y] -> x,y | otherwise -> shouldntHappen otherwise),
+                    (function [x,y] -> TwoWeapon.create(x,y) | otherwise -> shouldntHappen otherwise),
                     swashMeleeWeapons)
                 ])
             ]
