@@ -58,21 +58,27 @@ type ChooseCtorArg<'input, 'arg> =
     | Const of Metadata * 'arg
     | ConstructFrom of Metadata * n:int * Constructor<'input list, 'arg> * 'input list
 
+type LabeledCtorArg<'input, 'arg> =
+    | LConst of Metadata * 'arg * txt: string
+    | LConstructFrom of Metadata * n:int * Constructor<'input list, 'arg> * ('input * string) list
+
 type 'trait1 ChooseChoice =
-    abstract generate: Polymorphic<Constructor<Any, 'trait1> * ChooseCtorArg<LabeledChoice, LabeledChoice> ChoiceOption, Any> -> Any
+    abstract generate: Polymorphic<Constructor<Any, 'trait1> * LabeledCtorArg<Any, Any> ChoiceOption, Any> -> Any
 
 type ChooseChoice<'input, 'arg, 'trait1>(ctor: Constructor<'arg, 'trait1>, values: ChooseCtorArg<'input, 'arg> ChoiceOption, ?formatArg: string * 'arg -> string, ?formatInput: string * 'input -> string) =
     let kind, argOptions = values
     let packArg, unpackArg = viaAny<'arg>()
     let packInput, unpackInput = viaAny<'input>()
-    let mappedOptions : ChooseCtorArg<LabeledChoice, LabeledChoice> list =
+    let mappedOptions : LabeledCtorArg<Any, Any> list =
         argOptions |> List.map (function
-            | Const(meta, (v: 'arg)) -> Const(meta, (packArg v, match formatArg with Some format -> format(ctor.name, v) | None -> v.ToUncameledString()))
-            | ConstructFrom(meta, n, ctor, inputs: 'input list) ->
-                ConstructFrom(meta, n, notImpl(), inputs |> List.map (fun input -> packInput input, match formatInput with Some format -> format(ctor.name, input) | None -> input.ToUncameledString()))
+            | Const(meta, (v: 'arg)) -> LConst(meta, packArg v, match formatArg with Some format -> format(ctor.name, v) | None -> v.ToUncameledString())
+            | ConstructFrom(meta, n, argCtor, inputs: 'input list) ->
+                let boxedArgCtor = Ctor.ctor(List.map unpackInput, List.map packInput >> Some) => argCtor => Ctor.ctor(packArg, unpackArg >> Some)
+                let mappedInputs: LabeledChoice list = inputs |> List.map (fun input -> packInput input, match formatInput with Some format -> format(ctor.name, input) | None -> input.ToUncameledString())
+                LConstructFrom(meta, n, boxedArgCtor, mappedInputs)
             )
     interface 'trait1 ChooseChoice with
-        member this.generate (f: Polymorphic<Constructor<Any, 'trait1> * ChooseCtorArg<LabeledChoice, LabeledChoice> ChoiceOption, Any>) =
+        member this.generate (f: Polymorphic<Constructor<Any, 'trait1> * LabeledCtorArg<Any, Any> ChoiceOption, Any>) =
             let boxedCtor = Ctor.ctor(unpackArg, packArg >> Some) => ctor
             f.Apply(boxedCtor, (kind, mappedOptions))
 

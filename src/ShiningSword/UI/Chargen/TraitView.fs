@@ -152,17 +152,22 @@ module DataBuilder =
             ]
         | Grant(meta: Metadata, v: 't OneResult) ->
             v |> ofOne (ctxGrantOne (ctx |> ctxAugment meta) v)
-        | ChooseOneFromHierarchy(meta: Metadata, hierarchy: 't OneHierarchy) ->
-            hierarchy |> ofHierarchy (extend ctx meta)
-    and ofHierarchy (ctx: DataCtx) = function
-        | Leaf(meta: Metadata, v: 't) -> [
-            if has ctx meta || ctx.includePotentials then
-                v
-            ]
-        | Interior(meta: Metadata, hierarchy: 't OneHierarchy list) -> [
-            if has ctx meta || ctx.includePotentials then
-                yield! (hierarchy |> List.collect (ofHierarchy (extend ctx meta)))
-            ]
+        | ChooseCtor(meta: Metadata, chooseChoice) ->
+            let pack, unpack = viaAny<'t list>()
+            chooseChoice.generate({
+                    new Polymorphic<Constructor<Any, 't> * LabeledCtorArg<Any, Any> ChoiceOption, Any> with
+                        override this.Apply((ctor, options)) = [] |> pack
+                }) |> unpack
+    //        hierarchy |> ofHierarchy (extend ctx meta)
+    //and ofHierarchy (ctx: DataCtx) = function
+    //    | Const(meta: Metadata, v: 't) -> [
+    //        if has ctx meta || ctx.includePotentials then
+    //            v
+    //        ]
+    //    | ConstructFrom(meta: Metadata, hierarchy: 't OneHierarchy list) -> [
+    //        if has ctx meta || ctx.includePotentials then
+    //            yield! (hierarchy |> List.collect (ofHierarchy (extend ctx meta)))
+    //        ]
     let dataBuilder =
         ofMany
 
@@ -452,19 +457,19 @@ module ReactBuilder =
                 ] |> VisuallyGroup None
         | Grant(meta: Metadata, v: _ OneResult) ->
             v |> ofOne (ctxGrantOne (ctx |> ctxAugment meta) v)
-        | ChooseOneFromHierarchy(meta: Metadata, hierarchy: _ OneHierarchy) ->
-            let choice = DataBuilder.ofOne (toDataCtx ctx) one |> List.tryHead
-            let cost' = choice |> Option.map cost
-            match choice with
-            | None ->
-                checkbox(extend ctx meta, meta, None, cost', None, Some (fun () -> hierarchy |> ofHierarchy (extend ctx meta)))
-            | Some trait1 ->
-                checkbox(extend ctx meta, meta, Some(Format.value trait1), cost', None, None)
-    and ofHierarchy (ctx: ReactCtx) = function
-        | Leaf(meta: Metadata, v) ->
-            checkbox(extend ctx meta, meta, Some(Format.value ctx.char.stats v), Some (cost v), None, None)
-        | Interior(meta: Metadata, hierarchy: _ OneHierarchy list) ->
-            VisuallyGroup None (hierarchy |> List.map (ofHierarchy (extend ctx meta)))
+    //    | ChooseOneFromHierarchy(meta: Metadata, hierarchy: _ OneHierarchy) ->
+    //        let choice = DataBuilder.ofOne (toDataCtx ctx) one |> List.tryHead
+    //        let cost' = choice |> Option.map cost
+    //        match choice with
+    //        | None ->
+    //            checkbox(extend ctx meta, meta, None, cost', None, Some (fun () -> hierarchy |> ofHierarchy (extend ctx meta)))
+    //        | Some trait1 ->
+    //            checkbox(extend ctx meta, meta, Some(Format.value trait1), cost', None, None)
+    //and ofHierarchy (ctx: ReactCtx) = function
+    //    | Leaf(meta: Metadata, v) ->
+    //        checkbox(extend ctx meta, meta, Some(Format.value ctx.char.stats v), Some (cost v), None, None)
+    //    | Interior(meta: Metadata, hierarchy: _ OneHierarchy list) ->
+    //        VisuallyGroup None (hierarchy |> List.map (ofHierarchy (extend ctx meta)))
     let reactBuilder : ReactCtx -> Chosen Many -> ReactElement =
         ofMany
 

@@ -27,8 +27,8 @@ let addData keyVals (ctx: DataCtx) =
 let tests = testList "Chargen" [
 
     test "Spot-check display names" {
-        let stats = { Stats.freshFrom(11, 11, 11, 11) with Traits = Map.ofList [Ctor.Magery.name.Value, Magery 6] }
-        let weakStats = { Stats.freshFrom(11, 11, 11, 11) with Traits = Map.ofList [Ctor.Magery.name.Value, Magery 2] }
+        let stats = { Stats.freshFrom(11, 11, 11, 11) with Traits = Map.ofList [Ctor.Magery.name, Magery 6] }
+        let weakStats = { Stats.freshFrom(11, 11, 11, 11) with Traits = Map.ofList [Ctor.Magery.name, Magery 2] }
         verify <@ Format.name        (Trait (Luck Standard)) = "Luck" @>
         verify <@ Format.value stats (Trait (Luck Standard)) = "Luck" @>
         verify <@ Format.name        (Trait (EnhancedParry(1, Rapier))) = "Enhanced Parry 1 (Rapier)" @>
