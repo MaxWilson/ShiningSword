@@ -337,6 +337,7 @@ type Format() =
             | _ -> $"Weapon Master ({v})"
         | Chummy ChummyLevel.Standard -> "Chummy"
         | Chummy Gregarious -> "Gregarious"
+        | SenseOfDuty duty -> $"Sense of Duty ({duty.ToUncameledString()})"
         | v -> v.ToString() |> String.uncamel
     static let skillName = function
         | Weapon(weapon) -> weapon.ToString() |> String.uncamel
