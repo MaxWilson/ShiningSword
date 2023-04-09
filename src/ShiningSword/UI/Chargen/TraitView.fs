@@ -15,12 +15,13 @@ type TraitMsg =
     | ClearStrictlyUnder of Key // clears all subkeys. E.g. if WeaponMaster (Two Weapon) is partially selected, eliminate TwoWeapon and any weapon choices under it but not WeaponMaster itself
 
 let (|PickedIndex|_|) isSatisfied ((kind, args) as options: LabeledChoiceOption) =
-    match args |> List.tryFindIndex isSatisfied with
-    | Some ix -> Some ix
+    match args |> List.tryFindIndex isSatisfied, kind with
+    | Some ix, _ -> Some ix
     // if there's only one alternative, that's the same as no alternatives. Pick it.
-    | None when args.Length = 1 -> Some 0
+    | None, _ when args.Length = 1 -> Some 0
     // Leveled defaults to the first option even if there are more, as long as the choice is selected. User will use -/+ to upscale it.
-    | None when kind = Leveled && args.Length >= 1 -> Some 0
+    | None, Leveled (Some n) when args.Length > n -> Some n
+    | None, Leveled None when args.Length >= 1 -> Some 0
     | _ -> None
 
 let (|PickedArgAndLabel|_|) isSatisfied = function
@@ -358,13 +359,13 @@ module ReactBuilder =
                                                 Html.button [prop.text "+"; prop.onClick incr; prop.disabled (ix >= args.Length - 1)]
                                             ]
                                 match options, kind with
-                                | PickedIndex attempt ix, Leveled ->
+                                | PickedIndex attempt ix, Leveled _ ->
                                     let txt, fragment = levels ctx ix
                                     checkbox(rootctx, rootMeta, Some txt, cost', None, Some (thunk fragment)) |> pack
                                 | PickedArgAndLabel attempt chosenArg, Selection ->
                                     checkbox(rootctx, rootMeta, Some ctor.name, None, None, Some (fun () -> selection ctx chosenArg))
                                     |> pack
-                                | _, Leveled ->
+                                | _, Leveled _ ->
                                     shouldntHappen()
                                 | _, Selection ->
                                     // otherwise, show all the options
@@ -424,7 +425,7 @@ module ReactBuilder =
 
                                 let getTxtAndFragments ((kind, args) as options) =
                                     match options, kind with
-                                    | PickedIndex attempt ix, Leveled ->
+                                    | PickedIndex attempt ix, Leveled _ ->
                                         let txt, fragment = levels args ctx ix
                                         [txt], [fragment]
                                     | PickedArgAndLabel attempt chosenArg, Selection ->
@@ -457,6 +458,8 @@ module ReactBuilder =
                 ] |> VisuallyGroup None
         | Grant(meta: Metadata, v: _ OneResult) ->
             v |> ofOne (ctxGrantOne (ctx |> ctxAugment meta) v)
+        | ChooseCtor(meta, choice) ->
+            placeholder $"chooseCtor: {one}"
     //    | ChooseOneFromHierarchy(meta: Metadata, hierarchy: _ OneHierarchy) ->
     //        let choice = DataBuilder.ofOne (toDataCtx ctx) one |> List.tryHead
     //        let cost' = choice |> Option.map cost

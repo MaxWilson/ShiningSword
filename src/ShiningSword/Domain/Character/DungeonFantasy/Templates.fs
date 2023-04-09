@@ -3,7 +3,7 @@ open Domain.Ribbit.Properties
 open Domain.Character.DungeonFantasy.TraitsAndAttributes
 open Fable.Core
 
-type ChoiceType = Leveled | Selection
+type ChoiceType = Leveled of defaultIx': int option | Selection
 type 't ChoiceOption = ChoiceType * ('t list)
 type LabeledChoice = (Any * string)
 type LabeledChoiceOption = LabeledChoice ChoiceOption
@@ -100,10 +100,12 @@ and 't OneResult =
 type Create =
     static member binary v = Binary(Metadata.key' (v.ToString()), v)
     static member chooseOne (ctor: Constructor<_,_>, options, ?formatter) = Choose(Metadata.key' ctor.name, new Choose<_,_>(ctor, (Selection, options), ?formatter=formatter))
-    static member chooseLevels(ctor: Constructor<_,_>, options, ?formatter) = Choose(Metadata.key' ctor.name, new Choose<_,_>(ctor, (Leveled, options), ?formatter=formatter))
+    static member chooseLevels(ctor: Constructor<_,_>, options, ?formatter) = Choose(Metadata.key' ctor.name, new Choose<_,_>(ctor, options, ?formatter=formatter))
+    static member chooseLevels(ctor: Constructor<_,_>, options, ?formatter) = Choose(Metadata.key' ctor.name, new Choose<_,_>(ctor, (Leveled None, options), ?formatter=formatter))
     static member choose2D(ctor: Constructor<_,_>, arg1Options, arg2Options, ?formatter1, ?formatter2) = Choose2D(Metadata.key' ctor.name, new Choose2D<_,_,_>(ctor, (Selection, arg1Options), (Selection, arg2Options), ?formatter1=formatter1, ?formatter2=formatter2))
     static member choose2D(ctor: Constructor<_,_>, arg1Options: _ ChoiceOption, arg2Options: _ ChoiceOption, ?formatter1, ?formatter2) = Choose2D(Metadata.key' ctor.name, new Choose2D<_,_,_>(ctor, arg1Options, arg2Options, ?formatter1=formatter1, ?formatter2=formatter2))
-    static member leveled options = (Leveled, options)
+    static member leveled options = (Leveled None, options)
+    static member leveled (defaultIx, options) = (Leveled (Some defaultIx), options)
     static member selection options = (Selection, options)
     static member chooseWithStringInput(ctor: Constructor<_,_>, placeholderText) = ChooseWithStringInput(Metadata.key' ctor.name, ctor, placeholderText)
     static member grant (choice: 't OneResult) = Grant(Metadata.fresh, choice)
@@ -134,7 +136,7 @@ module Menus =
         static member Trait (ctor: Constructor<_,_>) = ctor => Common.Ctor.ctor(Trait, function Trait t -> Some t | _ -> None)
     open type Convert
     let thunktor v = ctor(thunk v, function v2 when v = v2 -> Some () | _ -> None)
-    let severity = [Mild; Moderate; Serious; Severe]
+    let severity = (Leveled (Some 1), [Mild; Moderate; Serious; Severe])
     open type Create
     let allDisadvantages =
         [   chooseLevels (Chummy |> Trait, [ChummyLevel.Standard; Gregarious])
