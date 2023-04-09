@@ -335,6 +335,8 @@ type Format() =
             | OneWeapon w -> $"Weapon Master ({w})"
             | TwoWeapon(w1, w2) -> $"Weapon Master ({w1}, {w2})"
             | _ -> $"Weapon Master ({v})"
+        | Chummy ChummyLevel.Standard -> "Chummy"
+        | Chummy Gregarious -> "Gregarious"
         | v -> v.ToString() |> String.uncamel
     static let skillName = function
         | Weapon(weapon) -> weapon.ToString() |> String.uncamel
