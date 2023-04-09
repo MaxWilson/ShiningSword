@@ -153,8 +153,6 @@ module Menus =
             chooseLevels (Trickster |> Trait, severity)
             binary (Wounded |> Trait)
             ]
-    let Speed =
-        namedCtor("Extra Speed", (fun n -> Data.StatBonus(SpeedTimesFour, n*4)), function Data.StatBonus(stat, n) -> Some (n/4) | _ -> None)
     let showBonuses = (fun (ctorName, n) -> $"%+d{n}")
     open type Create
     let swash = aggregate [
@@ -170,7 +168,7 @@ module Menus =
         budget 60 "Advantages" [
             chooseLevels(StatBonus HP, [1..6], showBonuses)
             chooseLevels(StatBonus DX, [1..3], showBonuses)
-            chooseLevels(Speed, [1..3], showBonuses)
+            chooseLevels(StatBonus SpeedTimesFour, [1..12], showBonuses)
             binary(Trait Ambidexterity)
             chooseLevels(Appearance |> Trait, [Attractive;Beautiful;VeryBeautiful])
             chooseLevels(ArmorFamiliarity |> Trait, [1..4])

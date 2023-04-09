@@ -74,7 +74,7 @@ let tests = testList "Chargen" [
             budget 60 "Advantages" [
                 chooseLevels(Menus.StatBonus HP, [1..6], Menus.showBonuses)
                 chooseLevels(Menus.StatBonus DX, [1..3], Menus.showBonuses)
-                chooseLevels(Menus.Speed, [1..3], Menus.showBonuses)
+                chooseLevels(Menus.StatBonus SpeedTimesFour, [1..12], Menus.showBonuses)
                 binary(Trait Ambidexterity)
                 ]
             ]
