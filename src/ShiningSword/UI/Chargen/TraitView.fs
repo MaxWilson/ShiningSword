@@ -458,8 +458,23 @@ module ReactBuilder =
                 ] |> VisuallyGroup None
         | Grant(meta: Metadata, v: _ OneResult) ->
             v |> ofOne (ctxGrantOne (ctx |> ctxAugment meta) v)
-        | ChooseCtor(meta, choice) ->
-            placeholder $"chooseCtor: {one}"
+        | ChooseCtor(meta, chooseChoice) ->
+            let pack, unpack = viaAny<ReactElement>()
+            chooseChoice.generate({
+                    new Polymorphic<Constructor<Any, 't> * LabeledCtorArg<Any, Any> ChoiceOption, Any> with
+                        override this.Apply((ctor, options)) =
+                            Html.div [
+                                Html.text "placeholder for chooseCtor"
+                                match options with
+                                | Leveled _, options ->
+                                    for o, txt in options do
+                                        Html.text txt
+                                | Selection, options ->
+                                    for o, txt in options do
+                                        Html.text txt
+                                ]
+                            |> pack
+                }) |> unpack
     //    | ChooseOneFromHierarchy(meta: Metadata, hierarchy: _ OneHierarchy) ->
     //        let choice = DataBuilder.ofOne (toDataCtx ctx) one |> List.tryHead
     //        let cost' = choice |> Option.map cost
