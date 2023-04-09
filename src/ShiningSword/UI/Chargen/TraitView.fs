@@ -461,17 +461,19 @@ module ReactBuilder =
         | ChooseCtor(meta, chooseChoice) ->
             let pack, unpack = viaAny<ReactElement>()
             chooseChoice.generate({
-                    new Polymorphic<Constructor<Any, 't> * LabeledCtorArg<Any, Any> ChoiceOption, Any> with
+                    new Polymorphic<Constructor<Any, Chosen> * LabeledCtorArg<Any, Any> ChoiceOption, Any> with
                         override this.Apply((ctor, options)) =
                             Html.div [
-                                Html.text "placeholder for chooseCtor"
+                                Html.text ctor.name
                                 match options with
-                                | Leveled _, options ->
-                                    for o, txt in options do
-                                        Html.text txt
-                                | Selection, options ->
-                                    for o, txt in options do
-                                        Html.text txt
+                                | _, options ->
+                                    for o in options do
+                                        match o with
+                                        | LConst(meta, arg, txt) ->
+                                            Html.div txt
+                                        | LConstructFrom(meta, n, ctor, inputs) ->
+                                            Html.div ctor.name
+                                            yield! inputs |> List.map (snd >> Html.div)
                                 ]
                             |> pack
                 }) |> unpack
