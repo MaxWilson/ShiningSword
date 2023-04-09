@@ -12,7 +12,10 @@ open Domain.Ribbit
 open Domain.Character.DungeonFantasy.Templates
 open Domain.Character.DungeonFantasy.TraitsAndAttributes
 open Domain.Character.DungeonFantasy.TraitsAndAttributes.Data
-open UI.Chargen.TraitView
+open UI.DataTypes.DataBuilder
+open UI.Chargen.Builders
+open UI.Chargen.Components
+
 open type Create
 open type Menus.Convert
 let verify = Swensen.Unquote.Assertions.test

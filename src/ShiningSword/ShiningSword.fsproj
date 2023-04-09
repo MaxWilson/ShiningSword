@@ -43,13 +43,16 @@
         <None Include="sass\main.sass" />
         <None Include="index.html" />
         <Compile Include="UI\CommonUI.fs" />
+        <Compile Include="UI\DataTypes.fs" />
         <Compile Include="UI\LocalStorage.fs" />
         <Compile Include="UI\DragDrop.fs" />
         <Compile Include="UI\Konva.fs" />
         <Compile Include="UI\Roleplaying.fs" />
-        <Compile Include="UI\Chargen\TraitView.fs" />
+        <Compile Include="UI\Chargen\Builders.fs" />
         <Compile Include="UI\Chargen\DFUI.fs" />
+        <Compile Include="UI\Chargen\Components.fs" />
         <Compile Include="UI\ChargenUI.fs" />
+        <Compile Include="UI\UIComponents.fs" />
         <Compile Include="UI\App.fs" />
     </ItemGroup>
     <ItemGroup>

@@ -141,7 +141,7 @@ module App =
                 Html.button [prop.text "Start over"; prop.onClick (thunk1 dispatch GoHome)]
                 ]
         | Page.Generate model ->
-            Chargen.View.View model (chargenControl dispatch) (ChargenMsg >> dispatch)
+            UI.Components.View model (chargenControl dispatch) (ChargenMsg >> dispatch)
         | Home ->
             Html.div [
                 prop.className "homePage"

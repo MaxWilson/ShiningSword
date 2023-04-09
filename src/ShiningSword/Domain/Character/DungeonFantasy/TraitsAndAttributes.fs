@@ -347,6 +347,7 @@ type Format() =
     static member name (v: Trait) = traitName v
     static member name v =
         match v with
+        | StatBonus(SpeedTimesFour, n) -> $"Speed %+.2f{(float n)/4.}"
         | StatBonus(stat, n) -> $"{stat} %+d{n}"
         | Trait t -> Format.name t
         | Skill(name, level) ->
@@ -360,7 +361,7 @@ type Format() =
         | StatBonus(stat, n) ->
             match stat with
             | SpeedTimesFour ->
-                $"{stat} {Stats.Speed char |> Eval.sum} (%+d{n/4})"
+                $"{stat} {Stats.Speed char |> Eval.sum} (%+.2f{(float n)/4.})"
             | _ ->
                 let property =
                     match stat with

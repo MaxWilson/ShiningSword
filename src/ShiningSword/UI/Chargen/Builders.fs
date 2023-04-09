@@ -1,18 +1,12 @@
-module UI.Chargen.TraitView
+module UI.Chargen.Builders
 open Domain.Character.DungeonFantasy
 open Domain.Character.DungeonFantasy.Templates
+open Domain.Character.DungeonFantasy.TraitsAndAttributes.Data
 open Fable.React
 open Feliz
 open Fable.Core
 open UI
-open Domain.Character.DungeonFantasy.TraitsAndAttributes.Data
-
-type Key = string list
-type TraitMsg =
-    | Queue of Key
-    | QueueData of Key * string
-    | Unqueue of Key
-    | ClearStrictlyUnder of Key // clears all subkeys. E.g. if WeaponMaster (Two Weapon) is partially selected, eliminate TwoWeapon and any weapon choices under it but not WeaponMaster itself
+open UI.DataTypes
 
 let (|PickedIndex|_|) isSatisfied ((kind, args) as options: LabeledChoiceOption) =
     match args |> List.tryFindIndex isSatisfied, kind with
@@ -40,8 +34,6 @@ let (|PickedArg|_|) isSatisfied = function
 // dispatching it to the underlying character.
 [<AutoOpen>]
 module DataBuilder =
-    type DataCtx = { searchPrefix: Key; queue: Map<Key, string>; includePotentials: bool }
-        with static member fresh = { searchPrefix = []; queue = Map.empty; includePotentials = false }
     let keyOf (prefix: Key) (meta: Metadata) =
         match meta.keySegment with
         | Some key ->
@@ -434,8 +426,8 @@ module ReactBuilder =
                                 let append2 (lhs1, lhs2) (rhs1, rhs2) = lhs1@rhs1, lhs2@rhs2
                                 let txts, fragments = append2 (getTxtAndFragments options1) (getTxtAndFragments options2)
                                 let txt = match txts with
-                                          | [] -> ctor.name
-                                          | t -> String.concat " " t
+                                            | [] -> ctor.name
+                                            | t -> String.concat " " t
                                 checkbox(rootctx, rootMeta, Some txt, cost', None, Some (fun () -> React.fragment fragments))
                         }
             [   choose2d.generate f |> unpack
@@ -459,8 +451,16 @@ module ReactBuilder =
         | Grant(meta: Metadata, v: _ OneResult) ->
             v |> ofOne (ctxGrantOne (ctx |> ctxAugment meta) v)
         | ChooseCtor(meta, chooseChoice) ->
+            let selection = DataBuilder.ofOne (toDataCtx ctx) one |> List.tryHead
+            let cost' = selection |> Option.map cost
+            let ctx = { extend ctx meta with collapsing = true }
+            let rootctx = ctx
+            let rootKey = rootctx.searchPrefix
+            let rootMeta = meta
+
             let pack, unpack = viaAny<ReactElement>()
-            chooseChoice.generate({
+            let inner =
+                chooseChoice.generate({
                     new Polymorphic<Constructor<Any, Chosen> * LabeledCtorArg<Any, Any> ChoiceOption, Any> with
                         override this.Apply((ctor, options)) =
                             Html.div [
@@ -476,7 +476,10 @@ module ReactBuilder =
                                             yield! inputs |> List.map (snd >> Html.div)
                                 ]
                             |> pack
-                }) |> unpack
+                    }) |> unpack
+            checkbox(ctx, meta, (selection |> Option.map (Format.value ctx.char.stats)), cost', None, Some (fun () ->
+                inner
+                ))
     //    | ChooseOneFromHierarchy(meta: Metadata, hierarchy: _ OneHierarchy) ->
     //        let choice = DataBuilder.ofOne (toDataCtx ctx) one |> List.tryHead
     //        let cost' = choice |> Option.map cost
@@ -493,10 +496,3 @@ module ReactBuilder =
     let reactBuilder : ReactCtx -> Chosen Many -> ReactElement =
         ofMany
 
-[<ReactComponent>]
-let TraitView (profession: Templates.Package<Profession>, char: Character, queue: Map<Key, string>, dispatch: TraitMsg -> unit) =
-    let builder = reactBuilder(ReactCtx.create(char, queue, dispatch))
-    class' "traitview" Html.fieldSet [
-        classTxt' "subtitle" Html.legend profession.displayName
-        (Templates.menusFor profession.name |> builder)
-        ]
