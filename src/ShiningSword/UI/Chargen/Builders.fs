@@ -295,7 +295,7 @@ module ReactBuilder =
                 ]
         | NestedBudgets(totalBudget: int, meta: Metadata, suggestions: (int option * Metadata * _ OneResult list) list) ->
             // TODO: enforce budgets to whatever extent is appropriate
-            let cost = DataBuilder.ofMany (toDataCtx ctx) many |> List.sumBy cost
+            let cost = DataBuilder.ofMany (toDataCtx ctx) many |> List.distinct |> List.sumBy cost
             let txt = String.join " " [defaultArg meta.label ""; $"{cost}/{totalBudget} points"]
             let ctx = extend ctx meta
             VisuallyGroup (Some txt) [
@@ -480,19 +480,6 @@ module ReactBuilder =
             checkbox(ctx, meta, (selection |> Option.map (Format.value ctx.char.stats)), cost', None, Some (fun () ->
                 inner
                 ))
-    //    | ChooseOneFromHierarchy(meta: Metadata, hierarchy: _ OneHierarchy) ->
-    //        let choice = DataBuilder.ofOne (toDataCtx ctx) one |> List.tryHead
-    //        let cost' = choice |> Option.map cost
-    //        match choice with
-    //        | None ->
-    //            checkbox(extend ctx meta, meta, None, cost', None, Some (fun () -> hierarchy |> ofHierarchy (extend ctx meta)))
-    //        | Some trait1 ->
-    //            checkbox(extend ctx meta, meta, Some(Format.value trait1), cost', None, None)
-    //and ofHierarchy (ctx: ReactCtx) = function
-    //    | Leaf(meta: Metadata, v) ->
-    //        checkbox(extend ctx meta, meta, Some(Format.value ctx.char.stats v), Some (cost v), None, None)
-    //    | Interior(meta: Metadata, hierarchy: _ OneHierarchy list) ->
-    //        VisuallyGroup None (hierarchy |> List.map (ofHierarchy (extend ctx meta)))
     let reactBuilder : ReactCtx -> Chosen Many -> ReactElement =
         ofMany
 
