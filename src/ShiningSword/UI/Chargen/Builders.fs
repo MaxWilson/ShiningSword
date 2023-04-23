@@ -310,7 +310,6 @@ module ReactBuilder =
         match one with
         | Binary(meta: Metadata, v) -> checkbox(extend ctx meta, meta, Some(Format.value ctx.char.stats v), Some (cost v), None, None)
         | Choose(meta: Metadata, choose: _ Choose) ->
-            let cost' = DataBuilder.ofOne (toDataCtx ctx) one |> List.tryHead |> Option.map cost
             let ctx = { extend ctx meta with collapsing = true }
             let rootctx = ctx
             let rootKey = rootctx.searchPrefix
@@ -353,7 +352,7 @@ module ReactBuilder =
                                 match options, kind with
                                 | PickedIndex attempt ix, Leveled _ ->
                                     let txt, fragment = levels ctx ix
-                                    checkbox(rootctx, rootMeta, Some txt, cost', None, Some (thunk fragment)) |> pack
+                                    checkbox(rootctx, rootMeta, Some txt, None, None, Some (thunk fragment)) |> pack
                                 | PickedArgAndLabel attempt chosenArg, Selection ->
                                     checkbox(rootctx, rootMeta, Some ctor.name, None, None, Some (fun () -> selection ctx chosenArg))
                                     |> pack
