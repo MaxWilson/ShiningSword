@@ -464,7 +464,6 @@ module ReactBuilder =
                     new Polymorphic<Constructor<Any, Chosen> * LabeledCtorArg<Any, Any> ChoiceOption, Any> with
                         override this.Apply((ctor, options)) =
                             Html.div [
-                                Html.text ctor.name
                                 match options with
                                 | _, options ->
                                     for o in options do

@@ -328,6 +328,7 @@ type Format() =
         | Overconfidence sev -> selfControl(nameof(Overconfidence), sev)
         | ShortAttentionSpan sev -> selfControl(nameof(ShortAttentionSpan), sev)
         | Trickster sev -> selfControl(nameof(Trickster), sev)
+        | Serendipity n -> if n > 1 then $"Serendipity {n}" else "Serendipity"
         | StrikingST n -> $"{nameof(Trait.StrikingST) |> String.uncamel} %+d{n}"
         | Vow subject -> $"Vow ({subject.ToUncameledString()})"
         | WeaponMaster(v) ->
