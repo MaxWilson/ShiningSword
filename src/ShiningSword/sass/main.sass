@@ -73,13 +73,22 @@ button, input[type=checkbox]
             .aggregate
                 columns: 2 250px
                 column-rule: 1px solid #ccc
-        .potentialChoice
+        .activeChoice
+            display: inline-block
+        .potentialChoice,.activeChoice
+            button
+                font-size: 0.8rem
+                margin: -2px 2px // don't want vertical margin to make the row wiggle when button appears
             .potentialChoice
                 padding-left: 1rem
             .subchoice
                 padding-left: 1rem
 
-
+.vertFlex
+    display: inline-flex
+    flex-direction: column
+    min-height: 100%
+    max-height: 100%
 
 .placeholder
     border: thin solid red

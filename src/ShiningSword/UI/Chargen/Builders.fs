@@ -261,7 +261,7 @@ module ReactBuilder =
             | Some f when isChecked -> f()
             | _ -> ()
             ]
-        if ctx.collapsing && isChecked then class' "potentialChoice" Html.span elements else class' "potentialChoice" Html.div elements
+        if ctx.collapsing && isChecked then class' "activeChoice" Html.div elements else class' "potentialChoice" Html.div elements
     let placeholder v = Html.div (v.ToString() |> fun s -> $"placeholder {s.Substring(0, min s.Length 30)}...")
     let rec ofMany (ctx: ReactCtx) many =
         match many with
