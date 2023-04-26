@@ -465,13 +465,43 @@ module ReactBuilder =
                             Html.div [
                                 match options with
                                 | _, options ->
-                                    for o in options do
-                                        match o with
+                                    let renderOption = function
                                         | LConst(meta, arg, txt) ->
-                                            Html.div txt
+                                            checkbox(extend ctx meta, meta, Some txt, None, None, None)
                                         | LConstructFrom(meta, n, ctor, inputs) ->
-                                            Html.div ctor.name
-                                            yield! inputs |> List.map (snd >> Html.div)
+                                            let ctx = extend ctx meta
+                                            let refinements() = VisuallyGroup None [
+                                                let render (input, txt) =
+                                                    let meta = Metadata.key' txt
+                                                    checkbox(extend ctx meta, meta, Some txt, None, None, None)
+                                                let attempt (input, txt) =
+                                                    isSatisfied (extend ctx (Metadata.key' txt))
+                                                match inputs |> List.filter attempt with
+                                                | picks when picks.Length >= n ->
+                                                    for pick in picks do
+                                                        render pick
+                                                | _ ->
+                                                    for candidate in inputs do
+                                                        render candidate
+                                                ]
+                                            checkbox(ctx, meta, Some ctor.name, None, None, Some refinements)
+
+                                    let attempt = function
+                                        | LConst(meta, _, _)
+                                        | LConstructFrom(meta, _, _, _) ->
+                                            isSatisfied (extend ctx meta)
+
+                                    match options |> List.tryFind attempt with
+                                    | Some option ->
+                                        renderOption option
+                                    | None ->
+                                        for option in options do
+                                            let meta = match option with
+                                                        | LConst(meta, _, _)
+                                                        | LConstructFrom(meta, _, _, _) ->
+                                                        meta
+                                            //Html.div $"Potential! {(extend ctx meta).searchPrefix} contains {meta.keySegment} {attempt option}"
+                                            renderOption option
                                 ]
                             |> pack
                     }) |> unpack
