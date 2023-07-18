@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <TargetFramework>net6.0</TargetFramework>
+        <TargetFramework>net7.0</TargetFramework>
     </PropertyGroup>
     <ItemGroup>
         <None Include="scratch\CalcVariables.fsx" />
@@ -39,7 +39,7 @@
         <Compile Include="Domain\Character\DungeonFantasy\Templates.fs" />
         <Compile Include="Domain\Character\DungeonFantasy\DungeonFantasy.fs" />
         <Compile Include="Domain\Character\Universal.fs" />
-        <Compile Include="Adventure.fs" />            
+        <Compile Include="Adventure.fs" />
         <None Include="sass\main.sass" />
         <None Include="index.html" />
         <Compile Include="UI\CommonUI.fs" />

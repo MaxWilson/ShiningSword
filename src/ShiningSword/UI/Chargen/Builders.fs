@@ -454,8 +454,6 @@ module ReactBuilder =
             let cost' = selection |> Option.map cost
             let ctx = { extend ctx meta with collapsing = true }
             let rootctx = ctx
-            let rootKey = rootctx.searchPrefix
-            let rootMeta = meta
 
             let pack, unpack = viaAny<ReactElement>()
             let inner =
