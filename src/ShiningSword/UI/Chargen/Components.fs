@@ -70,6 +70,7 @@ module DF =
                         selection "Race" (Templates.races |> List.map snd) (fun r -> r.name |> Helpers.raceName) (raceConstraintOrPreference, setRaceConstraintOrPreference)
 
                         selection "Sex" [Specific Male; Specific Female] (function Specific sex -> sprintf "%A" sex | _ -> "Random") (sexConstraint |> Some, (function Some (Specific v) -> Specific v | _ -> Arbitrary) >> setSexConstraint)
+                        selection "Profession" Templates.professions.Keys Helpers.professionName (professionPreference, setProfessionPreference)
                         let nations = Onomastikon.nameLists.Keys |> Seq.map fst |> Seq.distinct
                         selection "Origin" nations id (nationPreference, setNationPreference)
                         ]

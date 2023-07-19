@@ -68,3 +68,4 @@ module Helpers =
         | HalfOrc -> "Half-orc"
         | v -> v.ToString()
 
+    let professionName (prof: Profession) = String.uncamel (prof.ToString())

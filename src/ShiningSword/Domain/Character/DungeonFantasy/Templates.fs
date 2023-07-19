@@ -283,7 +283,7 @@ module Templates =
         2, Package.Create<Race>(HalfElf, [DX, +1])
         1, Package.Create<Race>(Gnome, [SM, -1; FP, +3; Move, -1])
         2, Package.Create<Race>(HalfOrc, [HT, +1; HP, +1])
-        2, Package.Create<Race>(HalfOgre, [ST, +4; HT, +1; IQ, -1; Will, +1])
+        2, Package.Create<Race>(HalfOgre, [ST, +4; HT, +1; IQ, -1])
         1, Package.Create<Race>(Coleopteran, [ST, +1; IQ, -1; Per, +1])
         1, Package.Create<Race>(Halfling, [ST, -3; DX, +1; HT, +1; SM, -2; HP, +2; Move, -1])
         ]
