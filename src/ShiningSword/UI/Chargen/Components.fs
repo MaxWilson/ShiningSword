@@ -32,13 +32,17 @@ module DF =
         class' "character" Html.div [
             let showRerollPreferences, setShowRerollPreferences = React.useState true
             let randomize, setRandomize = React.useState NonRandom
-            let (raceConstraint: Race Templates.Package Constraint option), setRaceConstraint =
-                React.useState None
-                |> Tuple2.mapfst (function None when randomize <> NonRandom -> Some Arbitrary | _ when randomize = NonRandom -> None | v -> v)
+            let (raceConstraintOrPreference: Race Templates.Package option), setRaceConstraintOrPreference = React.useState None
+            let professionPreference, setProfessionPreference = React.useState None
             let sexConstraint, setSexConstraint = React.useState Arbitrary
             let nationPreference, setNationPreference = React.useState None
             let rerollSection =
-                let rerollButton = Html.button [prop.text "Reroll"; prop.onClick (thunk1 dispatch (Reroll { Constraints.fresh with randomizationMethod = randomize; race = raceConstraint; sex = sexConstraint; nationPreference = nationPreference }))]
+                let toPreference = function
+                    | Some r -> Some (if randomize = NonRandom then Prefer r else Require r)
+                    | None when randomize = NonRandom -> None
+                    | None -> // force a random race
+                        (Templates.races |> List.map snd) |> chooseRandom |> Require |> Some
+                let rerollButton = Html.button [prop.text "Reroll"; prop.onClick (thunk1 dispatch (Reroll { Constraints.fresh with randomizationMethod = randomize; race = raceConstraintOrPreference |> toPreference; professionPreference = professionPreference; sex = sexConstraint; nationPreference = nationPreference }))]
                 let renameButton = Html.button [prop.text "New name"; prop.onClick (thunk1 dispatch (FwdRoleplaying UI.Roleplaying.RecomputeName))]
 
                 if showRerollPreferences then
@@ -63,8 +67,7 @@ module DF =
                             checkbox "chkExponential" "Power curve" (randomize = Exponential, fun _ -> setRandomize Exponential)
                             checkbox "chk3d6Avg" "Average of 3d6 and 3d6" (randomize = Average3d6, fun _ -> setRandomize Average3d6)
                             ]
-                        if randomize <> NonRandom then
-                            selection "Race" (Templates.races |> List.map (snd >> Specific)) (function Specific r -> r.name |> Helpers.raceName | _ -> "Random") (raceConstraint, setRaceConstraint)
+                        selection "Race" (Templates.races |> List.map snd) (fun r -> r.name |> Helpers.raceName) (raceConstraintOrPreference, setRaceConstraintOrPreference)
 
                         selection "Sex" [Specific Male; Specific Female] (function Specific sex -> sprintf "%A" sex | _ -> "Random") (sexConstraint |> Some, (function Some (Specific v) -> Specific v | _ -> Arbitrary) >> setSexConstraint)
                         let nations = Onomastikon.nameLists.Keys |> Seq.map fst |> Seq.distinct

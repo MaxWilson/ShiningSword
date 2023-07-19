@@ -36,12 +36,13 @@ type Character = {
     }
 
 type 't Constraint = Arbitrary | Specific of 't
-
+type 't Preference = Prefer of 't | Require of 't
 type Constraints = {
     randomizationMethod: RandomizationMethod
-    race: Race Package Constraint option
+    race: Race Package Preference option
     sex: Sex Constraint
     nationPreference: string option
+    professionPreference: Profession option
     }
     with
     static member fresh = {
@@ -49,6 +50,7 @@ type Constraints = {
         race = None
         sex = Arbitrary
         nationPreference = None
+        professionPreference = None
         }
 
 let clear (char: Stats.Attributes) =
@@ -60,12 +62,16 @@ let clear (char: Stats.Attributes) =
             SM = char.SM.clear }
 let materialize fallback = function Arbitrary -> fallback() | (Specific v) -> v
 let createRandom (c: Constraints) =
-    let prof = chooseRandom professions.Keys
+    let prof =
+        match c.professionPreference with
+        | None -> chooseRandom professions.Keys
+        | Some p -> p
+
     let stats = rollStats c.randomizationMethod
     let race =
         match c.race with
-        | None | Some Arbitrary -> chooseWeightedRandom races
-        | Some (Specific r) -> r
+        | None -> chooseWeightedRandom races
+        | Some (Require r | Prefer r) -> r
     let sex = c.sex |> materialize (thunk1 chooseRandom [Male; Female])
     let nation, name =
         match c.nationPreference with
@@ -86,11 +92,12 @@ let createRandom (c: Constraints) =
         sex = sex
         nationalOrigin = nation
         }
+
     {   id = System.Guid.NewGuid().ToString()
         header = rp
         profession = prof
         race = race.name
-        canChangeRace = c.race.IsNone // can only change race if it was unconstrained originally, i.e. nonrandom stats
+        canChangeRace = match c.race with None | Some (Prefer _) -> true | _ -> false // Can't change race if it's locked to something specific via Require
         stats = stats |> clear |> race.apply |> professions[prof].apply
         traits = race.traits @ professions[prof].traits
         }
