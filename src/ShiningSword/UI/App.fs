@@ -158,7 +158,7 @@ module App =
                         prop.onClick(fun _ ->
                             match model.roster |> Array.tryHead with
                             | None | Some (DF _)->
-                                Open(Page.Generate (Chargen.View.init()), Some "chargen/df") |> dispatch
+                                Open(Page.Generate (Chargen.View.init None), Some "chargen/df") |> dispatch
                                 ChargenMsg(Chargen.View.SetRuleset Chargen.View.Ruleset.DungeonFantasy) |> dispatch
                             )
                         ]
@@ -228,35 +228,22 @@ module Url =
             | _ -> []
 
         let (|Page|_|) = function
-            | Str "chargen/adnd/DarkSun" ctx ->
-                let model'= Chargen.View.init()
+            | Str "chargen/df/swash" ctx ->
+                let model' = Chargen.View.init (Some { Constraints.fresh with professionPreference = Some Swashbuckler })
                 let cmd = [
                     Open (Page.Generate model', None)
-                    //SetMethod DarkSunMethodI |> ChargenMsg
-                    ]
-                Some(cmd, ctx)
-            | Str "chargen/adnd" ctx ->
-                let model' = Chargen.View.init()
-                let cmd = [
-                    Open (Page.Generate model', None)
-                    ]
-                Some(cmd, ctx)
-            | Str "chargen/5e" ctx ->
-                let model' = Chargen.View.init()
-                let cmd = [
-                    Open (Page.Generate model', None)
-                    ChargenMsg (SetRuleset (Chargen.View.WotC))
+                    ChargenMsg (SetRuleset (Chargen.View.DungeonFantasy))
                     ]
                 Some(cmd, ctx)
             | Str "chargen/df" ctx ->
-                let model' = Chargen.View.init()
+                let model' = Chargen.View.init None
                 let cmd = [
                     Open (Page.Generate model', None)
                     ChargenMsg (SetRuleset (Chargen.View.DungeonFantasy))
                     ]
                 Some(cmd, ctx)
             | Str "chargen" ctx ->
-                let model' = Chargen.View.init()
+                let model' = Chargen.View.init None
                 let cmd = [
                     Open (Page.Generate model', None)
                     ]

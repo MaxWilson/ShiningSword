@@ -25,10 +25,10 @@ module View =
         | Reroll
         | SetRuleset of Ruleset
         | FwdDungeonFantasy of DF.Msg
-    let rec init _ =
+    let rec init initialState =
         {
             ruleset = DungeonFantasy
-            dfChar = DF.init None
+            dfChar = DF.init initialState
             } |> reroll
     and reroll model =
         match model.ruleset with
