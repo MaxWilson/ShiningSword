@@ -10,14 +10,28 @@ open UI.CommonUI
 open Optics
 open type Optics.Operations
 
+// ad hoc placeholder, needs to become Ribbit combatant eventually
+module AdHoc =
+    type Combatant = {
+        name: string
+        stats: Stats.Attributes
+        traits: Trait list
+        }
+    type FightModel = {
+        me: Combatant
+        them: Combatant list
+        }
+
 type Model =
     {   char: Character
         queue: Map<Key, string>
+        practiceFight: AdHoc.FightModel option
         }
 
 let init constraints =
     {   char = createRandom (defaultArg constraints { Constraints.fresh with randomizationMethod = NonRandom })
-        queue = Map.empty }
+        queue = Map.empty
+        practiceFight = None }
 
 type Msg =
     | Reroll of Constraints
@@ -25,6 +39,7 @@ type Msg =
     | ChangeRace of Race
     | ChangeProfession of Profession
     | TraitChange of TraitMsg
+    | PracticeFight of AdHoc.FightModel option
 
 let update msg model =
     let Char = Lens.create (fun m -> m.char) (fun v m -> { m with char = v })
@@ -58,6 +73,8 @@ let update msg model =
                 else false
             queue |> Map.filter (fun k v -> k |> strictlyUnder |> not)
         model |> over Queue clearUnder
+    | PracticeFight fight ->
+        { model with practiceFight = fight }
 
 [<AutoOpen>]
 module Helpers =
@@ -69,3 +86,15 @@ module Helpers =
         | v -> v.ToString()
 
     let professionName (prof: Profession) = String.uncamel (prof.ToString())
+
+    open AdHoc
+    let goblin n =
+        { name = sprintf "Goblin %d" n; stats = Stats.freshFrom(11, 12, 9, 12); traits = [] }
+    let goblinFight (me: Character) =
+        let me: Combatant = {
+            name =  me.header.name
+            stats = me.stats
+            traits = me.traits
+            }
+        let them = [goblin 1; goblin 2; goblin 3]
+        { me = me; them = them }

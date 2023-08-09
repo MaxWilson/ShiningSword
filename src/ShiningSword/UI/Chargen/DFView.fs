@@ -22,8 +22,6 @@ module DF =
     open Domain.Ribbit.Properties
     open type Domain.Ribbit.Properties.Eval
     open Domain.Character.Core
-    open Domain.Character.DungeonFantasy.TraitsAndAttributes
-    open Domain.Character.DungeonFantasy.TraitsAndAttributes.Stats
     open UI.Chargen.DF
     [<ReactComponent>]
     let View (mkHeader: _ -> ReactElement) model dispatch =
@@ -157,5 +155,16 @@ module DF =
                 Html.hr []
                 ]
             TraitView(profession, char, model.queue, (TraitChange >> dispatch))
+            match model.practiceFight with
+            | None ->
+                Html.button [prop.text "Practice fight"; prop.onClick (fun _ -> goblinFight model.char |> Some |> PracticeFight |> dispatch)]
+            | Some practiceFight ->
+                for combatant in practiceFight.me::practiceFight.them do
+                    class' "combatant" Html.div [
+                        Html.div combatant.name
+                        for txt, prop in ["ST", ST; "DX", DX; "IQ", IQ; "HT", HT; "HP", HP] do
+                            show(txt, prop combatant.stats)
+                        ]
+                Html.button [prop.text "Cancel fight"; prop.onClick(fun _ -> None |> PracticeFight |> dispatch)]
             Html.button [prop.text "OK"]
             ]

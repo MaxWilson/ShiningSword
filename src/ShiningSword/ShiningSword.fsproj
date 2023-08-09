@@ -49,8 +49,8 @@
         <Compile Include="UI\Konva.fs" />
         <Compile Include="UI\Roleplaying.fs" />
         <Compile Include="UI\Chargen\Builders.fs" />
-        <Compile Include="UI\Chargen\DFUI.fs" />
-        <Compile Include="UI\Chargen\Components.fs" />
+        <Compile Include="UI\Chargen\DFModel.fs" />
+        <Compile Include="UI\Chargen\DFView.fs" />
         <Compile Include="UI\ChargenUI.fs" />
         <Compile Include="UI\UIComponents.fs" />
         <Compile Include="UI\App.fs" />
