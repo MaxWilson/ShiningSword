@@ -40,6 +40,7 @@
         <Compile Include="Domain\Character\DungeonFantasy\DungeonFantasy.fs" />
         <Compile Include="Domain\Character\Universal.fs" />
         <Compile Include="Adventure.fs" />
+        <Compile Include="Scratch\RibbitFromScratch4.fs" />
         <None Include="sass\main.sass" />
         <None Include="index.html" />
         <Compile Include="UI\CommonUI.fs" />

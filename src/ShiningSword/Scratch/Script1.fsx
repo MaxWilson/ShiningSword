@@ -115,3 +115,27 @@ let rec (|Program|_|) : ParseRule<Domain.Model.Ribbit.Command list> =
     | Command(cmd, ctx) -> Some([cmd], ctx)
 
 parser (|Program|_|) "add Bob"
+
+let dist3d6 = [
+    for x in 1..6 do
+        for y in 1..6 do
+            for z in 1..6 do
+               yield x + y + z
+    ]
+let marginFor will bonus =
+    let lst = [
+        for spell in dist3d6 do
+            for resist in dist3d6 do
+                for fright in dist3d6 do
+                    let spellMargin = 16 - spell
+                    let resistMargin = will - fright
+                    if spell <= 16 && (spell <= 6 || spellMargin > resistMargin) && fright > (will - 3 + bonus) then 1 else 0
+        ]
+    (lst |> List.sum |> float) / (lst.Length |> float)
+marginFor 12
+marginFor 11
+marginFor 10 2
+marginFor 10 0
+marginFor 14
+marginFor 16
+marginFor 15
