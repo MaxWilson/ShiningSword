@@ -3,6 +3,7 @@
         <TargetFramework>net7.0</TargetFramework>
     </PropertyGroup>
     <ItemGroup>
+        <None Include="Scratch\CQRS.fsx" />
         <None Include="scratch\CalcVariables.fsx" />
         <None Include="scratch\Constructor.fsx" />
         <None Include="scratch\DFRPGChargen.fsx" />
