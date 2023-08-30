@@ -1,9 +1,7 @@
-#if INTERACTIVE
-#r "nuget: Unquote"
-#else
-module CQRS
-#endif
+module POCs
+
 open System
+open Expecto
 open Swensen.Unquote
 
 type Marker = int
@@ -47,7 +45,8 @@ type EventSource<'msg, 'state>(initialState: 'state, execute) =
             | None -> failwith $"Invalid marker: {mark}"
     static member Create(st, f) : CQRS<_,_> = EventSource(st, f)
 
-let tests() =
+[<Tests>]
+let CQRSTest() = testCase "CQRS POC" <| fun () ->
     let test1 = EventSource.Create(0, fun f n -> f n)
     test <@ test1.State = 0 @>
     let zeroish = test1.Checkpoint()
@@ -69,7 +68,4 @@ let tests() =
     test1.Execute ((+) 4)
     test1.Execute ((-) 15)
     test <@ test1.State = 8 @>
-    raises <@ test1.FastForward sixish @> // should fail
-#if INTERACTIVE
-tests()
-#endif
+    raises <@ test1.FastForward sixish @> // should throw
