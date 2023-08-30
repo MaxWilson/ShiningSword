@@ -3,7 +3,6 @@
         <TargetFramework>net7.0</TargetFramework>
     </PropertyGroup>
     <ItemGroup>
-        <None Include="Scratch\CQRS.fsx" />
         <None Include="scratch\CalcVariables.fsx" />
         <None Include="scratch\Constructor.fsx" />
         <None Include="scratch\DFRPGChargen.fsx" />
@@ -24,6 +23,7 @@
         <None Include="Scratch\Sample.rbt" />
         <None Include="Scripts\Scratch.fsx" />
         <Compile Include="Core\Common.fs" />
+        <Compile Include="Core\CQRS.fs" />
         <Compile Include="Core\Optics.fs" />
         <Compile Include="Core\Packrat.fs" />
         <Compile Include="Core\DerivedTraits.fs" />
