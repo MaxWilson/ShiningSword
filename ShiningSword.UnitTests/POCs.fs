@@ -3,12 +3,12 @@ module POCs
 open Expecto
 open Swensen.Unquote
 
-open POC.CQRS
+open POC
 
 [<Tests>]
 let CQRSTests() = testLabel "POCs" <| testList "CQRS" [
     testCase "Number test" <| fun () ->
-        let test1 = EventSource.Create(0, fun f n -> f n)
+        let test1 = CQRS.Create(0, fun f n -> f n)
         test <@ test1.State = 0 @>
         let zeroish = test1.Checkpoint()
         test1.Execute ((+) 3)
