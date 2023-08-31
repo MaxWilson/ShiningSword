@@ -1,4 +1,4 @@
-module POC // POC = not used by anything else yet except scripts
+module POC // POC = not used by anything else yet except scripts and POCs
 
 type Marker = int
 

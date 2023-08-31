@@ -21,14 +21,15 @@
         <None Include="Scratch\RibbitFromScratch.fsx" />
         <None Include="Scratch\RibbitFromScratch2.fsx" />
         <None Include="Scratch\RibbitFromScratch3.fsx" />
+        <None Include="Scratch\RibbitFromScratch4.fs" />
         <None Include="Scratch\Sample.rbt" />
         <None Include="Scripts\Scratch.fsx" />
         <Compile Include="Core\Common.fs" />
-        <Compile Include="Core\CQRS.fs" />
+        <Compile Include="Core\CQRSPOC.fs" />
         <Compile Include="Core\Optics.fs" />
         <Compile Include="Core\Packrat.fs" />
         <Compile Include="Core\DerivedTraits.fs" />
-        <Compile Include="Domain\Namespace.fs" />
+        <Compile Include="Domain\RibbitPOC.fs" />
         <Compile Include="Domain\Onomastikon.fs" />
         <Compile Include="Domain\Metrics.fs" />
         <Compile Include="Domain\Random.fs" />
@@ -42,7 +43,6 @@
         <Compile Include="Domain\Character\DungeonFantasy\DungeonFantasy.fs" />
         <Compile Include="Domain\Character\Universal.fs" />
         <Compile Include="Adventure.fs" />
-        <Compile Include="Scratch\RibbitFromScratch4.fs" />
         <None Include="sass\main.sass" />
         <None Include="index.html" />
         <Compile Include="UI\CommonUI.fs" />
