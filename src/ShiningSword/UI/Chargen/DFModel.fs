@@ -14,6 +14,7 @@ open type Optics.Operations
 module AdHoc =
     type Combatant = {
         name: string
+        team: int
         stats: Stats.Attributes
         traits: Trait list
         }
@@ -89,10 +90,11 @@ module Helpers =
 
     open AdHoc
     let goblin n =
-        { name = sprintf "Goblin %d" n; stats = Stats.freshFrom(11, 12, 9, 12); traits = [] }
+        { name = sprintf "Goblin %d" n; team = 1; stats = Stats.freshFrom(11, 12, 9, 12); traits = [] }
     let goblinFight (me: Character) =
         let me: Combatant = {
             name =  me.header.name
+            team = 0
             stats = me.stats
             traits = me.traits
             }
