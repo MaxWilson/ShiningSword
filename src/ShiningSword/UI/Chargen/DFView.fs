@@ -165,20 +165,24 @@ module DF =
                 // on more important things like getting the actual fight working.
                 class' "statsTable" Html.table [
                     let props = ["ST", ST; "DX", DX; "IQ", IQ; "HT", HT; "HP", HP]
-                    Html.tr [
-                        Html.th "Name"
-                        for txt, prop in props do
-                            Html.td txt
-                        Html.th "Current action"
-                        ]
-                    for combatant in practiceFight.Combatants do
-                        let teamClass = if combatant.team = 0 then "teamFriendly" else "teamHostile"
-                        class' teamClass Html.tr [
-                            Html.td [prop.text combatant.name; prop.className "name"]
+                    Html.thead [
+                        Html.tr [
+                            Html.th "Name"
                             for txt, prop in props do
-                                Html.td (combatant.stats |> prop |> sum |> toString)
-                            Html.td "Attacking"
+                                Html.th txt
+                            Html.th "Current action"
                             ]
+                        ]
+                    Html.tbody [
+                        for combatant in practiceFight.Combatants do
+                            let teamClass = if combatant.team = 0 then "teamFriendly" else "teamHostile"
+                            class' teamClass Html.tr [
+                                Html.td [prop.text combatant.name; prop.className "name"]
+                                for txt, prop in props do
+                                    Html.td (combatant.stats |> prop |> sum |> toString)
+                                Html.td "Attacking"
+                                ]
+                        ]
                     ]
                 Html.button [prop.text "Cancel fight"; prop.onClick(fun _ -> None |> PracticeFight |> dispatch)]
             Html.button [prop.text "OK"]
