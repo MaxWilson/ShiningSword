@@ -172,8 +172,9 @@ module DF =
                         Html.th "Current action"
                         ]
                     for combatant in practiceFight.me::practiceFight.them do
-                        class' "combatant" Html.tr [
-                            Html.td [prop.text combatant.name; prop.className (if combatant.team = 0 then "teamFriendly" else "teamHostile")]
+                        let teamClass = if combatant.team = 0 then "teamFriendly" else "teamHostile"
+                        class' teamClass Html.tr [
+                            Html.td [prop.text combatant.name; prop.className "name"]
                             for txt, prop in props do
                                 Html.td (combatant.stats |> prop |> sum |> toString)
                             Html.td "Attacking"
