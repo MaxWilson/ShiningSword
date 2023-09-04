@@ -159,6 +159,10 @@ module DF =
             | None ->
                 Html.button [prop.text "Practice fight"; prop.onClick (fun _ -> goblinFight model.char |> Some |> PracticeFight |> dispatch)]
             | Some practiceFight ->
+                // Okay, so what's the problem right now? The immediate problem, which
+                // may be a sidetrack, is that we're trying to display unlabeled
+                // things like the ST function. Probably we should ignore this and focus
+                // on more important things like getting the actual fight working.
                 class' "statsTable" Html.table [
                     let props = ["ST", ST; "DX", DX; "IQ", IQ; "HT", HT; "HP", HP]
                     Html.tr [
