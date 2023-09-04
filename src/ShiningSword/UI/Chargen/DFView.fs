@@ -184,6 +184,7 @@ module DF =
                                 ]
                         ]
                     ]
+                Html.button [prop.text "Execute"; prop.onClick(fun _ -> fightOneRound practiceFight |> Some |> PracticeFight |> dispatch)]
                 Html.button [prop.text "Cancel fight"; prop.onClick(fun _ -> None |> PracticeFight |> dispatch)]
             Html.button [prop.text "OK"]
             ]

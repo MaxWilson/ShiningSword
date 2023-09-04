@@ -101,3 +101,7 @@ module Helpers =
             }
         let them = [goblin 1; goblin 2; goblin 3]
         { objects = me::them |> List.map Combatant }
+
+    let fightOneRound (model: FightModel) =
+        let damageOf = function 15 -> notImpl "We need an RValue for random dice rolls, with an eval" | _ -> notImpl()
+        model
