@@ -16,12 +16,14 @@ module AdHoc =
         name: string
         team: int
         stats: Stats.Attributes
-        traits: Trait list
         }
+    // "object" is the game design sense, something within the system, not in the OO sense or even the "not a creature" sense
+    type Object = Combatant of Combatant | Thing of string
     type FightModel = {
-        me: Combatant
-        them: Combatant list
+        objects: Object list
         }
+        with
+        member this.Combatants = this.objects |> List.choose (function Combatant c -> Some c | _ -> None)
 
 type Model =
     {   char: Character
@@ -90,13 +92,12 @@ module Helpers =
 
     open AdHoc
     let goblin n =
-        { name = sprintf "Goblin %d" n; team = 1; stats = Stats.freshFrom(11, 12, 9, 12); traits = [] }
+        { name = sprintf "Goblin %d" n; team = 1; stats = Stats.freshFrom(11, 12, 9, 12) }
     let goblinFight (me: Character) =
         let me: Combatant = {
             name =  me.header.name
             team = 0
             stats = me.stats
-            traits = me.traits
             }
         let them = [goblin 1; goblin 2; goblin 3]
-        { me = me; them = them }
+        { objects = me::them |> List.map Combatant }

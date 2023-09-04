@@ -171,7 +171,7 @@ module DF =
                             Html.td txt
                         Html.th "Current action"
                         ]
-                    for combatant in practiceFight.me::practiceFight.them do
+                    for combatant in practiceFight.Combatants do
                         let teamClass = if combatant.team = 0 then "teamFriendly" else "teamHostile"
                         class' teamClass Html.tr [
                             Html.td [prop.text combatant.name; prop.className "name"]
