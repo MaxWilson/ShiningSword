@@ -25,7 +25,7 @@
         <None Include="Scratch\Sample.rbt" />
         <None Include="Scripts\Scratch.fsx" />
         <Compile Include="Core\Common.fs" />
-        <Compile Include="Core\CQRSPOC.fs" />
+        <Compile Include="Core\CQRS.fs" />
         <Compile Include="Core\Optics.fs" />
         <Compile Include="Core\Packrat.fs" />
         <Compile Include="Core\DerivedTraits.fs" />

@@ -12,19 +12,53 @@ open type Optics.Operations
 
 // ad hoc placeholder, needs to become Ribbit combatant eventually
 module AdHoc =
+    type RuntimeValue =
+        | Text of string | Random of Domain.Random.RollSpec | Number of int
+        | Bool of bool
     type Combatant = {
         name: string
         team: int
         stats: Stats.Attributes
+        scratchPad: Map<string, RuntimeValue> // a grab bag of things like current HP or whether it's currently stunned; not permanent parts of the character sheet
         }
+    let IsOK (c: Combatant) =
+        let checkWhether flagName =
+           match c.scratchPad |> Map.tryFind flagName with
+            | Some (Bool b) -> b
+            | _ -> false
+        not (checkWhether "IsDead" || checkWhether "IsUnconscious")
+    let CurrentHP (c:Combatant) =
+        let hp = HP c.stats |> Eval.sum
+        let damageTaken =
+            match c.scratchPad |> Map.tryFind "damageTaken" with
+            | Some (Number n) -> n
+            | _ -> 0
+        hp - damageTaken
     // "object" is the game design sense, something within the system, not in the OO sense or even the "not a creature" sense
     type Object = Combatant of Combatant | Thing of string
-    type FightModel = {
-        objects: Object list
-        }
-        with
-        member this.Combatants = this.objects |> List.choose (function Combatant c -> Some c | _ -> None)
-
+    type FightMsg =
+        | TakeDamage of name:string * int
+        | SetIntention of name:string * string
+        | SetResultMsg of name:string * string
+    type FightModel = Map<Name, Object>
+    let update msg (model: Map<Name, Object>) =
+        let changeObject name propertyName fChange =
+            model |> Map.change name (function
+                | Some (Combatant c) ->
+                    let change bag =
+                        bag |> Map.change propertyName fChange
+                    Some <| Combatant { c with scratchPad = c.scratchPad |> change }
+                | otherwise -> notImpl())
+        match msg with
+        | TakeDamage(name, amount) ->
+            let changeDamageTaken = function
+                | Some (Number n) -> Some (Number (n + amount))
+                | _ -> Some (Number amount)
+            changeObject name "damageTaken" changeDamageTaken
+        | SetIntention(name, intention) ->
+            changeObject name "AdHocIntention" (fun _ -> Some (Text intention))
+        | SetResultMsg(name, msg) ->
+            changeObject name "AdHocLastRoundMsg" (fun _ -> Some (Text msg))
 type Model =
     {   char: Character
         queue: Map<Key, string>
@@ -91,17 +125,68 @@ module Helpers =
     let professionName (prof: Profession) = String.uncamel (prof.ToString())
 
     open AdHoc
+    open Domain.Random
     let goblin n =
-        { name = sprintf "Goblin %d" n; team = 1; stats = Stats.freshFrom(11, 12, 9, 12) }
+        { name = sprintf "Goblin %d" n; team = 1; stats = Stats.freshFrom(11, 12, 9, 12); scratchPad = Map.empty }
     let goblinFight (me: Character) =
         let me: Combatant = {
             name =  me.header.name
             team = 0
             stats = me.stats
+            scratchPad = Map.empty
             }
         let them = [goblin 1; goblin 2; goblin 3]
-        { objects = me::them |> List.map Combatant }
-
+        let data = me::them |> List.map (fun c -> c.name, Combatant c) |> Map.ofList
+        data
+    let combatants (model: FightModel) = model |> Seq.choose (function KeyValue(_, Combatant c) -> Some c | _ -> None)
     let fightOneRound (model: FightModel) =
-        let damageOf = function 15 -> notImpl "We need an RValue for random dice rolls, with an eval" | _ -> notImpl()
-        model
+        let model = CQRS.CQRS.Create(model, update)
+        let swingDamageOf = function
+            | 10 -> RollSpec.create(1,6)
+            | 11 -> RollSpec.create(1,6,+1)
+            | 12 -> RollSpec.create(1,6,+2)
+            | 13 -> RollSpec.create(2,6,-1)
+            | 14 -> RollSpec.create(2,6)
+            | 15 -> RollSpec.create(2,6,+1)
+            | 16 -> RollSpec.create(2,6,+2)
+            | 17 -> RollSpec.create(3,6,-1)
+            | 18 -> RollSpec.create(3,6)
+            | 19 -> RollSpec.create(3,6,+1)
+            | 20 -> RollSpec.create(4,6,-1)
+            | _ -> notImpl()
+        let dmg name =
+            match model.State |> Map.tryFind name with
+            | Some (Combatant c) -> c.stats |> ST |> Eval.sum |> swingDamageOf // TODO: sw vs thr should be based on weapon, and weapon damage bonuses should be included
+            | _ -> notImpl()
+        let combatantsInOrder =
+            combatants model.State |> Seq.sortBy (fun c -> Speed c.stats |> sum, ST c.stats |> sum, c.team)
+            |> Seq.map (fun c -> c.name)
+        let attack (attacker: Combatant) (defender: Combatant) =
+            let attackTarget = attacker.stats |> DX |> Eval.sum // TODO: should use weapon skill instead
+            let defendTarget = Dodge defender.stats |> Eval.sum // TODO: should use Parry or Block instead if appropriate
+            let r3d6 = RollSpec.create(3,6)
+            // TODO: tree-shaped logging here instead of just local SetResultMsg
+            if r3d6.roll() <= attackTarget then // TODO: should account for crits
+                if r3d6.roll() > defendTarget then
+                    let damageRoll = dmg attacker.name
+                    let damage = damageRoll.roll()
+                    model.Execute (TakeDamage(defender.name, damage))
+                    model.Execute (SetResultMsg(attacker.name, $"{attacker.name} hits {defender.name} for {damage} damage [{damageRoll}]"))
+                else
+                    model.Execute (SetResultMsg(attacker.name, $"{defender.name} dodges {attacker.name}'s attack"))
+            else
+                model.Execute (SetResultMsg(attacker.name, $"{attacker.name} misses {defender.name}"))
+        for attackerName in combatantsInOrder do
+            match model.State |> Map.tryFind attackerName with
+            | Some (Combatant attacker) when IsOK attacker ->
+                let defender = model.State.Values |> Seq.tryFind(function
+                    | Combatant c when c.team <> attacker.team && IsOK c -> true
+                    | _ -> false)
+                match defender with
+                | Some (Combatant defender) ->
+                    attack attacker defender
+                | _ ->
+                    model.Execute (SetResultMsg(attacker.name, $"{attacker.name} can't find a target"))
+            | _ ->
+                model.Execute (SetResultMsg(attackerName, $"{attackerName} is not OK"))
+        model.State

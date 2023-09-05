@@ -4,7 +4,7 @@ open Swensen.Unquote
 let verify = Swensen.Unquote.Assertions.test
 open Expecto
 
-open POC
+open CQRS
 
 [<Tests>]
 let Tests() = testList "POCs" [

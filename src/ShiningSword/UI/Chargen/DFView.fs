@@ -164,23 +164,28 @@ module DF =
                 // things like the ST function. Probably we should ignore this and focus
                 // on more important things like getting the actual fight working.
                 class' "statsTable" Html.table [
-                    let props = ["ST", ST; "DX", DX; "IQ", IQ; "HT", HT; "HP", HP]
+                    let stat (f: _ -> int RValue) (c:AdHoc.Combatant) = f c.stats |> sum
+                    let props = ["ST", stat ST; "DX", stat DX; "IQ", stat IQ; "HT", stat HT; "HP", AdHoc.CurrentHP]
                     Html.thead [
                         Html.tr [
                             Html.th "Name"
                             for txt, prop in props do
                                 Html.th txt
+                            Html.th "Recent"
                             Html.th "Current action"
                             ]
                         ]
                     Html.tbody [
-                        for combatant in practiceFight.Combatants do
+                        for combatant in practiceFight |> Helpers.combatants |> Seq.sortBy(fun c -> c.team)  do
                             let teamClass = if combatant.team = 0 then "teamFriendly" else "teamHostile"
                             class' teamClass Html.tr [
                                 Html.td [prop.text combatant.name; prop.className "name"]
                                 for txt, prop in props do
-                                    Html.td (combatant.stats |> prop |> sum |> toString)
-                                Html.td "Attacking"
+                                    Html.td (combatant |> prop |> toString)
+                                let txtProperty propertyName otherwise =
+                                    combatant.scratchPad |> Map.tryFind propertyName |> function Some (AdHoc.Text t) -> t | _ -> otherwise
+                                Html.td (txtProperty "AdHocLastRoundMsg" "")
+                                Html.td (txtProperty "AdHocIntention" "Attacking")
                                 ]
                         ]
                     ]

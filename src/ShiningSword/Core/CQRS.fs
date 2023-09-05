@@ -1,4 +1,4 @@
-module POC // POC = not used by anything else yet except scripts and POCs
+module CQRS
 
 type Marker = int
 
