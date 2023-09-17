@@ -11,6 +11,7 @@
     </ItemGroup>
     <ItemGroup>
         <PackageReference Include="Feliz" Version="2.6.0" />
+        <PackageReference Include="Feliz.Delay" Version="1.0.0" />
         <PackageReference Include="Feliz.Router" Version="4.0.0" />
         <PackageReference Include="Feliz.UseElmish" Version="2.4.0" />
     </ItemGroup>

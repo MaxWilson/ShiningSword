@@ -3,6 +3,7 @@ namespace App
 open Feliz
 open Feliz.Router
 open Feliz.UseElmish
+open Feliz.Delay
 open Elmish
 type private Model = { name: string; age: int; }
 type private Msg = ChangeName of string | ChangeAge of int
@@ -44,7 +45,16 @@ type Components =
                 prop.onClick (fun _ -> setCount(count + 1))
                 prop.text "Increment"
             ]
-            Components.EmployeeEditor "Tom"
+            React.delay [
+                delay.waitFor 2000
+
+                delay.children [
+                    Components.EmployeeEditor "Tom"
+                    Html.text "Here I am!"
+                ]
+
+                delay.fallback (Html.text "Loading...")
+            ]
         ]
 
     /// <summary>
