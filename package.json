@@ -1,7 +1,8 @@
 {
   "private": true,
   "scripts": {
-    "start": "dotnet tool restore && dotnet fable watch src --runFast vite",
+    "start": "dotnet tool restore && dotnet fable watch src --runFast vite --port 8080",
+    "buildGithub": "dotnet fable src --sourceMaps --run vite build --base /POCArena",        
     "build": "dotnet tool restore && dotnet fable src --run vite build",
     "clean": "dotnet fable clean src --yes"
   },
