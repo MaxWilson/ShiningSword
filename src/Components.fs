@@ -2,7 +2,10 @@ namespace App
 
 open Feliz
 open Feliz.Router
-
+open Feliz.UseElmish
+open Elmish
+type private Model = { name: string; age: int; }
+type private Msg = ChangeName of string | ChangeAge of int
 type Components =
     /// <summary>
     /// The simplest possible React component.
@@ -11,6 +14,24 @@ type Components =
     [<ReactComponent>]
     static member HelloWorld() = Html.h1 "Hello World"
 
+    [<ReactComponent>]
+    static member EmployeeEditor (start: string) =
+
+        let init() = { name = start; age = 43 }
+        let update msg model =
+            match msg with
+            | ChangeName name -> { name = name; age = model.age + 1 }
+            | ChangeAge age -> { model with age = age }
+        let p () = Program.mkSimple init update (fun _ _ -> ())
+        let state, dispatch = React.useElmish(p, [| |])
+        Html.div [
+            Html.h1 state.name
+            Html.input [
+                prop.value state.name
+                prop.onChange (ChangeName >> dispatch)
+            ]
+            Html.text $"is at least {state.age} years old!"
+        ]
     /// <summary>
     /// A stateful React component that maintains a counter
     /// </summary>
@@ -23,6 +44,7 @@ type Components =
                 prop.onClick (fun _ -> setCount(count + 1))
                 prop.text "Increment"
             ]
+            Components.EmployeeEditor "Tom"
         ]
 
     /// <summary>
