@@ -3,6 +3,9 @@
         <TargetFramework>net7.0</TargetFramework>
     </PropertyGroup>
     <ItemGroup>
+        <Compile Include="Core\Common.fs" />
+        <Compile Include="Core\CQRS.fs" />
+        <Compile Include="Core\Packrat.fs" />
         <None Include="index.html" />
         <None Include="sass/main.sass" />
         <Compile Include="Extensions.fs" />

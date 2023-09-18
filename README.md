@@ -1,4 +1,6 @@
-# Feliz Template
+# Shining Sword Arena
+
+https://maxwilson.github.io/POCArena/
 
 Proof of concept for Shining Sword arena. Rule system-agnostic presentation layer with terrain and animation support.
 
@@ -28,3 +30,7 @@ To build the application and make ready for production:
 npm run build
 ```
 This command builds the application and puts the generated files into the `dist` directory (can be overwritten in vite.config.js). This is done automatically on github after checkin.
+
+# Attributions
+
+Sword icon created by pongsakornRed - Flaticon. https://www.flaticon.com/free-icons/sword
