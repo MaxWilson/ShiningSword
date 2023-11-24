@@ -94,8 +94,7 @@ module ReactErrorBoundary =
 
         override this.render() =
             let setError v = this.setState(fun _ _ -> { Error = v })
-            let clearError = fun () -> setError None
-            WindowProtector(this.state.Error, setError, this.props.Inner)
+            WindowProtector(this.state.Error, setError, if this.state.Error.IsSome then Html.div (this.state.Error.ToString()) else this.props.Inner)
 
     let renderCatchSimple errorElement element =
         ReactElementType.create ReactElementType.ofComponent<ErrorBoundary,_,_> { Inner = element; ErrorComponent = errorElement; OnError = fun _ -> () } [ ]
