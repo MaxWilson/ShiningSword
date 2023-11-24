@@ -228,7 +228,7 @@ let (|IntNoWhitespace|_|) = pack <| function
     | _ -> None
 
 let (|Int|_|) = pack <| function
-    | OWS(Chars numeric (v, OWS(rest))) ->
+    | OWS(Chars numeric (v, rest)) ->
         match System.Int32.TryParse(v) with
         | true, v -> Some(v, rest)
         | _ -> None
