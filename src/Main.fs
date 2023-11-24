@@ -15,10 +15,17 @@ let Router() =
     React.router [
         router.onUrlChanged updateUrl
         router.children [
+            class' "header" Html.div [
+                classP' "srcLink" Html.a [
+                    prop.href "https://github.com/MaxWilson/rpg/"
+                    prop.children [Html.img [prop.ariaLabel "GitHub"; prop.src "img/GitHub_Logo.png"]]
+                    prop.target "_blank"
+                    ]
+                ]
             match currentUrl with
-            | [ "spells" ] -> UI.PriestSpells.View()
+            | [ "spells" ] -> UI.PriestSpellsView.View()
             | otherwise ->
-                UI.PriestSpells.View()
+                UI.PriestSpellsView.View()
             ]
         ]
 

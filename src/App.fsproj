@@ -11,6 +11,7 @@
         <Compile Include="UI\CommonUI.fs" />
         <Compile Include="UI\LocalStorage.fs" />
         <Compile Include="UI\Components\PriestSpells.fs" />
+        <Compile Include="UI\Components\PriestSpellsView.fs" />
         <Compile Include="UI\Components.fs" />
         <Compile Include="Main.fs" />
     </ItemGroup>
