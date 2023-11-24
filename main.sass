@@ -1,0 +1,314 @@
+// CSS resets per Kevin Powell
+
+*, *::before, *::after
+    box-sizing: border-box
+
+*
+    margin: 0
+    padding: 0
+
+html
+    color-scheme: dark light
+
+body
+    min-height: 100vh
+
+img, picture, svg, video
+    display: block
+    max-width: 100%
+
+// Arena-specific logic here
+
+.header
+    .internalLink
+        margin: auto 5px
+        // prevent bold items from growing by preemptively giving them an invisible bold twin already
+        display: inline-flex
+        flex-direction: column
+        align-items: center
+        justify-content: space-between
+    .internalLink::after // prevent bold items from growing by preemptively giving them an invisible bold twin already
+        content: attr(data-text)
+        content: attr(data-text) / ""
+        overflow: hidden
+        height: 0
+        visibility: hidden
+        user-select: none
+        pointer-events: none
+        font-weight: bold
+        @media speech
+            display: none
+    .srcLink
+        max-width: 6rem
+        float: right
+        background-color: white
+
+.error
+    font-weight: bold
+    color: red
+
+.arena
+    display: grid
+    grid-template-columns: minmax(auto, 1fr) auto
+    grid-template-rows: auto minmax(auto, 1fr)
+    > *:nth-child(1)
+        grid-row: 1 / 3
+    > *:nth-child(2)
+        grid-row: 1
+        display: flex
+        flex-direction: column
+    border: thin solid black
+    background-color: darkgray
+    padding: 10px
+    margin: 3px
+    button
+        margin: 6px
+
+.main
+    button, input
+        margin-right: 7px
+        margin-top: 3px
+        min-width: 1.5rem
+    .fightSetup, .fightLog, .statistics, .commandInput
+        margin-top: 5px
+    .fightSetup
+        user-select: none
+    .fightSetup, .fightLog
+        border: thin solid black
+        padding: 3px
+        input[type="number"]
+            max-width: 3rem
+        .editLink
+            margin-left: 3px
+            margin-right: 3px
+            color: #4007a2
+            color: -webkit-link
+            cursor: pointer
+            text-decoration: underline
+        .specificQuantity, .calibrated
+            margin: 3px
+            padding: 3px
+            border: 4px dashed lightgrey
+        .clearButton
+           float: right
+    .fightSetup
+        display: flex
+        flex-direction: row
+        flex-wrap: wrap
+        gap: 10px
+        .specificQuantity, .calibrated
+            width: max(18rem, 25vw) // don't shrink too much even on small screens
+        .calibrated
+            .calibrationRange
+                input
+                    padding: 2px
+                    box-sizing: content-box
+                    max-width: 3rem
+                    margin-left: 3px
+                    margin-right: 3px
+                button
+                    margin-left: 3px
+    .combat
+        margin: 5px
+        display: grid
+        grid-template-rows: auto 1fr auto
+        grid-template-columns: auto minmax(auto, 1fr)
+        grid-template-areas: "statusTable statusTable" "logButtons logButtons" "logEntries logEntries" "visuals visuals"
+        @media (min-width: 400px)
+            grid-template-areas: "statusTable logButtons" "statusTable logEntries" "visuals visuals"
+        @media (min-width: 800px)
+            grid-template-areas: "statusTable logButtons visuals" "statusTable logEntries visuals"
+        gap: 5px
+        .visuals
+            grid-area: visuals
+            padding: 5px
+            background-color: darkgray
+        .statusTable
+            grid-area: statusTable
+            max-height: 55vh
+            overflow-y: auto
+            table
+                min-width: 25vw
+        .logButtons
+            user-select: none
+            grid-area: logButtons
+            button
+                margin: 5px
+                margin-right: 10px
+            input[type="checkbox"]
+                position: relative
+                top: 2px
+                left: 5px
+        .logEntries
+            grid-area: logEntries
+            max-height: calc(55vh - 30px) // ugh, how to make this responsive? And shorter; it is running off the page right now and it looks ugly.
+            overflow-y: auto
+            .details
+                margin-left: 8px
+                font-size: 0.8rem
+            div
+                margin-bottom: 4px
+            .selected
+                background-color: lightgrey
+            img
+                display: inline-block
+        .purpleName
+            color: #800080
+            font-weight: bold
+        .blueName
+            color: blue
+            font-weight: bold
+        .injury
+            color: red
+            font-weight: bold
+        .teamPurple
+            background-color: #d8bfd8
+        .teamBlue
+            background-color: lightblue
+        td:first-child
+            font-weight: bold
+        .statusDead, .statusDisabled, .statusOk
+            font-weight: bold
+        .statusDead
+            color: black
+        .statusDisabled
+            color: yellow
+        .statusOk
+            color: green
+        td
+            padding: 2px
+            border: thin solid black
+            text-align: center
+
+.editView
+    display: grid
+    grid-auto-columns: repeat(auto-fit, minmax(100px, 1fr))
+    grid-template-columns: auto 1fr
+    user-select: None
+    .error
+        color: red
+    input
+        max-width: 8rem
+    input[type="number"]
+        max-width: 4rem
+    input[type="checkbox"]
+        position: relative
+        top: 2px
+        left: 5px
+    .textview
+        grid-column: 1 / span 2
+        max-width: 100%
+        resize: both
+        @media (width < 800px)
+            min-height: 5rem
+    .editDamage input
+        max-width: 80px
+    button, input, select
+        margin-top: 5px
+        margin-right: 10px
+    .buttons
+        margin-top: 20px
+        grid-column: 1
+    input, select
+        margin-left: 5px
+    button
+        padding: 5px
+        margin-right: 50px
+
+.campaign
+    button
+        margin: 2px 4px
+    .error input, .error textarea
+        color: red
+    textarea
+        resize: both
+    textarea.chargen
+        margin: auto 5px
+        min-width: 90vw
+    textarea.chooseParty
+        margin-left: 5px
+        height: 1rem
+        min-width: 200px
+    *
+        user-select: none
+    .purpleName, .partyDisplay .teamPurple
+        color: #800080
+        font-weight: bold
+    .blueName, .partyDisplay .teamBlue
+        color: blue
+        font-weight: bold
+
+.settingsView
+    user-select: none
+    .setting
+        margin: 4px
+        input[type='radio']
+            margin-left: 10px
+            margin-right: 4px
+
+
+.slideFromTop
+    animation: fromTop 0.5s ease-in-out
+.slideFromLeft
+    animation: fromLeft 0.5s ease-in-out
+.fadeIn
+    animation: fromTransparent 0.3s ease-in-out
+
+@keyframes fromTop
+  0%
+    transform: translateY(-100%)
+  100%
+    transform: translateY(0)
+
+@keyframes fromLeft
+  0%
+    transform: translateX(-100%)
+  100%
+    transform: translateY(0)
+
+@keyframes fromTransparent
+  0%
+    opacity: 0
+  100%
+    opacity: 1
+
+.busy
+    height: 30vh
+    display: flex
+    justify-content: center
+    align-items: center
+    background: #000
+    .wave
+        width: 10px
+        height: 100px
+        background: linear-gradient(45deg, cyan, #fff)
+        margin: 3vw
+        animation: wave 1s linear infinite
+        border-radius: 20px
+        transform: scale(0)
+    .wave:nth-child(2)
+        animation-delay: 0.1s
+    .wave:nth-child(3)
+        animation-delay: 0.2s
+    .wave:nth-child(4)
+        animation-delay: 0.3s
+    .wave:nth-child(5)
+        animation-delay: 0.4s
+    .wave:nth-child(6)
+        animation-delay: 0.5s
+    .wave:nth-child(7)
+        animation-delay: 0.6s
+    .wave:nth-child(8)
+        animation-delay: 0.7s
+    .wave:nth-child(9)
+        animation-delay: 0.8s
+    .wave:nth-child(10)
+        animation-delay: 0.9s
+
+@keyframes wave
+  0%
+    transform: scale(0)
+  50%
+    transform: scale(1)
+  100%
+    transform: scale(0)

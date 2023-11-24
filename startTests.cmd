@@ -1,0 +1,1 @@
+dotnet watch run --project test -f net7.0
