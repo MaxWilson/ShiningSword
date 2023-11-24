@@ -6,12 +6,26 @@ open Feliz
 module Data =
     type SphereName = string
     type SpellName = string
+    type DeityName = string
     type Spell = { name: SpellName; level: int; spheres: SphereName list }
         with
         override this.ToString() =
             let level = match this.level with 1 -> "1st" | 2 -> "2nd" | 3 -> "3rd" | n -> $"{n}th"
             $"""{this.name} ({level} level {this.spheres |> String.concat "/"})"""
     type Sphere = { name: SphereName; spells: Spell list }
+    type AccessLevel = Major | Minor
+    type SphereAccess = { sphere: SphereName; access: AccessLevel }
+    type Deity = { name: DeityName; spheres: SphereAccess list }
+    let consolidateSpells spheres =
+        // return a list of spells, not spheres, with no duplicates and with all spheres for a given spell linked to it
+        let spells = spheres |> List.collect (fun sphere -> sphere.spells) |> List.groupBy (fun spell -> spell.name)
+        [   for _, group in spells do
+                let spheres = group |> List.collect (fun spell -> spell.spheres) |> List.distinct
+                { group[0] with spheres = spheres }
+            ]
+    let consolidateSpheres (spells: Spell list) spheres =
+        let spells = spells |> List.map (fun spell -> spell.name, spell) |> Map.ofList
+        spheres |> List.map (fun sphere -> { sphere with spells = sphere.spells |> List.map (fun spell -> spells.[spell.name]) })
     let spheres = """
     All: Bless 1, Combine 1, Detect Evil 1, Purify Food & Drink 1, Atonement 5
     Animal: Animal Friendship 1, Invisibility to Animals 1, Locate Animals or Plants 1, Charm Person or Mammal 2, Messenger 2,
@@ -76,32 +90,86 @@ module Data =
             | Sphere(lhs, OWS (Spheres(rhs, rest))) -> Some(lhs::rhs, rest)
             | Sphere(v, rest) -> Some([v], rest)
             | _ -> None
-        let partial (|Recognizer|_|) txt = match ParseArgs.Init txt with | Recognizer(v, _) -> v
-        let partialR (|Recognizer|_|) txt = match ParseArgs.Init txt with | Recognizer(v, (input, pos)) -> v, input.input.Substring pos
-        let consolidateSpells spheres =
-            // return a list of spells, not spheres, with no duplicates and with all spheres for a given spell linked to it
-            let spells = spheres |> List.collect (fun sphere -> sphere.spells) |> List.groupBy (fun spell -> spell.name)
-            [   for _, group in spells do
-                    let spheres = group |> List.collect (fun spell -> spell.spheres) |> List.distinct
-                    { group[0] with spheres = spheres }
-                ]
-        let consolidateSpheres (spells: Spell list) spheres =
-            let spells = spells |> List.map (fun spell -> spell.name, spell) |> Map.ofList
-            spheres |> List.map (fun sphere -> { sphere with spells = sphere.spells |> List.map (fun spell -> spells.[spell.name]) })
-        partial (|Spheres|_|) spheres |> List.collect _.spells |> List.filter (fun spell -> spell.name = "Chariot of Sustarre")
-        partial (|Spheres|_|) spheres |> fun spheres -> (consolidateSpells spheres) |> List.filter (fun spell -> spell.name = "Chariot of Sustarre")
-        partial (|Spheres|_|) spheres |> fun spheres -> spheres |> consolidateSpheres (consolidateSpells spheres) |> List.filter (fun sphere -> sphere.name = "Plant") |> List.collect _.spells |> List.map _.ToString()
-            |> String.join ", "
+        // let partial (|Recognizer|_|) txt = match ParseArgs.Init txt with | Recognizer(v, _) -> v
+        // let partialR (|Recognizer|_|) txt = match ParseArgs.Init txt with | Recognizer(v, (input, pos)) -> v, input.input.Substring pos
+        // partial (|Spheres|_|) spheres |> List.collect _.spells |> List.filter (fun spell -> spell.name = "Chariot of Sustarre")
+        // partial (|Spheres|_|) spheres |> fun spheres -> (consolidateSpells spheres) |> List.filter (fun spell -> spell.name = "Chariot of Sustarre")
+        // partial (|Spheres|_|) spheres |> fun spheres -> spheres |> consolidateSpheres (consolidateSpells spheres) |> List.filter (fun sphere -> sphere.name = "Plant") |> List.collect _.spells |> List.map _.ToString()
+        //     |> String.join ", "
+    module Storage =
+        open LocalStorage
+        module Spheres =
+            let key = "Spheres"
+            let cacheRead, cacheInvalidate = Cache.create()
+            let read (): Sphere list =
+                cacheRead (thunk2 read key (fun () -> Packrat.parser Parser.(|Spheres|_|) (spheres.Trim()) |> fun spheres -> spheres |> consolidateSpheres (consolidateSpells spheres)))
+            let write (v: Sphere list) =
+                write key v
+                cacheInvalidate()
+        module Notes =
+            let key = "Notes"
+            let cacheRead, cacheInvalidate = Cache.create()
+            let read (): Map<SpellName, string> =
+                cacheRead (thunk2 read key (thunk Map.empty))
+            let write (v: Map<SpellName, string>) =
+                write key v
+                cacheInvalidate()
+        module Deities =
+            let key = "Deities"
+            let cacheRead, cacheInvalidate = Cache.create()
+            let read (): Deity list =
+                cacheRead (thunk2 read key (thunk []))
+            let write (v: Deity list) =
+                write key v
+                cacheInvalidate()
+        module SpellPicks =
+            let key = "Picks"
+            let cacheRead, cacheInvalidate = Cache.create()
+            let read (): Map<SpellName, int> =
+                cacheRead (thunk2 read key (thunk Map.empty))
+            let write (v: Map<SpellName, int>) =
+                write key v
+                cacheInvalidate()
+
+
 module Impl =
-    type Model = { filter: string }
+    open Data
+    type Options = { spells: Spell list; notes: Map<SpellName, string>; spheres: Sphere list; deities: Deity list }
+    type Model = { options: Options; picks: Map<SpellName, int> }
     type Msg = NoOp
-    let init() = { filter = "" }
+    let init() =
+        let spheres = Storage.Spheres.read()
+        let options = { spells = consolidateSpells spheres; notes = Storage.Notes.read(); spheres = spheres; deities = Storage.Deities.read() }
+        { options = options; picks = Storage.SpellPicks.read() }
     let update msg model = model
+    let filteredSpells (filter: string) (model: Model) =
+        match filter.Trim() with
+        | "" -> model.options.spells
+        | filter ->
+            let fragments = filter.Split(' ') |> List.ofArray
+            model.options.spells |> List.filter (fun spell -> fragments |> List.every (fun fragment -> String.containsIgnoreCase (spell.ToString()) fragment))
 open Impl
 
 [<ReactComponent>]
 let View() =
     let model, dispatch = React.useElmishSimple init update
+    let filter, setFilter = React.useState ""
     Html.div [
         Html.h1 "Priest Spells"
+        Html.input [
+            prop.value filter
+            prop.placeholder "Spell name, sphere or deity"
+            prop.onChange (fun txt -> setFilter txt)
+            ]
+        Html.ul [
+            for spell in filteredSpells filter model do
+                Html.li [
+                    Html.span [
+                        prop.text (spell.ToString())
+                        ]
+                    Html.span [
+                        prop.text (match model.picks.TryFind(spell.name) with Some(n) -> $" ({n})" | None -> "")
+                        ]
+                    ]
+            ]
         ]

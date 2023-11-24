@@ -29,11 +29,4 @@ module Cache =
 
 open Cache
 
-module Spells =
-   let key = "Spells"
-   let cacheRead, cacheInvalidate = Cache.create()
-   let read (): obj list =
-       cacheRead (thunk2 read key (thunk []))
-   let write (v: obj list) =
-       write key v
-       cacheInvalidate()
+

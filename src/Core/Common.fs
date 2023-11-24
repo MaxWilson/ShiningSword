@@ -136,6 +136,7 @@ module String =
         | [] -> emptyString
     let join delimiter strings = System.String.Join((delimiter: string), (strings: string seq))
     let equalsIgnoreCase lhs rhs = System.String.Equals(lhs, rhs, System.StringComparison.InvariantCultureIgnoreCase)
+    let containsIgnoreCase (lhs:string) (rhs:string) = lhs.ToLowerInvariant().Contains(rhs.ToLowerInvariant()) // note: lhs.Contains(rhs, System.StringComparison.InvariantCultureIgnoreCase) does not translate to JavaScript
     let firstWord input =
         match Option.ofObj input with
         | Some(v:string) -> v.Trim().Split(' ') |> Seq.head
