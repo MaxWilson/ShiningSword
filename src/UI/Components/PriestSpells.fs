@@ -41,7 +41,7 @@ module Data =
         // #load @"c:\code\rpg\src\Core\Packrat.fs"
         open Packrat
         let (|SpellLevel|_|) = function
-            | OWS(Int(n, ((Char((',' | '\n'), _) | End) as rest))) -> Some(n, rest)
+            | OWS(Int(n, ((Char((',' | '\n' | '\r'), _) | End) as rest))) -> Some(n, rest)
             | _ -> None
         let (|NameChunk|_|) =
             let chars = alphanumeric + Set.ofList ['\''; ','; '&';] // e.g. Protection From Evil, 10' Radius has a comma and an apostrophe; some spells have &
@@ -65,7 +65,12 @@ module Data =
             | Names(sphereName, Str ":" (Spells(spells, rest))) -> Some((sphereName, spells), rest)
             | _ -> None
         let partial (|Recognizer|_|) txt = match ParseArgs.Init txt with | Recognizer(v, _) -> v
-        partial (|Sphere|_|) "Combat & Weaponry: Animal & Summoning III 7, Fireball 3"
+        partial (|Sphere|_|) """
+    All: Bless 1, Combine 1, Detect Evil 1, Purify Food & Drink 1, Atonement 5
+    Animal: Animal Friendship 1, Invisibility to Animals 1, Locate Animals or Plants 1, Charm Person or Mammal 2, Messenger 2,
+        Snake Charm 2, Speak With Animals 2, Hold Animal 3, Summon Insects 3, Animal Summoning I 4, Call Woodland Beings 4,
+        Giant Insect 4, Repel Insects 4, Animal Growth 5, Animal Summoning II 5, Animal Summoning III 6, Anti-Animal Shell 6, Creeping Doom 7
+        """
         partial (|Sphere|_|) spheres
 
 module Impl =
