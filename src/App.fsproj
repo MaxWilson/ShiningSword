@@ -4,12 +4,23 @@
     </PropertyGroup>
     <ItemGroup>
         <None Include="index.html" />
-        <Compile Include="Extensions.fs" />
-        <Compile Include="Components.fs" />
+        <Compile Include="Core\Common.fs" />
+        <Compile Include="Core\CQRS.fs" />
+        <Compile Include="Core\Coroutine.fs" />
+        <Compile Include="Core\Packrat.fs" />
+        <Compile Include="UI\CommonUI.fs" />
+        <Compile Include="UI\LocalStorage.fs" />
+        <Compile Include="UI\Components\PriestSpells.fs" />
+        <Compile Include="UI\Components.fs" />
         <Compile Include="Main.fs" />
     </ItemGroup>
     <ItemGroup>
+        <PackageReference Include="Fable.Core" Version="4.2.0" />
+        <PackageReference Include="Fable.React" Version="9.3.0" />
         <PackageReference Include="Feliz" Version="2.7.0" />
+        <PackageReference Include="Feliz.Listeners" Version="1.1.0" />
         <PackageReference Include="Feliz.Router" Version="4.0.0" />
+        <PackageReference Include="Feliz.UseElmish" Version="2.5.0" />
+        <PackageReference Include="Thoth.Json" Version="10.2.0" />
     </ItemGroup>
 </Project>
