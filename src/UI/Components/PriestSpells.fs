@@ -4,6 +4,14 @@ open Feliz
 #nowarn "40" // Disabling the recursive initialization warning for this file because the parser is recursive, but isn't doing anything weird like calling ctor args during construction.
 
 module Data =
+    type SphereName = string
+    type SpellName = string
+    type Spell = { name: SpellName; level: int; spheres: SphereName list }
+        with
+        override this.ToString() =
+            let level = match this.level with 1 -> "1st" | 2 -> "2nd" | 3 -> "3rd" | n -> $"{n}th"
+            $"""{this.name} ({level} level {this.spheres |> String.concat "/"})"""
+    type Sphere = { name: SphereName; spells: Spell list }
     let spheres = """
     All: Bless 1, Combine 1, Detect Evil 1, Purify Food & Drink 1, Atonement 5
     Animal: Animal Friendship 1, Invisibility to Animals 1, Locate Animals or Plants 1, Charm Person or Mammal 2, Messenger 2,
@@ -12,7 +20,7 @@ module Data =
     Astral: Plane Shift 5, Astral Spell 7
     Charm: Command 1, Remove Fear 1, Enthrall 2, Hold Person 2, Cloak of Bravery 4, Free Action 4, Imbue With Spell Ability 4, Quest 5, Confusion 7, Exaction 7
     Combat: Magical Stone 1, Shillelagh 1, Chant 2, Spiritual Hammer 2, Prayer 3, Flame Strike 5, Insect Plague 5, Holy Word 7
-    Creation: Create Food & Water 3, Animate Object 6, Balde Barrier 6, Heroes' Feast 6, Wall of Thorns 6, Changestaff 7, Chariot of Sustarre 7
+    Creation: Create Food & Water 3, Animate Object 6, Blade Barrier 6, Heroes' Feast 6, Wall of Thorns 6, Changestaff 7, Chariot of Sustarre 7
     Divination: Detect Magic 1, Detect Poison 1, Detect Snares & Pits 1, Locate Animals or Plants 1, Augury 2, Detect Charm 2, Find Traps 2,
         Know Alignment 2, Speak With Animals 2, Locate Object 3, Speak With Dead 3, Detect Lie 4, Divination 4, Reflecting Pool 4, Tongues 4, Commune 5,
         Commune With Nature 5, Magic Font 5, True Seeing 5, Find the Path 6, Speak With Monsters 6
@@ -44,7 +52,7 @@ module Data =
             | OWS(Int(n, ((Char((',' | '\n' | '\r'), _) | End) as rest))) -> Some(n, rest)
             | _ -> None
         let (|NameChunk|_|) =
-            let chars = alphanumeric + Set.ofList ['\''; ','; '&';] // e.g. Protection From Evil, 10' Radius has a comma and an apostrophe; some spells have &
+            let chars = alphanumeric + Set.ofList ['\''; ','; '&'; '-';] // e.g. Protection From Evil, 10' Radius has a comma and an apostrophe; some spells have Food & Water or Anti-Plant
             function
             | SpellLevel _ -> None // spell level takes priority over NameChunk; don't mistake a " 1" for " 10' Radius"
             | OWS(Chars chars (v, OWS rest)) -> Some(v, rest)
@@ -54,7 +62,7 @@ module Data =
             | NameChunk(v, rest) -> Some(v, rest)
             | _ -> None
         let rec (|Spell|_|) = function
-            | Names(name, SpellLevel(level, rest)) -> Some((name, level), rest)
+            | Names(name, SpellLevel(level, rest)) -> Some({ name = name; level = level; spheres = [] }, rest)
             | _ -> None
         let rec (|Spells|_|) = pack <| function
             | Spell(lhs, Str "," (Spells(rhs, rest))) -> Some(lhs :: rhs, rest)
@@ -62,15 +70,28 @@ module Data =
             | _ -> None
 
         let rec (|Sphere|_|) = function
-            | Names(sphereName, Str ":" (Spells(spells, rest))) -> Some((sphereName, spells), rest)
+            | Names(sphereName, Str ":" (Spells(spells, rest))) -> Some( { name = sphereName; spells = spells |> List.map (fun spell -> { spell with spheres = [sphereName] }) }, rest)
+            | _ -> None
+        let rec (|Spheres|_|) = function
+            | Sphere(lhs, OWS (Spheres(rhs, rest))) -> Some(lhs::rhs, rest)
+            | Sphere(v, rest) -> Some([v], rest)
             | _ -> None
         let partial (|Recognizer|_|) txt = match ParseArgs.Init txt with | Recognizer(v, _) -> v
         let partialR (|Recognizer|_|) txt = match ParseArgs.Init txt with | Recognizer(v, (input, pos)) -> v, input.input.Substring pos
-
-        partialR (|SpellLevel|_|) """5
-    Fireball 3"""
-        partial (|Sphere|_|) spheres
-
+        let consolidateSpells spheres =
+            // return a list of spells, not spheres, with no duplicates and with all spheres for a given spell linked to it
+            let spells = spheres |> List.collect (fun sphere -> sphere.spells) |> List.groupBy (fun spell -> spell.name)
+            [   for _, group in spells do
+                    let spheres = group |> List.collect (fun spell -> spell.spheres) |> List.distinct
+                    { group[0] with spheres = spheres }
+                ]
+        let consolidateSpheres (spells: Spell list) spheres =
+            let spells = spells |> List.map (fun spell -> spell.name, spell) |> Map.ofList
+            spheres |> List.map (fun sphere -> { sphere with spells = sphere.spells |> List.map (fun spell -> spells.[spell.name]) })
+        partial (|Spheres|_|) spheres |> List.collect _.spells |> List.filter (fun spell -> spell.name = "Chariot of Sustarre")
+        partial (|Spheres|_|) spheres |> fun spheres -> (consolidateSpells spheres) |> List.filter (fun spell -> spell.name = "Chariot of Sustarre")
+        partial (|Spheres|_|) spheres |> fun spheres -> spheres |> consolidateSpheres (consolidateSpells spheres) |> List.filter (fun sphere -> sphere.name = "Plant") |> List.collect _.spells |> List.map _.ToString()
+            |> String.join ", "
 module Impl =
     type Model = { filter: string }
     type Msg = NoOp
