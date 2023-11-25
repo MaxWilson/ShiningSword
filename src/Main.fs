@@ -17,15 +17,24 @@ let Router() =
         router.children [
             class' "header" Html.div [
                 classP' "srcLink" Html.a [
-                    prop.href "https://github.com/MaxWilson/rpg/"
+                    prop.href "https://github.com/MaxWilson/ShiningSword/"
                     prop.children [Html.img [prop.ariaLabel "GitHub"; prop.src "img/GitHub_Logo.png"]]
                     prop.target "_blank"
                     ]
                 ]
+            let lookup = [
+                "priestSpells", "Priest Spells by Sphere", (fun () -> UI.PriestSpellsView.View())
+                ]
+            let (|Segment|_|) segment =
+                lookup |> List.tryFind (fun (s, _, _) -> s = segment)
             match currentUrl with
-            | [ "spells" ] -> UI.PriestSpellsView.View()
+            | [ Segment (_, _, view) ] -> view()
             | otherwise ->
-                UI.PriestSpellsView.View()
+                class' "mainPage" Html.div [
+                    Html.h1 "Shining Sword RPG apps"
+                    for (segment, name, _) in lookup do
+                        Html.a [prop.text name; prop.href ("#" + segment)]
+                    ]
             ]
         ]
 

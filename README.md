@@ -1,6 +1,6 @@
 # RPG Utils
 
-https://maxwilson.github.io/rpg/
+https://maxwilson.github.io/ShiningSword/
 
 Player utilities for AD&D.
 
