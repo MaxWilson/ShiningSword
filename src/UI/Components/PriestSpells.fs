@@ -1,5 +1,5 @@
 module UI.PriestSpells
-
+open CommonUI
 #nowarn "40" // Disabling the recursive initialization warning for this file because the parser is recursive, but isn't doing anything weird like calling ctor args during construction.
 
 type SphereName = string
@@ -24,7 +24,7 @@ let consolidateSpells spheres =
 let consolidateSpheres (spells: Spell list) spheres =
     let spells = spells |> List.map (fun spell -> spell.name, spell) |> Map.ofList
     spheres |> List.map (fun sphere -> { sphere with spells = sphere.spells |> List.map (fun spell -> spells.[spell.name]) })
-let spheres = """
+let spheresData = normalizeCRLF """
 All: Bless 1, Combine 1, Detect Evil 1, Purify Food & Drink 1, Atonement 5
 Animal: Animal Friendship 1, Invisibility to Animals 1, Locate Animals or Plants 1, Charm Person or Mammal 2, Messenger 2,
     Snake Charm 2, Speak With Animals 2, Hold Animal 3, Summon Insects 3, Animal Summoning I 4, Call Woodland Beings 4,
@@ -54,6 +54,22 @@ Summoning: Abjure 4, Animal Summoning I 4, Call Woodland Beings 4, Animal Summon
 Sun: Light 1, Continual Light 3, Starshine 3, Moonbeam 5, Rainbow 5, Sunray 7
 Weather: Faerie Fire 1, Obscurement 2, Call Lightning 3, Control Temperature 10' Radius 4, Protection From Lightning 4, Control Winds 5, Rainbow 5, Weather Summoning 6, Control Weather 7
 """
+let deityData = normalizeCRLF """
+    Great Spirit:  all, animal, elemental, healing, plant, protection, sun, weather
+    Sun: sun, all, healing*, protection*
+    Moon: all, protection, healing, charm*, creation*
+    Earth: all, animal, plant, elemental*, summoning*, weather*
+    Morning Star: all, creation, healing, animal*, divination*, plant*, protection*
+    Wind: all, combat, elemental, weather
+    Fire: all, combat, divination, elemental, guardian*, necromantic*, summoning*
+    Thunder: all, divination, protection, guardian*, healing*, weather*
+    Raven: all, animal, charm
+    Coyote: all, animal, summoning, charm
+    Snake: all, animal, charm, healing, protection
+    Osiris: all, astral, charm*, combat*, guardian, healing, necromantic, protection
+    Isis: all, astral, charm, combat, creation, divination, elemental, guardian, healing, necromantic*, protection, sun
+"""
+
 module private Parser =
     // #load @"c:\code\rpg\src\Core\Common.fs"
     // #load @"c:\code\rpg\src\Core\CQRS.fs"
@@ -88,6 +104,17 @@ module private Parser =
         | Sphere(lhs, OWS (Spheres(rhs, rest))) -> Some(lhs::rhs, rest)
         | Sphere(v, rest) -> Some([v], rest)
         | _ -> None
+    let (|SphereRef|_|) = function
+        | Word(name, Char('*', rest)) -> Some({ sphere = name; access = Minor }, rest)
+        | Word(name, rest) -> Some({ sphere = name; access = Major }, rest)
+        | _ -> None
+    let rec (|SphereRefs|_|) = pack <| function
+        | SphereRef(lhs, OWSStr "," (SphereRefs(rhs, rest))) -> Some(lhs :: rhs, rest)
+        | SphereRef(v, rest) -> Some([v], rest)
+        | _ -> None
+    let rec (|Deity|_|) = function
+        | Names(name, OWSStr ":" (SphereRefs(spheres, rest))) -> Some({ name = name; spheres = spheres }, rest)
+        | _ -> None
     // let partial (|Recognizer|_|) txt = match ParseArgs.Init txt with | Recognizer(v, _) -> v
     // let partialR (|Recognizer|_|) txt = match ParseArgs.Init txt with | Recognizer(v, (input, pos)) -> v, input.input.Substring pos
     // partial (|Spheres|_|) spheres |> List.collect _.spells |> List.filter (fun spell -> spell.name = "Chariot of Sustarre")
@@ -100,7 +127,7 @@ module Storage =
         let key = "Spheres"
         let cacheRead, cacheInvalidate = Cache.create()
         let read (): Sphere list =
-            cacheRead (thunk2 read key (fun () -> Packrat.parser Parser.(|Spheres|_|) (spheres.Trim()) |> fun spheres -> spheres |> consolidateSpheres (consolidateSpells spheres)))
+            cacheRead (thunk2 read key (fun () -> Packrat.parser Parser.(|Spheres|_|) (spheresData.Trim()) |> fun spheres -> spheres |> consolidateSpheres (consolidateSpells spheres)))
         let write (v: Sphere list) =
             write key v
             cacheInvalidate()
@@ -116,7 +143,7 @@ module Storage =
         let key = "Deities"
         let cacheRead, cacheInvalidate = Cache.create()
         let read (): Deity list =
-            cacheRead (thunk2 read key (thunk []))
+            cacheRead (thunk2 read key (fun () -> deityData.Trim().Split("\n") |> List.ofArray |> List.map (Packrat.parser Parser.(|Deity|_|))))
         let write (v: Deity list) =
             write key v
             cacheInvalidate()
@@ -142,5 +169,29 @@ let filteredSpells (filter: string) (model: Model) =
     | "" -> model.options.spells
     | filter ->
         let fragments = filter.Split(' ') |> List.ofArray
-        model.options.spells |> List.filter (fun spell -> fragments |> List.every (fun fragment -> String.containsIgnoreCase (spell.ToString()) fragment))
+        let grantorsBySphere =
+            [
+            for sphere in model.options.spheres do
+                let grantors = [
+                    for d in model.options.deities do
+                        match d.spheres |> List.tryFind (fun s -> String.equalsIgnoreCase s.sphere sphere.name) with
+                        | Some v -> d.name, v.access
+                        | None -> ()
+                    ]
+                sphere.name, grantors
+            ]
+            |> Map.ofList
+        let isMatch (spell: Spell) fragment =
+             if String.containsIgnoreCase(spell.ToString()) fragment then true
+             else spell.spheres |> List.exists (fun sphere -> grantorsBySphere[sphere] |> List.exists (fun (deity, access) -> String.containsIgnoreCase deity fragment && (spell.level <= 3 || access = Major)))
+        model.options.spells |> List.filter (fun spell -> fragments |> List.every (isMatch spell))
 
+let filteredDeities (filter: string) (model: Model) =
+    match filter.Trim() with
+    | "" -> model.options.deities
+    | filter ->
+        let fragments = filter.Split(' ') |> List.ofArray
+        let matchingDeities = model.options.deities |> List.filter (fun deity -> fragments |> List.exists (fun fragment -> String.containsIgnoreCase deity.name fragment || deity.spheres |> List.exists (fun sphere -> String.containsIgnoreCase sphere.sphere fragment)))
+        match matchingDeities with
+        | [] -> model.options.deities // they must not be trying to filter by deity
+        | lst -> lst

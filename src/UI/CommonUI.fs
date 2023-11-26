@@ -12,7 +12,8 @@ let divWrap (className: string) element =
         prop.className className
         prop.children [element]
         ]
-
+// make crlf in string constants work the same way in dev and in prod
+let normalizeCRLF (str: string) = str.Replace("\r\n", "\n").Replace("\r", "\n")
 exception UserFacingException of msg:string
 let informUserOfError msg = UserFacingException msg |> raise
 
