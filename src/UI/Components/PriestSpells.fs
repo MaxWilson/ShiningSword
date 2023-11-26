@@ -55,6 +55,10 @@ Sun: Light 1, Continual Light 3, Starshine 3, Moonbeam 5, Rainbow 5, Sunray 7
 Weather: Faerie Fire 1, Obscurement 2, Call Lightning 3, Control Temperature 10' Radius 4, Protection From Lightning 4, Control Winds 5, Rainbow 5, Weather Summoning 6, Control Weather 7
 """
 let deityData = normalizeCRLF """
+    Cleric: all, astral, charm, combat, creation, divination, elemental*, guardian, healing, necromantic, protection, summoning, sun
+    Druid: all, animal, divination*, elemental, healing, plant, weather
+    Paladin: combat, divination, healing, protection
+    Ranger: plant*, animal*
     Great Spirit:  all, animal, elemental, healing, plant, protection, sun, weather
     Sun: sun, all, healing*, protection*
     Moon: all, protection, healing, charm*, creation*
@@ -68,6 +72,12 @@ let deityData = normalizeCRLF """
     Snake: all, animal, charm, healing, protection
     Osiris: all, astral, charm*, combat*, guardian, healing, necromantic, protection
     Isis: all, astral, charm, combat, creation, divination, elemental, guardian, healing, necromantic*, protection, sun
+    Lugh:  all, animal, astral, charm, combat, creation, divination, guardian, healing, protection, summoning, sun, weather
+    Oghma:  all, animal, charm, combat, creation, divination, elemental, guardian, healing, plant, protection, summoning, sun
+    Odin:  all, animal, combat, divination, elemental*, protection, summoning
+    Thor: all, charm*, combat, elemental, protection, sun, weather
+    Idun: all, animal, charm, divination*, elemental, healing, necromantic, plant, weather
+
 """
 
 module private Parser =
