@@ -25,7 +25,7 @@ let View() =
                         | 3 -> "3rd"
                         | n -> sprintf "%dth" n
                     Html.h2 [prop.text (ordinalToText level)]
-                    for spell in spells do
+                    for spell in spells |> List.sort do
                         Html.li [
                             Html.span [
                                 prop.text ($"""{spell.name} ({spell.spheres |> String.join "/"})""")
