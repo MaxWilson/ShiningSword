@@ -36,7 +36,8 @@ let View() =
                             ]
                 ]
             ]
-        Html.div [
+        class' "scrollable" Html.div [
+            srcLink
             Html.h2 "Gods"
             Html.ul [
                 for deity in filteredDeities filter model do

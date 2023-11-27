@@ -15,13 +15,6 @@ let Router() =
     React.router [
         router.onUrlChanged updateUrl
         router.children [
-            class' "header" Html.div [
-                classP' "srcLink" Html.a [
-                    prop.href "https://github.com/MaxWilson/ShiningSword/"
-                    prop.children [Html.img [prop.ariaLabel "GitHub"; prop.src "img/GitHub_Logo.png"]]
-                    prop.target "_blank"
-                    ]
-                ]
             let lookup = [
                 "priestSpells", "Priest Spells by Sphere", (fun () -> UI.PriestSpellsView.View())
                 ]

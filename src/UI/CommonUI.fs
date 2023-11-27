@@ -16,6 +16,12 @@ let divWrap (className: string) element =
 let normalizeCRLF (str: string) = str.Replace("\r\n", "\n").Replace("\r", "\n")
 exception UserFacingException of msg:string
 let informUserOfError msg = UserFacingException msg |> raise
+let srcLink =
+    classP' "srcLink" Html.a [
+        prop.href "https://github.com/MaxWilson/ShiningSword/"
+        prop.children [Html.img [prop.ariaLabel "GitHub"; prop.src "img/GitHub_Logo.png"]]
+        prop.target "_blank"
+        ]
 
 type React =
     static member inline useElmishSimple (init: _ -> 'model) (update: 'msg -> 'model -> 'model) =
