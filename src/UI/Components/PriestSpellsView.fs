@@ -36,10 +36,10 @@ let View() =
                             ]
                 ]
             ]
-        class' "scrollable" Html.div [
+        class' "scrollParent" Html.div [
             srcLink
-            Html.h2 "Gods"
-            Html.ul [
+            Html.h2 "Worship"
+            class' "scrollable" Html.ul [
                 for deity in filteredDeities filter model do
                     Html.li [prop.text (deity.name + ": " + String.join ", " [for sphere in deity.spheres -> (sphere.sphere + if sphere.access = Minor then "*" else "")])]
                 ]
