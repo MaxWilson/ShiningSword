@@ -40,6 +40,7 @@ Elemental: Create Water 1, Dust Devil 2, Fire Trap 2, Flame Blade 2, Heat Metal 
     Pyrotechnics 3, Stone Shape 3, Water Breathing 3, Water Walk 3, Lower Water 4, Produce Fire 4, Air Walk 5, Commune With Nature 5, Spike Stones 5, Transmute Rock to Mud 5,
     Wall of Fire 5, Conjure Fire Elemental 6, Fire Seeds 6, Part Water 6, Stone Tell 6, Transmute Water to Dust 6, Animate Rock 7, Chariot of Sustarre 7, Conjure Earth Elemental 7,
     Earthquake 7, Fire Storm 7, Transmute Metal to Wood 7, Wind Walk 7
+Water: Create Water 1, Water Breathing 3, Water Walk 3, Lower Water 4, Part Water 6, Transmute Water to Dust 6
 Guardian: Silence 2, Wyvern Watch 2, Glyph of Warding 3, Blade Barrier 6, Symbol 7
 Healing: Cure Light Wounds 1, Slow Poison 2, Cure Serious Wounds 4, Neutralize Poison 4, Cure Critical Wounds 5, Heal 6
 Necromantic: Invisibility to Undead 1, Aid 2, Animate Dead 3, Cure Blindness or Deafness 3, Cure Disease 3, Feign Death 3, Negative Plane Protection 3, Raise Dead 5,
@@ -59,6 +60,30 @@ let deityData = normalizeCRLF """
     Druid: all, animal, divination*, elemental, healing, plant, weather
     Paladin: combat, divination, healing, protection
     Ranger: plant*, animal*
+    Gaea: all, animal, divination*, elemental, healing, plant, weather
+    Uranus: astral, combat, divination*, healing*, protection
+    Cronus: none
+    Rhea: all, animal, charm, creation*, guardian, healing, plant, protection
+    Zeus: all, animal*, combat, divination*, elemental*, healing, protection, weather
+    Hera: all, charm, combat*, divination, healing, protection
+    Aphrodite: all, charm, creation*, guardian, healing
+    Ares: combat, elemental*, healing, weather
+    Artemis: all, animal, divination*, elemental, healing, plant, weather
+    Athena: all, charm, combat, divination, healing, protection
+    Demeter: all, animal, divination*, elemental, healing, plant, weather
+    Dionysus: all, charm, creation, healing, plant, weather*
+    Hephaestus: all, combat, creation, divination, elemental, guardian, healing, sun, weather
+    Hermes: all, charm, divination*, healing, protection, summoning
+    Apollo: all, charm*, divination, healing, sun
+    Poseidon: all, animal*, divination*, water, healing, plant, weather
+    Hades: all, charm, creation, divination, healing, necromantic, protection, summoning
+    Osiris: all, astral, charm*, combat*, guardian, healing, necromantic, protection
+    Isis: all, astral, charm, combat, creation, divination, elemental, guardian, healing, necromantic*, protection, sun
+    Lugh:  all, animal, astral, charm, combat, creation, divination, guardian, healing, protection, summoning, sun, weather
+    Oghma:  all, animal, charm, combat, creation, divination, elemental, guardian, healing, plant, protection, summoning, sun
+    Odin:  all, animal, combat, divination, elemental*, protection, summoning
+    Thor: all, charm*, combat, elemental, protection, sun, weather
+    Idun: all, animal, charm, divination*, elemental, healing, necromantic, plant, weather
     Great Spirit:  all, animal, elemental, healing, plant, protection, sun, weather
     Sun: sun, all, healing*, protection*
     Moon: all, protection, healing, charm*, creation*
@@ -70,14 +95,6 @@ let deityData = normalizeCRLF """
     Raven: all, animal, charm
     Coyote: all, animal, summoning, charm
     Snake: all, animal, charm, healing, protection
-    Osiris: all, astral, charm*, combat*, guardian, healing, necromantic, protection
-    Isis: all, astral, charm, combat, creation, divination, elemental, guardian, healing, necromantic*, protection, sun
-    Lugh:  all, animal, astral, charm, combat, creation, divination, guardian, healing, protection, summoning, sun, weather
-    Oghma:  all, animal, charm, combat, creation, divination, elemental, guardian, healing, plant, protection, summoning, sun
-    Odin:  all, animal, combat, divination, elemental*, protection, summoning
-    Thor: all, charm*, combat, elemental, protection, sun, weather
-    Idun: all, animal, charm, divination*, elemental, healing, necromantic, plant, weather
-
 """
 
 module private Parser =
@@ -85,6 +102,8 @@ module private Parser =
     // #load @"c:\code\rpg\src\Core\CQRS.fs"
     // #load @"c:\code\rpg\src\Core\Coroutine.fs"
     // #load @"c:\code\rpg\src\Core\Packrat.fs"
+    // let normalizeCRLF (str: string) = str.Replace("\r\n", "\n").Replace("\r", "\n")
+
     open Packrat
     let (|SpellLevel|_|) = function
         | OWS(Int(n, ((Char((',' | '\n' | '\r'), _) | End) as rest))) -> Some(n, rest)
@@ -131,6 +150,8 @@ module private Parser =
     // partial (|Spheres|_|) spheres |> fun spheres -> (consolidateSpells spheres) |> List.filter (fun spell -> spell.name = "Chariot of Sustarre")
     // partial (|Spheres|_|) spheres |> fun spheres -> spheres |> consolidateSpheres (consolidateSpells spheres) |> List.filter (fun sphere -> sphere.name = "Plant") |> List.collect _.spells |> List.map _.ToString()
     //     |> String.join ", "
+    // let d = deityData.Trim().Split("\n") |> List.ofArray |> List.map (Packrat.parser (|Deity|_|))
+    // d |> List.collect _.spheres |> List.map _.sphere |> List.distinct |> List.sort
 module Storage =
     open LocalStorage
     module Spheres =
