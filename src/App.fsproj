@@ -10,6 +10,7 @@
         <Compile Include="Core\Packrat.fs" />
         <Compile Include="UI\CommonUI.fs" />
         <Compile Include="UI\LocalStorage.fs" />
+        <Compile Include="UI\DFRPG\ChargenView.fs" />
         <Compile Include="UI\Components\PriestSpells.fs" />
         <Compile Include="UI\Components\PriestSpellsView.fs" />
         <Compile Include="UI\Components.fs" />

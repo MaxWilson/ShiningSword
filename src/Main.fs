@@ -17,6 +17,7 @@ let Router() =
         router.children [
             let lookup = [
                 "priestSpells", "Priest Spells by Sphere", (fun () -> UI.PriestSpellsView.View())
+                "dfrpgChargen", "Create a character for Dungeon Fantasy RPG", (fun () -> UI.DFRPG.ChargenView.View())
                 ]
             let (|Segment|_|) segment =
                 lookup |> List.tryFind (fun (s, _, _) -> s = segment)
@@ -26,7 +27,7 @@ let Router() =
                 class' "mainPage" Html.div [
                     Html.h1 "Shining Sword RPG apps"
                     for (segment, name, _) in lookup do
-                        Html.a [prop.text name; prop.href ("#" + segment)]
+                        Html.a [prop.text name; prop.href ("#" + segment)] |> List.singleton |> Html.div
                     ]
             ]
         ]
