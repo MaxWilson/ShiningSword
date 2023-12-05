@@ -16,8 +16,8 @@ let Router() =
         router.onUrlChanged updateUrl
         router.children [
             let lookup = [
-                "priestSpells", "Priest Spells by Sphere", (fun () -> UI.PriestSpellsView.View())
-                "dfrpgChargen", "Create a character for Dungeon Fantasy RPG", (fun () -> UI.DFRPG.ChargenView.View())
+                "priestSpells", "Priest Spells by Sphere", (fun () -> UI.ADND.PriestSpells.View.View())
+                "dfrpgChargen", "Create a character for Dungeon Fantasy RPG", (fun () -> UI.DFRPG.Chargen.View.View())
                 ]
             let (|Segment|_|) segment =
                 lookup |> List.tryFind (fun (s, _, _) -> s = segment)

@@ -1,8 +1,8 @@
 // separate from UI.Priestspells for the sake of HMR.
-module UI.PriestSpellsView
+module UI.ADND.PriestSpells.View
 
 open Feliz
-open UI.PriestSpells
+open UI.ADND.PriestSpells
 
 [<ReactComponent>]
 let View() =

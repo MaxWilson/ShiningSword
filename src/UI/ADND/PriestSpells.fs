@@ -1,5 +1,6 @@
-module UI.PriestSpells
+module UI.ADND.PriestSpells
 open CommonUI
+open UI.LocalStorage
 #nowarn "40" // Disabling the recursive initialization warning for this file because the parser is recursive, but isn't doing anything weird like calling ctor args during construction.
 
 type SphereName = string
@@ -153,7 +154,7 @@ module private Parser =
     // let d = deityData.Trim().Split("\n") |> List.ofArray |> List.map (Packrat.parser (|Deity|_|))
     // d |> List.collect _.spheres |> List.map _.sphere |> List.distinct |> List.sort
 module Storage =
-    open LocalStorage
+    open UI.LocalStorage
     module Spheres =
         let key = "Spheres"
         let cacheRead, cacheInvalidate = Cache.create()
