@@ -28,6 +28,20 @@ stateDiagram-v2
       Save: Save character
       Save --> [*]
       }
+    state Gameplay {
+      [*] --> KillMonsters
+      Explore --> KillMonsters
+      Explore --> Rewards
+      Explore --> Traps
+      Explore --> NPCs
+      NPCs --> Explore
+      Traps --> Rewards
+      KillMonsters --> Rewards
+      Rewards --> Explore
+      Explore --> [*]
+      Rewards: Get treasure, gain XP
+      KillMonsters: Kill monsters (or parlay, etc.)
+      }
     state "Advancement" as Advancement {
       Save2: Save character2
       [*] --> AddToTemplate
@@ -38,8 +52,15 @@ stateDiagram-v2
       SaveAgain: Save changes
       BuyMoreEquipment: Spend cash, buy more stuff
       }
+    SaveOnExit: Save before exiting?
+    state if_SaveGame <<choice>>
     [*] --> Chargen
-    Chargen --> Advancement
-    Advancement --> Advancement
-    Advancement --> [*]
+    Chargen --> Gameplay
+    Gameplay --> SaveOnExit
+    SaveOnExit --> if_SaveGame
+    if_SaveGame --> [*] : Quit without saving
+    if_SaveGame --> SaveAndQuit : Save
+    SaveAndQuit --> [*]
+    Gameplay --> Advancement
+    Advancement --> Gameplay
 ```
