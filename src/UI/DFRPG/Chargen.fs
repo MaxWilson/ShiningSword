@@ -14,21 +14,37 @@ type 'payload PendingChange = PendingChange of OfferKey * ('payload -> 'payload)
 
 type 'payload OfferOutput = {
     stableState: 'payload // TODO: used for cost calculations
-    queuedChanges: 'payload PendingChange // TODO: used for cost calculations
+    queuedChanges: 'payload PendingChange list // TODO: used for cost calculations
     mutable pickedOffers: OfferKey Set
     mutable dataAugment: Map<OfferKey, int> // some traits have levels
     mutable children: Multimap<OfferKey, OfferKey>
     mutable parents: Map<OfferKey, OfferKey>
     mutable uiBuilder: Map<OfferKey, ReactElement list -> ReactElement>
     }
-    with static member root = System.Guid.NewGuid() // not persisted but that's okay
+    with
+    static member root = System.Guid.NewGuid() // not persisted but that's okay
+    static member fresh payload pending = { stableState = payload; queuedChanges = pending; pickedOffers = Set.empty; dataAugment = Map.empty; children = Map.empty; parents = Map.empty; uiBuilder = Map.empty }
+    member this.toReactElements() =
+        // do a post-order traversal of the offer tree, gathering up the UI elements wherever they exist
+        let root = OfferOutput<_>.root
+        let rec recur (key:OfferKey) =
+            match this.children |> Map.tryFind key with
+            | Some (children: OfferKey Set) ->
+                let combine = this.uiBuilder[key] // if there's no uiBuilder then there's no visuals and there shouldn't be any children either
+                let uis = children |> Set.toList |> List.map recur
+                let ui = combine uis
+                ui
+            | None ->
+                this.uiBuilder[key] []
+        recur root
 
 // for scope-like properties as opposed to preorder output, e.g. whether we're within a "grant all these things" block
 type OfferScope = {
     autogrant: bool
     remainingBudget: int option
+    parent: OfferKey
     }
-type 'payload Offer = OfferScope -> 'payload OfferOutput -> SideEffects
+type 'payload Offer = OfferScope * 'payload OfferOutput -> OfferKey
 
 type Skill = { // stub, doesn't even have attribute
     name: string
@@ -38,6 +54,7 @@ type Skill = { // stub, doesn't even have attribute
 type DFRPGCharacter = { // stub
     traits: Trait Set
     }
+    with static member fresh = { traits = Set.empty }
 
 let checkbox (txt: string) (id: string) selected onChange = Html.div [
     Html.input [
@@ -52,47 +69,84 @@ let checkbox (txt: string) (id: string) selected onChange = Html.div [
         ]
     ]
 
+type API = {
+    offering: string -> unit // description -> () with a checkbox
+    label: string -> unit // description -> () but no checkbox, only text e.g. "choose 20 from"
+    }
+
 let offerLogic =
-    fun (key:OfferKey) innerLogic (output: 'payload OfferOutput) ->
+    fun (key:OfferKey) innerLogic (scope: OfferScope, output: 'payload OfferOutput) ->
+        let selected = output.pickedOffers.Contains key
+
         // we could be in a state of notPicked, refining, or picked. When to show what? Depends on parent state, but do we expect parent to have already filtered us out?
         // Three possibilities:
         // 1. Parent not selected. In this case we won't even get here, don't need to worry about it.
         // 2. Parent selected but we're not selected. In this case we need to enable selection, unless it would put us over budget, and then we just show it as unselectable.
         // 3. Parent selected and we're also selected. In this case we need to enable deselection, unless it's "free", and then we just show it as perma-selected and un-deselectable.
-        let ui selected (txt: string) =
+
+        // It is the child's responsibility to set up parent/child relationships
+        let child = key in (
+            output.parents <- output.parents |> Map.add child scope.parent
+            output.children <- output.children |> Map.change scope.parent (Option.orElse (Some Set.empty) >> Option.map (Set.add child))
+            )
+
+        let uiCheckbox selected (txt: string) =
             let id = $"chk_{key}"
             let onChange v = if v then output.pickedOffers <- output.pickedOffers |> Set.add key else output.pickedOffers <- output.pickedOffers |> Set.remove key
             output.uiBuilder <- output.uiBuilder |> Map.add key (function
                 | [] -> checkbox txt id selected onChange
                 | children when txt = "" -> Html.div [prop.children children]
-                | children -> Html.div [prop.children (checkbox txt id selected onChange::children)])
-        if output.pickedOffers.Contains(key) then
-            innerLogic true (ui true)
-        else innerLogic false (ui false)
+                | children -> Html.div [prop.children (checkbox txt id selected onChange::children)]
+                )
+        let uiLabel (txt: string) =
+            output.uiBuilder <- output.uiBuilder |> Map.add key (function
+                | children -> Html.div [prop.children ((Html.text txt)::children)]
+                )
+
+        let api: API = {
+            offering = uiCheckbox selected
+            label = uiLabel
+            }
+        innerLogic selected api
+        key
+
+let recur key (scope, output) offer =
+    offer ({ scope with parent = key }, output)
+
+let run (offers: _ Offer list) state pending : _ OfferOutput =
+    let root = OfferOutput<_>.root
+    let output = OfferOutput<_>.fresh state pending
+    let scope = { autogrant = false; remainingBudget = None; parent = root }
+    output.uiBuilder <- output.uiBuilder |> Map.add root (function
+        | [child] -> child
+        | children -> Html.div [prop.children children]
+        )
+    output
 
 let skill(name, bonus): DFRPGCharacter Offer =
     let key = newKey()
-    fun scope output ->
-        let innerLogic selected ui =
-            ui $"{name} {bonus}"
-        output |> offerLogic key innerLogic
+    fun ((scope, output) as args) ->
+        let innerLogic selected (ui:API) =
+            ui.offering $"{name} {bonus}"
+        offerLogic key innerLogic args
 let either(choices: DFRPGCharacter Offer list): DFRPGCharacter Offer =
     let key = newKey()
-    fun scope output ->
-        let innerLogic selected ui =
-            for choice in choices do
-                choice scope output
-            ui "" // todo: maybe refactor this to ui.either
-        output |> offerLogic key innerLogic
+    fun ((scope, output) as args) ->
+        let innerLogic selected (ui:API) =
+            if selected then
+                let children = choices |> List.map (recur key args)
+                ui.label "Choose one of:"
+        offerLogic key innerLogic args
 let budgeted(budget, offers: DFRPGCharacter Offer list): DFRPGCharacter Offer =
     let key = newKey()
-    fun scope output ->
-        let innerLogic selected ui =
-            for offer in offers do
-                offer scope output
-            output.uiBuilder <- output.uiBuilder |> Map.add key (function
-                | children -> Html.div [prop.children (Html.div "Choose [{budget}] from:"::children)])
-        output |> offerLogic key innerLogic
+    fun ((scope, output) as args) ->
+        let innerLogic selected (ui:API) =
+            if selected then
+                let children = offers |> List.map (recur key args)
+                ui.label "Choose [{budget}] from:"
+                output.uiBuilder <- output.uiBuilder |> Map.add key (function
+                    | children -> Html.div [prop.children (Html.div "Choose [{budget}] from:"::children)])
+        offerLogic key innerLogic args
 
 let swash() = [
 
