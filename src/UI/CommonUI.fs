@@ -51,18 +51,10 @@ module ReactErrorBoundary =
     open Fable
     open Fable.Core.JsInterop
 
-    let err msg clearError =
-        class' "error" Html.div [
-            Html.text $"There has been an error: {msg}"
-            Html.div [
-                Html.button [ prop.onClick (fun _ -> clearError()); prop.children [Html.text "Dismiss"] ]
-                ]
-            ]
-
     [<ReactComponent>]
     let WindowProtector(error, setError, child) =
-        React.useWindowListener.onError(fun (ev: Browser.Types.UIEvent) -> setError (Some (ev?message: string)))
-        React.useWindowListener.onUnhandledRejection(fun (ev: Browser.Types.PromiseRejectionEvent) -> setError (Some (ev.reason.ToString())))
+        React.useWindowListener.onError(fun (ev: Browser.Types.UIEvent) -> setError (Some ("[window] " + ev?message: string)))
+        React.useWindowListener.onUnhandledRejection(fun (ev: Browser.Types.PromiseRejectionEvent) -> setError (Some ("[unhandled rejection] " + ev.reason.ToString())))
         let child = Html.div [prop.children [child]; prop.style [Feliz.style.margin (length.px 0); if Option.isSome error then Feliz.style.display.none]]
         React.fragment [
             child
@@ -82,7 +74,7 @@ module ReactErrorBoundary =
 
     type ErrorBoundaryProps =
         {   Inner : React.ReactElement
-            ErrorComponent : string -> (unit -> unit) -> React.ReactElement
+            ErrorComponent : string -> (string option -> unit) -> React.ReactElement
             OnError : exn * InfoComponentObject -> unit }
 
     type ErrorBoundaryState =
@@ -101,10 +93,18 @@ module ReactErrorBoundary =
 
         override this.render() =
             let setError v = this.setState(fun _ _ -> { Error = v })
-            WindowProtector(this.state.Error, setError, if this.state.Error.IsSome then Html.div (this.state.Error.ToString()) else this.props.Inner)
+            WindowProtector(this.state.Error, setError, if this.state.Error.IsSome then this.props.ErrorComponent (this.state.Error.Value) setError else this.props.Inner)
 
-    let renderCatchSimple errorElement element =
-        ReactElementType.create ReactElementType.ofComponent<ErrorBoundary,_,_> { Inner = element; ErrorComponent = errorElement; OnError = fun _ -> () } [ ]
+    let err (error: string) (setError: (string option -> unit)) =
+        class' "error" Html.div [
+            Html.text $"There has been an error: {error}"
+            Html.div [
+                Html.button [ prop.onClick (fun _ -> setError None); prop.children [Html.text "Dismiss"] ]
+                ]
+            ]
+
+    let renderCatchSimple element =
+        ReactElementType.create ReactElementType.ofComponent<ErrorBoundary,_,_> { Inner = element; ErrorComponent = err; OnError = fun _ -> () } [ ]
 
     let renderCatchFn onError errorElement element =
         ReactElementType.create ReactElementType.ofComponent<ErrorBoundary,_,_> { Inner = element; ErrorComponent = errorElement; OnError = onError } [ ]

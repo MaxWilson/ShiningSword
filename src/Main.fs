@@ -33,7 +33,7 @@ let Router() =
         ]
 
 let main() =
-    ReactErrorBoundary.renderCatchSimple ReactErrorBoundary.err <| Router()
+    ReactErrorBoundary.renderCatchSimple (Router())
 
 let root = ReactDOM.createRoot(document.getElementById "feliz-app")
 root.render(Html.div [ main() ])
