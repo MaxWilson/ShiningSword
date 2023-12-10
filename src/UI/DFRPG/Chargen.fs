@@ -6,6 +6,7 @@ type Weapon = Sword | Bow
 type Trait = WeaponMaster of Weapon | CombatReflexes | Skill of string * bonus:int
 
 type Multimap<'key, 'value when 'key:comparison and 'value: comparison> = Map<'key, Set<'value>>
+type OrderedMultimap<'key, 'value when 'key:comparison and 'value: comparison> = Map<'key, List<'value>>
 type OfferKey = string // should include a guid
 let newKey (prefix:string) = $"{prefix}-{System.Guid.NewGuid()}"
 type SideEffects = unit
@@ -19,7 +20,7 @@ type 'payload OfferOutput = {
     queuedChanges: 'payload PendingChange list // TODO: used for cost calculations
     mutable pickedOffers: OfferKey Set
     mutable dataAugment: Map<OfferKey, int> // some traits have levels
-    mutable children: Multimap<OfferKey, OfferKey>
+    mutable children: OrderedMultimap<OfferKey, OfferKey>
     mutable parents: Map<OfferKey, OfferKey>
     mutable uiBuilder: Map<OfferKey, ReactElement list -> ReactElement>
     }
@@ -30,12 +31,12 @@ type 'payload OfferOutput = {
         let root = offerRoot
         let rec recur (key:OfferKey) =
             match this.children |> Map.tryFind key with
-            | Some (children: OfferKey Set) ->
+            | Some (children: OfferKey list) ->
                 if not (this.uiBuilder.ContainsKey key) then
                     // if we're not picked, we don't need to render anything
                     shouldntHappen $"if there's no uiBuilder for {key} then there's no visuals and there shouldn't be any children either"
                 let combine = this.uiBuilder[key] // if there's no uiBuilder then there's no visuals and there shouldn't be any children either
-                let uis = children |> Set.toList |> List.map recur
+                let uis = children |> List.map recur
                 let ui = combine uis
                 ui
             | None ->
@@ -93,7 +94,7 @@ let offerLogic =
         // It is the child's responsibility to set up parent/child relationships
         let child = key in (
             output.parents <- output.parents |> Map.add child scope.parent
-            output.children <- output.children |> Map.change scope.parent (Option.orElse (Some Set.empty) >> Option.map (Set.add child))
+            output.children <- output.children |> Map.change scope.parent (Option.orElse (Some []) >> Option.map (flip List.append [child]))
             )
 
         let uiCheckbox selected (txt: string) =
@@ -150,19 +151,22 @@ let either(choices: DFRPGCharacter Offer list): DFRPGCharacter Offer =
                 choices |> List.iter (recur key args)
             ui.label "Choose one of:"
         offerLogic key innerLogic args
+type style = Feliz.style
 let budgeted(budget, offers: DFRPGCharacter Offer list): DFRPGCharacter Offer =
     let key = newKey $"budget-{budget}"
     fun ((scope, output) as args) ->
         let innerLogic selected (ui:API) =
             if selected then
                 offers |> List.iter (recur key args)
-            ui.label "Choose [{budget}] from:"
+            if not selected then
+                output.pickedOffers <- output.pickedOffers |> Set.add key
             output.uiBuilder <- output.uiBuilder |> Map.add key (function
-                | children -> Html.div [prop.children (Html.div "Choose [{budget}] from:"::children)])
+                | children -> Html.div [prop.children (Html.div $"Choose [{budget}] from:"::children)])
         offerLogic key innerLogic args
 
 let swash() = [
-
+    skill("climbing", 1)
+    skillRange("stealth", [1..3])
     budgeted(20, [
         skill("Acrobatics", 2)
         skillRange("Acrobatics", [1..3])

@@ -5,6 +5,6 @@ open UI.DFRPG.Chargen
 [<ReactComponent>]
 let View() =
     let model, dispatch = React.useElmishSimple init update
-    let profession = model.template[0]
-    let output = run [profession] DFRPGCharacter.fresh []
+    let profession = model.template
+    let output = run profession DFRPGCharacter.fresh []
     output.toReactElements()
