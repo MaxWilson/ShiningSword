@@ -423,6 +423,7 @@ module Trie =
 let inline trace v =
 #if DEBUG
     printfn "Trace: %A" v
+    System.Console.WriteLine(box v)
 #endif
     v
 

@@ -53,7 +53,7 @@ module ReactErrorBoundary =
 
     [<ReactComponent>]
     let WindowProtector setError =
-        React.useWindowListener.onError(fun (ev: Browser.Types.UIEvent) -> setError (Some ("[window] " + ev?message: string)))
+        React.useWindowListener.onError(fun (ev: Browser.Types.UIEvent) -> setError (Some ("[window] " + (if ev?error then ev?error?msg else ev?message): string)))
         React.useWindowListener.onUnhandledRejection(fun (ev: Browser.Types.PromiseRejectionEvent) -> setError (Some ("[unhandled rejection] " + ev.reason.ToString())))
         React.fragment [
             ]
