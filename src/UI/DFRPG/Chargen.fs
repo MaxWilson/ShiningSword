@@ -12,6 +12,8 @@ type SideEffects = unit
 // payload will probably be a character in a given ruleset
 type 'payload PendingChange = PendingChange of OfferKey * ('payload -> 'payload)
 
+let offerRoot = System.Guid.NewGuid() // not persisted but that's okay
+
 type 'payload OfferOutput = {
     stableState: 'payload // TODO: used for cost calculations
     queuedChanges: 'payload PendingChange list // TODO: used for cost calculations
@@ -22,12 +24,10 @@ type 'payload OfferOutput = {
     mutable uiBuilder: Map<OfferKey, ReactElement list -> ReactElement>
     }
     with
-    static let root = System.Guid.NewGuid() // not persisted but that's okay
-    static member Root = root
     static member fresh payload pending = { stableState = payload; queuedChanges = pending; pickedOffers = Set.empty; dataAugment = Map.empty; children = Map.empty; parents = Map.empty; uiBuilder = Map.empty }
     member this.toReactElements() =
         // do a post-order traversal of the offer tree, gathering up the UI elements wherever they exist
-        let root = root
+        let root = offerRoot
         let rec recur (key:OfferKey) =
             match this.children |> Map.tryFind key with
             | Some (children: OfferKey Set) ->
@@ -119,8 +119,8 @@ let recur key (scope, output) offer =
     offer ({ scope with parent = key }, output)
 
 let run (offers: _ Offer list) state pending : _ OfferOutput =
-    let root = OfferOutput<_>.Root
-    let output = OfferOutput<_>.fresh state pending
+    let root = offerRoot
+    let output = OfferOutput<_>.fresh state pending |> trace
     let scope = { autogrant = false; remainingBudget = None; parent = root }
     for offer in offers do
         recur root (scope, output) offer
