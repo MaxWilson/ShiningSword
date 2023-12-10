@@ -120,7 +120,7 @@ let recur key (scope, output) offer =
 
 let run (offers: _ Offer list) state pending : _ OfferOutput =
     let root = offerRoot
-    let output = OfferOutput<_>.fresh state pending |> trace
+    let output = OfferOutput<_>.fresh state pending
     let scope = { autogrant = false; remainingBudget = None; parent = root }
     for offer in offers do
         recur root (scope, output) offer
