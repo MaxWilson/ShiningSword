@@ -84,7 +84,7 @@ module ReactErrorBoundary =
         override this.render() =
             let setError v = this.setState(fun _ _ -> { Error = v })
             React.fragment [
-                // WindowProtector setError
+                WindowProtector (fun exn -> task { setError exn } |> ignore)
                 match this.state.Error with
                 | Some err -> this.props.ErrorComponent err setError
                 | None -> this.props.Inner
