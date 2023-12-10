@@ -161,8 +161,8 @@ let budgeted(budget, offers: DFRPGCharacter Offer list): DFRPGCharacter Offer =
             ui.unconditional $"Choose [{budget}] from:"
 
 let swash() = [
-    skill("climbing", 1)
-    skillRange("stealth", [1..3])
+    skill("Climbing", 1)
+    skillRange("Stealth", [1..3])
     budgeted(20, [
         skill("Acrobatics", 2)
         skillRange("Acrobatics", [1..3])
