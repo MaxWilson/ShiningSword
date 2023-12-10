@@ -78,20 +78,20 @@ module ReactErrorBoundary =
         override this.componentDidCatch(error, info) =
             let info = info :?> InfoComponentObject
             this.props.OnError(error, info)
-            printfn "componentDidCatch %A" error
-            this.setState(fun _ _ -> { Error = Some (error.ToString()) })
+            printfn "componentDidCatch %A" error.StackTrace
+            this.setState(fun _ _ -> { Error = Some (sprintf "%A %A" error.Message error.StackTrace) })
 
         override this.render() =
-            let setError v = this.setState(fun _ _ -> { Error = v })
+            let setErrorFromString v = this.setState(fun _ _ ->{ Error = v }) // won't have a stack trace if it doesn't come from an exception
             React.fragment [
-                WindowProtector (fun exn -> task { setError exn } |> ignore)
+                WindowProtector (fun exn -> task { setErrorFromString exn } |> ignore)
                 match this.state.Error with
-                | Some err -> this.props.ErrorComponent err setError
+                | Some err -> this.props.ErrorComponent err setErrorFromString
                 | None -> this.props.Inner
                 ]
     let err (error: string) (setError: (string option -> unit)) =
         class' "error" Html.div [
-            Html.text $"There has been an error: {error}"
+            yield! ("There has been an error:" :: (error.Split("\n") |> List.ofArray)) |> List.map Html.div
             Html.div [
                 Html.button [ prop.onClick (fun _ -> setError None); prop.children [Html.text "Dismiss"] ]
                 ]
