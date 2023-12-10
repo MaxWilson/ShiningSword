@@ -420,10 +420,12 @@ module Trie =
                 node // treat unusable indexes as no-op
         recur ixs trie
 
+let inline log v = System.Console.WriteLine (box v)
+let inline logM (msg:string) v = log msg; log v
 let inline trace v =
 #if DEBUG
     printfn "Trace: %A" v
-    System.Console.WriteLine(box v)
+    log v
 #endif
     v
 

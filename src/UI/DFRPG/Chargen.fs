@@ -31,7 +31,7 @@ type 'payload OfferOutput = {
         let rec recur (key:OfferKey) =
             match this.children |> Map.tryFind key with
             | Some (children: OfferKey Set) ->
-                if not (this.pickedOffers.Contains key) then
+                if not (this.uiBuilder.ContainsKey key) then
                     // if we're not picked, we don't need to render anything
                     shouldntHappen $"if there's no uiBuilder for {key} then there's no visuals and there shouldn't be any children either"
                 let combine = this.uiBuilder[key] // if there's no uiBuilder then there's no visuals and there shouldn't be any children either
