@@ -52,21 +52,10 @@ module ReactErrorBoundary =
     open Fable.Core.JsInterop
 
     [<ReactComponent>]
-    let WindowProtector(error, setError, child) =
+    let WindowProtector setError =
         React.useWindowListener.onError(fun (ev: Browser.Types.UIEvent) -> setError (Some ("[window] " + ev?message: string)))
         React.useWindowListener.onUnhandledRejection(fun (ev: Browser.Types.PromiseRejectionEvent) -> setError (Some ("[unhandled rejection] " + ev.reason.ToString())))
-        let child = Html.div [prop.children [child]; prop.style [Feliz.style.margin (length.px 0); if Option.isSome error then Feliz.style.display.none]]
         React.fragment [
-            child
-            match error with
-            | Some error ->
-                class' "error" Html.div [
-                    Html.text $"There has been an error: {error}"
-                    Html.div [
-                        Html.button [ prop.onClick (fun _ -> setError None); prop.children [Html.text "Dismiss"] ]
-                        ]
-                    ]
-            | None -> ()
             ]
 
     type [<AllowNullLiteral>] InfoComponentObject =
@@ -89,12 +78,17 @@ module ReactErrorBoundary =
         override this.componentDidCatch(error, info) =
             let info = info :?> InfoComponentObject
             this.props.OnError(error, info)
+            printfn "componentDidCatch %A" error
             this.setState(fun _ _ -> { Error = Some (error.ToString()) })
 
         override this.render() =
             let setError v = this.setState(fun _ _ -> { Error = v })
-            WindowProtector(this.state.Error, setError, if this.state.Error.IsSome then this.props.ErrorComponent (this.state.Error.Value) setError else this.props.Inner)
-
+            React.fragment [
+                // WindowProtector setError
+                match this.state.Error with
+                | Some err -> this.props.ErrorComponent err setError
+                | None -> this.props.Inner
+                ]
     let err (error: string) (setError: (string option -> unit)) =
         class' "error" Html.div [
             Html.text $"There has been an error: {error}"
