@@ -78,8 +78,8 @@ module ReactErrorBoundary =
         override this.componentDidCatch(error, info) =
             let info = info :?> InfoComponentObject
             this.props.OnError(error, info)
-            printfn "componentDidCatch %A" error.StackTrace
-            this.setState(fun _ _ -> { Error = Some (sprintf "%A %A" error.Message error.StackTrace) })
+            let error = if error?msg then error?msg elif error?error && error?error?msg then error?error?msg else error?Message + error?StackTrace
+            this.setState(fun _ _ -> { Error = Some error })
 
         override this.render() =
             let setErrorFromString v = this.setState(fun _ _ ->{ Error = v }) // won't have a stack trace if it doesn't come from an exception
