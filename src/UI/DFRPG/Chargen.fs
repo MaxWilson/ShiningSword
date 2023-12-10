@@ -6,13 +6,13 @@ type Weapon = Sword | Bow
 type Trait = WeaponMaster of Weapon | CombatReflexes | Skill of string * bonus:int
 
 type Multimap<'key, 'value when 'key:comparison and 'value: comparison> = Map<'key, Set<'value>>
-type OfferKey = System.Guid
-let newKey() = System.Guid.NewGuid()
+type OfferKey = string // should include a guid
+let newKey (prefix:string) = $"{prefix}-{System.Guid.NewGuid()}"
 type SideEffects = unit
 // payload will probably be a character in a given ruleset
 type 'payload PendingChange = PendingChange of OfferKey * ('payload -> 'payload)
 
-let offerRoot = System.Guid.NewGuid() // not persisted but that's okay
+let offerRoot = newKey "root" // not persisted but that's okay
 
 type 'payload OfferOutput = {
     stableState: 'payload // TODO: used for cost calculations
@@ -33,7 +33,7 @@ type 'payload OfferOutput = {
             | Some (children: OfferKey Set) ->
                 if not (this.pickedOffers.Contains key) then
                     // if we're not picked, we don't need to render anything
-                    shouldntHappen "if there's no uiBuilder then there's no visuals and there shouldn't be any children either"
+                    shouldntHappen $"if there's no uiBuilder for {key} then there's no visuals and there shouldn't be any children either"
                 let combine = this.uiBuilder[key] // if there's no uiBuilder then there's no visuals and there shouldn't be any children either
                 let uis = children |> Set.toList |> List.map recur
                 let ui = combine uis
@@ -131,35 +131,41 @@ let run (offers: _ Offer list) state pending : _ OfferOutput =
     output
 
 let skill(name, bonus): DFRPGCharacter Offer =
-    let key = newKey()
+    let key = newKey $"{name} %+d{bonus}"
     fun ((scope, output) as args) ->
         let innerLogic selected (ui:API) =
             ui.offering $"{name} {bonus}"
         offerLogic key innerLogic args
+let skillRange(name, bonusRange: int list): DFRPGCharacter Offer =
+    let key = newKey $"{name} {bonusRange}"
+    fun ((scope, output) as args) ->
+        let innerLogic selected (ui:API) =
+            ui.offering $"{name} {bonusRange[0]}"
+        offerLogic key innerLogic args
 let either(choices: DFRPGCharacter Offer list): DFRPGCharacter Offer =
-    let key = newKey()
+    let key = newKey $"one-of-{choices.Length}"
     fun ((scope, output) as args) ->
         let innerLogic selected (ui:API) =
             if selected then
-                let children = choices |> List.map (recur key args)
-                ui.label "Choose one of:"
+                choices |> List.iter (recur key args)
+            ui.label "Choose one of:"
         offerLogic key innerLogic args
 let budgeted(budget, offers: DFRPGCharacter Offer list): DFRPGCharacter Offer =
-    let key = newKey()
+    let key = newKey $"budget-{budget}"
     fun ((scope, output) as args) ->
         let innerLogic selected (ui:API) =
             if selected then
-                let children = offers |> List.map (recur key args)
-                ui.label "Choose [{budget}] from:"
-                output.uiBuilder <- output.uiBuilder |> Map.add key (function
-                    | children -> Html.div [prop.children (Html.div "Choose [{budget}] from:"::children)])
+                offers |> List.iter (recur key args)
+            ui.label "Choose [{budget}] from:"
+            output.uiBuilder <- output.uiBuilder |> Map.add key (function
+                | children -> Html.div [prop.children (Html.div "Choose [{budget}] from:"::children)])
         offerLogic key innerLogic args
 
 let swash() = [
 
     budgeted(20, [
         skill("Acrobatics", 2)
-        skill("Acrobatics", [1..3])
+        skillRange("Acrobatics", [1..3])
         either([
             skill("Rapier", 20)
             skill("Broadsword", 20)
