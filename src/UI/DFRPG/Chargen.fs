@@ -22,11 +22,12 @@ type 'payload OfferOutput = {
     mutable uiBuilder: Map<OfferKey, ReactElement list -> ReactElement>
     }
     with
-    static member root = System.Guid.NewGuid() // not persisted but that's okay
+    static let root = System.Guid.NewGuid() // not persisted but that's okay
+    static member Root = root
     static member fresh payload pending = { stableState = payload; queuedChanges = pending; pickedOffers = Set.empty; dataAugment = Map.empty; children = Map.empty; parents = Map.empty; uiBuilder = Map.empty }
     member this.toReactElements() =
         // do a post-order traversal of the offer tree, gathering up the UI elements wherever they exist
-        let root = OfferOutput<_>.root
+        let root = root
         let rec recur (key:OfferKey) =
             match this.children |> Map.tryFind key with
             | Some (children: OfferKey Set) ->
@@ -38,7 +39,9 @@ type 'payload OfferOutput = {
                 let ui = combine uis
                 ui
             | None ->
-                this.uiBuilder[key] []
+                match this.uiBuilder |> Map.tryFind key with
+                | Some builder -> builder []
+                | None -> Html.div $"no uiBuilder for {key}"
         recur root
 
 // for scope-like properties as opposed to preorder output, e.g. whether we're within a "grant all these things" block
@@ -47,7 +50,7 @@ type OfferScope = {
     remainingBudget: int option
     parent: OfferKey
     }
-type 'payload Offer = OfferScope * 'payload OfferOutput -> OfferKey
+type 'payload Offer = OfferScope * 'payload OfferOutput -> SideEffects
 
 type Skill = { // stub, doesn't even have attribute
     name: string
@@ -111,15 +114,16 @@ let offerLogic =
             label = uiLabel
             }
         innerLogic selected api
-        key
 
 let recur key (scope, output) offer =
     offer ({ scope with parent = key }, output)
 
 let run (offers: _ Offer list) state pending : _ OfferOutput =
-    let root = OfferOutput<_>.root
+    let root = OfferOutput<_>.Root
     let output = OfferOutput<_>.fresh state pending
     let scope = { autogrant = false; remainingBudget = None; parent = root }
+    for offer in offers do
+        recur root (scope, output) offer
     output.uiBuilder <- output.uiBuilder |> Map.add root (function
         | [child] -> child
         | children -> Html.div [prop.children children]
