@@ -63,10 +63,10 @@ type DFRPGCharacter = { // stub
     }
     with static member fresh = { traits = Set.empty }
 
-let checkbox (txt: string) (id: string) selected onChange = Html.div [
+let checkbox (txt: string) (id: string) selected onChange = class' "control" Html.div [
     Html.input [
         prop.type' "checkbox"
-        prop.isChecked selected
+        prop.valueOrDefault (selected: bool)
         prop.onCheckedChange onChange
         prop.id id
         ]
@@ -78,11 +78,11 @@ let checkbox (txt: string) (id: string) selected onChange = Html.div [
 
 type API = {
     offering: string -> unit // description -> () with a checkbox
-    label: string -> unit // description -> () but no checkbox, only text e.g. "choose 20 from"
+    unconditional: string -> unit // description -> () but no checkbox, only text e.g. "choose 20 from"
     }
 
 let offerLogic =
-    fun (key:OfferKey) innerLogic (scope: OfferScope, output: 'payload OfferOutput) ->
+    fun (key:OfferKey) (scope: OfferScope, output: 'payload OfferOutput) innerLogic ->
         let selected = output.pickedOffers.Contains key
 
         // we could be in a state of notPicked, refining, or picked. When to show what? Depends on parent state, but do we expect parent to have already filtered us out?
@@ -105,14 +105,15 @@ let offerLogic =
                 | children when txt = "" -> Html.div [prop.children children]
                 | children -> Html.div [prop.children (checkbox txt id selected onChange::children)]
                 )
-        let uiLabel (txt: string) =
+        let uiDiv (txt: string) =
             output.uiBuilder <- output.uiBuilder |> Map.add key (function
-                | children -> Html.div [prop.children ((Html.text txt)::children)]
+                | [] -> Html.div txt
+                | children -> React.fragment [Html.div txt; Html.ul children]
                 )
 
         let api: API = {
             offering = uiCheckbox selected
-            label = uiLabel
+            unconditional = uiDiv
             }
         innerLogic selected api
 
@@ -134,35 +135,30 @@ let run (offers: _ Offer list) state pending : _ OfferOutput =
 let skill(name, bonus): DFRPGCharacter Offer =
     let key = newKey $"{name} %+d{bonus}"
     fun ((scope, output) as args) ->
-        let innerLogic selected (ui:API) =
+        offerLogic key args <| fun selected (ui:API) ->
             ui.offering $"{name} {bonus}"
-        offerLogic key innerLogic args
 let skillRange(name, bonusRange: int list): DFRPGCharacter Offer =
     let key = newKey $"{name} {bonusRange}"
     fun ((scope, output) as args) ->
-        let innerLogic selected (ui:API) =
+        offerLogic key args <| fun selected (ui:API) ->
             ui.offering $"{name} {bonusRange[0]}"
-        offerLogic key innerLogic args
+
 let either(choices: DFRPGCharacter Offer list): DFRPGCharacter Offer =
     let key = newKey $"one-of-{choices.Length}"
     fun ((scope, output) as args) ->
-        let innerLogic selected (ui:API) =
-            if selected then
-                choices |> List.iter (recur key args)
-            ui.label "Choose one of:"
-        offerLogic key innerLogic args
+        offerLogic key args <| fun selected (ui:API) ->
+            // selected doesn't matter in this case: there's no checkbox, only a div or ul
+            choices |> List.iter (recur key args)
+            ui.unconditional $"Choose one of {choices.Length}:"
+
 type style = Feliz.style
 let budgeted(budget, offers: DFRPGCharacter Offer list): DFRPGCharacter Offer =
     let key = newKey $"budget-{budget}"
     fun ((scope, output) as args) ->
-        let innerLogic selected (ui:API) =
-            if selected then
-                offers |> List.iter (recur key args)
-            if not selected then
-                output.pickedOffers <- output.pickedOffers |> Set.add key
-            output.uiBuilder <- output.uiBuilder |> Map.add key (function
-                | children -> Html.div [prop.children (Html.div $"Choose [{budget}] from:"::children)])
-        offerLogic key innerLogic args
+        offerLogic key args <| fun selected (ui:API) ->
+            // selected doesn't matter in this case: there's no checkbox, only a div or ul
+            offers |> List.iter (recur key args)
+            ui.unconditional $"Choose [{budget}] from:"
 
 let swash() = [
     skill("climbing", 1)
