@@ -140,12 +140,12 @@ let skill(name, bonus): DFRPGCharacter Offer =
     let key = newKey $"{name} %+d{bonus}"
     fun ((scope, output) as args) ->
         offerLogic key args <| fun selected (ui:API) ->
-            ui.offering $"{name} {bonus}"
+            ui.offering $"{name} %+d{bonus}"
 let skillRange(name, bonusRange: int list): DFRPGCharacter Offer =
     let key = newKey $"{name} {bonusRange}"
     fun ((scope, output) as args) ->
         offerLogic key args <| fun selected (ui:API) ->
-            ui.offering $"{name} {bonusRange[0]}"
+            ui.offering $"{name} %+d{bonusRange[0]} to %+d{bonusRange |> List.last}"
 
 let either(choices: DFRPGCharacter Offer list): DFRPGCharacter Offer =
     let key = newKey $"one-of-{choices.Length}"
