@@ -18,6 +18,7 @@ let offerRoot = newKey "root" // not persisted but that's okay
 type 'payload OfferOutput = {
     stableState: 'payload // TODO: used for cost calculations
     queuedChanges: 'payload PendingChange list // TODO: used for cost calculations
+    notifyChanged: 'payload OfferOutput -> unit
     mutable pickedOffers: OfferKey Set
     mutable dataAugment: Map<OfferKey, int> // some traits have levels
     mutable children: OrderedMultimap<OfferKey, OfferKey>
@@ -25,7 +26,8 @@ type 'payload OfferOutput = {
     mutable uiBuilder: Map<OfferKey, ReactElement list -> ReactElement>
     }
     with
-    static member fresh payload pending = { stableState = payload; queuedChanges = pending; pickedOffers = Set.empty; dataAugment = Map.empty; children = Map.empty; parents = Map.empty; uiBuilder = Map.empty }
+    static member fresh payload pending = { stableState = payload; queuedChanges = pending; notifyChanged = ignore; pickedOffers = Set.empty; dataAugment = Map.empty; children = Map.empty; parents = Map.empty; uiBuilder = Map.empty }
+    member this.notify() = this.notifyChanged this
     member this.toReactElements() =
         // do a post-order traversal of the offer tree, gathering up the UI elements wherever they exist
         let root = offerRoot
@@ -99,7 +101,9 @@ let offerLogic =
 
         let uiCheckbox selected (txt: string) =
             let id = $"chk_{key}"
-            let onChange v = if v then output.pickedOffers <- output.pickedOffers |> Set.add key else output.pickedOffers <- output.pickedOffers |> Set.remove key
+            let onChange v =
+                if v then output.pickedOffers <- output.pickedOffers |> Set.add key else output.pickedOffers <- output.pickedOffers |> Set.remove key
+                output.notify()
             output.uiBuilder <- output.uiBuilder |> Map.add key (function
                 | [] -> checkbox txt id selected onChange
                 | children when txt = "" -> Html.div [prop.children children]
@@ -120,9 +124,9 @@ let offerLogic =
 let recur key (scope, output) offer =
     offer ({ scope with parent = key }, output)
 
-let run (offers: _ Offer list) state pending : _ OfferOutput =
+let run (offers: _ Offer list) (state: DFRPGCharacter OfferOutput) notify : _ OfferOutput =
     let root = offerRoot
-    let output = OfferOutput<_>.fresh state pending
+    let output = { OfferOutput<_>.fresh state.stableState state.queuedChanges with pickedOffers = state.pickedOffers; notifyChanged = notify }
     let scope = { autogrant = false; remainingBudget = None; parent = root }
     for offer in offers do
         recur root (scope, output) offer
@@ -160,22 +164,27 @@ let budgeted(budget, offers: DFRPGCharacter Offer list): DFRPGCharacter Offer =
             offers |> List.iter (recur key args)
             ui.unconditional $"Choose [{budget}] from:"
 
-let swash() = [
+let swash = [
     skill("Climbing", 1)
     skillRange("Stealth", [1..3])
     budgeted(20, [
         skill("Acrobatics", 2)
         skillRange("Acrobatics", [1..3])
         either([
-            skill("Rapier", 20)
-            skill("Broadsword", 20)
+            skill("Rapier", +4)
+            skill("Broadsword", +4)
+            skill("Polearm", +4)
+            skill("Two-handed sword", +4)
             ])
         ])
     ]
 
+type Msg = RefreshedOutput of DFRPGCharacter OfferOutput
 type Model = {
-    template: DFRPGCharacter Offer list
+    currentOutput: DFRPGCharacter OfferOutput option
     }
 
-let init _ = { template = swash() }
-let update msg1 model = model
+let init _ = { currentOutput = None }
+let update msg model =
+    match msg with
+    | RefreshedOutput output -> { model with currentOutput = Some output }

@@ -432,7 +432,13 @@ let inline trace v =
 // log for dev purposes, for when exceptions aren't quite enough context
 let inline devLog v =
 #if DEBUG
-    printfn "%s" v
+    System.Console.WriteLine (box v)
+#endif
+    ()
+let inline devLogM (txt:string) v =
+#if DEBUG
+    System.Console.Write txt
+    System.Console.WriteLine (box v)
 #endif
     ()
 
