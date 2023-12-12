@@ -24,9 +24,10 @@ type 'payload OfferOutput = {
     mutable children: OrderedMultimap<OfferKey, OfferKey>
     mutable parents: Map<OfferKey, OfferKey>
     mutable uiBuilder: Map<OfferKey, ReactElement list -> ReactElement>
+    mutable choices: Set<OfferKey>
     }
     with
-    static member fresh payload pending = { stableState = payload; queuedChanges = pending; notifyChanged = ignore; pickedOffers = Set.empty; dataAugment = Map.empty; children = Map.empty; parents = Map.empty; uiBuilder = Map.empty }
+    static member fresh payload pending = { stableState = payload; queuedChanges = pending; notifyChanged = ignore; pickedOffers = Set.empty; dataAugment = Map.empty; children = Map.empty; parents = Map.empty; uiBuilder = Map.empty; choices = Set.empty }
     member this.notify() = this.notifyChanged this
     member this.toReactElements() =
         // do a post-order traversal of the offer tree, gathering up the UI elements wherever they exist
@@ -83,46 +84,6 @@ type API = {
     unconditional: string -> unit // description -> () but no checkbox, only text e.g. "choose 20 from"
     }
 
-let offerLogic =
-    fun (key:OfferKey) (scope: OfferScope, output: 'payload OfferOutput) innerLogic ->
-        let selected = output.pickedOffers.Contains key
-
-        // we could be in a state of notPicked, refining, or picked. When to show what? Depends on parent state, but do we expect parent to have already filtered us out?
-        // Three possibilities:
-        // 1. Parent not selected. In this case we won't even get here, don't need to worry about it.
-        // 2. Parent selected but we're not selected. In this case we need to enable selection, unless it would put us over budget, and then we just show it as unselectable.
-        // 3. Parent selected and we're also selected. In this case we need to enable deselection, unless it's "free", and then we just show it as perma-selected and un-deselectable.
-
-        // It is the child's responsibility to set up parent/child relationships
-        let child = key in (
-            output.parents <- output.parents |> Map.add child scope.parent
-            output.children <- output.children |> Map.change scope.parent (Option.orElse (Some []) >> Option.map (flip List.append [child]))
-            )
-
-        let uiCheckbox selected (txt: string) =
-            let id = $"chk_{key}"
-            let onChange v =
-                if v then output.pickedOffers <- output.pickedOffers |> Set.add key else output.pickedOffers <- output.pickedOffers |> Set.remove key
-                output.notify()
-            output.uiBuilder <- output.uiBuilder |> Map.add key (function
-                | [] -> checkbox txt id selected onChange
-                | children when txt = "" -> Html.div [prop.children children]
-                | children -> Html.div [prop.children (checkbox txt id selected onChange::children)]
-                )
-        let uiDiv (txt: string) =
-            output.uiBuilder <- output.uiBuilder |> Map.add key (function
-                | [] -> Html.div txt
-                | [child] when txt = "" -> child
-                | children when txt = "" -> Html.div children
-                | children -> React.fragment [Html.div txt; Html.ul children]
-                )
-
-        let api: API = {
-            offering = uiCheckbox selected
-            unconditional = uiDiv
-            }
-        innerLogic selected api
-
 let recur key (scope, output) offer =
     offer ({ scope with parent = key }, output)
 
@@ -146,8 +107,48 @@ type OfferConfiguration = {
 let blank = { label = None; key = None }
 
 type Op() =
-    static member label (txt:string) = { blank with label = Some txt }
+    static let offerLogic =
+        fun (key:OfferKey) (scope: OfferScope, output: 'payload OfferOutput) innerLogic ->
+            let selected = output.pickedOffers.Contains key
 
+            // we could be in a state of notPicked, refining, or picked. When to show what? Depends on parent state, but do we expect parent to have already filtered us out?
+            // Three possibilities:
+            // 1. Parent not selected. In this case we won't even get here, don't need to worry about it.
+            // 2. Parent selected but we're not selected. In this case we need to enable selection, unless it would put us over budget, and then we just show it as unselectable.
+            // 3. Parent selected and we're also selected. In this case we need to enable deselection, unless it's "free", and then we just show it as perma-selected and un-deselectable.
+
+            // It is the child's responsibility to set up parent/child relationships
+            let child = key in (
+                output.parents <- output.parents |> Map.add child scope.parent
+                output.children <- output.children |> Map.change scope.parent (Option.orElse (Some []) >> Option.map (flip List.append [child]))
+                )
+
+            let uiCheckbox selected (txt: string) =
+                let id = $"chk_{key}"
+                let onChange v =
+                    if v then output.pickedOffers <- output.pickedOffers |> Set.add key else output.pickedOffers <- output.pickedOffers |> Set.remove key
+                    output.notify()
+                output.choices <- output.choices |> Set.add key
+                output.uiBuilder <- output.uiBuilder |> Map.add key (function
+                    | [] -> checkbox txt id selected onChange
+                    | children when txt = "" -> Html.div [prop.children children]
+                    | children -> Html.div [prop.children [checkbox txt id selected onChange; Html.ul children]]
+                    )
+            let uiDiv (txt: string) =
+                output.uiBuilder <- output.uiBuilder |> Map.add key (function
+                    | [] -> Html.div txt
+                    | [child] when txt = "" -> child
+                    | children when txt = "" -> Html.div children
+                    | children -> React.fragment [Html.div txt; Html.ul children]
+                    )
+
+            let api: API = {
+                offering = uiCheckbox selected
+                unconditional = uiDiv
+                }
+            innerLogic selected api
+
+    static member label (txt:string) = { blank with label = Some txt }
     static member skill(config: OfferConfiguration, name:string, bonus: int): DFRPGCharacter Offer =
         let key = defaultArg config.key <| newKey $"{name} %+d{bonus}"
         fun ((scope, output) as args) ->
@@ -166,18 +167,28 @@ type Op() =
         let key = defaultArg config.key <| newKey $"one-of-{choices.Length}"
         fun ((scope, output) as args) ->
             offerLogic key args <| fun selected (ui:API) ->
-                // selected doesn't matter in this case: there's no checkbox, only a div or ul
-                choices |> List.iter (recur key args) // how do we feed the label into the offer text? It needs to happen in uiBuilder.
-                ui.unconditional (defaultArg config.label $"Choose one of {choices.Length}:")
+                // recur if selected or no need for selection
+                if selected || scope.autogrant || config.label.IsNone then
+                    choices |> List.iter (recur key args)
+                match config.label with
+                | Some label ->
+                    ui.offering (label + if selected then $"Choose one of {choices.Length}:" else "")
+                | None ->
+                    ui.unconditional $"Choose one of {choices.Length}:"
     static member either(choices: (DFRPGCharacter Offer) list) = Op.either(blank, choices)
 
     static member  and'(config: OfferConfiguration, choices: DFRPGCharacter Offer list): DFRPGCharacter Offer =
         let key = defaultArg config.key <| newKey $"one-of-{choices.Length}"
         fun ((scope, output) as args) ->
             offerLogic key args <| fun selected (ui:API) ->
-                // selected doesn't matter in this case: there's no checkbox, only a div or ul
-                choices |> List.iter (recur key args)
-                ui.unconditional (defaultArg config.label "")
+                // recur if selected or no need for selection
+                if selected || scope.autogrant || config.label.IsNone then
+                    choices |> List.iter (recur key args)
+                match config.label with
+                | Some label ->
+                    ui.offering label
+                | None ->
+                    ui.unconditional $"Choose one of {choices.Length}:"
     static member  and'(choices: DFRPGCharacter Offer list) = Op.and'(blank, choices)
 
     static member budgeted(config: OfferConfiguration, budget, offers: DFRPGCharacter Offer list): DFRPGCharacter Offer =
