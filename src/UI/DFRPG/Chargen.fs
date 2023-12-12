@@ -24,10 +24,10 @@ type 'payload OfferOutput = {
     mutable children: OrderedMultimap<OfferKey, OfferKey>
     mutable parents: Map<OfferKey, OfferKey>
     mutable uiBuilder: Map<OfferKey, ReactElement list -> ReactElement>
-    mutable choices: Set<OfferKey>
+    mutable eithers: Set<OfferKey> // need this to keep track of which options are mutually-exclusive
     }
     with
-    static member fresh payload pending = { stableState = payload; queuedChanges = pending; notifyChanged = ignore; pickedOffers = Set.empty; dataAugment = Map.empty; children = Map.empty; parents = Map.empty; uiBuilder = Map.empty; choices = Set.empty }
+    static member fresh payload pending = { stableState = payload; queuedChanges = pending; notifyChanged = ignore; pickedOffers = Set.empty; dataAugment = Map.empty; children = Map.empty; parents = Map.empty; uiBuilder = Map.empty; eithers = Set.empty }
     member this.notify() = this.notifyChanged this
     member this.toReactElements() =
         // do a post-order traversal of the offer tree, gathering up the UI elements wherever they exist
@@ -51,9 +51,11 @@ type 'payload OfferOutput = {
 // for scope-like properties as opposed to preorder output, e.g. whether we're within a "grant all these things" block
 type OfferScope = {
     autogrant: bool
+    mutuallyExclusiveChildren: bool
     remainingBudget: int option
     parent: OfferKey
     }
+    with static member fresh = { autogrant = false; mutuallyExclusiveChildren = false; remainingBudget = None; parent = offerRoot }
 type 'payload Offer = OfferScope * 'payload OfferOutput -> SideEffects
 
 type Skill = { // stub, doesn't even have attribute
@@ -84,15 +86,15 @@ type API = {
     unconditional: string -> unit // description -> () but no checkbox, only text e.g. "choose 20 from"
     }
 
-let recur key (scope, output) offer =
-    offer ({ scope with parent = key }, output)
+let recur (key, mutuallyExclusiveChildren, (scope, output)) offer =
+    offer ({ scope with parent = key; mutuallyExclusiveChildren = mutuallyExclusiveChildren }, output)
 
 let run (offers: _ Offer list) (state: DFRPGCharacter OfferOutput) notify : _ OfferOutput =
     let root = offerRoot
     let output = { OfferOutput<_>.fresh state.stableState state.queuedChanges with pickedOffers = state.pickedOffers; notifyChanged = notify }
-    let scope = { autogrant = false; remainingBudget = None; parent = root }
+    let scope = { OfferScope.fresh with parent = root }
     for offer in offers do
-        recur root (scope, output) offer
+        recur (root, false, (scope, output)) offer
     output.uiBuilder <- output.uiBuilder |> Map.add root (function
         | [child] -> child
         | children -> Html.div [prop.children children]
@@ -125,10 +127,18 @@ type Op() =
 
             let uiCheckbox selected (txt: string) =
                 let id = $"chk_{key}"
+                output.eithers <- output.eithers |> Set.add (scope.parent) // this feels like a code smell. Shouldn't an either register itself instead of having the child do it?
                 let onChange v =
-                    if v then output.pickedOffers <- output.pickedOffers |> Set.add key else output.pickedOffers <- output.pickedOffers |> Set.remove key
+                    if v then
+                        // if inside an either, unselect siblings then add self
+                        if output.eithers.Contains scope.parent then
+                            for sibling in output.children.[scope.parent] do
+                                output.pickedOffers <- output.pickedOffers |> Set.remove sibling
+                        output.pickedOffers <- output.pickedOffers |> Set.add key
+                    else
+                        // if deselecting, don't need to do anything special
+                        output.pickedOffers <- output.pickedOffers |> Set.remove key
                     output.notify()
-                output.choices <- output.choices |> Set.add key
                 output.uiBuilder <- output.uiBuilder |> Map.add key (function
                     | [] -> checkbox txt id selected onChange
                     | children when txt = "" -> Html.div [prop.children children]
@@ -153,7 +163,10 @@ type Op() =
         let key = defaultArg config.key <| newKey $"{name} %+d{bonus}"
         fun ((scope, output) as args) ->
             offerLogic key args <| fun selected (ui:API) ->
-                ui.offering (defaultArg config.label $"{name} %+d{bonus}")
+                if scope.autogrant then
+                    ui.unconditional (defaultArg config.label $"{name} %+d{bonus}")
+                else
+                    ui.offering (defaultArg config.label $"{name} %+d{bonus}")
     static member skill(name: string, bonus: int) = Op.skill(blank, name, bonus)
 
     static member skill(config: OfferConfiguration, name:string, bonusRange: int list): DFRPGCharacter Offer =
@@ -169,12 +182,12 @@ type Op() =
             offerLogic key args <| fun selected (ui:API) ->
                 // recur if selected or no need for selection
                 if selected || scope.autogrant || config.label.IsNone then
-                    choices |> List.iter (recur key args)
+                    choices |> List.iter (recur(key, true, args))
                 match config.label with
                 | Some label ->
-                    ui.offering (label + if selected then $"Choose one of {choices.Length}:" else "")
+                    ui.offering (label + if selected then $" Choose one:" else "") // something doesn't match up here. Why isn't the either registering itself? Do we have two overlapping concepts here, offer/options and... mutually exclusion zones? Maybe it's recur that needs to change.
                 | None ->
-                    ui.unconditional $"Choose one of {choices.Length}:"
+                    ui.unconditional $"Choose one:"
     static member either(choices: (DFRPGCharacter Offer) list) = Op.either(blank, choices)
 
     static member  and'(config: OfferConfiguration, choices: DFRPGCharacter Offer list): DFRPGCharacter Offer =
@@ -183,20 +196,20 @@ type Op() =
             offerLogic key args <| fun selected (ui:API) ->
                 // recur if selected or no need for selection
                 if selected || scope.autogrant || config.label.IsNone then
-                    choices |> List.iter (recur key args)
+                    choices |> List.iter (recur(key, true, ({ scope with autogrant = true }, output)))
                 match config.label with
                 | Some label ->
                     ui.offering label
                 | None ->
-                    ui.unconditional $"Choose one of {choices.Length}:"
-    static member  and'(choices: DFRPGCharacter Offer list) = Op.and'(blank, choices)
+                    ui.unconditional ""
+    static member and'(choices: DFRPGCharacter Offer list) = Op.and'(blank, choices)
 
     static member budgeted(config: OfferConfiguration, budget, offers: DFRPGCharacter Offer list): DFRPGCharacter Offer =
         let key = defaultArg config.key <| newKey $"budget-{budget}"
         fun ((scope, output) as args) ->
             offerLogic key args <| fun selected (ui:API) ->
                 // selected doesn't matter in this case: there's no checkbox, only a div or ul
-                offers |> List.iter (recur key args)
+                offers |> List.iter (recur(key, true, args))
                 ui.unconditional (defaultArg config.label $"Choose [{budget}] from:")
     static member budgeted(budget, offers: DFRPGCharacter Offer list) = Op.budgeted(blank, budget, offers)
 open type Op
