@@ -68,7 +68,7 @@ type DFRPGCharacter = { // stub
 let checkbox (txt: string) (id: string) selected onChange = class' "control" Html.div [
     Html.input [
         prop.type' "checkbox"
-        prop.valueOrDefault (selected: bool)
+        prop.isChecked selected
         prop.onCheckedChange onChange
         prop.id id
         ]
@@ -112,6 +112,8 @@ let offerLogic =
         let uiDiv (txt: string) =
             output.uiBuilder <- output.uiBuilder |> Map.add key (function
                 | [] -> Html.div txt
+                | [child] when txt = "" -> child
+                | children when txt = "" -> Html.div children
                 | children -> React.fragment [Html.div txt; Html.ul children]
                 )
 
@@ -136,46 +138,75 @@ let run (offers: _ Offer list) (state: DFRPGCharacter OfferOutput) notify : _ Of
         )
     output
 
-let skill(name, bonus): DFRPGCharacter Offer =
-    let key = newKey $"{name} %+d{bonus}"
-    fun ((scope, output) as args) ->
-        offerLogic key args <| fun selected (ui:API) ->
-            ui.offering $"{name} %+d{bonus}"
-let skillRange(name, bonusRange: int list): DFRPGCharacter Offer =
-    let key = newKey $"{name} {bonusRange}"
-    fun ((scope, output) as args) ->
-        offerLogic key args <| fun selected (ui:API) ->
-            ui.offering $"{name} %+d{bonusRange[0]} to %+d{bonusRange |> List.last}"
-
-let either(choices: DFRPGCharacter Offer list): DFRPGCharacter Offer =
-    let key = newKey $"one-of-{choices.Length}"
-    fun ((scope, output) as args) ->
-        offerLogic key args <| fun selected (ui:API) ->
-            // selected doesn't matter in this case: there's no checkbox, only a div or ul
-            choices |> List.iter (recur key args)
-            ui.unconditional $"Choose one of {choices.Length}:"
-
 type style = Feliz.style
-let budgeted(budget, offers: DFRPGCharacter Offer list): DFRPGCharacter Offer =
-    let key = newKey $"budget-{budget}"
-    fun ((scope, output) as args) ->
-        offerLogic key args <| fun selected (ui:API) ->
-            // selected doesn't matter in this case: there's no checkbox, only a div or ul
-            offers |> List.iter (recur key args)
-            ui.unconditional $"Choose [{budget}] from:"
+type OfferConfiguration = {
+    label: string option
+    key: string option // let multiple options share the same if they should share state, e.g. Sword! Broadsword-20 and Sword-and-Shield! Broadsword-19 + Shield-15 might want both broadswords to keep the same state when toggling between Sword! vs. Sword-and-Sheild!
+    }
+let blank = { label = None; key = None }
+
+type Op() =
+    static member label (txt:string) = { blank with label = Some txt }
+
+    static member skill(config: OfferConfiguration, name:string, bonus: int): DFRPGCharacter Offer =
+        let key = defaultArg config.key <| newKey $"{name} %+d{bonus}"
+        fun ((scope, output) as args) ->
+            offerLogic key args <| fun selected (ui:API) ->
+                ui.offering (defaultArg config.label $"{name} %+d{bonus}")
+    static member skill(name: string, bonus: int) = Op.skill(blank, name, bonus)
+
+    static member skill(config: OfferConfiguration, name:string, bonusRange: int list): DFRPGCharacter Offer =
+        let key = defaultArg config.key <| newKey $"{name} {bonusRange}"
+        fun ((scope, output) as args) ->
+            offerLogic key args <| fun selected (ui:API) ->
+                ui.offering (defaultArg config.label $"{name} %+d{bonusRange[0]} to %+d{bonusRange |> List.last}")
+    static member skill(name, bonusRange: int list) = Op.skill(blank, name, bonusRange)
+
+    static member either(config: OfferConfiguration, choices: (DFRPGCharacter Offer) list): DFRPGCharacter Offer =
+        let key = defaultArg config.key <| newKey $"one-of-{choices.Length}"
+        fun ((scope, output) as args) ->
+            offerLogic key args <| fun selected (ui:API) ->
+                // selected doesn't matter in this case: there's no checkbox, only a div or ul
+                choices |> List.iter (recur key args) // how do we feed the label into the offer text? It needs to happen in uiBuilder.
+                ui.unconditional (defaultArg config.label $"Choose one of {choices.Length}:")
+    static member either(choices: (DFRPGCharacter Offer) list) = Op.either(blank, choices)
+
+    static member  and'(config: OfferConfiguration, choices: DFRPGCharacter Offer list): DFRPGCharacter Offer =
+        let key = defaultArg config.key <| newKey $"one-of-{choices.Length}"
+        fun ((scope, output) as args) ->
+            offerLogic key args <| fun selected (ui:API) ->
+                // selected doesn't matter in this case: there's no checkbox, only a div or ul
+                choices |> List.iter (recur key args)
+                ui.unconditional (defaultArg config.label "")
+    static member  and'(choices: DFRPGCharacter Offer list) = Op.and'(blank, choices)
+
+    static member budgeted(config: OfferConfiguration, budget, offers: DFRPGCharacter Offer list): DFRPGCharacter Offer =
+        let key = defaultArg config.key <| newKey $"budget-{budget}"
+        fun ((scope, output) as args) ->
+            offerLogic key args <| fun selected (ui:API) ->
+                // selected doesn't matter in this case: there's no checkbox, only a div or ul
+                offers |> List.iter (recur key args)
+                ui.unconditional (defaultArg config.label $"Choose [{budget}] from:")
+    static member budgeted(budget, offers: DFRPGCharacter Offer list) = Op.budgeted(blank, budget, offers)
+open type Op
 
 let swash = [
     skill("Climbing", 1)
-    skillRange("Stealth", [1..3])
+    skill("Stealth", [1..3])
     budgeted(20, [
         skill("Acrobatics", 2)
-        skillRange("Acrobatics", [1..3])
-        either([
-            skill("Rapier", +4)
-            skill("Broadsword", +4)
-            skill("Polearm", +4)
-            skill("Two-handed sword", +4)
-            ])
+        skill("Acrobatics", [1..3])
+        let mainWeapons = ["Rapier"; "Broadsword"; "Polearm"; "Two-handed sword"] |> List.map (fun name -> name, newKey name)
+        let weaponsAt (bonus: int) = mainWeapons |> List.map (fun (name, key) -> skill({ blank with key = Some key }, name, bonus))
+        either [
+            either(label "Sword!", weaponsAt +5)
+            and'(label "Sword and Dagger", [either(weaponsAt +4); skill("Main-gauche", +1)])
+            and'(label "Sword and Shield", [either(weaponsAt +4); skill("Shield", +2)])
+            ]
+        either [
+            skill("Fast-draw (Sword)", +2)
+            and'(label "both", [skill("Fast-draw (Sword)", +1); skill("Fast-draw (Dagger)", +1)])
+            ]
         ])
     ]
 
