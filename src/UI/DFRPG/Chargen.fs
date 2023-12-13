@@ -48,15 +48,15 @@ type 'payload OfferOutput = {
                 | None -> Html.div $"no uiBuilder for {key}"
         recur root
 
+type ChoiceType = ChooseOne | ChooseSome of budget: int | GrantAll
+type OfferStatus = NotPicked | Refining | Ready
+type OfferArgs = ChoiceType // controls whether children are checkboxes and are mutually-exclusive
 // for scope-like properties as opposed to preorder output, e.g. whether we're within a "grant all these things" block
 type OfferScope = {
-    autogrant: bool
-    mutuallyExclusiveChildren: bool
-    remainingBudget: int option
     parent: OfferKey
     }
-    with static member fresh = { autogrant = false; mutuallyExclusiveChildren = false; remainingBudget = None; parent = offerRoot }
-type 'payload Offer = OfferScope * 'payload OfferOutput -> SideEffects
+    with static member fresh = { parent = offerRoot }
+type 'payload Offer = OfferArgs * (OfferScope * 'payload OfferOutput) -> SideEffects
 
 type Skill = { // stub, doesn't even have attribute
     name: string
@@ -82,19 +82,18 @@ let checkbox (txt: string) (id: string) selected onChange = class' "control" Htm
     ]
 
 type API = {
-    offering: string -> unit // description -> () with a checkbox
-    unconditional: string -> unit // description -> () but no checkbox, only text e.g. "choose 20 from"
+    offering: string -> unit // whether this is a checkbox or an unconditional grant depends on the Choice
     }
 
-let recur (key, mutuallyExclusiveChildren, (scope, output)) offer =
-    offer ({ scope with parent = key; mutuallyExclusiveChildren = mutuallyExclusiveChildren }, output)
+let recur(key, args: OfferArgs, (scope: OfferScope, output: _ OfferOutput)) offer =
+    offer (args, ({ scope with parent = key}, output))
 
 let run (offers: _ Offer list) (state: DFRPGCharacter OfferOutput) notify : _ OfferOutput =
     let root = offerRoot
     let output = { OfferOutput<_>.fresh state.stableState state.queuedChanges with pickedOffers = state.pickedOffers; notifyChanged = notify }
     let scope = { OfferScope.fresh with parent = root }
     for offer in offers do
-        recur (root, false, (scope, output)) offer
+        recur(root, GrantAll, (scope, output)) offer
     output.uiBuilder <- output.uiBuilder |> Map.add root (function
         | [child] -> child
         | children -> Html.div [prop.children children]
@@ -110,8 +109,8 @@ let blank = { label = None; key = None }
 
 type Op() =
     static let offerLogic =
-        fun (key:OfferKey) (scope: OfferScope, output: 'payload OfferOutput) innerLogic ->
-            let selected = output.pickedOffers.Contains key
+        fun (key:OfferKey) innerLogic (args: OfferArgs, (scope: OfferScope, output: 'payload OfferOutput)) ->
+            let selected = args = GrantAll || output.pickedOffers.Contains key
 
             // we could be in a state of notPicked, refining, or picked. When to show what? Depends on parent state, but do we expect parent to have already filtered us out?
             // Three possibilities:
@@ -153,64 +152,59 @@ type Op() =
                     )
 
             let api: API = {
-                offering = uiCheckbox selected
-                unconditional = uiDiv
+                offering =
+                    match args with
+                    | ChooseOne | ChooseSome _ -> uiCheckbox selected
+                    | GrantAll -> uiDiv
                 }
-            innerLogic selected api
+            innerLogic selected api (scope, output)
 
     static member label (txt:string) = { blank with label = Some txt }
     static member skill(config: OfferConfiguration, name:string, bonus: int): DFRPGCharacter Offer =
         let key = defaultArg config.key <| newKey $"{name} %+d{bonus}"
-        fun ((scope, output) as args) ->
-            offerLogic key args <| fun selected (ui:API) ->
-                if scope.autogrant then
-                    ui.unconditional (defaultArg config.label $"{name} %+d{bonus}")
-                else
-                    ui.offering (defaultArg config.label $"{name} %+d{bonus}")
+        offerLogic key <| fun selected (ui:API) (scope, output) ->
+            ui.offering (defaultArg config.label $"{name} %+d{bonus}")
     static member skill(name: string, bonus: int) = Op.skill(blank, name, bonus)
 
     static member skill(config: OfferConfiguration, name:string, bonusRange: int list): DFRPGCharacter Offer =
         let key = defaultArg config.key <| newKey $"{name} {bonusRange}"
-        fun ((scope, output) as args) ->
-            offerLogic key args <| fun selected (ui:API) ->
-                ui.offering (defaultArg config.label $"{name} %+d{bonusRange[0]} to %+d{bonusRange |> List.last}")
+        offerLogic key <| fun selected (ui:API) (scope, output) ->
+            ui.offering (defaultArg config.label $"{name} %+d{bonusRange[0]} to %+d{bonusRange |> List.last}")
     static member skill(name, bonusRange: int list) = Op.skill(blank, name, bonusRange)
 
     static member either(config: OfferConfiguration, choices: (DFRPGCharacter Offer) list): DFRPGCharacter Offer =
         let key = defaultArg config.key <| newKey $"one-of-{choices.Length}"
-        fun ((scope, output) as args) ->
-            offerLogic key args <| fun selected (ui:API) ->
-                // recur if selected or no need for selection
-                if selected || scope.autogrant || config.label.IsNone then
-                    choices |> List.iter (recur(key, true, args))
-                match config.label with
-                | Some label ->
-                    ui.offering (label + if selected then $" Choose one:" else "") // something doesn't match up here. Why isn't the either registering itself? Do we have two overlapping concepts here, offer/options and... mutually exclusion zones? Maybe it's recur that needs to change.
-                | None ->
-                    ui.unconditional $"Choose one:"
+        offerLogic key <| fun selected (ui:API) (scope, output) ->
+            // recur if selected or no need for selection
+            let children =
+                if selected then
+                    choices |> List.map (recur(key, ChooseOne, (scope, output)))
+                else []
+            match config.label with
+            | Some label ->
+                ui.offering (label + if selected then $" Choose one:" else "") // something doesn't match up here. Why isn't the either registering itself? Do we have two overlapping concepts here, offer/options and... mutually exclusion zones? Maybe it's recur that needs to change.
+            | None -> ui.offering "Choose one:"
     static member either(choices: (DFRPGCharacter Offer) list) = Op.either(blank, choices)
 
     static member  and'(config: OfferConfiguration, choices: DFRPGCharacter Offer list): DFRPGCharacter Offer =
         let key = defaultArg config.key <| newKey $"one-of-{choices.Length}"
-        fun ((scope, output) as args) ->
-            offerLogic key args <| fun selected (ui:API) ->
-                // recur if selected or no need for selection
-                if selected || scope.autogrant || config.label.IsNone then
-                    choices |> List.iter (recur(key, true, ({ scope with autogrant = true }, output)))
-                match config.label with
-                | Some label ->
-                    ui.offering label
-                | None ->
-                    ui.unconditional ""
+        offerLogic key <| fun selected (ui:API) (scope, output) ->
+            // recur if selected or no need for selection
+            let children =
+                if selected then
+                    choices |> List.map (recur(key, GrantAll, (scope, output)))
+                else []
+            ui.offering (defaultArg config.label "ALL OF")
     static member and'(choices: DFRPGCharacter Offer list) = Op.and'(blank, choices)
 
     static member budgeted(config: OfferConfiguration, budget, offers: DFRPGCharacter Offer list): DFRPGCharacter Offer =
         let key = defaultArg config.key <| newKey $"budget-{budget}"
-        fun ((scope, output) as args) ->
-            offerLogic key args <| fun selected (ui:API) ->
-                // selected doesn't matter in this case: there's no checkbox, only a div or ul
-                offers |> List.iter (recur(key, true, args))
-                ui.unconditional (defaultArg config.label $"Choose [{budget}] from:")
+        offerLogic key <| fun selected (ui:API) (scope, output) ->
+            let children =
+                if selected then
+                    offers |> List.map (recur(key, ChooseSome budget, (scope, output)))
+                else []
+            ui.offering (defaultArg config.label $"Choose [{budget}] from:")
     static member budgeted(budget, offers: DFRPGCharacter Offer list) = Op.budgeted(blank, budget, offers)
 open type Op
 
@@ -220,18 +214,18 @@ let swash = [
     budgeted(20, [
         skill("Acrobatics", 2)
         skill("Acrobatics", [1..3])
-        let mainWeapons = ["Rapier"; "Broadsword"; "Polearm"; "Two-handed sword"] |> List.map (fun name -> name, newKey name)
-        let weaponsAt (bonus: int) = mainWeapons |> List.map (fun (name, key) -> skill({ blank with key = Some key }, name, bonus))
-        either [
-            either(label "Sword!", weaponsAt +5)
-            and'(label "Sword and Dagger", [either(weaponsAt +4); skill("Main-gauche", +1)])
-            and'(label "Sword and Shield", [either(weaponsAt +4); skill("Shield", +2)])
-            ]
-        either [
-            skill("Fast-draw (Sword)", +2)
-            and'(label "both", [skill("Fast-draw (Sword)", +1); skill("Fast-draw (Dagger)", +1)])
-            ]
         ])
+    let mainWeapons = ["Rapier"; "Broadsword"; "Polearm"; "Two-handed sword"] |> List.map (fun name -> name, newKey name)
+    let weaponsAt (bonus: int) = mainWeapons |> List.map (fun (name, key) -> skill({ blank with key = Some key }, name, bonus))
+    either [
+        either(label "Sword!", weaponsAt +5)
+        and'(label "Sword and Dagger", [either(weaponsAt +4); skill("Main-gauche", +1)])
+        and'(label "Sword and Shield", [either(weaponsAt +4); skill("Shield", +2)])
+        ]
+    either [
+        skill("Fast-draw (Sword)", +2)
+        and'(label "both", [skill("Fast-draw (Sword)", +1); skill("Fast-draw (Dagger)", +1)])
+        ]
     ]
 
 type Msg = RefreshedOutput of DFRPGCharacter OfferOutput
