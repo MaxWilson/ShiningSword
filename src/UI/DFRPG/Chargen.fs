@@ -172,6 +172,12 @@ type Op() =
             ui.offering (defaultArg config.label $"{name} %+d{bonusRange[0]} to %+d{bonusRange |> List.last}")
     static member skill(name, bonusRange: int list) = Op.skill(blank, name, bonusRange)
 
+    static member trait'(config: OfferConfiguration, trait': 'Trait): DFRPGCharacter Offer =
+        let key = defaultArg config.key <| newKey $"{trait'}"
+        offerLogic key <| fun selected (ui:API) (scope, output) ->
+            ui.offering (defaultArg config.label $"{trait'}")
+    static member trait'(trait': 'Trait) = Op.trait'(blank, trait')
+
     static member either(config: OfferConfiguration, choices: (DFRPGCharacter Offer) list): DFRPGCharacter Offer =
         let key = defaultArg config.key <| newKey $"one-of-{choices.Length}"
         offerLogic key <| fun selected (ui:API) (scope, output) ->
@@ -212,7 +218,7 @@ let swash = [
     skill("Climbing", 1)
     skill("Stealth", [1..3])
     budgeted(20, [
-        skill("Acrobatics", 2)
+        trait' CombatReflexes
         skill("Acrobatics", [1..3])
         ])
     let mainWeapons = ["Rapier"; "Broadsword"; "Polearm"; "Two-handed sword"] |> List.map (fun name -> name, newKey name)
@@ -224,7 +230,7 @@ let swash = [
         ]
     either [
         skill("Fast-draw (Sword)", +2)
-        and'(label "both", [skill("Fast-draw (Sword)", +1); skill("Fast-draw (Dagger)", +1)])
+        and'([skill("Fast-draw (Sword)", +1); skill("Fast-draw (Dagger)", +1)])
         ]
     ]
 
