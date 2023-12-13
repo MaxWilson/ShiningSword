@@ -68,7 +68,7 @@ type DFRPGCharacter = { // stub
     }
     with static member fresh = { traits = Set.empty }
 
-let checkbox (txt: string) (id: string) selected onChange = class' "control" Html.div [
+let checkbox (txt: string) (id: string) selected onChange children = class' "control" Html.div [
     Html.input [
         prop.type' "checkbox"
         prop.isChecked selected
@@ -79,6 +79,7 @@ let checkbox (txt: string) (id: string) selected onChange = class' "control" Htm
         prop.htmlFor id
         prop.text txt
         ]
+    yield! children
     ]
 
 type API = {
@@ -139,9 +140,8 @@ type Op() =
                         output.pickedOffers <- output.pickedOffers |> Set.remove key
                     output.notify()
                 output.uiBuilder <- output.uiBuilder |> Map.add key (function
-                    | [] -> checkbox txt id selected onChange
-                    | children when txt = "" -> Html.div [prop.children children]
-                    | children -> Html.div [prop.children [checkbox txt id selected onChange; Html.ul children]]
+                    | [] -> checkbox txt id selected onChange []
+                    | children -> checkbox txt id selected onChange [Html.ul children]
                     )
             let uiDiv (txt: string) =
                 output.uiBuilder <- output.uiBuilder |> Map.add key (function
