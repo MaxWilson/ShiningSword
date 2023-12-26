@@ -25,9 +25,10 @@ type 'payload OfferOutput = {
     mutable parents: Map<OfferKey, OfferKey>
     mutable uiBuilder: Map<OfferKey, ReactElement list -> ReactElement>
     mutable eithers: Set<OfferKey> // need this to keep track of which options are mutually-exclusive
+    mutable unconditionals: Map<OfferKey, string> // need this to keep track of which options are mutually-exclusive
     }
     with
-    static member fresh payload pending = { stableState = payload; queuedChanges = pending; notifyChanged = ignore; pickedOffers = Set.empty; dataAugment = Map.empty; children = Map.empty; parents = Map.empty; uiBuilder = Map.empty; eithers = Set.empty }
+    static member fresh payload pending = { stableState = payload; queuedChanges = pending; notifyChanged = ignore; pickedOffers = Set.empty; dataAugment = Map.empty; children = Map.empty; parents = Map.empty; uiBuilder = Map.empty; eithers = Set.empty; unconditionals = Map.empty }
     member this.notify() = this.notifyChanged this
     member this.toReactElements() =
         // do a post-order traversal of the offer tree, gathering up the UI elements wherever they exist
@@ -144,6 +145,7 @@ type Op() =
                     | children -> checkbox txt id selected onChange [Html.ul children]
                     )
             let uiDiv (txt: string) =
+                output.unconditionals <- output.unconditionals |> Map.add key txt
                 output.uiBuilder <- output.uiBuilder |> Map.add key (function
                     | [] -> Html.div txt
                     | [child] when txt = "" -> child
@@ -193,14 +195,17 @@ type Op() =
     static member either(choices: (DFRPGCharacter Offer) list) = Op.either(blank, choices)
 
     static member  and'(config: OfferConfiguration, choices: DFRPGCharacter Offer list): DFRPGCharacter Offer =
-        let key = defaultArg config.key <| newKey $"one-of-{choices.Length}"
+        let key = defaultArg config.key <| newKey $"all-of-{choices.Length}"
         offerLogic key <| fun selected (ui:API) (scope, output) ->
             // recur if selected or no need for selection
             let children =
-                if selected then
-                    choices |> List.map (recur(key, GrantAll, (scope, output)))
-                else []
-            ui.offering (defaultArg config.label "ALL OF")
+                choices |> List.map (recur(key, GrantAll, (scope, output)))
+            let childTxt = [
+                if output.children.ContainsKey key then
+                    for child in output.children[key] do
+                        output.unconditionals |> Map.tryFind child |> Option.defaultValue "UNKNOWN"
+                ]
+            ui.offering (defaultArg config.label (childTxt |> String.join " and "))
     static member and'(choices: DFRPGCharacter Offer list) = Op.and'(blank, choices)
 
     static member budgeted(config: OfferConfiguration, budget, offers: DFRPGCharacter Offer list): DFRPGCharacter Offer =
