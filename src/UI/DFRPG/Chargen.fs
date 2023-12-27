@@ -57,7 +57,7 @@ type OfferScope = {
     parent: OfferKey
     }
     with static member fresh = { parent = offerRoot }
-type 'payload Offer = OfferArgs * (OfferScope * 'payload OfferOutput) -> SideEffects
+type Offer<'payload, 'result> = OfferArgs * (OfferScope * 'payload OfferOutput) -> 'result
 
 type Skill = { // stub, doesn't even have attribute
     name: string
@@ -90,7 +90,7 @@ type API = {
 let recur(key, args: OfferArgs, (scope: OfferScope, output: _ OfferOutput)) offer =
     offer (args, ({ scope with parent = key}, output))
 
-let run (offers: _ Offer list) (state: DFRPGCharacter OfferOutput) notify : _ OfferOutput =
+let run (offers: Offer<_,_> list) (state: DFRPGCharacter OfferOutput) notify : _ OfferOutput =
     let root = offerRoot
     let output = { OfferOutput<_>.fresh state.stableState state.queuedChanges with pickedOffers = state.pickedOffers; notifyChanged = notify }
     let scope = { OfferScope.fresh with parent = root }
@@ -162,25 +162,25 @@ type Op() =
             innerLogic selected api (scope, output)
 
     static member label (txt:string) = { blank with label = Some txt }
-    static member skill(config: OfferConfiguration, name:string, bonus: int): DFRPGCharacter Offer =
+    static member skill(config: OfferConfiguration, name:string, bonus: int): Offer<DFRPGCharacter,_> =
         let key = defaultArg config.key <| newKey $"{name} %+d{bonus}"
         offerLogic key <| fun selected (ui:API) (scope, output) ->
             ui.offering (defaultArg config.label $"{name} %+d{bonus}")
     static member skill(name: string, bonus: int) = Op.skill(blank, name, bonus)
 
-    static member skill(config: OfferConfiguration, name:string, bonusRange: int list): DFRPGCharacter Offer =
+    static member skill(config: OfferConfiguration, name:string, bonusRange: int list): Offer<DFRPGCharacter,_> =
         let key = defaultArg config.key <| newKey $"{name} {bonusRange}"
         offerLogic key <| fun selected (ui:API) (scope, output) ->
             ui.offering (defaultArg config.label $"{name} %+d{bonusRange[0]} to %+d{bonusRange |> List.last}")
     static member skill(name, bonusRange: int list) = Op.skill(blank, name, bonusRange)
 
-    static member trait'(config: OfferConfiguration, trait': 'Trait): DFRPGCharacter Offer =
+    static member trait'(config: OfferConfiguration, trait': 'Trait): Offer<DFRPGCharacter,_> =
         let key = defaultArg config.key <| newKey $"{trait'}"
         offerLogic key <| fun selected (ui:API) (scope, output) ->
             ui.offering (defaultArg config.label $"{trait'}")
     static member trait'(trait': 'Trait) = Op.trait'(blank, trait')
 
-    static member either(config: OfferConfiguration, choices: (DFRPGCharacter Offer) list): DFRPGCharacter Offer =
+    static member either(config: OfferConfiguration, choices: Offer<DFRPGCharacter,_> list): Offer<DFRPGCharacter,_> =
         let key = defaultArg config.key <| newKey $"one-of-{choices.Length}"
         offerLogic key <| fun selected (ui:API) (scope, output) ->
             // recur if selected or no need for selection
@@ -192,9 +192,9 @@ type Op() =
             | Some label ->
                 ui.offering (label + if selected then $" Choose one:" else "") // something doesn't match up here. Why isn't the either registering itself? Do we have two overlapping concepts here, offer/options and... mutually exclusion zones? Maybe it's recur that needs to change.
             | None -> ui.offering "Choose one:"
-    static member either(choices: (DFRPGCharacter Offer) list) = Op.either(blank, choices)
+    static member either(choices: Offer<DFRPGCharacter,_> list) = Op.either(blank, choices)
 
-    static member  and'(config: OfferConfiguration, choices: DFRPGCharacter Offer list): DFRPGCharacter Offer =
+    static member  and'(config: OfferConfiguration, choices: Offer<DFRPGCharacter,_> list): Offer<DFRPGCharacter,_> =
         let key = defaultArg config.key <| newKey $"all-of-{choices.Length}"
         offerLogic key <| fun selected (ui:API) (scope, output) ->
             // recur if selected or no need for selection
@@ -206,9 +206,9 @@ type Op() =
                         output.unconditionals |> Map.tryFind child |> Option.defaultValue "UNKNOWN"
                 ]
             ui.offering (defaultArg config.label (childTxt |> String.join " and "))
-    static member and'(choices: DFRPGCharacter Offer list) = Op.and'(blank, choices)
+    static member and'(choices: Offer<DFRPGCharacter,_> list) = Op.and'(blank, choices)
 
-    static member budgeted(config: OfferConfiguration, budget, offers: DFRPGCharacter Offer list): DFRPGCharacter Offer =
+    static member budgeted(config: OfferConfiguration, budget, offers: Offer<DFRPGCharacter,_> list): Offer<DFRPGCharacter,_> =
         let key = defaultArg config.key <| newKey $"budget-{budget}"
         offerLogic key <| fun selected (ui:API) (scope, output) ->
             let children =
@@ -216,7 +216,7 @@ type Op() =
                     offers |> List.map (recur(key, ChooseSome budget, (scope, output)))
                 else []
             ui.offering (defaultArg config.label $"Choose [{budget}] from:")
-    static member budgeted(budget, offers: DFRPGCharacter Offer list) = Op.budgeted(blank, budget, offers)
+    static member budgeted(budget, offers: Offer<DFRPGCharacter,_> list) = Op.budgeted(blank, budget, offers)
 open type Op
 
 let swash = [
