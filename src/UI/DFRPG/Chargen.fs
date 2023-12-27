@@ -83,19 +83,22 @@ let checkbox (txt: string) (id: string) selected onChange children = class' "con
     yield! children
     ]
 
+type UIPlaceholder = UIPlaceholder
 type API = {
-    offering: string -> unit // whether this is a checkbox or an unconditional grant depends on the Choice
+    offering: string -> UIPlaceholder // whether this is a checkbox or an unconditional grant depends on the Choice
     }
 
 let recur(key, args: OfferArgs, (scope: OfferScope, output: _ OfferOutput)) offer =
     offer (args, ({ scope with parent = key}, output))
 
-let run (offers: Offer<_,_> list) (state: DFRPGCharacter OfferOutput) notify : _ OfferOutput =
+let run (offers: Offer<_,UIPlaceholder> list) (state: DFRPGCharacter OfferOutput) notify : _ OfferOutput =
     let root = offerRoot
     let output = { OfferOutput<_>.fresh state.stableState state.queuedChanges with pickedOffers = state.pickedOffers; notifyChanged = notify }
     let scope = { OfferScope.fresh with parent = root }
-    for offer in offers do
-        recur(root, GrantAll, (scope, output)) offer
+    let children =  [
+        for offer in offers do
+            recur(root, GrantAll, (scope, output)) offer
+        ]
     output.uiBuilder <- output.uiBuilder |> Map.add root (function
         | [child] -> child
         | children -> Html.div [prop.children children]
@@ -108,7 +111,6 @@ type OfferConfiguration = {
     key: string option // let multiple options share the same if they should share state, e.g. Sword! Broadsword-20 and Sword-and-Shield! Broadsword-19 + Shield-15 might want both broadswords to keep the same state when toggling between Sword! vs. Sword-and-Sheild!
     }
 let blank = { label = None; key = None }
-
 type Op() =
     static let offerLogic =
         fun (key:OfferKey) innerLogic (args: OfferArgs, (scope: OfferScope, output: 'payload OfferOutput)) ->
@@ -144,6 +146,7 @@ type Op() =
                     | [] -> checkbox txt id selected onChange []
                     | children -> checkbox txt id selected onChange [Html.ul children]
                     )
+                UIPlaceholder
             let uiDiv (txt: string) =
                 output.unconditionals <- output.unconditionals |> Map.add key txt
                 output.uiBuilder <- output.uiBuilder |> Map.add key (function
@@ -152,6 +155,7 @@ type Op() =
                     | children when txt = "" -> Html.div children
                     | children -> React.fragment [Html.div txt; Html.ul children]
                     )
+                UIPlaceholder
 
             let api: API = {
                 offering =
