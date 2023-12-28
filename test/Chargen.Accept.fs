@@ -1,36 +1,42 @@
 module Tests
 
 open Expecto
+open Swensen.Unquote
+
+type MenuOutput =
+  | Either of MenuOutput list
+  | And of MenuOutput list
+  | Leveled of string * int
+  | Leaf of string
+
+// swash is not a MenuOutput but it can create MenuOutputs which can then be either unit tested or turned into ReactElements
+// think of swash as an offer menu
+// let swash = [
+//     skill("Climbing", 1)
+//     skill("Stealth", [1..3])
+//     budgeted(20, [
+//         trait' CombatReflexes
+//         skill("Acrobatics", [1..3])
+//         ])
+//     let mainWeapons = ["Rapier"; "Broadsword"; "Polearm"; "Two-handed sword"] |> List.map (fun name -> name, newKey name)
+//     let weaponsAt (bonus: int) = mainWeapons |> List.map (fun (name, key) -> skill({ blank with key = Some key }, name, bonus))
+//     either [
+//         either(label "Sword!", weaponsAt +5)
+//         and'(label "Sword and Dagger", [either(weaponsAt +4); skill("Main-gauche", +1)])
+//         and'(label "Sword and Shield", [either(weaponsAt +4); skill("Shield", +2)])
+//         ]
+//     either [
+//         skill("Fast-draw (Sword)", +2)
+//         and'([skill("Fast-draw (Sword)", +1); skill("Fast-draw (Dagger)", +1)])
+//         ]
+//     ]
+
+
 
 [<Tests>]
 let tests =
   testList "Acceptance" [
-    testCase "universe exists (╭ರᴥ•́)" <| fun _ ->
-      let subject = true
-      Expect.isTrue subject "I compute, therefore I am."
+    testCase "placeholder" <| fun _ ->
+      test <@ 1 + 1 = 2 @>
 
-    testCase "when true is not (should fail)" <| fun _ ->
-      let subject = false
-      Expect.isTrue subject "I should fail because the subject is false"
-
-    testCase "I'm skipped (should skip)" <| fun _ ->
-      Tests.skiptest "Yup, waiting for a sunny day..."
-
-    testCase "I'm always fail (should fail)" <| fun _ ->
-      Tests.failtest "This was expected..."
-
-    testCase "contains things" <| fun _ ->
-      Expect.containsAll [| 2; 3; 4 |] [| 2; 4 |]
-                         "This is the case; {2,3,4} contains {2,4}"
-
-    testCase "contains things (should fail)" <| fun _ ->
-      Expect.containsAll [| 2; 3; 4 |] [| 2; 4; 1 |]
-                         "Expecting we have one (1) in there"
-
-    testCase "Sometimes I want to ༼ノಠل͟ಠ༽ノ ︵ ┻━┻" <| fun _ ->
-      Expect.equal "abcdëf" "abcdef" "These should equal"
-
-    test "I am (should fail)" {
-      "╰〳 ಠ 益 ಠೃ 〵╯" |> Expect.equal true false
-    }
   ]
