@@ -4,10 +4,41 @@ open Expecto
 open Swensen.Unquote
 
 type MenuOutput =
-  | Either of MenuOutput list
-  | And of MenuOutput list
-  | Leveled of string * int
-  | Leaf of string
+    | Either of MenuOutput list
+    | And of MenuOutput list
+    | Leveled of string * int
+    | Leaf of string
+
+type 't Output = 't * MenuOutput
+type 't ListOutput = ('t list) Output
+type 't OptionOutput = ('t option) Output
+
+type Key = string
+type OfferInput = {
+    selected: Set<Key>
+    }
+type 't Offer = Offer of (OfferInput -> 't)
+type 't ListOffer = ('t list) Offer
+type 't OptionOffer = ('t option) Offer
+
+type OfferContext = {
+    key: Key option
+    label: string option
+    }
+    with static member blank = { key = None; label = None }
+open type OfferContext
+type Op =
+    static member skill v = notImpl()
+    static member trait' v = notImpl()
+    static member budgeted v = notImpl()
+    static member either v = notImpl()
+    static member and' v = notImpl()
+    static member promote (o: 't OptionOffer): 't ListOffer = notImpl()
+let newKey txt = $"{txt}-{System.Guid.NewGuid()}"
+let label txt = { blank with label = Some txt }
+open type Op
+
+type Trait' = CombatReflexes
 
 (* Requirements:
 Terseness: flatten some and's, e.g. "Fast draw (swords & daggers) +1" all on one line, instead of two separate lines.
@@ -22,25 +53,25 @@ Correctness: mutual exclusion within either unselects old selection when new sel
 
 // swash is not a MenuOutput but it can create MenuOutputs which can then be either unit tested or turned into ReactElements
 // think of swash as an offer menu
-// let swash = [
-//     skill("Climbing", 1)
-//     skill("Stealth", [1..3])
-//     budgeted(20, [
-//         trait' CombatReflexes
-//         skill("Acrobatics", [1..3])
-//         ])
-//     let mainWeapons = ["Rapier"; "Broadsword"; "Polearm"; "Two-handed sword"] |> List.map (fun name -> name, newKey name)
-//     let weaponsAt (bonus: int) = mainWeapons |> List.map (fun (name, key) -> skill({ blank with key = Some key }, name, bonus))
-//     either [
-//         either(label "Sword!", weaponsAt +5)
-//         and'(label "Sword and Dagger", [either(weaponsAt +4); skill("Main-gauche", +1)])
-//         and'(label "Sword and Shield", [either(weaponsAt +4); skill("Shield", +2)])
-//         ]
-//     either [
-//         skill("Fast-draw (Sword)", +2)
-//         and'([skill("Fast-draw (Sword)", +1); skill("Fast-draw (Dagger)", +1)])
-//         ]
-//     ]
+let swash: Trait' ListOffer list = [
+    skill("Climbing", 1) |> promote
+    skill("Stealth", [1..3]) |> promote
+    budgeted(20, [
+        trait' CombatReflexes
+        skill("Acrobatics", [1..3])
+        ])
+    let mainWeapons = ["Rapier"; "Broadsword"; "Polearm"; "Two-handed sword"] |> List.map (fun name -> name, newKey name)
+    let weaponsAt (bonus: int) = mainWeapons |> List.map (fun (name, key) -> skill({ blank with key = Some key }, name, bonus))
+    either [
+        either(label "Sword!", weaponsAt +5)
+        and'(label "Sword and Dagger", [either(weaponsAt +4); skill("Main-gauche", +1)])
+        and'(label "Sword and Shield", [either(weaponsAt +4); skill("Shield", +2)])
+        ]
+    either [
+        skill("Fast-draw (Sword)", +2)
+        and'([skill("Fast-draw (Sword)", +1); skill("Fast-draw (Dagger)", +1)])
+        ]
+    ]
 
 [<Tests>]
 let tests =

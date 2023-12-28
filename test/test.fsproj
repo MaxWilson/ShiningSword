@@ -18,4 +18,8 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.*" />
     <PackageReference Update="FSharp.Core" Version="8.*" />
   </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\src\App.fsproj" />
+  </ItemGroup>
 </Project>
