@@ -1,4 +1,4 @@
-Microsoft Visual Studio Solution File, Format Version 12.00
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.29418.71
 MinimumVisualStudioVersion = 10.0.40219.1
@@ -16,6 +16,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		main.sass = main.sass
 	EndProjectSection
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "test", "test\test.fsproj", "{139FBCF6-B2A0-4C38-B6C4-8EF97F00DD69}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -30,6 +32,10 @@ Global
 		{7821B727-268F-44AD-8136-B300B323F578}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7821B727-268F-44AD-8136-B300B323F578}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7821B727-268F-44AD-8136-B300B323F578}.Release|Any CPU.Build.0 = Release|Any CPU
+		{139FBCF6-B2A0-4C38-B6C4-8EF97F00DD69}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{139FBCF6-B2A0-4C38-B6C4-8EF97F00DD69}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{139FBCF6-B2A0-4C38-B6C4-8EF97F00DD69}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{139FBCF6-B2A0-4C38-B6C4-8EF97F00DD69}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
