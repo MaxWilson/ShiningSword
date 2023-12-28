@@ -28,11 +28,13 @@ type OfferContext = {
     with static member blank = { key = None; label = None }
 open type OfferContext
 type Op =
-    static member skill v = notImpl()
-    static member trait' v = notImpl()
-    static member budgeted v = notImpl()
-    static member either v = notImpl()
-    static member and' v = notImpl()
+    static member skill v: 't OptionOffer = notImpl()
+    static member trait' v: 't OptionOffer = notImpl()
+    static member budgeted v: 't ListOffer = notImpl()
+    static member either v : 't OptionOffer = notImpl()
+    static member and' v : 't OptionOffer = notImpl()
+    static member eitherN v : 't ListOffer = notImpl()
+    static member andN' v : 't ListOffer = notImpl()
     static member promote (o: 't OptionOffer): 't ListOffer = notImpl()
 let newKey txt = $"{txt}-{System.Guid.NewGuid()}"
 let label txt = { blank with label = Some txt }
@@ -62,14 +64,14 @@ let swash: Trait' ListOffer list = [
         ])
     let mainWeapons = ["Rapier"; "Broadsword"; "Polearm"; "Two-handed sword"] |> List.map (fun name -> name, newKey name)
     let weaponsAt (bonus: int) = mainWeapons |> List.map (fun (name, key) -> skill({ blank with key = Some key }, name, bonus))
-    either [
-        either(label "Sword!", weaponsAt +5)
-        and'(label "Sword and Dagger", [either(weaponsAt +4); skill("Main-gauche", +1)])
-        and'(label "Sword and Shield", [either(weaponsAt +4); skill("Shield", +2)])
+    eitherN [
+        either(label "Sword!", weaponsAt +5) |> promote
+        andN'(label "Sword and Dagger", [either(weaponsAt +4); skill("Main-gauche", +1)])
+        andN'(label "Sword and Shield", [either(weaponsAt +4); skill("Shield", +2)])
         ]
-    either [
-        skill("Fast-draw (Sword)", +2)
-        and'([skill("Fast-draw (Sword)", +1); skill("Fast-draw (Dagger)", +1)])
+    eitherN [
+        skill("Fast-draw (Sword)", +2) |> promote
+        andN'([skill("Fast-draw (Sword)", +1); skill("Fast-draw (Dagger)", +1)])
         ]
     ]
 
