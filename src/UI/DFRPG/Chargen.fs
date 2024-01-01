@@ -1,4 +1,5 @@
-module UI.DFRPG.Chargen
+[<AutoOpen>]
+module UI.DFRPG.Chargen.Core
 open Feliz
 open Fable.React
 type Stuff = Foo | Bar

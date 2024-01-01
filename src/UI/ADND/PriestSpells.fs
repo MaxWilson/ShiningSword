@@ -1,4 +1,5 @@
-module UI.ADND.PriestSpells
+[<AutoOpen>]
+module UI.ADND.PriestSpells.Core
 open CommonUI
 open UI.LocalStorage
 #nowarn "40" // Disabling the recursive initialization warning for this file because the parser is recursive, but isn't doing anything weird like calling ctor args during construction.
