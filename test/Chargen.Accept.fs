@@ -43,7 +43,7 @@ type 'reactElement RenderApi = {
     combine: 'reactElement list -> 'reactElement
     }
 
-let render (render: 'reactElement RenderApi, menus: MenuOutput list) =
+let render (render: 'reactElement RenderApi) (menus: MenuOutput list) =
     let rec recur recurOnChildren (renderMe: (string * 'reactElement list) -> 'reactElement) menu : 'reactElement =
         match menu with
         | Either(label, selections) ->
@@ -151,8 +151,43 @@ let pseudoReactApi = {
     }
 
 let proto1 = testCase "Terseness #1" <| fun () ->
+    let pseudoActual = // pseudo-actual becasue actual will be created from templates + OfferInput (i.e. selected keys), not hardwired as Menus, but that's still TODO
+        let menus = [
+            Leveled("Climbing", 1)
+            Leveled("Stealth", 3)
+            Either(None, [
+                true, Either(Some "Sword!", [
+                    false, Leveled("Rapier", +5)
+                    false, Leveled("Broadsword", +5)
+                    false, Leveled("Shortsword", +5)
+                    ])
+                ])
+            Either(None, [true, Leveled("Fast-draw (Sword)", +2)])
+            ]
+        render pseudoReactApi menus
+    let fail expect v = failwith $"Expected {expect} but got {v}"
+    let (|Checked|) = function Checked(label, children) -> Checked(label, children) | v -> fail "Checked" v
+    let (|Unchecked|) = function Unchecked(label) -> Unchecked(label) | v -> fail "Unchecked" v
+    let (|Unconditional|) = function Unconditional(label, children) -> Unconditional(label, children) | v -> fail "Unconditional" v
+    let (|NumberInput|) = function NumberInput(label, value) -> NumberInput(label, value) | v -> fail "NumberInput" v
+    let (|Div|) = function Div(label) -> Div(label) | v -> fail "Div" v
+    let (|Fragment|) = function Fragment(children) -> Fragment(children) | v -> fail "Fragment" v
+    let (|Expect|) expect actual = if expect = actual then true else failwith $"Expected {expect} but got {actual}"
+    match pseudoActual with
+    | Fragment([
+        NumberInput(Expect "Climbing" _, Expect 1 _)
+        NumberInput(Expect "Stealth" _, Expect 3 _)
+        Unconditional(Expect "Sword!" _, [
+            NumberInput(Expect "Rapier" _, Expect +5 _)
+            NumberInput(Expect "Broadsword" _, Expect +5 _)
+            NumberInput(Expect "Shortsword" _, Expect +5 _)
+            ])
+        Checked(Expect "Fast-draw (Sword) +2" _, Expect [] _)
+        ]) -> ()
+    | v -> matchfail v // maybe we got the wrong number of NumberInputs from the Unconditional or something. Would be nice to have the error message say exactly what went wrong,
+                    // but Expect active pattern isn't valid as an input to Fragment/Unconditional/etc. so we can't just Expect a specific list of children. Although... maybe we can refactor
+                    // to use functions instead of active patterns?
 
-    ()
 
 [<Tests>]
 let tests =
