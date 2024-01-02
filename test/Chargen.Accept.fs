@@ -7,7 +7,7 @@ open Swensen.Unquote
 // 1. If it's checkable, what is the current state?
 // 2. If it's checkable, how do we change the state?
 // 3. What is the label, if any? If there's no explicit label, how do we display it? (Might depend on whether or not it's checked or finished.)
-//    3a. Do we ever NOT have a label? I.e. are there any headless UI components?
+//    3a. Do we ever NOT have a label? I.e. are there any headless UI components? I think maybe we want to collapse fulfilled eithers.
 
 type MenuOutput =
     | Either of label: string option * options: (bool * MenuOutput) list
@@ -45,9 +45,15 @@ type 'reactElement RenderApi = {
 
 let render (render: 'reactElement RenderApi) (menus: MenuOutput list) =
     let rec recur recurOnChildren (renderMe: (string * 'reactElement list) -> 'reactElement) menu : 'reactElement =
+        let (|OneSelection|_|) lst =
+            match lst |> List.filter fst with
+            | [true, v] -> Some v
+            | _ -> None
         match menu with
+        | Either(None, OneSelection child) ->
+            recur recurOnChildren render.checked' child // if the either has no label and is already ready, just omit it from the visual tree and show the child directly. I'm not sure it's correct to ignore renderMe though.
         | Either(label, selections) ->
-            let childReacts = [
+            let children = [
                 if recurOnChildren then
                     for (isChecked, child) in selections do
                         let renderChild (label: string, children) =
@@ -55,7 +61,7 @@ let render (render: 'reactElement RenderApi) (menus: MenuOutput list) =
                         let childReact = recur isChecked renderChild child
                         childReact
                 ]
-            renderMe(defaultArg label "Choose one:", childReacts)
+            renderMe(defaultArg label "Choose one:", children)
         | And(label, grants) ->
             let childReacts = grants |> List.map (recur true render.unconditional)
             renderMe(defaultArg label "And:", childReacts)
@@ -162,7 +168,7 @@ let proto1 = testCase "proto1" <| fun () ->
             Either(None, [true, Leveled("Fast-draw (Sword)", +2)])
             ]
         render pseudoReactApi menus
-    let fail expect v = failwith $"Expected {expect} but got {v}"
+    let fail expect v = failwith $"Expected {expect} but got {v}\nContext: {pseudoActual}"
     let (|Checked|) = function Checked(label, children) -> Checked(label, children) | v -> fail "Checked" v
     let (|Unchecked|) = function Unchecked(label) -> Unchecked(label) | v -> fail "Unchecked" v
     let (|Unconditional|) = function Unconditional(label, children) -> Unconditional(label, children) | v -> fail "Unconditional" v
@@ -179,7 +185,7 @@ let proto1 = testCase "proto1" <| fun () ->
             NumberInput(Expect "Broadsword" _, Expect +5 _)
             NumberInput(Expect "Shortsword" _, Expect +5 _)
             ])
-        Checked(Expect "Fast-draw (Sword) +2" _, Expect [] _)
+        NumberInput(Expect "Fast-draw (Sword)" _, Expect +2 _)
         ]) -> ()
     | v -> matchfail v // maybe we got the wrong number of NumberInputs from the Unconditional or something. Would be nice to have the error message say exactly what went wrong,
                     // but Expect active pattern isn't valid as an input to Fragment/Unconditional/etc. so we can't just Expect a specific list of children. Although... maybe we can refactor
