@@ -1,7 +1,5 @@
-[<AutoOpen>]
-module UI.ADND.PriestSpells.Core
-open CommonUI
-open UI.LocalStorage
+module Domain.ADND.PriestSpells
+
 #nowarn "40" // Disabling the recursive initialization warning for this file because the parser is recursive, but isn't doing anything weird like calling ctor args during construction.
 
 type SphereName = string
@@ -26,7 +24,7 @@ let consolidateSpells spheres =
 let consolidateSpheres (spells: Spell list) spheres =
     let spells = spells |> List.map (fun spell -> spell.name, spell) |> Map.ofList
     spheres |> List.map (fun sphere -> { sphere with spells = sphere.spells |> List.map (fun spell -> spells.[spell.name]) })
-let spheresData = normalizeCRLF """
+let spheresData = String.normalizeCRLF """
 All: Bless 1, Combine 1, Detect Evil 1, Purify Food & Drink 1, Atonement 5
 Animal: Animal Friendship 1, Invisibility to Animals 1, Locate Animals or Plants 1, Charm Person or Mammal 2, Messenger 2,
     Snake Charm 2, Speak With Animals 2, Hold Animal 3, Summon Insects 3, Animal Summoning I 4, Call Woodland Beings 4,
@@ -57,7 +55,7 @@ Summoning: Abjure 4, Animal Summoning I 4, Call Woodland Beings 4, Animal Summon
 Sun: Light 1, Continual Light 3, Starshine 3, Moonbeam 5, Rainbow 5, Sunray 7
 Weather: Faerie Fire 1, Obscurement 2, Call Lightning 3, Control Temperature 10' Radius 4, Protection From Lightning 4, Control Winds 5, Rainbow 5, Weather Summoning 6, Control Weather 7
 """
-let deityData = normalizeCRLF """
+let deityData = String.normalizeCRLF """
     Cleric: all, astral, charm, combat, creation, divination, elemental*, guardian, healing, necromantic, protection, summoning, sun
     Druid: all, animal, divination*, elemental, healing, plant, weather
     Paladin: combat, divination, healing, protection
@@ -99,7 +97,7 @@ let deityData = normalizeCRLF """
     Snake: all, animal, charm, healing, protection
 """
 
-module private Parser =
+module Parser =
     // #load @"c:\code\rpg\src\Core\Common.fs"
     // #load @"c:\code\rpg\src\Core\CQRS.fs"
     // #load @"c:\code\rpg\src\Core\Coroutine.fs"
@@ -154,77 +152,9 @@ module private Parser =
     //     |> String.join ", "
     // let d = deityData.Trim().Split("\n") |> List.ofArray |> List.map (Packrat.parser (|Deity|_|))
     // d |> List.collect _.spheres |> List.map _.sphere |> List.distinct |> List.sort
-module Storage =
-    open UI.LocalStorage
-    module Spheres =
-        let key = "Spheres"
-        let cacheRead, cacheInvalidate = Cache.create()
-        let read (): Sphere list =
-            cacheRead (thunk2 read key (fun () -> Packrat.parser Parser.(|Spheres|_|) (spheresData.Trim()) |> fun spheres -> spheres |> consolidateSpheres (consolidateSpells spheres)))
-        let write (v: Sphere list) =
-            write key v
-            cacheInvalidate()
-    module Notes =
-        let key = "Notes"
-        let cacheRead, cacheInvalidate = Cache.create()
-        let read (): Map<SpellName, string> =
-            cacheRead (thunk2 read key (thunk Map.empty))
-        let write (v: Map<SpellName, string>) =
-            write key v
-            cacheInvalidate()
-    module Deities =
-        let key = "Deities"
-        let cacheRead, cacheInvalidate = Cache.create()
-        let read (): Deity list =
-            cacheRead (thunk2 read key (fun () -> deityData.Trim().Split("\n") |> List.ofArray |> List.map (Packrat.parser Parser.(|Deity|_|))))
-        let write (v: Deity list) =
-            write key v
-            cacheInvalidate()
-    module SpellPicks =
-        let key = "Picks"
-        let cacheRead, cacheInvalidate = Cache.create()
-        let read (): Map<SpellName, int> =
-            cacheRead (thunk2 read key (thunk Map.empty))
-        let write (v: Map<SpellName, int>) =
-            write key v
-            cacheInvalidate()
 
-type Options = { spells: Spell list; notes: Map<SpellName, string>; spheres: Sphere list; deities: Deity list }
-type Model = { options: Options; picks: Map<SpellName, int> }
-type Msg = NoOp
-let init() =
-    let spheres = Storage.Spheres.read()
-    let options = { spells = consolidateSpells spheres; notes = Storage.Notes.read(); spheres = spheres; deities = Storage.Deities.read() }
-    { options = options; picks = Storage.SpellPicks.read() }
-let update msg model = model
-let filteredSpells (filter: string) (model: Model) =
-    match filter.Trim() with
-    | "" -> model.options.spells
-    | filter ->
-        let fragments = filter.Split(' ') |> List.ofArray
-        let grantorsBySphere =
-            [
-            for sphere in model.options.spheres do
-                let grantors = [
-                    for d in model.options.deities do
-                        match d.spheres |> List.tryFind (fun s -> String.equalsIgnoreCase s.sphere sphere.name) with
-                        | Some v -> d.name, v.access
-                        | None -> ()
-                    ]
-                sphere.name, grantors
-            ]
-            |> Map.ofList
-        let isMatch (spell: Spell) fragment =
-             if String.containsIgnoreCase(spell.ToString()) fragment then true
-             else spell.spheres |> List.exists (fun sphere -> grantorsBySphere[sphere] |> List.exists (fun (deity, access) -> String.containsIgnoreCase deity fragment && (spell.level <= 3 || access = Major)))
-        model.options.spells |> List.filter (fun spell -> fragments |> List.every (isMatch spell))
+let defaultSpheres() =
+    Packrat.parser Parser.(|Spheres|_|) (spheresData.Trim()) |> fun spheres -> spheres |> consolidateSpheres (consolidateSpells spheres)
 
-let filteredDeities (filter: string) (model: Model) =
-    match filter.Trim() with
-    | "" -> model.options.deities
-    | filter ->
-        let fragments = filter.Split(' ') |> List.ofArray
-        let matchingDeities = model.options.deities |> List.filter (fun deity -> fragments |> List.exists (fun fragment -> String.containsIgnoreCase deity.name fragment || deity.spheres |> List.exists (fun sphere -> String.containsIgnoreCase sphere.sphere fragment)))
-        match matchingDeities with
-        | [] -> model.options.deities // they must not be trying to filter by deity
-        | lst -> lst
+let defaultDeities() =
+    deityData.Trim().Split("\n") |> List.ofArray |> List.map (Packrat.parser Parser.(|Deity|_|))

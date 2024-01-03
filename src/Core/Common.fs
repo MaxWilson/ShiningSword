@@ -32,6 +32,7 @@ let memoize f =
             v
 
 let emptyString = System.String.Empty
+
 let toString x = x.ToString()
 let betweenInclusive a b n = min a b <= n && n <= max a b
 /// invoke f without requiring parens
@@ -143,7 +144,11 @@ module String =
         | None -> input
     let trim (s:string) = s.Trim()
     let isntWhitespace s = System.String.IsNullOrWhiteSpace(s) |> not
-    // turn camel casing back into words with spaces, for display to user
+
+    /// make crlf in string constants work the same way in .NET, in dev Fable, and in prod Fable
+    let normalizeCRLF (str: string) = str.Replace("\r\n", "\n").Replace("\r", "\n")
+
+    /// turn camel casing back into words with spaces, for display to user
     let uncamel = memoize (fun (str: string) ->
         let caps = ['A'..'Z'] |> Set.ofSeq
         let lower = ['a'..'z'] |> Set.ofSeq

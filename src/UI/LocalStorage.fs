@@ -29,4 +29,37 @@ module Cache =
 
 open Cache
 
+open Domain.ADND.PriestSpells
+module Spheres =
+    let key = "Spheres"
+    let cacheRead, cacheInvalidate = Cache.create()
+    let read (): Sphere list =
+        cacheRead (thunk2 read key defaultSpheres)
+    let write (v: Sphere list) =
+        write key v
+        cacheInvalidate()
+module Notes =
+    let key = "Notes"
+    let cacheRead, cacheInvalidate = Cache.create()
+    let read (): Map<SpellName, string> =
+        cacheRead (thunk2 read key (thunk Map.empty))
+    let write (v: Map<SpellName, string>) =
+        write key v
+        cacheInvalidate()
+module Deities =
+    let key = "Deities"
+    let cacheRead, cacheInvalidate = Cache.create()
+    let read (): Deity list =
+        cacheRead (thunk2 read key defaultDeities)
+    let write (v: Deity list) =
+        write key v
+        cacheInvalidate()
+module SpellPicks =
+    let key = "Picks"
+    let cacheRead, cacheInvalidate = Cache.create()
+    let read (): Map<SpellName, int> =
+        cacheRead (thunk2 read key (thunk Map.empty))
+    let write (v: Map<SpellName, int>) =
+        write key v
+        cacheInvalidate()
 

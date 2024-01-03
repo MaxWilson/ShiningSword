@@ -1,4 +1,4 @@
-module Tests
+module Chargen.Accept
 
 open Expecto
 open Swensen.Unquote
@@ -194,7 +194,7 @@ let proto1 = testCase "proto1" <| fun () ->
 
 [<Tests>]
 let tests =
-    testList "Acceptance" [
+    testList "Accept.Chargen" [
         proto1
         ptestCase  "Terseness #1" <| fun () -> failtest """flatten some and's, e.g. "Fast draw (swords & daggers) +1" all on one line, instead of two separate lines."""
         ptestCase  "Terseness #2" <| fun () -> failtest """hide irrelevant options in either, e.g. if you can pick swords or daggers and sword is picked, don't show dagger any more. I.e. collapse either when semi-ready (no more choices at that level)."""
