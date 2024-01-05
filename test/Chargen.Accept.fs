@@ -23,16 +23,17 @@ type Key = string
 type OfferInput = {
     selected: Set<Key>
     }
+    with static member fresh = { selected = Set.empty }
 type 't Offer = Offer of (OfferInput -> 't)
 type 't ListOffer = ('t list) Offer
 type 't OptionOffer = ('t option) Offer
 
-type OfferContext = {
+type OfferConfig = {
     key: Key option
     label: string option
     }
     with static member blank = { key = None; label = None }
-open type OfferContext
+open type OfferConfig
 
 type 'reactElement RenderApi = {
     checked': string * ('reactElement list) -> 'reactElement
@@ -78,6 +79,7 @@ type Op =
     static member eitherN v : 't ListOffer = notImpl()
     static member andN' v : 't ListOffer = notImpl()
     static member promote (o: 't OptionOffer): 't ListOffer = notImpl()
+    static member evaluate (state: OfferInput) (offers: _ Offer list) = notImpl()
 let newKey txt = $"{txt}-{System.Guid.NewGuid()}"
 let label txt = { blank with label = Some txt }
 open type Op
@@ -154,6 +156,7 @@ let pseudoReactApi = {
     }
 
 let proto1 = testCase "proto1" <| fun () ->
+    let actual = swash() |> evaluate OfferInput.fresh // shouldn't actually use OfferInput.fresh here. Need to pick the options we want to show up in pseudoActual.s
     let pseudoActual = // pseudo-actual because actual will be created from templates + OfferInput (i.e. selected keys), not hardwired as Menus, but that's still TODO
         let menus = [
             Leveled("Climbing", 1)
@@ -167,6 +170,7 @@ let proto1 = testCase "proto1" <| fun () ->
                 ])
             Either(None, [true, Leveled("Fast-draw (Sword)", +2)])
             ]
+        test <@ menus = actual @>
         render pseudoReactApi menus
     let fail expect v = failwith $"Expected {expect} but got {v}\nContext: {pseudoActual}"
     let (|Checked|) = function Checked(label, children) -> Checked(label, children) | v -> fail "Checked" v
