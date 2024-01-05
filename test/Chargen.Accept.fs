@@ -19,20 +19,33 @@ type 't Output = 't * MenuOutput
 type 't ListOutput = ('t list) Output
 type 't OptionOutput = ('t option) Output
 
-type Key = string
-type OfferInput = {
-    selected: Set<Key>
-    }
-    with static member fresh = { selected = Set.empty }
-type 't Offer = Offer of (OfferInput -> 't)
-type 't ListOffer = ('t list) Offer
-type 't OptionOffer = ('t option) Offer
-
+type KeySegment = string
+type 't ReversedList = 't list
+type Key = KeySegment ReversedList
 type OfferConfig = {
-    key: Key option
+    key: KeySegment option
     label: string option
     }
     with static member blank = { key = None; label = None }
+type OfferInput = {
+    selected: Set<Key>
+    prefix: KeySegment ReversedList
+    }
+    with
+    static member fresh = { selected = Set.empty; prefix = [] }
+    member input.fullKey config =
+        input.fullKey config.key
+    member input.fullKey (segment: KeySegment option) =
+        match segment with Some k -> k::input.prefix | None -> input.prefix
+    member input.extend (config: OfferConfig) = { input with prefix = input.fullKey config }
+    member input.extend (segment: KeySegment option) = { input with prefix = input.fullKey segment }
+
+type 't Offer = { config: OfferConfig; func: (OfferConfig -> OfferInput -> 't * MenuOutput) }
+    with
+    member this.recur input = this.func this.config input
+type 't ListOffer = ('t list) Offer
+type 't OptionOffer = ('t option) Offer
+
 open type OfferConfig
 
 type 'reactElement RenderApi = {
@@ -71,15 +84,95 @@ let render (render: 'reactElement RenderApi) (menus: MenuOutput list) =
     menus |> List.map (recur true render.unconditional) |> render.combine
 
 type Op =
-    static member skill v: 't OptionOffer = notImpl()
-    static member trait' v: 't OptionOffer = notImpl()
+    static member offer(config, func) = { config = config; func = func }
+    static member offer func = Op.offer(OfferConfig.blank, func)
+
+    static member skill (name: string, level: int): _ OptionOffer =
+        Op.skill({ OfferConfig.blank with label = Some $"{name} %+d{level}" }, (name, [level]))
+    static member skill (name: string, levels: int list): _ OptionOffer =
+        Op.skill(OfferConfig.blank, (name, levels))
+    static member skill (config, (name: string, levels: int list)): _ OptionOffer =
+        Op.offer(config, fun config input -> None, (Leaf (defaultArg config.label (toString name))))
+
+    static member trait' (v: 't): 't OptionOffer =
+        Op.trait'({ OfferConfig.blank with key = Some (toString v) }, v)
+    static member trait' (config, v): 't OptionOffer =
+        Op.offer(config, fun config input -> Some v, (Leaf (defaultArg config.label (toString v))))
+
     static member budgeted v: 't ListOffer = notImpl()
-    static member either v : 't OptionOffer = notImpl()
-    static member and' v : 't OptionOffer = notImpl()
-    static member eitherN v : 't ListOffer = notImpl()
-    static member andN' v : 't ListOffer = notImpl()
-    static member promote (o: 't OptionOffer): 't ListOffer = notImpl()
-    static member evaluate (state: OfferInput) (offers: _ Offer list) = notImpl()
+
+    static member either options : 't OptionOffer =
+        Op.either(OfferConfig.blank, options)
+    static member either (config, options: 't OptionOffer list) : 't OptionOffer =
+        Op.offer(
+            config,
+            fun config input ->
+                let children = [
+                    for o in options do
+                        let (value, menu) = o.recur input
+                        let key = o.config.key |> Option.orElse o.config.label
+                        let fullKey = input.fullKey key
+                        let selected = key.IsSome && input.selected.Contains fullKey
+                        value, (selected, menu)
+                    ]
+                let selectedValue = children |> List.tryPick fst // if this were eitherN we'd return them all but since it's regular either we return the first one, if any
+                let childMenus = children |> List.map snd
+                selectedValue, Either(config.label, childMenus)
+            )
+
+    static member eitherN (options: 't OptionOffer list) : 't ListOffer =
+        Op.eitherN(OfferConfig.blank, options)
+    static member eitherN (options: 't ListOffer list) : 't ListOffer =
+        Op.eitherN(OfferConfig.blank, options)
+    static member eitherN (config, options: 't OptionOffer list) : 't ListOffer =
+        Op.eitherN(config, options |> List.map (fun o -> Op.promote o))
+    static member eitherN (config, options: 't ListOffer list) : 't ListOffer =
+        Op.offer(
+            config,
+            fun config input ->
+                let children = [
+                    for o in options do
+                        let key = o.config.key |> Option.orElse o.config.label
+                        let (value, menu) = o.recur (input.extend key) // we only need the key to distinguish between eithers, not ands, so we extend the input by the child key only for either
+                        let fullKey = input.fullKey key
+                        let selected = key.IsSome && input.selected.Contains fullKey
+                        value, (selected, menu)
+                    ]
+                let selectedValues = children |> List.collect fst
+                let childMenus = children |> List.map snd
+                selectedValues, Either(config.label, childMenus)
+            )
+    static member and' (offers: 't OptionOffer list) : 't ListOffer =
+        Op.and'(OfferConfig.blank, offers)
+    static member and' (offers: 't ListOffer list) : 't ListOffer =
+        Op.and'(OfferConfig.blank, offers)
+    static member and' (config, offers: 't OptionOffer list) : 't ListOffer =
+        Op.and'(config, offers |> List.map (fun o -> Op.promote o))
+    static member and' (config, offers: 't ListOffer list) : 't ListOffer =
+        Op.offer(
+            config,
+            fun config input ->
+                let children = [
+                    for o in offers do
+                        // we only need the key to distinguish between eithers, not ands, so we extend the input by the child key only for either
+                        let (value, menu) = o.recur input
+                        value, menu
+                    ]
+                let selectedValues = children |> List.collect fst
+                let childMenus = children |> List.map snd
+                selectedValues, And(config.label, childMenus)
+            )
+
+    static member promote (o: 't OptionOffer): 't ListOffer =
+        Op.offer(
+            o.config,
+            fun config input ->
+                let (v, menu) = o.recur input
+                List.ofOption v, menu
+            )
+    static member evaluate (state: OfferInput) (offer: _ Offer) =
+        offer.recur state
+
 let newKey txt = $"{txt}-{System.Guid.NewGuid()}"
 let label txt = { blank with label = Some txt }
 open type Op
@@ -107,15 +200,15 @@ let swash(): Trait' ListOffer list = [
         skill("Acrobatics", [1..3])
         ])
     let mainWeapons = ["Rapier"; "Broadsword"; "Polearm"; "Two-handed sword"] |> List.map (fun name -> name, newKey name)
-    let weaponsAt (bonus: int) = mainWeapons |> List.map (fun (name, key) -> skill({ blank with key = Some key }, name, bonus))
+    let weaponsAt (bonus: int) = mainWeapons |> List.map (fun (name, key) -> skill({ blank with key = Some key }, (name, [bonus])))
     eitherN [
         either(label "Sword!", weaponsAt +5) |> promote
-        andN'(label "Sword and Dagger", [either(weaponsAt +4); skill("Main-gauche", +1)])
-        andN'(label "Sword and Shield", [either(weaponsAt +4); skill("Shield", +2)])
+        and'(label "Sword and Dagger", [either(weaponsAt +4); skill("Main-gauche", +1)])
+        and'(label "Sword and Shield", [either(weaponsAt +4); skill("Shield", +2)])
         ]
     eitherN [
         skill("Fast-draw (Sword)", +2) |> promote
-        andN'([skill("Fast-draw (Sword)", +1); skill("Fast-draw (Dagger)", +1)])
+        and'([skill("Fast-draw (Sword)", +1); skill("Fast-draw (Dagger)", +1)])
         ]
     ]
 
@@ -155,8 +248,74 @@ let pseudoReactApi = {
     combine = Fragment
     }
 
+let evalFor (selections: string list) offers =
+    let parseKey (key: string) : Key =
+        key.Split("-") |> List.ofArray |> List.rev
+    let keys: Set<Key> = selections |> List.map parseKey |> Set.ofSeq
+    evaluate { OfferInput.fresh with selected = keys } offers |> snd
+[<Tests>]
+let units = testList "Unit.Chargen" [
+    testCase "basic either" <| fun () ->
+        test <@ either[trait' "Fight"; trait' "Hide"] |> evalFor [] = Either(None, [false, Leaf "Fight"; false, Leaf "Hide"]) @>
+        test <@ either[trait' "Fight"; trait' "Hide"] |> evalFor ["Fight"] = Either(None, [true, Leaf "Fight"; false, Leaf "Hide"]) @>
+    testCase "nested either with list" <| fun () ->
+        let nestedEither = eitherN [
+            either(label "Sword!", [skill("Rapier", +5); skill("Broadsword", +5); skill("Shortsword", +5)]) |> promote
+            and'(label "Sword and Dagger", [
+                either [skill("Rapier", +4); skill("Broadsword", +4); skill("Shortsword", +4)]
+                skill("Main-gauche", +1)
+                ])
+            and'(label "Sword and Shield", [
+                either [skill("Rapier", +4); skill("Broadsword", +4); skill("Shortsword", +4)]
+                skill("Shield", +2)
+                ])
+            ]
+        let empty =
+            Either(None, [
+                true, Either(Some "Sword!", [
+                    false, Leveled("Rapier", +5)
+                    false, Leveled("Broadsword", +5)
+                    false, Leveled("Shortsword", +5)
+                    ])
+                ])
+        test <@ nestedEither |> evalFor [] =
+            Either(None, [
+                false, Either(Some "Sword!", [])
+                false, Either(Some "Sword and Dagger!", [])
+                false, Either(Some "Sword and Shield!", [])
+                ]) @>
+        test <@ nestedEither |> evalFor ["Sword!"] =
+            Either(None, [
+                true, Either(Some "Sword!", [
+                    false, Leveled("Rapier", +5)
+                    false, Leveled("Broadsword", +5)
+                    false, Leveled("Shortsword", +5)
+                    ])
+                ]) @>
+        test <@ nestedEither |> evalFor ["Sword!"; "Sword!-Rapier"] =
+            Either(None, [
+                true, Either(Some "Sword!", [
+                    true, Leveled("Rapier", +5)
+                    ])
+                ]) @>
+        test <@ nestedEither |> evalFor ["Sword and Dagger"] =
+            Either(None, [
+                true, Either(Some "Sword and Dagger", [
+                    true, And(None, [
+                        Either(None, [
+                            false, Leveled("Rapier", +5)
+                            false, Leveled("Broadsword", +5)
+                            false, Leveled("Shortsword", +5)
+                            ])
+                        Leveled("Main-gauche", +1)
+                        ])
+                    ])
+                ]) @>
+        let selectFight = { OfferInput.fresh with selected = Set.ofList [["Fight"]] }
+        test <@ either[trait' "Fight"; trait' "Hide"] |> evaluate selectFight |> snd = Either(None, [true, Leaf "Fight"; false, Leaf "Hide"]) @>
+    ]
 let proto1 = testCase "proto1" <| fun () ->
-    let actual = swash() |> evaluate OfferInput.fresh // shouldn't actually use OfferInput.fresh here. Need to pick the options we want to show up in pseudoActual.s
+    let actual = swash() |> List.map (evaluate OfferInput.fresh >> snd) // shouldn't actually use OfferInput.fresh here. Need to pick the options we want to show up in pseudoActual.s
     let pseudoActual = // pseudo-actual because actual will be created from templates + OfferInput (i.e. selected keys), not hardwired as Menus, but that's still TODO
         let menus = [
             Leveled("Climbing", 1)

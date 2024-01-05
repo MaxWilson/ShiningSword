@@ -13,8 +13,8 @@ let matchfail v = sprintf "No match found for %A. This is a bug." v |> invalidOp
 let ignoreM (_, monad) = (), monad
 exception BugException of msg: string
 /// Placeholder while we're doing type-focused development, before implementation
-let notImpl v = failwith $"Not implemented yet. Email Max if you want this feature. {v}"
-let shouldntHappen arg =
+let inline notImpl v = failwith $"Not implemented yet. Email Max if you want this feature. {v}"
+let inline shouldntHappen arg =
     $"This shouldn't ever happen. If it does there's a bug. Details: {arg}" |> BugException |> raise
 let inline breakHere() = System.Diagnostics.Debugger.Break()
 
