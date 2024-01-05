@@ -7,4 +7,7 @@ let View() =
     let model, dispatch = React.useElmishSimple init update
     let profession = swash
     let output = run profession (model.currentOutput |> Option.defaultWith (fun _ -> OfferOutput<_>.fresh DFRPGCharacter.fresh [])) (RefreshedOutput >> dispatch)
-    output.toReactElements()
+    Html.div [
+        srcLink
+        output.toReactElements()
+        ]

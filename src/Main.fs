@@ -25,6 +25,7 @@ let Router() =
             | [ Segment (_, _, view) ] -> view()
             | otherwise ->
                 class' "mainPage" Html.div [
+                    srcLink
                     Html.h1 "Shining Sword RPG apps"
                     for (segment, name, _) in lookup do
                         Html.a [prop.text name; prop.href ("#" + segment)] |> List.singleton |> Html.div
