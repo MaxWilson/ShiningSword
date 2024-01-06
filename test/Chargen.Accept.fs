@@ -133,9 +133,11 @@ type Op =
                 let children = [
                     for o in options do
                         let key = o.config.key |> Option.orElse o.config.label
-                        let (value, menu) = o.recur (input.extend key) // we only need the key to distinguish between eithers, not ands, so we extend the input by the child key only for either
                         let fullKey = input.fullKey key
                         let selected = key.IsSome && input.selected.Contains fullKey
+                        let (value, menu) =
+                            if selected then o.recur (input.extend key) // we only need the key to distinguish between eithers, not ands, so we extend the input by the child key only for either
+                            else [], Leaf (defaultArg o.config.label "Unknown") // TODO: replace Leaf + default label with something more appropriate
                         value, (selected, menu)
                     ]
                 let selectedValues = children |> List.collect fst
@@ -270,19 +272,11 @@ let units = testList "Unit.Chargen" [
                 skill("Shield", +2)
                 ])
             ]
-        let empty =
-            Either(None, [
-                true, Either(Some "Sword!", [
-                    false, Leveled("Rapier", +5)
-                    false, Leveled("Broadsword", +5)
-                    false, Leveled("Shortsword", +5)
-                    ])
-                ])
         test <@ nestedEither |> evalFor [] =
             Either(None, [
-                false, Either(Some "Sword!", [])
-                false, Either(Some "Sword and Dagger!", [])
-                false, Either(Some "Sword and Shield!", [])
+                false, Leaf "Sword!"
+                false, Leaf "Sword and Dagger"
+                false, Leaf "Sword and Shield"
                 ]) @>
         test <@ nestedEither |> evalFor ["Sword!"] =
             Either(None, [
