@@ -30,9 +30,10 @@ type OfferConfig = {
 type OfferInput = {
     selected: Set<Key>
     prefix: KeySegment ReversedList
+    shouldRecurOnChildren: bool
     }
     with
-    static member fresh = { selected = Set.empty; prefix = [] }
+    static member fresh = { selected = Set.empty; prefix = []; shouldRecurOnChildren = true }
     member input.fullKey config =
         input.fullKey config.key
     member input.fullKey (segment: KeySegment option) =
@@ -108,12 +109,14 @@ type Op =
             config,
             fun config input ->
                 let children = [
-                    for o in options do
-                        let (value, menu) = o.recur input
-                        let key = o.config.key |> Option.orElse o.config.label
-                        let fullKey = input.fullKey key
-                        let selected = key.IsSome && input.selected.Contains fullKey
-                        value, (selected, menu)
+                    if input.shouldRecurOnChildren then
+                        for o in options do
+                            let key = o.config.key |> Option.orElse o.config.label
+                            let fullKey = input.fullKey key
+                            // if shouldRecurOnChildren is set, child eithers will be rendered as empty Eithers, with no grandchildren (unless the child is selected so that shouldRecurOnChildren is true)
+                            let selected = key.IsSome && input.selected.Contains fullKey
+                            let (value, menu) = o.recur ((if selected then input else { input with shouldRecurOnChildren = false }).extend key)
+                            value, (selected, menu)
                     ]
                 let selectedValue = children |> List.tryPick fst // if this were eitherN we'd return them all but since it's regular either we return the first one, if any
                 let childMenus = children |> List.map snd
@@ -131,14 +134,14 @@ type Op =
             config,
             fun config input ->
                 let children = [
-                    for o in options do
-                        let key = o.config.key |> Option.orElse o.config.label
-                        let fullKey = input.fullKey key
-                        let selected = key.IsSome && input.selected.Contains fullKey
-                        let (value, menu) =
-                            if selected then o.recur (input.extend key) // we only need the key to distinguish between eithers, not ands, so we extend the input by the child key only for either
-                            else [], Leaf (defaultArg o.config.label "Unknown") // TODO: replace Leaf + default label with something more appropriate
-                        value, (selected, menu)
+                    if input.shouldRecurOnChildren then
+                        for o in options do
+                            let key = o.config.key |> Option.orElse o.config.label
+                            let fullKey = input.fullKey key
+                            let selected = key.IsSome && input.selected.Contains fullKey
+                            // if shouldRecurOnChildren is set, child eithers will be rendered as empty Eithers, with no grandchildren (unless the child is selected so that shouldRecurOnChildren is true)
+                            let (value, menu) = o.recur ((if selected then input else { input with shouldRecurOnChildren = false }).extend key) // we only need the key to distinguish between eithers, not ands, so we extend the input by the child key only for either
+                            value, (selected, menu)
                     ]
                 let selectedValues = children |> List.collect fst
                 let childMenus = children |> List.map snd
