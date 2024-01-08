@@ -28,12 +28,13 @@ type OfferConfig = {
     label: string option
     }
     with static member blank = { key = None; label = None }
+type MaybeLevel = Level of int | Flag
 type OfferInput = {
-    selected: Set<Key>
+    selected: Map<Key, MaybeLevel>
     prefix: KeySegment ReversedList
     }
     with
-    static member fresh = { selected = Set.empty; prefix = []; }
+    static member fresh = { selected = Map.empty; prefix = []; }
     member input.fullKey config =
         input.fullKey config.key
     member input.fullKey (segment: KeySegment option) =
@@ -89,12 +90,24 @@ type Op =
     static member offer(config, func) = { config = config; func = func }
     static member offer func = Op.offer(OfferConfig.blank, func)
 
-    static member skill (name: string, level: int): _ OptionOffer =
-        Op.skill({ OfferConfig.blank with label = Some $"{name} %+d{level}" }, (name, [level]))
-    static member skill (name: string, levels: int list): _ OptionOffer =
-        Op.skill(OfferConfig.blank, (name, levels))
-    static member skill (config, (name: string, levels: int list)): _ OptionOffer =
-        Op.offer(configDefaultKey config name, fun config input -> None, (Leaf (defaultArg config.label (toString name))))
+    static member skill (name: string, ctor: int -> 't, level: int): 't OptionOffer =
+        Op.skill({ OfferConfig.blank with label = Some $"{name} %+d{level}" }, (name, ctor, [level]))
+    static member skill (name: string, ctor: int -> 't, levels: int list): 't OptionOffer =
+        Op.skill(OfferConfig.blank, (name, ctor, levels))
+    static member skill (config, (name: string, ctor: int -> 't, levels: int list)): 't OptionOffer =
+        Op.offer(configDefaultKey config name, fun config input ->
+            let fullKey = input.prefix // no need to extend the prefix because only one key is possible--we're not in an either here
+            let level ix =
+                let level = levels[ix] // e.g. if this is skill("Rapier", [+5..+8]) then ix 0 means level = +5 and value = Rapier +5
+                let value = ctor level
+                Some value, Leveled(defaultArg config.label $"{value}", ix)
+            match input.selected.TryFind fullKey with
+            | Some (Level lvl) when lvl < levels.Length -> level lvl
+            | Some Flag when levels.Length = 1 -> // we are permissive in the input we accept, partly to make testing easier. You can set Flag on a Levelled property as long as it has only one value, e.g. Rapier +5 can be selected
+                level 0
+            | _ ->
+                None, (Leaf (defaultArg config.label (toString name)))
+            )
 
     static member trait' (v: 't): 't OptionOffer =
         Op.trait'({ OfferConfig.blank with label = Some (toString v) }, v)
@@ -113,7 +126,7 @@ type Op =
                     for ix, o in options |> List.mapi Tuple2.create do
                         let key = o.config.key |> Option.orElse o.config.label
                         let fullKey = input.fullKey key
-                        let selected = key.IsSome && input.selected.Contains fullKey
+                        let selected = key.IsSome && input.selected.ContainsKey fullKey
                         if selected then
                             let value, menu = o.recur (input.extend key)
                             value, (true, fullKey, menu)
@@ -142,7 +155,7 @@ type Op =
                     for ix, o in options |> List.mapi Tuple2.create do
                         let key = o.config.key |> Option.orElse o.config.label
                         let fullKey = input.fullKey key
-                        let selected = key.IsSome && input.selected.Contains fullKey
+                        let selected = key.IsSome && input.selected.ContainsKey fullKey
                         if selected then
                             let value, menu = o.recur (input.extend key)
                             value, (selected, fullKey, menu)
@@ -194,7 +207,7 @@ let newKey txt = $"{txt}-{System.Guid.NewGuid()}"
 let label txt = { blank with label = Some txt }
 open type Op
 
-type Trait' = CombatReflexes
+type Trait' = CombatReflexes | Skill of string * int
 
 (* Requirements:
 Terseness: flatten some and's, e.g. "Fast draw (swords & daggers) +1" all on one line, instead of two separate lines.
@@ -207,17 +220,24 @@ UX: leveled traits
 Correctness: mutual exclusion within either unselects old selection when new selection is made
 *)
 
+let makeSkill name (v: int) = Skill(name, v)
+let skill(name:string, level: int) =
+    Op.skill(name, makeSkill name, level)
+let skillN(name:string, levels: int list) =
+    Op.skill(name, makeSkill name, levels)
+
 // swash is not a MenuOutput but it can create MenuOutputs which can then be either unit tested or turned into ReactElements
 // think of swash as an offer menu
 let swash(): Trait' ListOffer list = [
+
     skill("Climbing", 1) |> promote
-    skill("Stealth", [1..3]) |> promote
+    skillN("Stealth", [1..3]) |> promote
     budgeted(20, [
         trait' CombatReflexes
-        skill("Acrobatics", [1..3])
+        skillN("Acrobatics", [1..3])
         ])
     let mainWeapons = ["Rapier"; "Broadsword"; "Polearm"; "Two-handed sword"] |> List.map (fun name -> name, newKey name)
-    let weaponsAt (bonus: int) = mainWeapons |> List.map (fun (name, key) -> skill({ blank with key = Some key }, (name, [bonus])))
+    let weaponsAt (bonus: int) = mainWeapons |> List.map (fun (name, key) -> Op.skill({ blank with key = Some key }, (name, makeSkill name, [bonus])))
     eitherN [
         either(label "Sword!", weaponsAt +5) |> promote
         and'(label "Sword and Dagger", [either(weaponsAt +4); skill("Main-gauche", +1)])
@@ -268,7 +288,7 @@ let pseudoReactApi = {
 let parseKey (key: string) : Key =
     key.Split("-") |> List.ofArray |> List.rev
 let evalFor (selections: string list) offers =
-    let keys: Set<Key> = selections |> List.map parseKey |> Set.ofSeq
+    let keys = selections |> List.map parseKey |> List.map (fun k -> k, Flag) |> Map.ofList
     evaluate { OfferInput.fresh with selected = keys } offers |> snd
 [<Tests>]
 let units = testList "Unit.Chargen" [
@@ -305,7 +325,7 @@ let units = testList "Unit.Chargen" [
         test <@ nestedEither |> evalFor ["Sword!"; "Sword!-Rapier"] =
             Either(None, [
                 true, key "Sword!", Either(Some "Sword!", [
-                    true, key "Sword!-Rapier", Leveled("Rapier", +5) // it's a Levelled, not a Leaf, because it's currently selected
+                    true, key "Sword!-Rapier", Leveled("Rapier +5", 0) // it's a Levelled, not a Leaf, because it's currently selected. Note that the level is 0, not +5, because it's the lowest level out of +5 to +5.
                     ])
                 ]) @>
         test <@ nestedEither |> evalFor ["Sword and Dagger"] =
