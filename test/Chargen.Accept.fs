@@ -9,19 +9,20 @@ open Swensen.Unquote
 // 3. What is the label, if any? If there's no explicit label, how do we display it? (Might depend on whether or not it's checked or finished.)
 //    3a. Do we ever NOT have a label? I.e. are there any headless UI components? I think maybe we want to collapse fulfilled eithers.
 
+type KeySegment = string
+type 't ReversedList = 't list
+type Key = KeySegment ReversedList
 type MenuOutput =
-    | Either of label: string option * options: (bool * MenuOutput) list
+    | Either of label: string option * options: MenuSelection list
     | And of label: string option * grants: MenuOutput list
     | Leveled of label: string * level: int
     | Leaf of label: string
+and MenuSelection = bool * Key * MenuOutput
 
 type 't Output = 't * MenuOutput
 type 't ListOutput = ('t list) Output
 type 't OptionOutput = ('t option) Output
 
-type KeySegment = string
-type 't ReversedList = 't list
-type Key = KeySegment ReversedList
 type OfferConfig = {
     key: KeySegment option
     label: string option
@@ -30,10 +31,9 @@ type OfferConfig = {
 type OfferInput = {
     selected: Set<Key>
     prefix: KeySegment ReversedList
-    shouldRecurOnChildren: bool
     }
     with
-    static member fresh = { selected = Set.empty; prefix = []; shouldRecurOnChildren = true }
+    static member fresh = { selected = Set.empty; prefix = []; }
     member input.fullKey config =
         input.fullKey config.key
     member input.fullKey (segment: KeySegment option) =
@@ -61,8 +61,8 @@ type 'reactElement RenderApi = {
 let render (render: 'reactElement RenderApi) (menus: MenuOutput list) =
     let rec recur recurOnChildren (renderMe: (string * 'reactElement list) -> 'reactElement) menu : 'reactElement =
         let (|OneSelection|_|) lst =
-            match lst |> List.filter fst with
-            | [true, v] -> Some v
+            match lst |> List.filter Tuple3.get1 with
+            | [true, _, v] -> Some v
             | _ -> None
         match menu with
         | Either(None, OneSelection child) ->
@@ -70,7 +70,7 @@ let render (render: 'reactElement RenderApi) (menus: MenuOutput list) =
         | Either(label, selections) ->
             let children = [
                 if recurOnChildren then
-                    for (isChecked, child) in selections do
+                    for (isChecked, _, child) in selections do
                         let renderChild (label: string, children) =
                             if isChecked then render.checked'(label, children) else render.unchecked label
                         let childReact = recur isChecked renderChild child
@@ -85,6 +85,7 @@ let render (render: 'reactElement RenderApi) (menus: MenuOutput list) =
     menus |> List.map (recur true render.unconditional) |> render.combine
 
 type Op =
+    static let configDefaultKey config key = if config.key.IsSome then config else { config with key = Some key }
     static member offer(config, func) = { config = config; func = func }
     static member offer func = Op.offer(OfferConfig.blank, func)
 
@@ -93,12 +94,12 @@ type Op =
     static member skill (name: string, levels: int list): _ OptionOffer =
         Op.skill(OfferConfig.blank, (name, levels))
     static member skill (config, (name: string, levels: int list)): _ OptionOffer =
-        Op.offer(config, fun config input -> None, (Leaf (defaultArg config.label (toString name))))
+        Op.offer(configDefaultKey config name, fun config input -> None, (Leaf (defaultArg config.label (toString name))))
 
     static member trait' (v: 't): 't OptionOffer =
-        Op.trait'({ OfferConfig.blank with key = Some (toString v) }, v)
+        Op.trait'({ OfferConfig.blank with label = Some (toString v) }, v)
     static member trait' (config, v): 't OptionOffer =
-        Op.offer(config, fun config input -> Some v, (Leaf (defaultArg config.label (toString v))))
+        Op.offer(configDefaultKey config (toString v), fun config input -> Some v, (Leaf (defaultArg config.label (toString v))))
 
     static member budgeted v: 't ListOffer = notImpl()
 
@@ -109,43 +110,54 @@ type Op =
             config,
             fun config input ->
                 let children = [
-                    if input.shouldRecurOnChildren then
-                        for o in options do
-                            let key = o.config.key |> Option.orElse o.config.label
-                            let fullKey = input.fullKey key
-                            // if shouldRecurOnChildren is set, child eithers will be rendered as empty Eithers, with no grandchildren (unless the child is selected so that shouldRecurOnChildren is true)
-                            let selected = key.IsSome && input.selected.Contains fullKey
-                            let (value, menu) = o.recur ((if selected then input else { input with shouldRecurOnChildren = false }).extend key)
-                            value, (selected, menu)
+                    for ix, o in options |> List.mapi Tuple2.create do
+                        let key = o.config.key |> Option.orElse o.config.label
+                        let fullKey = input.fullKey key
+                        let selected = key.IsSome && input.selected.Contains fullKey
+                        if selected then
+                            let value, menu = o.recur (input.extend key)
+                            value, (true, fullKey, menu)
+                        else
+                            None, (false, fullKey, Leaf (defaultArg o.config.label $"Option {ix}"))
                     ]
-                let selectedValue = children |> List.tryPick fst // if this were eitherN we'd return them all but since it's regular either we return the first one, if any
-                let childMenus = children |> List.map snd
-                selectedValue, Either(config.label, childMenus)
+                match children |> List.tryFind (function _, (true, _, _) -> true | _ -> false) with  // if this were eitherN we'd return them all but since it's regular either we return the first one selected, if any
+                | Some (value, childMenu) ->
+                    value, Either(config.label, [childMenu]) // exclude all the unpicked options from the menu unless and until the current selection is unpicked
+                | None ->
+                    let allChildMenus = children |> List.map snd
+                    None, Either(config.label, allChildMenus)
             )
 
     static member eitherN (options: 't OptionOffer list) : 't ListOffer =
-        Op.eitherN(OfferConfig.blank, options)
+        Op.eitherN(OfferConfig.blank, 1, options)
     static member eitherN (options: 't ListOffer list) : 't ListOffer =
-        Op.eitherN(OfferConfig.blank, options)
-    static member eitherN (config, options: 't OptionOffer list) : 't ListOffer =
-        Op.eitherN(config, options |> List.map (fun o -> Op.promote o))
-    static member eitherN (config, options: 't ListOffer list) : 't ListOffer =
+        Op.eitherN(OfferConfig.blank, 1, options)
+    static member eitherN (config, n: int, options: 't OptionOffer list) : 't ListOffer =
+        Op.eitherN(config, n, options |> List.map (fun o -> Op.promote o))
+    static member eitherN (config, n: int, options: 't ListOffer list) : 't ListOffer =
         Op.offer(
             config,
             fun config input ->
                 let children = [
-                    if input.shouldRecurOnChildren then
-                        for o in options do
-                            let key = o.config.key |> Option.orElse o.config.label
-                            let fullKey = input.fullKey key
-                            let selected = key.IsSome && input.selected.Contains fullKey
-                            // if shouldRecurOnChildren is set, child eithers will be rendered as empty Eithers, with no grandchildren (unless the child is selected so that shouldRecurOnChildren is true)
-                            let (value, menu) = o.recur ((if selected then input else { input with shouldRecurOnChildren = false }).extend key) // we only need the key to distinguish between eithers, not ands, so we extend the input by the child key only for either
-                            value, (selected, menu)
+                    for ix, o in options |> List.mapi Tuple2.create do
+                        let key = o.config.key |> Option.orElse o.config.label
+                        let fullKey = input.fullKey key
+                        let selected = key.IsSome && input.selected.Contains fullKey
+                        if selected then
+                            let value, menu = o.recur (input.extend key)
+                            value, (selected, fullKey, menu)
+                        else
+                            [], (false, fullKey, Leaf (defaultArg o.config.label $"Option {ix}"))
                     ]
-                let selectedValues = children |> List.collect fst
-                let childMenus = children |> List.map snd
-                selectedValues, Either(config.label, childMenus)
+                match children |> List.filter (function _, (true, _, _) -> true | _ -> false) with
+                | lst when lst.Length = n ->
+                    // when we're at quota, exclude all the unpicked options from the menu unless and until some current selections are unpicked
+                    let values = lst |> List.collect fst
+                    let childMenus = lst |> List.map snd
+                    values, Either(config.label, childMenus)
+                | _ ->
+                    let allChildMenus = children |> List.map snd
+                    [], Either(config.label, allChildMenus)
             )
     static member and' (offers: 't OptionOffer list) : 't ListOffer =
         Op.and'(OfferConfig.blank, offers)
@@ -253,16 +265,17 @@ let pseudoReactApi = {
     combine = Fragment
     }
 
+let parseKey (key: string) : Key =
+    key.Split("-") |> List.ofArray |> List.rev
 let evalFor (selections: string list) offers =
-    let parseKey (key: string) : Key =
-        key.Split("-") |> List.ofArray |> List.rev
     let keys: Set<Key> = selections |> List.map parseKey |> Set.ofSeq
     evaluate { OfferInput.fresh with selected = keys } offers |> snd
 [<Tests>]
 let units = testList "Unit.Chargen" [
+    let key = parseKey
     testCase "basic either" <| fun () ->
-        test <@ either[trait' "Fight"; trait' "Hide"] |> evalFor [] = Either(None, [false, Leaf "Fight"; false, Leaf "Hide"]) @>
-        test <@ either[trait' "Fight"; trait' "Hide"] |> evalFor ["Fight"] = Either(None, [true, Leaf "Fight"; false, Leaf "Hide"]) @>
+        test <@ either[trait' "Fight"; trait' "Hide"] |> evalFor [] = Either(None, [false, key "Fight", Leaf "Fight"; false, key "Hide", Leaf "Hide"]) @>
+        test <@ either[trait' "Fight"; trait' "Hide"] |> evalFor ["Fight"] = Either(None, [true, key "Fight", Leaf "Fight"]) @>
     testCase "nested either with list" <| fun () ->
         let nestedEither = eitherN [
             either(label "Sword!", [skill("Rapier", +5); skill("Broadsword", +5); skill("Shortsword", +5)]) |> promote
@@ -277,54 +290,51 @@ let units = testList "Unit.Chargen" [
             ]
         test <@ nestedEither |> evalFor [] =
             Either(None, [
-                false, Leaf "Sword!"
-                false, Leaf "Sword and Dagger"
-                false, Leaf "Sword and Shield"
+                false, key "Sword!", Leaf "Sword!"
+                false, key "Sword and Dagger", Leaf "Sword and Dagger"
+                false, key "Sword and Shield", Leaf "Sword and Shield"
                 ]) @>
         test <@ nestedEither |> evalFor ["Sword!"] =
             Either(None, [
-                true, Either(Some "Sword!", [
-                    false, Leveled("Rapier", +5)
-                    false, Leveled("Broadsword", +5)
-                    false, Leveled("Shortsword", +5)
+                true, key "Sword!", Either(Some "Sword!", [
+                    false, key "Sword!-Rapier", Leaf "Rapier +5" // note how Leveled is only Leveled if selected. When unselected it's a Leaf just like anything else.
+                    false, key "Sword!-Broadsword", Leaf "Broadsword +5"
+                    false, key "Sword!-Shortsword", Leaf "Shortsword +5"
                     ])
                 ]) @>
         test <@ nestedEither |> evalFor ["Sword!"; "Sword!-Rapier"] =
             Either(None, [
-                true, Either(Some "Sword!", [
-                    true, Leveled("Rapier", +5)
+                true, key "Sword!", Either(Some "Sword!", [
+                    true, key "Sword!-Rapier", Leveled("Rapier", +5) // it's a Levelled, not a Leaf, because it's currently selected
                     ])
                 ]) @>
         test <@ nestedEither |> evalFor ["Sword and Dagger"] =
             Either(None, [
-                true, Either(Some "Sword and Dagger", [
-                    true, And(None, [
+                true, key "Sword and Dagger", And(None, [
                         Either(None, [
-                            false, Leveled("Rapier", +5)
-                            false, Leveled("Broadsword", +5)
-                            false, Leveled("Shortsword", +5)
+                            false, key "Sword and Dagger-Rapier", Leaf "Rapier +4"
+                            false, key "Sword and Dagger-Broadsword", Leaf "Broadsword +4"
+                            false, key "Sword and Dagger-Shortsword", Leaf "Shortsword +4"
                             ])
                         Leveled("Main-gauche", +1)
                         ])
-                    ])
-                ]) @>
-        let selectFight = { OfferInput.fresh with selected = Set.ofList [["Fight"]] }
-        test <@ either[trait' "Fight"; trait' "Hide"] |> evaluate selectFight |> snd = Either(None, [true, Leaf "Fight"; false, Leaf "Hide"]) @>
+                    ]) @>
     ]
 let proto1 = testCase "proto1" <| fun () ->
+    let key = parseKey
     let actual = swash() |> List.map (evaluate OfferInput.fresh >> snd) // shouldn't actually use OfferInput.fresh here. Need to pick the options we want to show up in pseudoActual.s
     let pseudoActual = // pseudo-actual because actual will be created from templates + OfferInput (i.e. selected keys), not hardwired as Menus, but that's still TODO
         let menus = [
             Leveled("Climbing", 1)
             Leveled("Stealth", 3)
             Either(None, [
-                true, Either(Some "Sword!", [
-                    false, Leveled("Rapier", +5)
-                    false, Leveled("Broadsword", +5)
-                    false, Leveled("Shortsword", +5)
+                true, key "Sword!", Either(Some "Sword!", [
+                    false, key "Rapier", Leveled("Rapier", +5)
+                    false, key "Broadsword", Leveled("Broadsword", +5)
+                    false, key "Shortsword", Leveled("Shortsword", +5)
                     ])
                 ])
-            Either(None, [true, Leveled("Fast-draw (Sword)", +2)])
+            Either(None, [true, key "Fast-Draw (Sword)", Leveled("Fast-draw (Sword)", +2)])
             ]
         test <@ menus = actual @>
         render pseudoReactApi menus
