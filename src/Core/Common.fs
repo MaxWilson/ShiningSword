@@ -169,6 +169,17 @@ module String =
             | index::rest ->
                 recur $"{workingCopy[0..(index-1)]} {workingCopy[index..]}" rest
         recur str spaceNeededBefore)
+    /// diff two strings and return similarities and differences. E.g. diff "Happy Hogan 123" "Happy Hogan abc" = ("Happy Hogan ", "123", "abc")
+    let diff (lhs:string) (rhs:string) =
+        // you'd think there would be a built-in C# function for this but if there is I have forgotten what it is.
+        let returnFrom firstDiffIx =
+            let ix = firstDiffIx
+            let sub (s:string) = if ix >= s.Length then "" else s.Substring(ix)
+            lhs.Substring(0, ix), sub lhs, sub rhs
+        let rec recur jx =
+            if jx >= (min lhs.Length rhs.Length) || lhs[jx] <> rhs[jx] then returnFrom jx
+            else recur (jx + 1)
+        recur 0
 
 type System.Object with
     member this.ToUncameledString() = this.ToString() |> String.uncamel

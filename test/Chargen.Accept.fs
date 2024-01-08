@@ -290,6 +290,15 @@ let parseKey (key: string) : Key =
 let evalFor (selections: string list) offers =
     let keys = selections |> List.map parseKey |> List.map (fun k -> k, Flag) |> Map.ofList
     evaluate { OfferInput.fresh with selected = keys } offers |> snd
+
+let testFor (selections: string list) expected offers =
+    let actual = evalFor selections offers
+    if actual <> expected then
+        let actualS, expectedS = actual |> toString, expected |> toString
+        let firstDiff = [0..actualS.Length-1]
+        let same, actual, expected = String.diff actualS expectedS
+        failtest $"Actual diverged from expected! After: \n{same}\n\nExpected: \n{expected}\nbut got:\n{actual}"
+
 [<Tests>]
 let units = testList "Unit.Chargen" [
     let key = parseKey
@@ -308,37 +317,41 @@ let units = testList "Unit.Chargen" [
                 skill("Shield", +2)
                 ])
             ]
-        test <@ nestedEither |> evalFor [] =
+        nestedEither |> testFor [] (
             Either(None, [
                 false, key "Sword!", Leaf "Sword!"
                 false, key "Sword and Dagger", Leaf "Sword and Dagger"
                 false, key "Sword and Shield", Leaf "Sword and Shield"
-                ]) @>
-        test <@ nestedEither |> evalFor ["Sword!"] =
+                ])
+            )
+        nestedEither |> testFor ["Sword!"] (
             Either(None, [
                 true, key "Sword!", Either(Some "Sword!", [
                     false, key "Sword!-Rapier", Leaf "Rapier +5" // note how Leveled is only Leveled if selected. When unselected it's a Leaf just like anything else.
                     false, key "Sword!-Broadsword", Leaf "Broadsword +5"
                     false, key "Sword!-Shortsword", Leaf "Shortsword +5"
                     ])
-                ]) @>
-        test <@ nestedEither |> evalFor ["Sword!"; "Sword!-Rapier"] =
+                ])
+            )
+        nestedEither |> testFor ["Sword!"; "Sword!-Rapier"] (
             Either(None, [
                 true, key "Sword!", Either(Some "Sword!", [
                     true, key "Sword!-Rapier", Leveled("Rapier +5", 0) // it's a Levelled, not a Leaf, because it's currently selected. Note that the level is 0, not +5, because it's the lowest level out of +5 to +5.
                     ])
-                ]) @>
-        test <@ nestedEither |> evalFor ["Sword and Dagger"] =
+                ])
+            )
+        nestedEither |> testFor ["Sword and Dagger"] (
             Either(None, [
-                true, key "Sword and Dagger", And(None, [
+                true, key "Sword and Dagger", And(Some "Sword and Dagger", [
                         Either(None, [
                             false, key "Sword and Dagger-Rapier", Leaf "Rapier +4"
                             false, key "Sword and Dagger-Broadsword", Leaf "Broadsword +4"
                             false, key "Sword and Dagger-Shortsword", Leaf "Shortsword +4"
                             ])
-                        Leveled("Main-gauche", +1)
+                        Leveled("Main-gauche +1", 0)
                         ])
-                    ]) @>
+                    ])
+            )
     ]
 let proto1 = testCase "proto1" <| fun () ->
     let key = parseKey
