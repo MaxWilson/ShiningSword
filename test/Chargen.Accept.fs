@@ -85,17 +85,46 @@ let render (render: 'reactElement RenderApi) (menus: MenuOutput list) =
         | Leaf(name) -> render.leaf name
     menus |> List.map (recur true render.unconditional) |> render.combine
 
+type 't EitherPattern = Choice<('t * MenuSelection list), ('t * MenuSelection list), ('t * MenuSelection list)> // convenience type helper to reduce duplication while avoiding type ambiguity. Don't feel bad if we wind up scrapping it.
+
 type Op =
     static let configDefaultKey config key = if config.key.IsSome then config else { config with key = Some key }
-    static member offer(config, func) = { config = config; func = func }
-    static member offer func = Op.offer(OfferConfig.blank, func)
+    static let offer(config, logic) = { config = config; func = logic }
+    static let eitherF (|Fulfilled|Partial|Fallback|) valueWhenUnselected options config =
+        offer(
+            config,
+            fun config input ->
+                let children = [
+                    for ix, o in options |> List.mapi Tuple2.create do
+                        let key = o.config.key |> Option.orElse o.config.label
+                        let fullKey = input.fullKey key
+                        let selected = key.IsSome && input.selected.ContainsKey fullKey
+                        if selected then
+                            let value, menu = o.recur (input.extend key)
+                            value, (selected, fullKey, menu)
+                        else
+                            valueWhenUnselected, (false, fullKey, Leaf (defaultArg o.config.label $"Option {ix}"))
+                    ]
+                match children with
+                | Fulfilled(value, childMenus) ->
+                    // when we're at quota, exclude all the unpicked options from the menu unless and until some current selections are unpicked
+                    // let values = lst |> List.collect fst
+                    // let childMenus = lst |> List.map snd
+                    value, Either(config.label, childMenus)
+                | Partial(value, allChildMenus) ->
+                    // let allChildMenus = children |> List.map snd
+                    value, Either(config.label, allChildMenus)
+                | Fallback(fallbackValue, allChildMenus) ->
+                    // let allChildMenus = children |> List.map snd
+                    fallbackValue, Either(config.label, allChildMenus)
+            )
 
     static member skill (name: string, ctor: int -> 't, level: int): 't OptionOffer =
         Op.skill({ OfferConfig.blank with label = Some $"{name} %+d{level}" }, (name, ctor, [level]))
     static member skill (name: string, ctor: int -> 't, levels: int list): 't OptionOffer =
         Op.skill(OfferConfig.blank, (name, ctor, levels))
     static member skill (config, (name: string, ctor: int -> 't, levels: int list)): 't OptionOffer =
-        Op.offer(configDefaultKey config name, fun config input ->
+        offer(configDefaultKey config name, fun config input ->
             let fullKey = input.prefix // no need to extend the prefix because only one key is possible--we're not in an either here
             let level ix =
                 let level = levels[ix] // e.g. if this is skill("Rapier", [+5..+8]) then ix 0 means level = +5 and value = Rapier +5
@@ -112,34 +141,19 @@ type Op =
     static member trait' (v: 't): 't OptionOffer =
         Op.trait'({ OfferConfig.blank with label = Some (toString v) }, v)
     static member trait' (config, v): 't OptionOffer =
-        Op.offer(configDefaultKey config (toString v), fun config input -> Some v, (Leaf (defaultArg config.label (toString v))))
+        offer(configDefaultKey config (toString v), fun config input -> Some v, (Leaf (defaultArg config.label (toString v))))
 
     static member budgeted v: 't ListOffer = notImpl()
 
     static member either options : 't OptionOffer =
         Op.either(OfferConfig.blank, options)
     static member either (config, options: 't OptionOffer list) : 't OptionOffer =
-        Op.offer(
-            config,
-            fun config input ->
-                let children = [
-                    for ix, o in options |> List.mapi Tuple2.create do
-                        let key = o.config.key |> Option.orElse o.config.label
-                        let fullKey = input.fullKey key
-                        let selected = key.IsSome && input.selected.ContainsKey fullKey
-                        if selected then
-                            let value, menu = o.recur (input.extend key)
-                            value, (true, fullKey, menu)
-                        else
-                            None, (false, fullKey, Leaf (defaultArg o.config.label $"Option {ix}"))
-                    ]
-                match children |> List.tryFind (function _, (true, _, _) -> true | _ -> false) with  // if this were eitherN we'd return them all but since it's regular either we return the first one selected, if any
-                | Some (value, childMenu) ->
-                    value, Either(config.label, [childMenu]) // exclude all the unpicked options from the menu unless and until the current selection is unpicked
-                | None ->
-                    let allChildMenus = children |> List.map snd
-                    None, Either(config.label, allChildMenus)
-            )
+        let (|Fulfilled|Partial|Fallback|) (children: ('t option * MenuSelection) list) : 't option EitherPattern =
+            match children |> List.tryFind (function _, (true, _, _) -> true | _ -> false) with
+            | Some(value, childMenu) -> Fulfilled(value, [childMenu])
+            | None when false -> Partial(None, children |> List.map snd)
+            | None -> Fallback(None, children |> List.map snd)
+        eitherF (|Fulfilled|Partial|Fallback|) None options config
 
     static member eitherN (options: 't OptionOffer list) : 't ListOffer =
         Op.eitherN(OfferConfig.blank, 1, options)
@@ -148,30 +162,13 @@ type Op =
     static member eitherN (config, n: int, options: 't OptionOffer list) : 't ListOffer =
         Op.eitherN(config, n, options |> List.map (fun o -> Op.promote o))
     static member eitherN (config, n: int, options: 't ListOffer list) : 't ListOffer =
-        Op.offer(
-            config,
-            fun config input ->
-                let children = [
-                    for ix, o in options |> List.mapi Tuple2.create do
-                        let key = o.config.key |> Option.orElse o.config.label
-                        let fullKey = input.fullKey key
-                        let selected = key.IsSome && input.selected.ContainsKey fullKey
-                        if selected then
-                            let value, menu = o.recur (input.extend key)
-                            value, (selected, fullKey, menu)
-                        else
-                            [], (false, fullKey, Leaf (defaultArg o.config.label $"Option {ix}"))
-                    ]
-                match children |> List.filter (function _, (true, _, _) -> true | _ -> false) with
-                | lst when lst.Length = n ->
-                    // when we're at quota, exclude all the unpicked options from the menu unless and until some current selections are unpicked
-                    let values = lst |> List.collect fst
-                    let childMenus = lst |> List.map snd
-                    values, Either(config.label, childMenus)
-                | _ ->
-                    let allChildMenus = children |> List.map snd
-                    [], Either(config.label, allChildMenus)
-            )
+        let (|Fulfilled|Partial|Fallback|) (children: ('t list * MenuSelection) list) : 't list EitherPattern =
+            match children |> List.filter (function _, (true, _, _) -> true | _ -> false) with
+            | lst when lst.Length = n -> Fulfilled(lst |> List.collect fst, lst |> List.map snd)
+            | lst when lst.Length > 0 -> Partial(lst |> List.collect fst, children |> List.map snd) // return all child menus so user can keep selecting
+            | _ -> Fallback([], children |> List.map snd) // return all child menus so user can keep selecting
+        eitherF (|Fulfilled|Partial|Fallback|) [] options config
+
     static member and' (offers: 't OptionOffer list) : 't ListOffer =
         Op.and'(OfferConfig.blank, offers)
     static member and' (offers: 't ListOffer list) : 't ListOffer =
@@ -179,7 +176,7 @@ type Op =
     static member and' (config, offers: 't OptionOffer list) : 't ListOffer =
         Op.and'(config, offers |> List.map (fun o -> Op.promote o))
     static member and' (config, offers: 't ListOffer list) : 't ListOffer =
-        Op.offer(
+        offer(
             config,
             fun config input ->
                 let children = [
@@ -194,7 +191,7 @@ type Op =
             )
 
     static member promote (o: 't OptionOffer): 't ListOffer =
-        Op.offer(
+        offer(
             o.config,
             fun config input ->
                 let (v, menu) = o.recur input
