@@ -33,7 +33,6 @@ let memoize f =
 
 let emptyString = System.String.Empty
 
-let toString x = x.ToString()
 let betweenInclusive a b n = min a b <= n && n <= max a b
 /// invoke f without requiring parens
 let inv f = f()
@@ -84,6 +83,9 @@ module Tuple3 =
     let get1 (x,_,_) = x
     let get2 (_,x,_) = x
     let get get3 (_,_,x) = x
+    let map1 f (x,y,z) = (f x, y, z)
+    let map2 f (x,y,z) = (x, f y, z)
+    let map3 f (x,y,z) = (x, y, f z)
 
 module Ctor =
     type AnonymousConstructor<'args, 'Type> = {
@@ -135,6 +137,7 @@ module String =
         | [a;b] -> sprintf "%s and %s" a b
         | [a] -> a
         | [] -> emptyString
+    let structured x = sprintf "%A" x
     let join delimiter strings = System.String.Join((delimiter: string), (strings: string seq))
     let equalsIgnoreCase lhs rhs = System.String.Equals(lhs, rhs, System.StringComparison.InvariantCultureIgnoreCase)
     let containsIgnoreCase (lhs:string) (rhs:string) = lhs.ToLowerInvariant().Contains(rhs.ToLowerInvariant()) // note: lhs.Contains(rhs, System.StringComparison.InvariantCultureIgnoreCase) does not translate to JavaScript

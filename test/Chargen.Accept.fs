@@ -12,11 +12,23 @@ open Swensen.Unquote
 type KeySegment = string
 type 't ReversedList = 't list
 type Key = KeySegment ReversedList
+/// we want to avoid letting sequences get cut off so we use StructuredFormatDisplay with custom logic
+[<StructuredFormatDisplay("{DisplayText}")>]
 type MenuOutput =
     | Either of label: string option * options: MenuSelection list
     | And of label: string option * grants: MenuOutput list
     | Leveled of label: string * level: int
     | Leaf of label: string
+    with
+    member this.DisplayText =
+        let show lst = lst |> List.map String.structured |> String.concat ", "
+        match this with
+        | Either(None, children) -> $"Either({show children})"
+        | Either(Some label, children) -> $"Either({label}, {show children})"
+        | And(None, grants) -> $"And({show grants})"
+        | And(Some label, grants) -> $"And({label}, {show grants})"
+        | Leveled(label, level) -> $"Leveled({label}, {level})"
+        | Leaf(label) -> $"Leaf({label})"
 and MenuSelection = bool * Key * MenuOutput
 
 type 't Output = 't * MenuOutput
@@ -41,6 +53,8 @@ type OfferInput = {
         match segment with Some k -> k::input.prefix | None -> input.prefix
     member input.extend (config: OfferConfig) = { input with prefix = input.fullKey config }
     member input.extend (segment: KeySegment option) = { input with prefix = input.fullKey segment }
+    member this.has (key: Key) = key = [] || this.selected.ContainsKey key
+    member this.getKey (key: Key) = if key = [] then Some Flag else this.selected.TryFind key
 
 type 't Offer = { config: OfferConfig; func: (OfferConfig -> OfferInput -> 't * MenuOutput) }
     with
@@ -98,7 +112,7 @@ type Op =
                     for ix, o in options |> List.mapi Tuple2.create do
                         let key = o.config.key |> Option.orElse o.config.label
                         let fullKey = input.fullKey key
-                        let selected = key.IsSome && input.selected.ContainsKey fullKey
+                        let selected = key.IsSome && input.has fullKey
                         if selected then
                             let value, menu = o.recur (input.extend key)
                             value, (selected, fullKey, menu)
@@ -130,20 +144,42 @@ type Op =
                 let level = levels[ix] // e.g. if this is skill("Rapier", [+5..+8]) then ix 0 means level = +5 and value = Rapier +5
                 let value = ctor level
                 Some value, Leveled(defaultArg config.label $"{value}", ix)
-            match input.selected.TryFind fullKey with
+            match input.getKey fullKey with
             | Some (Level lvl) when lvl < levels.Length -> level lvl
-            | Some Flag when levels.Length = 1 -> // we are permissive in the input we accept, partly to make testing easier. You can set Flag on a Levelled property as long as it has only one value, e.g. Rapier +5 can be selected
+            | Some Flag when levels.Length >= 1 -> // we are permissive in the input we accept, partly to make testing easier. Flag means "default to the lowest value", e.g. Rapier +5-+7 defaults to Rapier +5.
                 level 0
             | _ ->
-                None, (Leaf (defaultArg config.label (toString name)))
+                let label =
+                    match config.label, levels with
+                    | Some label, _ -> label
+                    | None, lvl::_ -> $"{ctor lvl}" // tell the user what they'll get if they pick the lowest level
+                    | None, levels -> shouldntHappen "A levelled option with no levels is nonsense"
+                None, (Leaf label)
             )
 
     static member trait' (v: 't): 't OptionOffer =
-        Op.trait'({ OfferConfig.blank with label = Some (toString v) }, v)
+        Op.trait'({ OfferConfig.blank with label = Some (String.structured v) }, v)
     static member trait' (config, v): 't OptionOffer =
-        offer(configDefaultKey config (toString v), fun config input -> Some v, (Leaf (defaultArg config.label (toString v))))
+        offer(configDefaultKey config (String.structured v), fun config input -> Some v, (Leaf (defaultArg config.label (String.structured v))))
 
-    static member budgeted v: 't ListOffer = notImpl()
+    static member budgeted (budgetF, offers: 't ListOffer list) =
+        Op.budgeted(OfferConfig.blank, budgetF, offers)
+    static member budgeted (budgetF, offers: 't OptionOffer list) =
+        Op.budgeted(OfferConfig.blank, budgetF, offers |> List.map Op.promote)
+    static member budgeted (config, budgetF: 't list -> int, offers: 't OptionOffer List) : 't ListOffer =
+        Op.budgeted(config, budgetF, offers |> List.map Op.promote)
+    static member budgeted (config, budgetF: 't list -> int, offers: 't ListOffer List) : 't ListOffer =
+        let (|Fulfilled|Partial|Fallback|) (children: ('t list * MenuSelection) list) : 't list EitherPattern =
+            match children |> List.filter (function _, (true, _, _) -> true | _ -> false) with
+            | lst when lst.Length > 0 ->
+                let values = lst |> List.collect fst
+                let remainingBudget = budgetF values
+                if remainingBudget <= 0 then
+                    Fulfilled(values, lst |> List.map snd) // return only the selected menus, in case they want to unselect something
+                else
+                    Partial(values, children |> List.map snd) // return all child menus so user can keep selecting
+            | _ -> Fallback([], children |> List.map snd) // return all child menus so user can keep selecting
+        eitherF (|Fulfilled|Partial|Fallback|) [] offers config
 
     static member either options : 't OptionOffer =
         Op.either(OfferConfig.blank, options)
@@ -204,7 +240,13 @@ let newKey txt = $"{txt}-{System.Guid.NewGuid()}"
 let label txt = { blank with label = Some txt }
 open type Op
 
+[<StructuredFormatDisplay("{DisplayText}")>]
 type Trait' = CombatReflexes | Skill of string * int
+    with
+    member this.DisplayText =
+        match this with
+        | CombatReflexes -> "Combat Reflexes"
+        | Skill(name, level) -> $"{name} %+d{level}"
 
 (* Requirements:
 Terseness: flatten some and's, e.g. "Fast draw (swords & daggers) +1" all on one line, instead of two separate lines.
@@ -226,15 +268,14 @@ let skillN(name:string, levels: int list) =
 // swash is not a MenuOutput but it can create MenuOutputs which can then be either unit tested or turned into ReactElements
 // think of swash as an offer menu
 let swash(): Trait' ListOffer list = [
-
+    let budgetStub n = fun _ -> n // currently budgetF is hardwired to always think there's another n in the budget. TODO: make it aware of the current selections somehow
     skill("Climbing", 1) |> promote
     skillN("Stealth", [1..3]) |> promote
-    budgeted(20, [
+    budgeted(budgetStub 20, [
         trait' CombatReflexes
         skillN("Acrobatics", [1..3])
         ])
-    let mainWeapons = ["Rapier"; "Broadsword"; "Polearm"; "Two-handed sword"] |> List.map (fun name -> name, newKey name)
-    let weaponsAt (bonus: int) = mainWeapons |> List.map (fun (name, key) -> Op.skill({ blank with key = Some key }, (name, makeSkill name, [bonus])))
+    let weaponsAt (bonus: int) = [for name in ["Rapier"; "Broadsword"; "Polearm"; "Two-handed sword"] -> Op.skill(name, makeSkill name, [bonus])]
     eitherN [
         either(label "Sword!", weaponsAt +5) |> promote
         and'(label "Sword and Dagger", [either(weaponsAt +4); skill("Main-gauche", +1)])
@@ -291,17 +332,26 @@ let evalFor (selections: string list) offers =
 let testFor (selections: string list) expected offers =
     let actual = evalFor selections offers
     if actual <> expected then
-        let actualS, expectedS = actual |> toString, expected |> toString
+        let actualS, expectedS = actual |> String.structured, expected |> String.structured
         let firstDiff = [0..actualS.Length-1]
         let same, actual, expected = String.diff actualS expectedS
-        failtest $"Actual diverged from expected! After: \n{same}\n\nExpected: \n{expected}\nbut got:\n{actual}"
+        failtest $"Actual diverged from expected! After: \n{same}\n\nExpected: \n{expected}\n\nbut got:\n{actual}"
+
+let testFors (selections: string list) expected offers =
+    let actual = offers |> List.map (evalFor selections)
+    if actual <> expected then
+        let actualS, expectedS = actual |> String.structured, expected |> String.structured
+        let same, actual, expected = String.diff actualS expectedS
+        failtest $"Actual diverged from expected! After: \n{same}\n\nExpected: \n{expected}\n\nbut got:\n{actual}"
+
+type FightHide = Fight | Hide
 
 [<Tests>]
 let units = testList "Unit.Chargen" [
     let key = parseKey
     testCase "basic either" <| fun () ->
-        test <@ either[trait' "Fight"; trait' "Hide"] |> evalFor [] = Either(None, [false, key "Fight", Leaf "Fight"; false, key "Hide", Leaf "Hide"]) @>
-        test <@ either[trait' "Fight"; trait' "Hide"] |> evalFor ["Fight"] = Either(None, [true, key "Fight", Leaf "Fight"]) @>
+        either[trait' Fight; trait' Hide] |> testFor [] (Either(None, [false, key "Fight", Leaf "Fight"; false, key "Hide", Leaf "Hide"]))
+        either[trait' Fight; trait' Hide] |> testFor ["Fight"] (Either(None, [true, key "Fight", Leaf "Fight"]))
     testCase "nested either with list" <| fun () ->
         let nestedEither = eitherN [
             either(label "Sword!", [skill("Rapier", +5); skill("Broadsword", +5); skill("Shortsword", +5)]) |> promote
@@ -350,24 +400,29 @@ let units = testList "Unit.Chargen" [
                     ])
             )
     ]
+
 let proto1 = testCase "proto1" <| fun () ->
     let key = parseKey
-    let actual = swash() |> List.map (evaluate OfferInput.fresh >> snd) // shouldn't actually use OfferInput.fresh here. Need to pick the options we want to show up in pseudoActual.s
     let pseudoActual = // pseudo-actual because actual will be created from templates + OfferInput (i.e. selected keys), not hardwired as Menus, but that's still TODO
-        let menus = [
-            Leveled("Climbing", 1)
-            Leveled("Stealth", 3)
+        let offers = swash()
+        let expectedMenus = [
+            Leveled("Climbing +1", 0)
+            Leveled("Stealth +1", 0)
+            Either(None, [
+                false, key "Combat Reflexes", Leaf "Combat Reflexes"
+                false, key "Acrobatics", Leaf "Acrobatics"
+                ])
             Either(None, [
                 true, key "Sword!", Either(Some "Sword!", [
-                    false, key "Rapier", Leveled("Rapier", +5)
-                    false, key "Broadsword", Leveled("Broadsword", +5)
-                    false, key "Shortsword", Leveled("Shortsword", +5)
+                    false, key "Sword!-Rapier", Leveled("Rapier +5", 0)
+                    false, key "Sword!-Broadsword", Leveled("Broadsword +5", 0)
+                    false, key "Sword!-Shortsword", Leveled("Shortsword +5", 0)
                     ])
                 ])
             Either(None, [true, key "Fast-Draw (Sword)", Leveled("Fast-draw (Sword)", +2)])
             ]
-        test <@ menus = actual @>
-        render pseudoReactApi menus
+        offers |> testFors ["Sword!"] expectedMenus // evaluate swash() with Sword! selected and compare it to expectedMenus
+        render pseudoReactApi expectedMenus // if that passes, render it to ReactElements and see if it looks right
     let fail expect v = failwith $"Expected {expect} but got {v}\nContext: {pseudoActual}"
     let (|Checked|) = function Checked(label, children) -> Checked(label, children) | v -> fail "Checked" v
     let (|Unchecked|) = function Unchecked(label) -> Unchecked(label) | v -> fail "Unchecked" v
@@ -375,17 +430,17 @@ let proto1 = testCase "proto1" <| fun () ->
     let (|NumberInput|) = function NumberInput(label, value) -> NumberInput(label, value) | v -> fail "NumberInput" v
     let (|Div|) = function Div(label) -> Div(label) | v -> fail "Div" v
     let (|Fragment|) = function Fragment(children) -> Fragment(children) | v -> fail "Fragment" v
-    let (|Expect|) expect actual = if expect = actual then true else failwith $"Expected {expect} but got {actual}"
+    let (|Expect|_|) expect actual = if expect = actual then Some () else failwith $"Expected {expect} but got {actual}"
     match pseudoActual with
     | Fragment([
-        NumberInput(Expect "Climbing" _, Expect 1 _)
-        NumberInput(Expect "Stealth" _, Expect 3 _)
-        Checked(Expect "Sword!" _, [
-            NumberInput(Expect "Rapier" _, Expect +5 _)
-            NumberInput(Expect "Broadsword" _, Expect +5 _)
-            NumberInput(Expect "Shortsword" _, Expect +5 _)
+        NumberInput(Expect "Climbing +1", Expect 0)
+        NumberInput(Expect "Stealth +1", Expect 0)
+        Checked(Expect "Sword!", [
+            NumberInput(Expect "Rapier +5", Expect 0)
+            NumberInput(Expect "Broadsword +5", Expect 0)
+            NumberInput(Expect "Shortsword +5", Expect 0)
             ])
-        NumberInput(Expect "Fast-draw (Sword)" _, Expect +2 _)
+        NumberInput(Expect "Fast-draw (Sword) +2", Expect 0)
         ]) -> ()
     | v -> matchfail v // maybe we got the wrong number of NumberInputs from the Unconditional or something. Would be nice to have the error message say exactly what went wrong,
                     // but Expect active pattern isn't valid as an input to Fragment/Unconditional/etc. so we can't just Expect a specific list of children. Although... maybe we can refactor
