@@ -101,7 +101,7 @@ let render (render: 'reactElement RenderApi) (menus: MenuOutput list) =
             let childReacts = grants |> List.map (recur true render.unconditional)
             renderMe(defaultArg label "And:", childReacts)
         | Leveled(name, lvl) -> render.leveledLeaf(name, lvl)
-        | Leaf(name) -> render.leaf name
+        | Leaf(name) -> renderMe(name, [])
     menus |> List.map (recur true render.unconditional) |> render.combine
 
 type 't EitherPattern = Choice<('t * MenuSelection list), ('t * MenuSelection list), ('t * MenuSelection list)> // convenience type helper to reduce duplication while avoiding type ambiguity. Don't feel bad if we wind up scrapping it.
@@ -447,11 +447,11 @@ let proto1 = testCase "proto1" <| fun () ->
             Unchecked(Expect "Acrobatics +1")
             ])
         Checked(Expect "Sword!", [
-            NumberInput(Expect "Rapier +5", Expect 0)
-            NumberInput(Expect "Broadsword +5", Expect 0)
-            NumberInput(Expect "Shortsword +5", Expect 0)
+            Unchecked(Expect "Rapier +5")
+            Unchecked(Expect "Broadsword +5")
+            Unchecked(Expect "Shortsword +5")
             ])
-        NumberInput(Expect "Fast-draw (Sword) +2", Expect 0)
+        NumberInput(Expect "Fast-Draw (Sword) +2", Expect 0)
         ]) -> ()
     | v -> matchfail v // maybe we got the wrong number of NumberInputs from the Unconditional or something. Would be nice to have the error message say exactly what went wrong,
                     // but Expect active pattern isn't valid as an input to Fragment/Unconditional/etc. so we can't just Expect a specific list of children. Although... maybe we can refactor
