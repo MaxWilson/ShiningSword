@@ -87,9 +87,9 @@ module ReactErrorBoundary =
                 | Some err -> this.props.ErrorComponent err setErrorFromString
                 | None -> this.props.Inner
                 ]
-    let err (error: string) (setError: (string option -> unit)) =
+    let err (error: obj) (setError: (string option -> unit)) =
         class' "error" Html.div [
-            yield! ("There has been an error:" :: (error.Split("\n") |> List.ofArray)) |> List.map Html.div
+            yield! ("There has been an error:" :: (error.ToString().Split("\n") |> List.ofArray)) |> List.map Html.div
             Html.div [
                 Html.button [ prop.onClick (fun _ -> setError None); prop.children [Html.text "Dismiss"] ]
                 ]
