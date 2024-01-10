@@ -8,7 +8,9 @@
     <Compile Include="Core\CQRS.fs" />
     <Compile Include="Core\Coroutine.fs" />
     <Compile Include="Core\Packrat.fs" />
+    <Compile Include="Core\Menus.fs" />
     <Compile Include="Domain\ADND\PriestSpells.fs" />
+    <Compile Include="Domain\DFRPG\Chargen.Templates.fs" />
     <Compile Include="UI\CommonUI.fs" />
     <Compile Include="UI\LocalStorage.fs" />
     <Compile Include="UI\DFRPG\Chargen.fs" />
