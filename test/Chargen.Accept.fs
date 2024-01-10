@@ -4,13 +4,37 @@ open Menus
 open Expecto
 open Swensen.Unquote
 
-// okay, for each leaf/level/composition, we need to know:
-// 1. If it's checkable, what is the current state?
-// 2. If it's checkable, how do we change the state?
-// 3. What is the label, if any? If there's no explicit label, how do we display it? (Might depend on whether or not it's checked or finished.)
-//    3a. Do we ever NOT have a label? I.e. are there any headless UI components? I think maybe we want to collapse fulfilled eithers.
-
 open type Op
+
+(*
+Requirements:
+Terseness: flatten some and's, e.g. "Fast draw (swords & daggers) +1" all on one line, instead of two separate lines.
+Terseness: hide irrelevant options in either, e.g. if you can pick swords or daggers and sword is picked, don't show dagger any more.
+I.e. collapse either when semi-ready (no more choices at that level).
+Terseness: don't show child options until it's possible to pick them, e.g. don't show specific kinds of swords until sword! is picked.
+Correctness: checkboxes only inside an either or budget
+Terseness: hide things too expensive for remaining budget
+UX: leveled traits
+Correctness: mutual exclusion within either unselects old selection when new selection is made
+
+Example UX flow:
+    Choose one:
+        [ ] Sword!
+        [ ] Sword and dagger
+        [ ] Sword and shield
+
+    ================================
+
+    [X] Sword!
+        [ ] Rapier
+        [ ] Broadsword
+        [ ] Shortsword
+
+    ================================
+
+    [X] Sword! [X] Rapier
+
+*)
 
 [<StructuredFormatDisplay("{DisplayText}")>]
 type Trait' = CombatReflexes | Skill of string * int
@@ -20,76 +44,22 @@ type Trait' = CombatReflexes | Skill of string * int
         | CombatReflexes -> "Combat Reflexes"
         | Skill(name, level) -> $"{name} %+d{level}"
 
-(* Requirements:
-Terseness: flatten some and's, e.g. "Fast draw (swords & daggers) +1" all on one line, instead of two separate lines.
-Terseness: hide irrelevant options in either, e.g. if you can pick swords or daggers and sword is picked, don't show dagger any more.
-I.e. collapse either when semi-ready (no more choices at that level).
-Terseness: don't show child options until it's possible to pick them, e.g. don't show specific kinds of swords until sword! is picked.
-Correctness: checkboxes only inside an either or budget
-Terseness: hide things too expensive for remaining budget
-UX: leveled traits
-Correctness: mutual exclusion within either unselects old selection when new selection is made
-*)
-
 let makeSkill name (v: int) = Skill(name, v)
 let skill(name:string, level: int) =
     Op.trait'(makeSkill name level)
 let skillN(name:string, levels: int list) =
     Op.level(name, makeSkill name, levels)
 
-// swash is not a MenuOutput but it can create MenuOutputs which can then be either unit tested or turned into ReactElements
-// think of swash as an offer menu
-let swash(): Trait' ListOffer list = [
-    let budgetStub n = fun _ -> n // currently budgetF is hardwired to always think there's another n in the budget. TODO: make it aware of the current selections somehow
-    skill("Climbing", 1) |> promote
-    skillN("Stealth", [1..3]) |> promote
-    budget(budgetStub 20, [
-        trait' CombatReflexes
-        skillN("Acrobatics", [1..3])
-        ])
-    let weaponsAt (bonus: int) = [for name in ["Rapier"; "Broadsword"; "Shortsword"] -> Op.level(name, makeSkill name, [bonus..bonus+3])] // make sure Op.level gets exercised
-    eitherN [
-        either(label "Sword!", weaponsAt +5) |> promote
-        and'(label "Sword and Dagger", [either(weaponsAt +4); skill("Main-gauche", +1)])
-        and'(label "Sword and Shield", [either(weaponsAt +4); skill("Shield", +2)])
-        ]
-    eitherN [
-        skill("Fast-Draw (Sword)", +2) |> promote
-        and'([skill("Fast-Draw (Sword)", +1); skill("Fast-Draw (Dagger)", +1)])
-        ]
-    ]
-
-(*
-    Choose one:
-        [ ] Sword!
-        [ ] Sword and dagger
-        [ ] Sword and shield
-
-================================
-
-    [X] Sword!
-        [ ] Rapier
-        [ ] Broadsword
-        [ ] Shortsword
-
-================================
-
-    [X] Sword! [X] Rapier
-
-*)
-
 type Pseudoreact =
-    | Checked of string * Pseudoreact list
-    | Unchecked of string
+    | Checked of string * Key * Pseudoreact list
+    | Unchecked of string * Key
     | Unconditional of string * Pseudoreact list
     | NumberInput of string * int
-    | Div of string
     | Fragment of Pseudoreact list
 
 let pseudoReactApi = {
     checked' = Checked
     unchecked = Unchecked
-    leaf = Div
     leveledLeaf = NumberInput
     unconditional = Unconditional
     combine = Fragment
@@ -98,6 +68,7 @@ let pseudoReactApi = {
 let parseKey (key: string) : Key =
     // /- is escaped form, treated as meaning -. E.g. Fast/-Draw becomes Fast-Draw.
     System.Text.RegularExpressions.Regex.Split(key, "(?<!/)-") |> List.ofArray |> List.map (fun s -> s.Replace("/-", "-")) |> List.rev
+
 let evalFor (selections: string list) offers =
     let keys = selections |> List.map parseKey |> List.map (fun k -> k, Flag) |> Map.ofList
     evaluate { OfferInput.fresh with selected = keys } offers |> snd
@@ -173,61 +144,79 @@ let units = testList "Unit.Chargen" [
                     ])
             )
     ]
-
-let proto1 = testCase "proto1" <| fun () ->
-    let key = parseKey
-    let pseudoActual = // pseudo-actual because actual will be created from templates + OfferInput (i.e. selected keys), not hardwired as Menus, but that's still TODO
-        let offers = swash()
-        let expectedMenus = [
-            Leaf "Climbing +1" // Leaf not Level because swash() template is only using trait', not level
-            Leveled("Stealth +1", 0) // Leveled because it can go up to +3
-            Either(None, [
-                false, key "Combat Reflexes", Leaf "Combat Reflexes"
-                false, key "Acrobatics", Leaf "Acrobatics +1"
-                ])
-            Either(None, [
-                true, key "Sword!", Either(Some "Sword!", [
-                    false, key "Sword!-Rapier", Leaf "Rapier +5" // leveled traits are only Leveled if selected. When unselected it's a Leaf just like anything else.
-                    false, key "Sword!-Broadsword", Leaf "Broadsword +5"
-                    false, key "Sword!-Shortsword", Leaf "Shortsword +5"
-                    ])
-                ])
-            Either(None, [true, ["Fast-Draw (Sword) +2"], Leaf "Fast-Draw (Sword) +2"])
-            ]
-        offers |> testFors ["Sword!"; "Fast/-Draw (Sword) +2"] expectedMenus // evaluate swash() with Sword! selected and compare it to expectedMenus. Escape Fast-Draw to prevent it from being interpreted by parseKey as Fast + Draw
-        render pseudoReactApi expectedMenus // if that passes, render it to ReactElements and see if it looks right
-    let fail expect v = failwith $"Expected {expect} but got {v}\nContext: {pseudoActual}"
-    let (|Checked|) = function Checked(label, children) -> Checked(label, children) | v -> fail "Checked" v
-    let (|Unchecked|) = function Unchecked(label) -> Unchecked(label) | v -> fail "Unchecked" v
-    let (|Unconditional|) = function Unconditional(label, children) -> Unconditional(label, children) | v -> fail "Unconditional" v
-    let (|NumberInput|) = function NumberInput(label, value) -> NumberInput(label, value) | v -> fail "NumberInput" v
-    let (|Div|) = function Div(label) -> Div(label) | v -> fail "Div" v
-    let (|Fragment|) = function Fragment(children) -> Fragment(children) | v -> fail "Fragment" v
-    let (|Expect|_|) expect actual = if expect = actual then Some () else failwith $"Expected {expect} but got {actual}"
-    match pseudoActual with
-    | Fragment([
-        Unconditional(Expect "Climbing +1", [])
-        NumberInput(Expect "Stealth +1", Expect 0)
-        Unconditional(Expect "Choose one:", [
-            Unchecked(Expect "Combat Reflexes")
-            Unchecked(Expect "Acrobatics +1")
-            ])
-        Checked(Expect "Sword!", [
-            Unchecked(Expect "Rapier +5")
-            Unchecked(Expect "Broadsword +5")
-            Unchecked(Expect "Shortsword +5")
-            ])
-        Checked(Expect "Fast-Draw (Sword) +2", Expect [])
-        ]) -> ()
-    | v -> matchfail v // maybe we got the wrong number of NumberInputs from the Unconditional or something. Would be nice to have the error message say exactly what went wrong,
-                    // but Expect active pattern isn't valid as an input to Fragment/Unconditional/etc. so we can't just Expect a specific list of children. Although... maybe we can refactor
-                    // to use functions instead of active patterns?
-
-
 [<Tests>]
 let tests =
     testList "Accept.Chargen" [
-        proto1
+
+        testCase "Interactivity" <| fun () ->
+            let key = parseKey
+            let pseudoActual = // pseudo-actual because actual will be created from templates + OfferInput (i.e. selected keys), not hardwired as Menus, but that's still TODO
+                // swash is not a MenuOutput but it can create MenuOutputs which can then be either unit tested or turned into ReactElements
+                // think of swash as an offer menu
+                let swash(): Trait' ListOffer list = [
+                    let budgetStub n = fun _ -> n // currently budgetF is hardwired to always think there's another n in the budget. TODO: make it aware of the current selections somehow
+                    skill("Climbing", 1) |> promote
+                    skillN("Stealth", [1..3]) |> promote
+                    budget(budgetStub 20, [
+                        trait' CombatReflexes
+                        skillN("Acrobatics", [1..3])
+                        ])
+                    let weaponsAt (bonus: int) = [for name in ["Rapier"; "Broadsword"; "Shortsword"] -> Op.level(name, makeSkill name, [bonus..bonus+3])] // make sure Op.level gets exercised
+                    eitherN [
+                        either(label "Sword!", weaponsAt +5) |> promote
+                        and'(label "Sword and Dagger", [either(weaponsAt +4); skill("Main-gauche", +1)])
+                        and'(label "Sword and Shield", [either(weaponsAt +4); skill("Shield", +2)])
+                        ]
+                    eitherN [
+                        skill("Fast-Draw (Sword)", +2) |> promote
+                        and'([skill("Fast-Draw (Sword)", +1); skill("Fast-Draw (Dagger)", +1)])
+                        ]
+                    ]
+                let offers = swash()
+                let expectedMenus = [
+                    Leaf "Climbing +1" // Leaf not Level because swash() template is only using trait', not level
+                    Leveled("Stealth +1", 0) // Leveled because it can go up to +3
+                    Either(None, [
+                        false, key "Combat Reflexes", Leaf "Combat Reflexes"
+                        false, key "Acrobatics", Leaf "Acrobatics +1"
+                        ])
+                    Either(None, [
+                        true, key "Sword!", Either(Some "Sword!", [
+                            false, key "Sword!-Rapier", Leaf "Rapier +5" // leveled traits are only Leveled if selected. When unselected it's a Leaf just like anything else.
+                            false, key "Sword!-Broadsword", Leaf "Broadsword +5"
+                            false, key "Sword!-Shortsword", Leaf "Shortsword +5"
+                            ])
+                        ])
+                    Either(None, [true, ["Fast-Draw (Sword) +2"], Leaf "Fast-Draw (Sword) +2"])
+                    ]
+                offers |> testFors ["Sword!"; "Fast/-Draw (Sword) +2"] expectedMenus // evaluate swash() with Sword! selected and compare it to expectedMenus. Escape Fast-Draw to prevent it from being interpreted by parseKey as Fast + Draw
+                render pseudoReactApi expectedMenus // if that passes, render it to ReactElements and see if it looks right
+            let fail expect v = failwith $"Expected {expect} but got {v}\nContext: {pseudoActual}"
+            let (|Checked|) = function Checked(label, key, children) -> Checked(label, key, children) | v -> fail "Checked" v
+            let (|Unchecked|) = function Unchecked(label, key) -> Unchecked(label, key) | v -> fail "Unchecked" v
+            let (|Unconditional|) = function Unconditional(label, children) -> Unconditional(label, children) | v -> fail "Unconditional" v
+            let (|NumberInput|) = function NumberInput(label, value) -> NumberInput(label, value) | v -> fail "NumberInput" v
+            let (|Fragment|) = function Fragment(children) -> Fragment(children) | v -> fail "Fragment" v
+            let (|Expect|_|) expect actual = if expect = actual then Some () else fail expect actual
+            match pseudoActual with
+            | Fragment([
+                Unconditional(Expect "Climbing +1", [])
+                NumberInput(Expect "Stealth +1", Expect 0)
+                Unconditional(Expect "Choose one:", [
+                    Unchecked(Expect "Combat Reflexes", Expect ["Combat Reflexes"])
+                    Unchecked(Expect "Acrobatics +1", Expect ["Acrobatics"]) // note: Acrobatics is the key here, not Acrobatics +1, because it's leveled.
+                    ])
+                Checked(Expect "Sword!", Expect ["Sword!"], [
+                    Unchecked(Expect "Rapier +5", Expect ["Rapier"; "Sword!"])
+                    Unchecked(Expect "Broadsword +5", Expect ["Broadsword"; "Sword!"])
+                    Unchecked(Expect "Shortsword +5", Expect ["Shortsword"; "Sword!"])
+                    ])
+                Checked(Expect "Fast-Draw (Sword) +2", Expect ["Fast-Draw (Sword) +2"], Expect [])
+                ]) -> ()
+            | v -> matchfail v // maybe we got the wrong number of NumberInputs from the Unconditional or something. Would be nice to have the error message say exactly what went wrong,
+                            // but Expect active pattern isn't valid as an input to Fragment/Unconditional/etc. so we can't just Expect a specific list of children. Although... maybe we can refactor
+                            // to use functions instead of active patterns?
+
         ptestCase  "Terseness #1" <| fun () -> failtest """flatten some and's, e.g. "Fast draw (swords & daggers) +1" all on one line, instead of two separate lines."""
         ptestCase  "Terseness #2" <| fun () -> failtest """hide irrelevant options in either, e.g. if you can pick swords or daggers and sword is picked, don't show dagger any more. I.e. collapse either when semi-ready (no more choices at that level)."""
         ptestCase  "Terseness #3" <| fun () -> failtest """don't show child options until it's possible to pick them, e.g. don't show specific kinds of swords until sword! is picked."""

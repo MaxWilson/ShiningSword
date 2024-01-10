@@ -61,10 +61,9 @@ type 't OptionOffer = ('t option) Offer
 open type OfferConfig
 
 type 'reactElement RenderApi = {
-    checked': string * ('reactElement list) -> 'reactElement
-    unchecked: string -> 'reactElement
+    checked': string * Key * ('reactElement list) -> 'reactElement
+    unchecked: string * Key -> 'reactElement
     unconditional: string * ('reactElement list) -> 'reactElement
-    leaf: string -> 'reactElement
     leveledLeaf: string * int -> 'reactElement
     combine: 'reactElement list -> 'reactElement
     }
@@ -73,17 +72,18 @@ let render (render: 'reactElement RenderApi) (menus: MenuOutput list) =
     let rec recur recurOnChildren (renderMe: (string * 'reactElement list) -> 'reactElement) menu : 'reactElement =
         let (|OneSelection|_|) lst =
             match lst |> List.filter Tuple3.get1 with
-            | [true, _, v] -> Some v
+            | [true, key, v] -> Some (key, v)
             | _ -> None
         match menu with
-        | Either(None, OneSelection child) ->
-            recur recurOnChildren render.checked' child // if the either has no label and is already ready, just omit it from the visual tree and show the child directly. I'm not sure it's correct to ignore renderMe though.
+        | Either(None, OneSelection (key, child)) ->
+            let renderChild (label, children) = render.checked'(label, key, children)
+            recur recurOnChildren renderChild child // if the either has no label and is already ready, just omit it from the visual tree and show the child directly. I'm not sure it's correct to ignore renderMe though.
         | Either(label, selections) ->
             let children = [
                 if recurOnChildren then
-                    for (isChecked, _, child) in selections do
+                    for (isChecked, key, child) in selections do
                         let renderChild (label: string, children) =
-                            if isChecked then render.checked'(label, children) else render.unchecked label
+                            if isChecked then render.checked'(label, key, children) else render.unchecked(label, key)
                         let childReact = recur isChecked renderChild child
                         childReact
                 ]
