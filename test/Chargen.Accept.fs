@@ -38,8 +38,9 @@ type 't OptionOutput = ('t option) Output
 type OfferConfig = {
     key: KeySegment option
     label: string option
+    explicitUnselectedLabel: string option
     }
-    with static member blank = { key = None; label = None }
+    with static member blank = { key = None; label = None; explicitUnselectedLabel = None }
 type MaybeLevel = Level of int | Flag
 type OfferInput = {
     selected: Map<Key, MaybeLevel>
@@ -59,6 +60,10 @@ type OfferInput = {
 type 't Offer = { config: OfferConfig; func: (OfferConfig -> OfferInput -> 't * MenuOutput) }
     with
     member this.recur input = this.func this.config input
+    member this.LabelWhenUnselected (ix: int) =
+        let config = this.config
+        config.explicitUnselectedLabel |> Option.orElse config.label |> Option.defaultWith (fun () -> $"Option {ix}")
+
 type 't ListOffer = ('t list) Offer
 type 't OptionOffer = ('t option) Offer
 
@@ -117,7 +122,7 @@ type Op =
                             let value, menu = o.recur (input.extend key)
                             value, (selected, fullKey, menu)
                         else
-                            valueWhenUnselected, (false, fullKey, Leaf (defaultArg o.config.label $"Option {ix}"))
+                            valueWhenUnselected, (false, fullKey, Leaf (o.LabelWhenUnselected ix))
                     ]
                 match children with
                 | Fulfilled(value, childMenus) ->
@@ -138,7 +143,8 @@ type Op =
     static member skill (name: string, ctor: int -> 't, levels: int list): 't OptionOffer =
         Op.skill(OfferConfig.blank, (name, ctor, levels))
     static member skill (config, (name: string, ctor: int -> 't, levels: int list)): 't OptionOffer =
-        offer(configDefaultKey config name, fun config input ->
+        let config = { config with key = config.key |> Option.orElse (Some name); explicitUnselectedLabel = config.explicitUnselectedLabel |> Option.orElse (Some $"{ctor levels[0]}") }
+        offer(config, fun config input ->
             let fullKey = input.prefix // no need to extend the prefix because only one key is possible--we're not in an either here
             let level ix =
                 let level = levels[ix] // e.g. if this is skill("Rapier", [+5..+8]) then ix 0 means level = +5 and value = Rapier +5
@@ -275,15 +281,15 @@ let swash(): Trait' ListOffer list = [
         trait' CombatReflexes
         skillN("Acrobatics", [1..3])
         ])
-    let weaponsAt (bonus: int) = [for name in ["Rapier"; "Broadsword"; "Polearm"; "Two-handed sword"] -> Op.skill(name, makeSkill name, [bonus])]
+    let weaponsAt (bonus: int) = [for name in ["Rapier"; "Broadsword"; "Shortsword"] -> Op.skill(name, makeSkill name, [bonus])]
     eitherN [
         either(label "Sword!", weaponsAt +5) |> promote
         and'(label "Sword and Dagger", [either(weaponsAt +4); skill("Main-gauche", +1)])
         and'(label "Sword and Shield", [either(weaponsAt +4); skill("Shield", +2)])
         ]
     eitherN [
-        skill("Fast-draw (Sword)", +2) |> promote
-        and'([skill("Fast-draw (Sword)", +1); skill("Fast-draw (Dagger)", +1)])
+        skill("Fast-Draw (Sword)", +2) |> promote
+        and'([skill("Fast-Draw (Sword)", +1); skill("Fast-Draw (Dagger)", +1)])
         ]
     ]
 
@@ -324,7 +330,8 @@ let pseudoReactApi = {
     }
 
 let parseKey (key: string) : Key =
-    key.Split("-") |> List.ofArray |> List.rev
+    // /- is escaped form, treated as meaning -. E.g. Fast/-Draw becomes Fast-Draw.
+    System.Text.RegularExpressions.Regex.Split(key, "(?<!/)-") |> List.ofArray |> List.map (fun s -> s.Replace("/-", "-")) |> List.rev
 let evalFor (selections: string list) offers =
     let keys = selections |> List.map parseKey |> List.map (fun k -> k, Flag) |> Map.ofList
     evaluate { OfferInput.fresh with selected = keys } offers |> snd
@@ -410,18 +417,18 @@ let proto1 = testCase "proto1" <| fun () ->
             Leveled("Stealth +1", 0)
             Either(None, [
                 false, key "Combat Reflexes", Leaf "Combat Reflexes"
-                false, key "Acrobatics", Leaf "Acrobatics"
+                false, key "Acrobatics", Leaf "Acrobatics +1"
                 ])
             Either(None, [
                 true, key "Sword!", Either(Some "Sword!", [
-                    false, key "Sword!-Rapier", Leveled("Rapier +5", 0)
-                    false, key "Sword!-Broadsword", Leveled("Broadsword +5", 0)
-                    false, key "Sword!-Shortsword", Leveled("Shortsword +5", 0)
+                    false, key "Sword!-Rapier", Leaf "Rapier +5" // skills are only Leveled if selected. When unselected it's a Leaf just like anything else.
+                    false, key "Sword!-Broadsword", Leaf "Broadsword +5"
+                    false, key "Sword!-Shortsword", Leaf "Shortsword +5"
                     ])
                 ])
-            Either(None, [true, key "Fast-Draw (Sword)", Leveled("Fast-draw (Sword)", +2)])
+            Either(None, [true, ["Fast-Draw (Sword)"], Leveled("Fast-Draw (Sword) +2", 0)])
             ]
-        offers |> testFors ["Sword!"] expectedMenus // evaluate swash() with Sword! selected and compare it to expectedMenus
+        offers |> testFors ["Sword!"; "Fast/-Draw (Sword)"] expectedMenus // evaluate swash() with Sword! selected and compare it to expectedMenus. Escape Fast-Draw to prevent it from being interpreted by parseKey as Fast + Draw
         render pseudoReactApi expectedMenus // if that passes, render it to ReactElements and see if it looks right
     let fail expect v = failwith $"Expected {expect} but got {v}\nContext: {pseudoActual}"
     let (|Checked|) = function Checked(label, children) -> Checked(label, children) | v -> fail "Checked" v
@@ -435,6 +442,10 @@ let proto1 = testCase "proto1" <| fun () ->
     | Fragment([
         NumberInput(Expect "Climbing +1", Expect 0)
         NumberInput(Expect "Stealth +1", Expect 0)
+        Unconditional(Expect "Choose one:", [
+            Unchecked(Expect "Combat Reflexes")
+            Unchecked(Expect "Acrobatics +1")
+            ])
         Checked(Expect "Sword!", [
             NumberInput(Expect "Rapier +5", Expect 0)
             NumberInput(Expect "Broadsword +5", Expect 0)
