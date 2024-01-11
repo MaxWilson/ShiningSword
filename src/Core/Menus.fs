@@ -26,13 +26,17 @@ type 't Output = 't * MenuOutput
 type 't ListOutput = ('t list) Output
 type 't OptionOutput = ('t option) Output
 
-type OfferConfig = {
+type MaybeLevel = Level of int | Flag
+type LevelSpec<'arg, 't> = { ctor: 'arg -> 't; toString: 't -> string }
+
+type OfferConfigCore = { // the core, public part of the offerConfig that we can expose publicly--no type parameters
     key: KeySegment option
     label: string option
     explicitUnselectedLabel: string option
     }
     with static member blank = { key = None; label = None; explicitUnselectedLabel = None }
-type MaybeLevel = Level of int | Flag
+type 't OfferConfig = { inner: OfferConfigCore; toString: ('t -> string) option } // specialized OfferConfig with extra information about creating labels
+let blankStringConfig() = { inner = OfferConfigCore.blank; toString = None }
 type OfferInput = {
     selected: Map<Key, MaybeLevel>
     prefix: KeySegment ReversedList
@@ -43,12 +47,12 @@ type OfferInput = {
         input.fullKey config.key
     member input.fullKey (segment: KeySegment option) =
         match segment with Some k -> k::input.prefix | None -> input.prefix
-    member input.extend (config: OfferConfig) = { input with prefix = input.fullKey config }
+    member input.extend (config: OfferConfigCore) = { input with prefix = input.fullKey config }
     member input.extend (segment: KeySegment option) = { input with prefix = input.fullKey segment }
     member this.has (key: Key) = key = [] || this.selected.ContainsKey key
     member this.getKey (key: Key) = if key = [] then Some Flag else this.selected.TryFind key
 
-type 't Offer = { config: OfferConfig; func: (OfferConfig -> OfferInput -> 't * MenuOutput) }
+type 't Offer = { config: OfferConfigCore; func: (OfferConfigCore -> OfferInput -> 't * MenuOutput) }
     with
     member this.recur input = this.func this.config input
     member this.LabelWhenUnselected (ix: int) =
@@ -58,7 +62,7 @@ type 't Offer = { config: OfferConfig; func: (OfferConfig -> OfferInput -> 't * 
 type 't ListOffer = ('t list) Offer
 type 't OptionOffer = ('t option) Offer
 
-open type OfferConfig
+open type OfferConfigCore
 
 type 'reactElement RenderApi = {
     checked': string * Key * ('reactElement list) -> 'reactElement
@@ -99,10 +103,11 @@ type 't EitherPattern = Choice<('t * MenuSelection list), ('t * MenuSelection li
 
 type Op =
     static let configDefaultKey config key = if config.key.IsSome then config else { config with key = Some key }
+    static let configDefaultBoth config key = if config.key.IsSome && config.label.IsSome then config else { config with key = Some (defaultArg config.key key); label = Some (defaultArg config.label key) }
     static let offer(config, logic) = { config = config; func = logic }
     static let eitherF (|Fulfilled|Partial|Fallback|) valueWhenUnselected options config =
         offer(
-            config,
+            { config.inner with explicitUnselectedLabel = config.inner.label |> Option.defaultWith (fun () -> (defaultArg config.toString String.structured) (List.head options) ) |> Some },
             fun config input ->
                 let children = [
                     for ix, o in options |> List.mapi Tuple2.create do
@@ -130,20 +135,21 @@ type Op =
             )
 
     static member trait' (v: 't): 't OptionOffer =
-        Op.trait'({ OfferConfig.blank with label = Some (String.structured v) }, v)
-    static member trait' (config, v): 't OptionOffer =
-        offer(configDefaultKey config (String.structured v), fun config input -> Some v, (Leaf (defaultArg config.label (String.structured v))))
+        Op.trait'({ inner = OfferConfigCore.blank; toString = None }, v)
+    static member trait' (config: 't OfferConfig, v): 't OptionOffer =
+        let render = (defaultArg config.toString String.structured)
+        offer(configDefaultBoth config.inner (render v), fun config input -> Some v, (Leaf (defaultArg config.label (render v))))
 
-    static member level (name: string, ctor: int -> 't, levels: int list): 't OptionOffer =
-        Op.level(OfferConfig.blank, (name, ctor, levels))
-    static member level (config, (name: string, ctor: int -> 't, levels: int list)): 't OptionOffer =
-        let config = { config with key = config.key |> Option.orElse (Some name); explicitUnselectedLabel = config.explicitUnselectedLabel |> Option.orElse (Some $"{ctor levels[0]}") }
+    static member level (name: string, spec: LevelSpec<int, 't>, levels: int list): 't OptionOffer =
+        Op.level(OfferConfigCore.blank, (name, spec, levels))
+    static member level (config, (name: string, spec: LevelSpec<int, 't>, levels: int list)): 't OptionOffer =
+        let config = { config with key = config.key |> Option.orElse (Some name); explicitUnselectedLabel = config.explicitUnselectedLabel |> Option.orElse (Some $"{spec.ctor levels[0] |> spec.toString }") }
         offer(config, fun config input ->
             let fullKey = input.prefix // no need to extend the prefix because only one key is possible--we're not in an either here
             let level ix =
                 let level = levels[ix] // e.g. if this is skill("Rapier", [+5..+8]) then ix 0 means level = +5 and value = Rapier +5
-                let value = ctor level
-                Some value, Leveled(defaultArg config.label $"{String.structured value}", ix)
+                let value = spec.ctor level
+                Some value, Leveled(defaultArg config.label $"{spec.toString value}", ix)
             match input.getKey fullKey with
             | Some (Level lvl) when lvl < levels.Length -> level lvl
             | Some Flag when levels.Length >= 1 -> // we are permissive in the input we accept, partly to make testing easier. Flag means "default to the lowest value", e.g. Rapier +5-+7 defaults to Rapier +5.
@@ -152,15 +158,15 @@ type Op =
                 let label =
                     match config.label, levels with
                     | Some label, _ -> label
-                    | None, lvl::_ -> $"{ctor lvl}" // tell the user what they'll get if they pick the lowest level
+                    | None, lvl::_ -> $"{spec.ctor lvl}" // tell the user what they'll get if they pick the lowest level
                     | None, levels -> shouldntHappen "A levelled option with no levels is nonsense"
                 None, (Leaf label)
             )
 
     static member budget (budgetF, offers: 't ListOffer list) =
-        Op.budget(OfferConfig.blank, budgetF, offers)
+        Op.budget(blankStringConfig(), budgetF, offers)
     static member budget (budgetF, offers: 't OptionOffer list) =
-        Op.budget(OfferConfig.blank, budgetF, offers |> List.map Op.promote)
+        Op.budget(blankStringConfig(), budgetF, offers |> List.map Op.promote)
     static member budget (config, budgetF: 't list -> int, offers: 't OptionOffer List) : 't ListOffer =
         Op.budget(config, budgetF, offers |> List.map Op.promote)
     static member budget (config, budgetF: 't list -> int, offers: 't ListOffer List) : 't ListOffer =
@@ -177,7 +183,7 @@ type Op =
         eitherF (|Fulfilled|Partial|Fallback|) [] offers config
 
     static member either options : 't OptionOffer =
-        Op.either(OfferConfig.blank, options)
+        Op.either(blankStringConfig(), options)
     static member either (config, options: 't OptionOffer list) : 't OptionOffer =
         let (|Fulfilled|Partial|Fallback|) (children: ('t option * MenuSelection) list) : 't option EitherPattern =
             match children |> List.tryFind (function _, (true, _, _) -> true | _ -> false) with
@@ -187,9 +193,9 @@ type Op =
         eitherF (|Fulfilled|Partial|Fallback|) None options config
 
     static member eitherN (options: 't OptionOffer list) : 't ListOffer =
-        Op.eitherN(OfferConfig.blank, 1, options)
+        Op.eitherN(blankStringConfig(), 1, options)
     static member eitherN (options: 't ListOffer list) : 't ListOffer =
-        Op.eitherN(OfferConfig.blank, 1, options)
+        Op.eitherN(blankStringConfig(), 1, options)
     static member eitherN (config, n: int, options: 't OptionOffer list) : 't ListOffer =
         Op.eitherN(config, n, options |> List.map (fun o -> Op.promote o))
     static member eitherN (config, n: int, options: 't ListOffer list) : 't ListOffer =
@@ -201,14 +207,14 @@ type Op =
         eitherF (|Fulfilled|Partial|Fallback|) [] options config
 
     static member and' (offers: 't OptionOffer list) : 't ListOffer =
-        Op.and'(OfferConfig.blank, offers)
+        Op.and'(blankStringConfig(), offers)
     static member and' (offers: 't ListOffer list) : 't ListOffer =
-        Op.and'(OfferConfig.blank, offers)
+        Op.and'(blankStringConfig(), offers)
     static member and' (config, offers: 't OptionOffer list) : 't ListOffer =
         Op.and'(config, offers |> List.map (fun o -> Op.promote o))
-    static member and' (config, offers: 't ListOffer list) : 't ListOffer =
+    static member and' (config: 't OfferConfig, offers: 't ListOffer list) : 't ListOffer =
         offer(
-            config,
+            { config.inner with explicitUnselectedLabel = match offers |> List.map _.config.label with | [Some lhs; Some rhs] -> Some $"{lhs} and {rhs}" | _ -> None }, // promote label in the simple case
             fun config input ->
                 let children = [
                     for o in offers do
@@ -230,8 +236,6 @@ type Op =
             )
 let evaluate (state: OfferInput) (offer: _ Offer) =
     offer.recur state
-
-let label txt = { blank with label = Some txt }
 
 open type Op
 

@@ -7,16 +7,18 @@ module private Impl =
     let button (txt: string) onClick = Html.button [ prop.text txt; prop.onClick onClick ]
     let checkbox (txt: string) checked' (onChange: bool -> unit) =
         let id = System.Guid.NewGuid().ToString()
-        Html.div [
+        Html.li [
             Html.input [ prop.type'.checkbox; prop.id id; prop.isChecked checked'; prop.onChange onChange ]
             Html.label [ prop.htmlFor id; prop.text txt ]
             ]
-    let reactApi: ReactElement RenderApi = {
+    let reactApi: ReactElement RenderApi =
+        let combine = function [] -> React.fragment [] | [v] -> v | vs -> Html.ul [prop.style [style.listStyleType.none; style.listStylePosition.outside]; prop.children vs]
+        {
         checked' = fun (label, key, children) -> checkbox label true ignore
         unchecked = fun (label, key) -> checkbox label false ignore
-        leveledLeaf = fun (label, level) -> React.fragment [ button "-" ignore; button "+" ignore; Html.text label ]
-        unconditional = fun (label, children) -> React.fragment [ Html.text label; Html.div children ]
-        combine = function [v] -> v | vs -> React.fragment vs
+        leveledLeaf = fun (label, level) -> class' "" Html.li [ button "-" ignore; button "+" ignore; Html.text label ]
+        unconditional = fun (label, children) -> class' "" Html.li [ Html.text label; combine children ]
+        combine = combine
         }
     let eval selections (template: Trait ListOffer list) =
         let value, menus =

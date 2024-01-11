@@ -138,11 +138,7 @@ module String =
         | [a] -> a
         | [] -> emptyString
     let structured x =
-#if FABLE_COMPILER
-        Fable.Core.JsInterop.emitJsExpr x "$0.DisplayString"
-#else
         sprintf "%A" x
-#endif
 
     let join delimiter strings = System.String.Join((delimiter: string), (strings: string seq))
     let equalsIgnoreCase lhs rhs = System.String.Equals(lhs, rhs, System.StringComparison.InvariantCultureIgnoreCase)

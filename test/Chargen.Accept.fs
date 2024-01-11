@@ -44,9 +44,9 @@ type Trait' = CombatReflexes | Skill of string * int
         | CombatReflexes -> "Combat Reflexes"
         | Skill(name, level) -> $"{name} %+d{level}"
 
-let makeSkill name (v: int) = Skill(name, v)
+let makeSkill name = { ctor = (fun bonus -> Skill(name, bonus)); toString = fun skill -> skill.DisplayText }
 let skill(name:string, level: int) =
-    Op.trait'(makeSkill name level)
+    Op.trait'(Skill(name, level))
 let skillN(name:string, levels: int list) =
     Op.level(name, makeSkill name, levels)
 
@@ -89,6 +89,7 @@ let testFors (selections: string list) expected offers =
         failtest $"Actual diverged from expected! After: \n{same}\n\nExpected: \n{expected}\n\nbut got:\n{actual}"
 
 type FightHide = Fight | Hide
+let label txt = let blank = blankStringConfig() in { blank with toString = Some (thunk ""); inner.label = Some "" }
 
 [<Tests>]
 let units = testList "Unit.Chargen" [

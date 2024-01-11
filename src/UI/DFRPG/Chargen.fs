@@ -12,20 +12,28 @@ type Trait = WeaponMaster of Weapon | CombatReflexes | Skill of string * bonus:i
         match this with
         | Skill(skill, bonus) -> $"{skill} %+d{bonus}"
         | otherwise -> String.uncamel (string otherwise)
+
 type Multimap<'key, 'value when 'key:comparison and 'value: comparison> = Map<'key, Set<'value>>
 type OrderedMultimap<'key, 'value when 'key:comparison and 'value: comparison> = Map<'key, List<'value>>
 open Menus
 type style = Feliz.style
-let blank = OfferConfig.blank
+let blank = OfferConfigCore.blank
 type Op with
-    static member skill (name: string, bonus: int) = Op.trait' (Skill(name, bonus))
-    static member skill (name: string, levels: int list) = Op.level (name, (fun bonus -> Skill(name, bonus)), levels)
+    static member skill (name: string, bonus: int) = Op.trait' ({ inner = OfferConfigCore.blank; toString = Some (fun (t: Trait) -> t.DisplayString) }, Skill(name, bonus))
+    static member skill (name: string, levels: int list) = Op.level (name, { ctor = (fun bonus -> Skill(name, bonus)); toString = fun skill -> skill.DisplayString }, levels)
+
+let advantage (advantage: Trait) =
+        // unlike using trait' directly, this will use DisplayString so e.g. CombatReflexes gets uncameled
+        Op.trait' ({ inner = OfferConfigCore.blank; toString = Some (fun (t: Trait) -> t.DisplayString) }, advantage)
+
 open type Op
+
+let label txt = { inner = { blank with label = Some txt }; toString = None }
 let swash = [
     skill("Climbing", 1) |> promote
     skill("Stealth", [1..3]) |> promote
     budget(thunk 20, [
-        trait' CombatReflexes
+        advantage CombatReflexes
         skill("Acrobatics", [1..3])
         ])
     let mainWeapons = ["Rapier"; "Broadsword"; "Polearm"; "Two-handed sword"]
