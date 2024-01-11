@@ -137,14 +137,13 @@ module String =
         | [a;b] -> sprintf "%s and %s" a b
         | [a] -> a
         | [] -> emptyString
+    let structured x =
 #if FABLE_COMPILER
-    open Fable.Core
-    [<Emit("($0).DisplayString")>]
-    let structured x = jsNative
+        Fable.Core.JsInterop.emitJsExpr x "$0.DisplayString"
 #else
-    let inline structured x =
         sprintf "%A" x
 #endif
+
     let join delimiter strings = System.String.Join((delimiter: string), (strings: string seq))
     let equalsIgnoreCase lhs rhs = System.String.Equals(lhs, rhs, System.StringComparison.InvariantCultureIgnoreCase)
     let containsIgnoreCase (lhs:string) (rhs:string) = lhs.ToLowerInvariant().Contains(rhs.ToLowerInvariant()) // note: lhs.Contains(rhs, System.StringComparison.InvariantCultureIgnoreCase) does not translate to JavaScript
