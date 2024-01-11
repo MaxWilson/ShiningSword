@@ -144,6 +144,9 @@ let units = testList "Unit.Chargen" [
                         ])
                     ])
             )
+    testCase "and' should have a key based on its children" <| fun() ->
+        let offer = and'([skill("Fast-Draw (Sword)", +1); skill("Fast-Draw (Dagger)", +1)])
+        test <@ offer.config.key.Value = "Fast-Draw (Sword) +1 and Fast-Draw (Dagger) +1" @>
     ]
 [<Tests>]
 let tests =
@@ -188,9 +191,9 @@ let tests =
                             false, key "Sword!-Shortsword", Leaf "Shortsword +5"
                             ])
                         ])
-                    Either(None, [true, ["Fast-Draw (Sword) +2"], Leaf "Fast-Draw (Sword) +2"])
+                    Either(None, [true, ["Fast-Draw (Sword) +1 and Fast-Draw (Dagger) +1"], Leaf "Fast-Draw (Sword) +1 and Fast-Draw (Dagger) +1"])
                     ]
-                offers |> testFors ["Sword!"; "Fast/-Draw (Sword) +2"] expectedMenus // evaluate swash() with Sword! selected and compare it to expectedMenus. Escape Fast-Draw to prevent it from being interpreted by parseKey as Fast + Draw
+                offers |> testFors ["Sword!"; "Fast/-Draw (Sword) +1 and Fast/-Draw (Dagger) +1"] expectedMenus // evaluate swash() with Sword! selected and compare it to expectedMenus. Escape Fast-Draw to prevent it from being interpreted by parseKey as Fast + Draw
                 render pseudoReactApi expectedMenus // if that passes, render it to ReactElements and see if it looks right
             let fail expect v = failwith $"Expected {expect} but got {v}\nContext: {pseudoActual}"
             let (|Checked|) = function Checked(label, key, children) -> Checked(label, key, children) | v -> fail "Checked" v
@@ -212,7 +215,7 @@ let tests =
                     Unchecked(Expect "Broadsword +5", Expect ["Broadsword"; "Sword!"])
                     Unchecked(Expect "Shortsword +5", Expect ["Shortsword"; "Sword!"])
                     ])
-                Checked(Expect "Fast-Draw (Sword) +2", Expect ["Fast-Draw (Sword) +2"], Expect [])
+                Checked(Expect "Fast-Draw (Sword) +1 and Fast-Draw (Dagger) +1", Expect ["Fast-Draw (Sword) +1 and Fast-Draw (Dagger) +1"], Expect [])
                 ]) -> ()
             | v -> matchfail v // maybe we got the wrong number of NumberInputs from the Unconditional or something. Would be nice to have the error message say exactly what went wrong,
                             // but Expect active pattern isn't valid as an input to Fragment/Unconditional/etc. so we can't just Expect a specific list of children. Although... maybe we can refactor

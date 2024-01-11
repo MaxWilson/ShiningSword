@@ -162,7 +162,7 @@ type Op =
             | Some (Level lvl) when lvl < levels.Length -> level lvl
             | _ when levels.Length >= 1 -> // we are permissive in the input we accept, partly to make testing easier. Flag means "default to the lowest value", e.g. Rapier +5-+7 defaults to Rapier +5.
                 level 0
-            | _ -> shouldntHappen "A levelled option with no levels is nonsense"
+            | _ -> shouldntHappen "A leveled option with no levels is nonsense"
             )
 
     static member budget (budgetF, offers: 't ListOffer list) =
@@ -216,7 +216,7 @@ type Op =
         Op.and'(config, offers |> List.map (fun o -> Op.promote o))
     static member and' (config: 't OfferConfig, offers: 't ListOffer list) : 't ListOffer =
         offer(
-            { config.inner with explicitUnselectedLabel = match offers |> List.map _.config.label with | [Some lhs; Some rhs] -> Some $"{lhs} and {rhs}" | _ -> None }, // promote label in the simple case
+            { config.inner with explicitUnselectedLabel = match offers |> List.map (_.config.explicitUnselectedLabel) with | [Some lhs; Some rhs] -> Some $"{lhs} and {rhs}" | _ -> None }, // promote label in the simple case
             fun config input ->
                 let children = [
                     for o in offers do
