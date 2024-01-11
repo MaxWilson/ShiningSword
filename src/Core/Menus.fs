@@ -8,7 +8,7 @@ type Key = KeySegment ReversedList
 type MenuOutput =
     | Either of label: string option * options: MenuSelection list
     | And of label: string option * grants: MenuOutput list
-    | Leveled of label: string * Key * level: int
+    | Leveled of label: string * Key * currentLevel: int * levelCount: int
     | Leaf of label: string
     with
     member this.DisplayText =
@@ -18,7 +18,7 @@ type MenuOutput =
         | Either(Some label, children) -> $"Either({label}, {show children})"
         | And(None, grants) -> $"And({show grants})"
         | And(Some label, grants) -> $"And({label}, {show grants})"
-        | Leveled(label, key, level) -> $"Leveled({label}, {key}, {level})"
+        | Leveled(label, key, currentLevel, levelCount) -> $"Leveled({label}, {key}, {currentLevel}, {levelCount})"
         | Leaf(label) -> $"Leaf({label})"
 and MenuSelection = bool * Key * MenuOutput
 
@@ -67,7 +67,7 @@ type 'reactElement RenderApi = {
     checked': string * Key * ('reactElement list) -> 'reactElement
     unchecked: string * Key -> 'reactElement
     unconditional: string * ('reactElement list) -> 'reactElement
-    leveledLeaf: string * Key * int -> 'reactElement
+    leveledLeaf: string * Key * int * int -> 'reactElement // label, key, currentValue, levelCount
     combine: 'reactElement list -> 'reactElement
     }
 
@@ -94,7 +94,7 @@ let render (render: 'reactElement RenderApi) (menus: MenuOutput list) =
         | And(label, grants) ->
             let childReacts = grants |> List.map (recur true render.unconditional)
             renderMe(defaultArg label "And:", childReacts)
-        | Leveled(name, key, lvl) -> render.leveledLeaf(name, key, lvl)
+        | Leveled(name, key, lvl, levelCount) -> render.leveledLeaf(name, key, lvl, levelCount)
         | Leaf(name) -> renderMe(name, [])
     menus |> List.map (recur true render.unconditional) |> render.combine
 
@@ -157,7 +157,7 @@ type Op =
             let level ix =
                 let level = levels[ix] // e.g. if this is skill("Rapier", [+5..+8]) then ix 0 means level = +5 and value = Rapier +5
                 let value = spec.ctor level
-                Some value, Leveled(defaultArg config.label $"{spec.toString value}", fullKey, ix)
+                Some value, Leveled(defaultArg config.label $"{spec.toString value}", fullKey, ix, levels.Length)
             match input.lookup fullKey with
             | Some (Level lvl) when lvl < levels.Length -> level lvl
             | _ when levels.Length >= 1 -> // we are permissive in the input we accept, partly to make testing easier. Flag means "default to the lowest value", e.g. Rapier +5-+7 defaults to Rapier +5.

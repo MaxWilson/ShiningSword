@@ -54,7 +54,7 @@ type Pseudoreact =
     | Checked of string * Key * Pseudoreact list
     | Unchecked of string * Key
     | Unconditional of string * Pseudoreact list
-    | NumberInput of string * Key * int
+    | NumberInput of string * Key * int * int
     | Fragment of Pseudoreact list
 
 let pseudoReactApi = {
@@ -128,7 +128,7 @@ let units = testList "Unit.Chargen" [
         nestedEither |> testFor ["Sword!"; "Sword!-Rapier"] (
             Either(None, [
                 true, key "Sword!", Either(Some "Sword!", [
-                    true, key "Sword!-Rapier", Leveled("Rapier +5", key "Sword!-Rapier", 0) // it's a Levelled, not a Leaf, because it's currently selected. Note that the level is 0, not +5, because it's the lowest level out of +5 to +5.
+                    true, key "Sword!-Rapier", Leveled("Rapier +5", key "Sword!-Rapier", 0, 2) // it's a Levelled, not a Leaf, because it's currently selected. Note that the level is 0, not +5, because it's the lowest level out of +5 to +5.
                     ])
                 ])
             )
@@ -176,7 +176,7 @@ let tests =
                 let offers = swash()
                 let expectedMenus = [
                     Leaf "Climbing +1" // Leaf not Level because swash() template is only using trait', not level
-                    Leveled("Stealth +1", key "Stealth", 0) // Leveled because it can go up to +3
+                    Leveled("Stealth +1", key "Stealth", 0, 3) // Leveled because it can go up to +3
                     Either(None, [
                         false, key "Combat Reflexes", Leaf "Combat Reflexes"
                         false, key "Acrobatics", Leaf "Acrobatics +1"
@@ -196,13 +196,13 @@ let tests =
             let (|Checked|) = function Checked(label, key, children) -> Checked(label, key, children) | v -> fail "Checked" v
             let (|Unchecked|) = function Unchecked(label, key) -> Unchecked(label, key) | v -> fail "Unchecked" v
             let (|Unconditional|) = function Unconditional(label, children) -> Unconditional(label, children) | v -> fail "Unconditional" v
-            let (|NumberInput|) = function NumberInput(label, key, value) -> NumberInput(label, key, value) | v -> fail "NumberInput" v
+            let (|NumberInput|) = function NumberInput(label, key, value, levelCount) -> NumberInput(label, key, value, levelCount) | v -> fail "NumberInput" v
             let (|Fragment|) = function Fragment(children) -> Fragment(children) | v -> fail "Fragment" v
             let (|Expect|_|) expect actual = if expect = actual then Some () else fail expect actual
             match pseudoActual with
             | Fragment([
                 Unconditional(Expect "Climbing +1", [])
-                NumberInput(Expect "Stealth +1", Expect ["Stealth"], Expect 0)
+                NumberInput(Expect "Stealth +1", Expect ["Stealth"], Expect 0, Expect 3)
                 Unconditional(Expect "Choose one:", [
                     Unchecked(Expect "Combat Reflexes", Expect ["Combat Reflexes"])
                     Unchecked(Expect "Acrobatics +1", Expect ["Acrobatics"]) // note: Acrobatics is the key here, not Acrobatics +1, because it's leveled.

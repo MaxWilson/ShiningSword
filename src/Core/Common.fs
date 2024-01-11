@@ -8,6 +8,7 @@ let thunk v _ = v
 let thunk1 f arg _ = f arg
 let thunk2 f arg1 arg2 _ = f arg1 arg2
 let thunk3 f arg1 arg2 arg3 _ = f arg1 arg2 arg3
+let thunk4 f arg1 arg2 arg3 arg4 _ = f arg1 arg2 arg3 arg4
 let tuple2 x y = x,y
 let matchfail v = sprintf "No match found for %A. This is a bug." v |> invalidOp
 let ignoreM (_, monad) = (), monad

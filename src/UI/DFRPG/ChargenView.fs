@@ -9,8 +9,9 @@ module private Impl =
     let toggle dispatch (key: Key) (newValue: bool) =
         if newValue then dispatch (SetKey(key, Some Flag))
         else dispatch (SetKey(key, None))
-    let changeLevel dispatch key (newLevel: int) =
-        ()
+    let changeLevel dispatch key (newLevel: int) (levelCount: int) =
+        if newLevel < 0 then dispatch (SetKey(key, None))
+        elif newLevel < levelCount then dispatch (SetKey(key, Some (Level newLevel)))
     let checkbox (txt: string) checked' (onChange: bool -> unit) children =
         let id = System.Guid.NewGuid().ToString()
         Html.li [
@@ -27,7 +28,7 @@ module private Impl =
         {
         checked' = fun (label, key, children) -> checkbox label true (toggle key) children
         unchecked = fun (label, key) -> checkbox label false (toggle key) []
-        leveledLeaf = fun (label, key, level) -> class' "" Html.li [ button "-" (thunk3 changeLevel dispatch key (level-1)); button "+" (thunk3 changeLevel dispatch key (level+1)); Html.text label ]
+        leveledLeaf = fun (label, key, level, levelCount) -> class' "" Html.li [ button "-" (thunk4 changeLevel dispatch key (level-1) levelCount); button "+" (thunk4 changeLevel dispatch key (level+1) levelCount); Html.text label ]
         unconditional = fun (label, children) -> class' "" Html.li [ Html.text label; combine children ]
         combine = combine
         }
