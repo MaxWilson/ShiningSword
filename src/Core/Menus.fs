@@ -143,7 +143,7 @@ type Op =
             let level ix =
                 let level = levels[ix] // e.g. if this is skill("Rapier", [+5..+8]) then ix 0 means level = +5 and value = Rapier +5
                 let value = ctor level
-                Some value, Leveled(defaultArg config.label $"{value}", ix)
+                Some value, Leveled(defaultArg config.label $"{String.structured value}", ix)
             match input.getKey fullKey with
             | Some (Level lvl) when lvl < levels.Length -> level lvl
             | Some Flag when levels.Length >= 1 -> // we are permissive in the input we accept, partly to make testing easier. Flag means "default to the lowest value", e.g. Rapier +5-+7 defaults to Rapier +5.

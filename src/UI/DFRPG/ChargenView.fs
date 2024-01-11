@@ -14,7 +14,7 @@ module private Impl =
     let reactApi: ReactElement RenderApi = {
         checked' = fun (label, key, children) -> checkbox label true ignore
         unchecked = fun (label, key) -> checkbox label false ignore
-        leveledLeaf = fun (label, level) -> React.fragment [ button "-" ignore; button "+" ignore; Html.input [ prop.type'.number; prop.text label ] ]
+        leveledLeaf = fun (label, level) -> React.fragment [ button "-" ignore; button "+" ignore; Html.text label ]
         unconditional = fun (label, children) -> React.fragment [ Html.text label; Html.div children ]
         combine = function [v] -> v | vs -> React.fragment vs
         }

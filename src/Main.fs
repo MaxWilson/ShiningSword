@@ -8,7 +8,6 @@ open Fable.Core.JsInterop
 
 importSideEffects "../main.sass"
 
-
 [<ReactComponent>]
 let Router() =
     let (currentUrl, updateUrl) = React.useState(Router.currentUrl())

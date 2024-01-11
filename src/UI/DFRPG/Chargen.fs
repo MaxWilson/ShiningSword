@@ -4,8 +4,14 @@ open Feliz
 open Fable.React
 type Stuff = Foo | Bar
 type Weapon = Sword | Bow
-type Trait = WeaponMaster of Weapon | CombatReflexes | Skill of string * bonus:int
 
+[<StructuredFormatDisplay "DisplayString">]
+type Trait = WeaponMaster of Weapon | CombatReflexes | Skill of string * bonus:int
+    with
+    member this.DisplayString =
+        match this with
+        | Skill(skill, bonus) -> $"{skill} %+d{bonus}"
+        | otherwise -> String.uncamel (string otherwise)
 type Multimap<'key, 'value when 'key:comparison and 'value: comparison> = Map<'key, Set<'value>>
 type OrderedMultimap<'key, 'value when 'key:comparison and 'value: comparison> = Map<'key, List<'value>>
 open Menus
