@@ -5,29 +5,40 @@ open UI.DFRPG.Chargen
 
 module private Impl =
     let button (txt: string) onClick = Html.button [ prop.text txt; prop.onClick onClick ]
-    let checkbox (txt: string) checked' (onChange: bool -> unit) =
+    let combine = function [] -> React.fragment [] | [v] -> v | vs -> Html.ul [prop.style [style.listStyleType.none; style.listStylePosition.outside]; prop.children vs]
+    let toggle dispatch (key: Key) (newValue: bool) =
+        if newValue then dispatch (SetKey(key, Some Flag))
+        else dispatch (SetKey(key, None))
+    let changeLevel dispatch key (newLevel: int) =
+        ()
+    let checkbox (txt: string) checked' (onChange: bool -> unit) children =
         let id = System.Guid.NewGuid().ToString()
         Html.li [
             Html.input [ prop.type'.checkbox; prop.id id; prop.isChecked checked'; prop.onChange onChange ]
             Html.label [ prop.htmlFor id; prop.text txt ]
+            match children with
+            | [] -> ()
+            | children ->
+                combine children
             ]
-    let reactApi: ReactElement RenderApi =
-        let combine = function [] -> React.fragment [] | [v] -> v | vs -> Html.ul [prop.style [style.listStyleType.none; style.listStylePosition.outside]; prop.children vs]
+
+    let reactApi dispatch: ReactElement RenderApi =
+        let toggle = toggle dispatch
         {
-        checked' = fun (label, key, children) -> checkbox label true ignore
-        unchecked = fun (label, key) -> checkbox label false ignore
-        leveledLeaf = fun (label, level) -> class' "" Html.li [ button "-" ignore; button "+" ignore; Html.text label ]
+        checked' = fun (label, key, children) -> checkbox label true (toggle key) children
+        unchecked = fun (label, key) -> checkbox label false (toggle key) []
+        leveledLeaf = fun (label, key, level) -> class' "" Html.li [ button "-" (thunk3 changeLevel dispatch key (level-1)); button "+" (thunk3 changeLevel dispatch key (level+1)); Html.text label ]
         unconditional = fun (label, children) -> class' "" Html.li [ Html.text label; combine children ]
         combine = combine
         }
-    let eval selections (template: Trait ListOffer list) =
+    let eval dispatch selections (template: Trait ListOffer list) =
         let value, menus =
             [
             for offer in template do
                 evaluate { OfferInput.fresh with selected = selections } offer
             ]
             |> List.unzip
-        let react = render reactApi menus
+        let react = render (reactApi dispatch) menus
         value |> List.collect id, react
 open Impl
 
@@ -35,7 +46,7 @@ open Impl
 let View() =
     let model, dispatch = React.useElmishSimple init update
     let profession = swash
-    let value, react = eval model.selections profession // value will be used later for things like enabling/disabling the Save button
+    let value, react = eval dispatch model.selections profession // value will be used later for things like enabling/disabling the Save button
     Html.div [
         srcLink
         react

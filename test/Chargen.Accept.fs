@@ -37,7 +37,7 @@ Example UX flow:
 *)
 
 [<StructuredFormatDisplay("{DisplayText}")>]
-type Trait' = CombatReflexes | Skill of string * int
+type Trait = CombatReflexes | Skill of string * int
     with
     member this.DisplayText =
         match this with
@@ -46,7 +46,7 @@ type Trait' = CombatReflexes | Skill of string * int
 
 let makeSkill name = { ctor = (fun bonus -> Skill(name, bonus)); toString = fun skill -> skill.DisplayText }
 let skill(name:string, level: int) =
-    Op.trait'(Skill(name, level))
+    Op.trait'({ blank() with toString = Some (fun (t:Trait) -> t.DisplayText)}, Skill(name, level))
 let skillN(name:string, levels: int list) =
     Op.level(name, makeSkill name, levels)
 
@@ -54,7 +54,7 @@ type Pseudoreact =
     | Checked of string * Key * Pseudoreact list
     | Unchecked of string * Key
     | Unconditional of string * Pseudoreact list
-    | NumberInput of string * int
+    | NumberInput of string * Key * int
     | Fragment of Pseudoreact list
 
 let pseudoReactApi = {
@@ -89,7 +89,7 @@ let testFors (selections: string list) expected offers =
         failtest $"Actual diverged from expected! After: \n{same}\n\nExpected: \n{expected}\n\nbut got:\n{actual}"
 
 type FightHide = Fight | Hide
-let label txt = let blank = blankStringConfig() in { blank with toString = Some (thunk ""); inner.label = Some "" }
+let label txt = let blank = blank() in { blank with toString = Some (thunk ""); inner.label = Some txt }
 
 [<Tests>]
 let units = testList "Unit.Chargen" [
@@ -119,7 +119,7 @@ let units = testList "Unit.Chargen" [
         nestedEither |> testFor ["Sword!"] (
             Either(None, [
                 true, key "Sword!", Either(Some "Sword!", [
-                    false, key "Sword!-Rapier", Leaf "Rapier +5" // note how Leveled is only Leveled if selected. When unselected it's a Leaf just like anything else.
+                    false, key "Sword!-Rapier", Leaf "Rapier +5" // note how Leveled is only Leveled if selected. When unselected it's a Leaf just like anything else. Note also that the key is the generic "Rapier" and not the specific level, which changes as the user clicks.
                     false, key "Sword!-Broadsword", Leaf "Broadsword +5"
                     false, key "Sword!-Shortsword", Leaf "Shortsword +5"
                     ])
@@ -128,7 +128,7 @@ let units = testList "Unit.Chargen" [
         nestedEither |> testFor ["Sword!"; "Sword!-Rapier"] (
             Either(None, [
                 true, key "Sword!", Either(Some "Sword!", [
-                    true, key "Sword!-Rapier", Leveled("Rapier +5", 0) // it's a Levelled, not a Leaf, because it's currently selected. Note that the level is 0, not +5, because it's the lowest level out of +5 to +5.
+                    true, key "Sword!-Rapier", Leveled("Rapier +5", key "Sword!-Rapier", 0) // it's a Levelled, not a Leaf, because it's currently selected. Note that the level is 0, not +5, because it's the lowest level out of +5 to +5.
                     ])
                 ])
             )
@@ -154,7 +154,7 @@ let tests =
             let pseudoActual = // pseudo-actual because actual will be created from templates + OfferInput (i.e. selected keys), not hardwired as Menus, but that's still TODO
                 // swash is not a MenuOutput but it can create MenuOutputs which can then be either unit tested or turned into ReactElements
                 // think of swash as an offer menu
-                let swash(): Trait' ListOffer list = [
+                let swash(): Trait ListOffer list = [
                     let budgetStub n = fun _ -> n // currently budgetF is hardwired to always think there's another n in the budget. TODO: make it aware of the current selections somehow
                     skill("Climbing", 1) |> promote
                     skillN("Stealth", [1..3]) |> promote
@@ -176,7 +176,7 @@ let tests =
                 let offers = swash()
                 let expectedMenus = [
                     Leaf "Climbing +1" // Leaf not Level because swash() template is only using trait', not level
-                    Leveled("Stealth +1", 0) // Leveled because it can go up to +3
+                    Leveled("Stealth +1", key "Stealth", 0) // Leveled because it can go up to +3
                     Either(None, [
                         false, key "Combat Reflexes", Leaf "Combat Reflexes"
                         false, key "Acrobatics", Leaf "Acrobatics +1"
@@ -196,13 +196,13 @@ let tests =
             let (|Checked|) = function Checked(label, key, children) -> Checked(label, key, children) | v -> fail "Checked" v
             let (|Unchecked|) = function Unchecked(label, key) -> Unchecked(label, key) | v -> fail "Unchecked" v
             let (|Unconditional|) = function Unconditional(label, children) -> Unconditional(label, children) | v -> fail "Unconditional" v
-            let (|NumberInput|) = function NumberInput(label, value) -> NumberInput(label, value) | v -> fail "NumberInput" v
+            let (|NumberInput|) = function NumberInput(label, key, value) -> NumberInput(label, key, value) | v -> fail "NumberInput" v
             let (|Fragment|) = function Fragment(children) -> Fragment(children) | v -> fail "Fragment" v
             let (|Expect|_|) expect actual = if expect = actual then Some () else fail expect actual
             match pseudoActual with
             | Fragment([
                 Unconditional(Expect "Climbing +1", [])
-                NumberInput(Expect "Stealth +1", Expect 0)
+                NumberInput(Expect "Stealth +1", Expect ["Stealth"], Expect 0)
                 Unconditional(Expect "Choose one:", [
                     Unchecked(Expect "Combat Reflexes", Expect ["Combat Reflexes"])
                     Unchecked(Expect "Acrobatics +1", Expect ["Acrobatics"]) // note: Acrobatics is the key here, not Acrobatics +1, because it's leveled.

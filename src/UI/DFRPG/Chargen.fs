@@ -54,13 +54,14 @@ type DFRPGCharacter = { // stub
     }
     with static member fresh = { traits = Set.empty }
 
-type Msg = RefreshedOutput of DFRPGCharacter
+type Msg =
+    | SetKey of Key * MaybeLevel option
 type Model = {
-    currentOutput: DFRPGCharacter Option
     selections: Map<Key, MaybeLevel>
     }
 
-let init _ = { currentOutput = None; selections = Map.empty }
+let init _ = { selections = Map.empty }
 let update msg model =
     match msg with
-    | RefreshedOutput output -> { model with currentOutput = Some output }
+    | SetKey(key, None) -> { model with selections = model.selections |> Map.remove key }
+    | SetKey(key, Some v) -> { model with selections = model.selections |> Map.add key v }
