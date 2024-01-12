@@ -90,7 +90,10 @@ let render (render: 'reactElement RenderApi) (menus: MenuOutput list) =
                         let childReact = recur isChecked renderChild child
                         childReact
                 ]
-            renderMe(defaultArg label "Choose one:", children)
+            if selections |> List.every (fun (isChecked, _, _) -> isChecked) then
+                render.combine children
+            else
+                renderMe(defaultArg label "Choose one:", children)
         | And(label, grants) ->
             let childReacts = grants |> List.map (recur true render.unconditional)
             renderMe(defaultArg label "And:", childReacts)

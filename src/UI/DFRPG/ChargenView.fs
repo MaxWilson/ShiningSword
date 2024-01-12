@@ -5,7 +5,7 @@ open UI.DFRPG.Chargen
 
 module private Impl =
     let button (txt: string) onClick = Html.button [ prop.text txt; prop.onClick onClick ]
-    let combine = function [] -> React.fragment [] | [v] -> v | vs -> Html.ul [prop.style [style.listStyleType.none; style.listStylePosition.outside]; prop.children vs]
+    let bundle = function [] -> React.fragment [] | [v] -> v | vs -> Html.ul [prop.style [style.listStyleType.none; style.listStylePosition.outside]; prop.children vs]
     let toggle dispatch (key: Key) (newValue: bool) =
         if newValue then dispatch (SetKey(key, Some Flag))
         else dispatch (SetKey(key, None))
@@ -20,7 +20,7 @@ module private Impl =
             match children with
             | [] -> ()
             | children ->
-                combine children
+                bundle children
             ]
 
     let reactApi dispatch: ReactElement RenderApi =
@@ -29,8 +29,8 @@ module private Impl =
         checked' = fun (label, key, children) -> checkbox label true (toggle key) children
         unchecked = fun (label, key) -> checkbox label false (toggle key) []
         leveledLeaf = fun (label, key, level, levelCount) -> class' "" Html.li [ button "-" (thunk4 changeLevel dispatch key (level-1) levelCount); button "+" (thunk4 changeLevel dispatch key (level+1) levelCount); Html.text label ]
-        unconditional = fun (label, children) -> class' "" Html.li [ Html.text label; combine children ]
-        combine = combine
+        unconditional = fun (label, children) -> class' "" Html.li [ Html.text label; bundle children ]
+        combine = React.fragment
         }
     let eval dispatch selections (template: Trait ListOffer list) =
         let value, menus =
