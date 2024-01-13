@@ -135,6 +135,21 @@ type Op =
                     // let allChildMenus = children |> List.map snd
                     fallbackValue, Either(config.label, allChildMenus)
             )
+    static let andF config offers =
+        offer(
+            { config.inner with explicitUnselectedLabel = match offers |> List.map (_.config.explicitUnselectedLabel) with | [Some lhs; Some rhs] -> Some $"{lhs} and {rhs}" | _ -> None }, // promote label in the simple case
+            fun config input ->
+                let children = [
+                    for o in offers do
+                        // we only need the key to distinguish between eithers, not ands, so we extend the input by the child key only for either
+                        let (value, menu) = o.recur input
+                        value, menu
+                    ]
+                let selectedValues = children |> List.collect fst
+                let childMenus = children |> List.map snd
+                selectedValues, And(config.label, childMenus)
+            )
+
 
     static member trait' (v: 't): 't OptionOffer =
         Op.trait'({ inner = OfferConfigCore.blank; toString = None }, v)
@@ -212,25 +227,13 @@ type Op =
         eitherF (|Fulfilled|Partial|Fallback|) [] options config
 
     static member and' (offers: 't OptionOffer list) : 't ListOffer =
-        Op.and'(blank(), offers)
+        andF (blank()) (offers |> List.map (fun o -> Op.promote o))
     static member and' (offers: 't ListOffer list) : 't ListOffer =
-        Op.and'(blank(), offers)
+        andF (blank()) offers
     static member and' (config, offers: 't OptionOffer list) : 't ListOffer =
-        Op.and'(config, offers |> List.map (fun o -> Op.promote o))
+        andF config (offers |> List.map (fun o -> Op.promote o))
     static member and' (config: 't OfferConfig, offers: 't ListOffer list) : 't ListOffer =
-        offer(
-            { config.inner with explicitUnselectedLabel = match offers |> List.map (_.config.explicitUnselectedLabel) with | [Some lhs; Some rhs] -> Some $"{lhs} and {rhs}" | _ -> None }, // promote label in the simple case
-            fun config input ->
-                let children = [
-                    for o in offers do
-                        // we only need the key to distinguish between eithers, not ands, so we extend the input by the child key only for either
-                        let (value, menu) = o.recur input
-                        value, menu
-                    ]
-                let selectedValues = children |> List.collect fst
-                let childMenus = children |> List.map snd
-                selectedValues, And(config.label, childMenus)
-            )
+        andF config offers
 
     static member promote (o: 't OptionOffer): 't ListOffer =
         offer(
