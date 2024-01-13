@@ -58,7 +58,7 @@ type 't Offer = { config: OfferConfigCore; func: (OfferConfigCore -> OfferInput 
     member this.recur input = this.func this.config input
     member this.LabelWhenUnselected (ix: int) =
         let config = this.config
-        config.explicitUnselectedLabel |> Option.orElse config.label |> Option.defaultWith (fun () -> $"Option {ix}")
+        config.explicitUnselectedLabel |> Option.orElse config.label |> Option.defaultWith (fun () -> $"Option {ix+1}")
 
 type 't ListOffer = ('t list) Offer
 type 't OptionOffer = ('t option) Offer
@@ -135,9 +135,9 @@ type Op =
                     // let allChildMenus = children |> List.map snd
                     fallbackValue, Either(config.label, allChildMenus)
             )
-    static let andF config offers =
+    static let andF config (offers: _ ListOffer list) =
         offer(
-            { config.inner with explicitUnselectedLabel = match offers |> List.map (_.config.explicitUnselectedLabel) with | [Some lhs; Some rhs] -> Some $"{lhs} and {rhs}" | _ -> None }, // promote label in the simple case
+            { config.inner with explicitUnselectedLabel = match offers |> List.mapi (fun ix offer -> offer.LabelWhenUnselected ix) with | [lhs; rhs] -> Some $"{lhs} and {rhs}" | _ -> None }, // promote label in the simple case
             fun config input ->
                 let children = [
                     for o in offers do

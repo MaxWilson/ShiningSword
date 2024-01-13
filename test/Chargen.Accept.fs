@@ -89,7 +89,10 @@ let testFors (selections: string list) expected offers =
         failtest $"Actual diverged from expected! After: \n{same}\n\nExpected: \n{expected}\n\nbut got:\n{actual}"
 
 type FightHide = Fight | Hide
-let label txt = let blank = blank() in { blank with toString = Some (thunk ""); inner.label = Some txt }
+let labelConfig txt = let blank = blank() in { blank with toString = None; inner.label = Some txt }
+let keyedConfig key =
+    let config = blank()
+    { config with inner.key = Some key }
 
 [<Tests>]
 let units = testList "Unit.Chargen" [
@@ -99,12 +102,12 @@ let units = testList "Unit.Chargen" [
         either[trait' Fight; trait' Hide] |> testFor ["Fight"] (Either(None, [true, key "Fight", Leaf "Fight"]))
     testCase "nested either with list" <| fun () ->
         let nestedEither = eitherN [
-            either(label "Sword!", [skillN("Rapier", [+5..+6]); skillN("Broadsword", [+5..+6]); skillN("Shortsword", [+5..+6])]) |> promote // make sure to exercise Op.level even though the actual DFRPG swashbuckler doesn't have a +6 option
-            and'(label "Sword and Dagger", [
+            either(labelConfig "Sword!", [skillN("Rapier", [+5..+6]); skillN("Broadsword", [+5..+6]); skillN("Shortsword", [+5..+6])]) |> promote // make sure to exercise Op.level even though the actual DFRPG swashbuckler doesn't have a +6 option
+            and'(labelConfig "Sword and Dagger", [
                 either [skill("Rapier", +4); skill("Broadsword", +4); skill("Shortsword", +4)]
                 skill("Main-gauche", +1)
                 ])
-            and'(label "Sword and Shield", [
+            and'(labelConfig "Sword and Shield", [
                 either [skill("Rapier", +4); skill("Broadsword", +4); skill("Shortsword", +4)]
                 skill("Shield", +2)
                 ])
@@ -145,8 +148,10 @@ let units = testList "Unit.Chargen" [
                     ])
             )
     testCase "and' should have a key based on its children" <| fun() ->
+        let offer = skill("Fast-Draw (Sword)", +1)
+        test <@ offer.LabelWhenUnselected 0 = "Fast-Draw (Sword) +1" @>
         let offer = and'([skill("Fast-Draw (Sword)", +1); skill("Fast-Draw (Dagger)", +1)])
-        test <@ offer.config.key.Value = "Fast-Draw (Sword) +1 and Fast-Draw (Dagger) +1" @>
+        test <@ offer.LabelWhenUnselected 0 = "Fast-Draw (Sword) +1 and Fast-Draw (Dagger) +1" @>
     ]
 [<Tests>]
 let tests =
@@ -154,6 +159,9 @@ let tests =
 
         testCase "Interactivity" <| fun () ->
             let key = parseKey
+            let keyedConfig key =
+                let config = blank()
+                { config with inner.key = Some key }
             let pseudoActual = // pseudo-actual because actual will be created from templates + OfferInput (i.e. selected keys), not hardwired as Menus, but that's still TODO
                 // swash is not a MenuOutput but it can create MenuOutputs which can then be either unit tested or turned into ReactElements
                 // think of swash as an offer menu
@@ -167,14 +175,14 @@ let tests =
                         ])
                     let weaponsAt (bonus: int) = [for name in ["Rapier"; "Broadsword"; "Shortsword"] -> Op.level(name, makeSkill name, [bonus..bonus+3])] // make sure Op.level gets exercised
                     eitherN [
-                        either(label "Sword!", weaponsAt +5) |> promote
-                        and'(label "Sword and Dagger", [either(weaponsAt +4); skill("Main-gauche", +1)])
-                        and'(label "Sword and Shield", [either(weaponsAt +4); skill("Shield", +2)])
+                        either(labelConfig "Sword!", weaponsAt +5) |> promote
+                        and'(labelConfig "Sword and Dagger", [either(weaponsAt +4); skill("Main-gauche", +1)])
+                        and'(labelConfig "Sword and Shield", [either(weaponsAt +4); skill("Shield", +2)])
                         ]
-                    eitherN [
+                    eitherN (keyedConfig "Fast-draws", 1, [ // the key is deliberately different from the skill and label, just to show that we can be
                         skill("Fast-Draw (Sword)", +2) |> promote
                         and'([skill("Fast-Draw (Sword)", +1); skill("Fast-Draw (Dagger)", +1)])
-                        ]
+                        ])
                     ]
                 let offers = swash()
                 let expectedMenus = [
@@ -191,9 +199,9 @@ let tests =
                             false, key "Sword!-Shortsword", Leaf "Shortsword +5"
                             ])
                         ])
-                    Either(None, [true, ["Fast-Draw (Sword) +1 and Fast-Draw (Dagger) +1"], Leaf "Fast-Draw (Sword) +1 and Fast-Draw (Dagger) +1"])
+                    Either(None, [true, key "Fast/-draws-Option 2", Leaf "Fast-Draw (Sword) +1 and Fast-Draw (Dagger) +1"])
                     ]
-                offers |> testFors ["Sword!"; "Fast/-Draw (Sword) +1 and Fast/-Draw (Dagger) +1"] expectedMenus // evaluate swash() with Sword! selected and compare it to expectedMenus. Escape Fast-Draw to prevent it from being interpreted by parseKey as Fast + Draw
+                offers |> testFors ["Sword!"; "Fast/-draws-Option 2"] expectedMenus // evaluate swash() with Sword! selected and compare it to expectedMenus. Escape Fast-Draw to prevent it from being interpreted by parseKey as Fast + Draw
                 render pseudoReactApi expectedMenus // if that passes, render it to ReactElements and see if it looks right
             let fail expect v = failwith $"Expected {expect} but got {v}\nContext: {pseudoActual}"
             let (|Checked|) = function Checked(label, key, children) -> Checked(label, key, children) | v -> fail "Checked" v
