@@ -9,6 +9,7 @@
     <Compile Include="Core\Coroutine.fs" />
     <Compile Include="Core\Packrat.fs" />
     <Compile Include="Core\Menus.fs" />
+    <Compile Include="Ribbit\RibbitCore.fs" />
     <Compile Include="Domain\ADND\PriestSpells.fs" />
     <Compile Include="Domain\DFRPG\Chargen.Templates.fs" />
     <Compile Include="UI\CommonUI.fs" />
@@ -16,6 +17,7 @@
     <Compile Include="UI\DFRPG\Chargen.fs" />
     <Compile Include="UI\DFRPG\ChargenView.fs" />
     <Compile Include="UI\ADND\PriestSpellsView.fs" />
+    <Compile Include="UI\Ribbit\RibbitPlaygroundView.fs" />
     <Compile Include="UI\Components.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>

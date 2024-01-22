@@ -17,6 +17,7 @@ let Router() =
             let lookup = [
                 "priestSpells", "Priest Spells by Sphere", (fun () -> UI.ADND.PriestSpells.View.View())
                 "dfrpgChargen", "Create a character for Dungeon Fantasy RPG", (fun () -> UI.DFRPG.Chargen.View.View())
+                "playground", "Ribbit Playground (under construction)", (fun () -> UI.Ribbit.PlaygroundView.View())
                 ]
             let (|Segment|_|) segment =
                 lookup |> List.tryFind (fun (s, _, _) -> s = segment)

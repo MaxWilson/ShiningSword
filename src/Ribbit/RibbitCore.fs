@@ -1,0 +1,3 @@
+[<AutoOpen>]
+module Ribbit.Core
+
