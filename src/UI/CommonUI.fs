@@ -37,6 +37,24 @@ type React =
     static member ofJsx (jsx: Fable.Core.JSX.Element) = jsx |> unbox<ReactElement>
     static member toJsx (element: ReactElement) = element |> unbox<Fable.Core.JSX.Element>
 
+type 'row TableColumn = { header: string; cell: 'row -> ReactElement }
+let table (headers: _ TableColumn list) bodyRows =
+    Html.table [
+        Html.thead [
+            Html.tr [
+                for header in headers do
+                    Html.th [ Html.text header.header ]
+                ]
+            ]
+        Html.tbody [
+            for row in bodyRows do
+                Html.tr [
+                    for header in headers do
+                        Html.td [ header.cell row ]
+                    ]
+            ]
+        ]
+
 // originally from https://github.com/fable-compiler/fable-react/blob/master/docs/react-error-boundaries.md, but updated to Fable 4
 module ReactErrorBoundary =
     open Fable.Core

@@ -154,3 +154,20 @@ ul
     @extend .hasMargins
     max-height: calc(100svh - 6px)
 
+table
+    border: thin solid
+    td
+        border: thin solid
+        > * // put the padding on the child element so that e.g. dangerouslyLow can be all red with no gap for parent padding
+            padding: 2px
+
+.dangerouslyLow
+    background-color: red
+    color: white
+
+.mediumLow
+    background-color: yellow
+
+$limegreen: #32CD32
+.enough
+    background-color: $limegreen

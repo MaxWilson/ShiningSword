@@ -1,9 +1,9 @@
 {
   "private": true,
   "scripts": {
-    "start": "dotnet tool restore && dotnet fable watch src -e .jsx -o dist --runFast vite --port 8080",
-    "buildGithub": "dotnet fable src -e .jsx -o dist --sourceMaps --run vite build --base /ShiningSword",
-    "build": "dotnet tool restore && dotnet fable src -e .jsx -o dist --run vite build",
+    "start": "dotnet tool restore && dotnet fable watch src -o dist --runFast vite --port 8080",
+    "buildGithub": "dotnet fable src -o dist --sourceMaps --run vite build --base /ShiningSword",
+    "build": "dotnet tool restore && dotnet fable src -o dist --run vite build",
     "clean": "dotnet fable clean src --yes"
   },
   "dependencies": {
