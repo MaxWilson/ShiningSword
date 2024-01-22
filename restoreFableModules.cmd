@@ -1,0 +1,2 @@
+REM Fable has a habit of "forgetting" the js versions of modules when I switch git branches, and while restarting fable is a valid workaround, I'm tried of doing it so I'm writing this script.
+robocopy /s dist\fable_backup dist\fable_modules
