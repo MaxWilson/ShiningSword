@@ -48,19 +48,36 @@ open Impl
 [<ReactComponent>]
 let View() =
     let model dispatch = React.useElmishSimple init update
-    class' "scrollParent" Html.div [
+    Html.div [
         srcLink
-        table [
-            text "Name"
-            numeric "HP"
-            numeric "SP"
-            numeric "AC"
-            textWithDefault "Status" "OK"
-            ] data
-        class' "scrollable" Html.div [
-            Html.div "Rath's HP are now 14"
-            Html.div "Delsenora casts Fireball!"
-            Html.div "Wild Boar attacks Rath!"
+        class' "playground-frame" Html.div [
+            Svg.svg [
+                svg.viewBox (0,0,100,100)
+                svg.children [
+                    Svg.rect [svg.x 0; svg.y 0; svg.height 200; svg.width 200; svg.fill "pink"]
+                    Svg.title [svg.text "Battle view"]
+                    Svg.text [svg.text "Battle view"; svg.x 5; svg.y 20]
+                    Svg.circle [svg.r 8; svg.cx 43; svg.cy 50; svg.fill "red"]
+                    Svg.circle [svg.r 8; svg.cx 50; svg.cy 65; svg.fill "green"]
+                    Svg.circle [svg.r 12; svg.cx 22; svg.cy 43; svg.fill "lightgreen"]
+                    ]
+                ]
+            class' "fullWidth" Html.div [
+                table []
+                    [
+                    text "Name"
+                    numeric "HP"
+                    numeric "SP"
+                    numeric "AC"
+                    textWithDefault "Status" "OK"
+                    ] data
+                ]
+            class' "bordered sidebar-right" Html.div [
+                Html.h2 "Log"
+                Html.div "Rath's HP are now 14"
+                Html.div "Delsenora casts Fireball!"
+                Html.div "Wild Boar attacks Rath!"
+                ]
+            Html.input [prop.placeholder "Enter a command"]
             ]
-        Html.input [prop.placeholder "Enter a command"]
         ]

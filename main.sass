@@ -1,3 +1,5 @@
+$limegreen: #32CD32
+
 // CSS resets per Kevin Powell
 
 *, *::before, *::after
@@ -149,6 +151,11 @@ ul
     flex: 1
     align-self: stretch
 
+.bordered
+    border: thin solid black
+    padding: 2px
+    margin: 2px
+
 .mainPage // page styling for most pages in ShiningSword: display a basic layout with a header, some data items and links
     @extend .fadeIn
     @extend .hasMargins
@@ -168,6 +175,16 @@ table
 .mediumLow
     background-color: yellow
 
-$limegreen: #32CD32
 .enough
     background-color: $limegreen
+
+.playground-frame
+    display: grid
+    grid-template-columns: minmax(auto, 30%) auto
+    > *
+        grid-column: 1
+    .sidebar-right
+        grid-column: 2
+        grid-row: 1/-1
+    .fullWidth
+        grid-column: 1/-1

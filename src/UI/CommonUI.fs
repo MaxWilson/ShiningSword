@@ -38,20 +38,23 @@ type React =
     static member toJsx (element: ReactElement) = element |> unbox<Fable.Core.JSX.Element>
 
 type 'row TableColumn = { header: string; cell: 'row -> ReactElement }
-let table (headers: _ TableColumn list) bodyRows =
+let table attributes (headers: _ TableColumn list) bodyRows =
     Html.table [
-        Html.thead [
-            Html.tr [
-                for header in headers do
-                    Html.th [ Html.text header.header ]
-                ]
-            ]
-        Html.tbody [
-            for row in bodyRows do
+        yield! attributes
+        prop.children [
+            Html.thead [
                 Html.tr [
                     for header in headers do
-                        Html.td [ header.cell row ]
+                        Html.th [ Html.text header.header ]
                     ]
+                ]
+            Html.tbody [
+                for row in bodyRows do
+                    Html.tr [
+                        for header in headers do
+                            Html.td [ header.cell row ]
+                        ]
+                ]
             ]
         ]
 
