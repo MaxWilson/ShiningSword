@@ -96,7 +96,11 @@ let render (render: 'reactElement RenderApi) (menus: MenuOutput list) =
                 renderMe(defaultArg label "Choose one:", children)
         | And(label, grants) ->
             let childReacts = grants |> List.map (recur true render.unconditional)
-            renderMe(defaultArg label "And:", childReacts)
+            match label with
+            | Some label ->
+                renderMe(label, childReacts)
+            | None ->
+                render.combine childReacts
         | Leveled(name, key, lvl, levelCount) -> render.leveledLeaf(name, key, lvl, levelCount)
         | Leaf(name) -> renderMe(name, [])
     menus |> List.map (recur true render.unconditional) |> render.combine
@@ -146,8 +150,12 @@ type Op =
                         value, menu
                     ]
                 let selectedValues = children |> List.collect fst
+                let noMissingValues = children |> List.exists (fst >> List.isEmpty)
                 let childMenus = children |> List.map snd
-                selectedValues, And(config.label, childMenus)
+                if noMissingValues then
+                    selectedValues, And(config.label, childMenus)
+                else
+                    selectedValues, And(None, childMenus)
             )
 
 
