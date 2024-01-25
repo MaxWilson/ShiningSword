@@ -113,7 +113,13 @@ type Op =
     static let offer(config, logic) = { config = config; func = logic }
     static let eitherF (|Fulfilled|Partial|Fallback|) valueWhenUnselected options config =
         offer(
-            { config.inner with explicitUnselectedLabel = config.inner.label |> Option.defaultWith (fun () -> (defaultArg config.toString String.structured) (List.head options) ) |> Some },
+            { config.inner
+                with explicitUnselectedLabel =
+                        match config.inner.label, options with
+                        | Some label, _ -> Some label
+                        | None, [o] -> o.config.explicitUnselectedLabel |> Option.orElseWith (fun () -> (defaultArg config.toString String.structured) o |> Some)
+                        | None, _ -> None
+                },
             fun config input ->
                 let children = [
                     for ix, o in options |> List.mapi Tuple2.create do
@@ -141,7 +147,15 @@ type Op =
             )
     static let andF config (offers: _ ListOffer list) =
         offer(
-            { config.inner with explicitUnselectedLabel = match offers |> List.mapi (fun ix offer -> offer.LabelWhenUnselected ix) with | [lhs; rhs] -> Some $"{lhs} and {rhs}" | _ -> None }, // promote label in the simple case
+            { config.inner
+                with explicitUnselectedLabel =
+                        match config.inner.label, offers with
+                        | Some label, _ -> Some label
+                        | None, [lhs;rhs] ->
+                            // promote label in the simple case
+                            Some $"{lhs.LabelWhenUnselected 0} and {lhs.LabelWhenUnselected 1}"
+                        | _ -> None
+                },
             fun config input ->
                 let children = [
                     for o in offers do
