@@ -100,7 +100,7 @@ let units = testList "Unit.Chargen" [
     testCase "basic either" <| fun () ->
         either[trait' Fight; trait' Hide] |> testFor [] (Either(None, [false, key "Fight", Leaf "Fight"; false, key "Hide", Leaf "Hide"]))
         either[trait' Fight; trait' Hide] |> testFor ["Fight"] (Either(None, [true, key "Fight", Leaf "Fight"]))
-    testCase "and' should have a key based on its children" <| fun() ->
+    testCase "key verification" <| fun() ->
         let offer = skill("Fast-Draw (Sword)", +1)
         test <@ offer.LabelWhenUnselected 0 = "Fast-Draw (Sword) +1" @>
         let offer = and'([skill("Fast-Draw (Sword)", +1); skill("Fast-Draw (Dagger)", +1)])
@@ -109,6 +109,11 @@ let units = testList "Unit.Chargen" [
         test <@ (and'([skill("Fast-Draw (Sword)", +1); skill("Fast-Draw (Dagger)", +1)])).config.key = Some "Fast-Draw (Sword) +1 and Fast-Draw (Dagger) +1" @>
         let offer = eitherN[and'([skill("Fast-Draw (Sword)", +1); skill("Fast-Draw (Dagger)", +1)]); skill("Stealth", +1) |> Op.promote]
         offer |> testFor ["Stealth +1"] (Either(None, [true, key "Stealth +1", Leaf "Stealth +1"]))
+        let offer = and'(labelConfig "Sword and Dagger", [
+                either [skill("Rapier", +4); skill("Broadsword", +4); skill("Shortsword", +4)]
+                skill("Main-gauche", +1)
+                ])
+        test <@ offer.config.key = Some "Sword and Dagger" @>
     testCase "nested either with list" <| fun () ->
         let nestedEither = eitherN [
             either(labelConfig "Sword!", [skillN("Rapier", [+5..+6]); skillN("Broadsword", [+5..+6]); skillN("Shortsword", [+5..+6])]) |> promote // make sure to exercise Op.level even though the actual DFRPG swashbuckler doesn't have a +6 option
