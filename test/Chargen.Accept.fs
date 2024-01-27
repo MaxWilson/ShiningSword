@@ -177,17 +177,31 @@ let units = testList "Unit.Chargen" [
     testCase "rendering" <| fun () ->
         let menus =
             Either(None, [true, key "Foo",
-                And(Some "Foo", [
+                And(None, [
                     Leaf("Bar")
                     Leaf("Baz")
                     ])
                 ])
         test <@ render pseudoReactApi [menus] = Fragment([
-            Checked("Foo", key "Foo", [
+            Fragment [
                 Checked("Bar", key "Foo", [])
                 Checked("Baz", key "Foo", [])
-                ])
+                ]
             ]) @>
+        let menus =
+            Either(None, [true, key "Fast/-draws-Fast/-Draw (Sword) +1 and Fast/-Draw (Dagger) +1",
+                And(None, [
+                    Leaf("Fast-Draw (Sword) +1")
+                    Leaf("Fast-Draw (Dagger) +1")
+                    ])
+                ])
+        test <@ render pseudoReactApi [menus] = Fragment([
+            Fragment [
+                Checked("Fast-Draw (Sword) +1", key "Fast/-draws-Fast/-Draw (Sword) +1 and Fast/-Draw (Dagger) +1", [])
+                Checked("Fast-Draw (Dagger) +1", key "Fast/-draws-Fast/-Draw (Sword) +1 and Fast/-Draw (Dagger) +1", [])
+                ]
+            ]) @>
+
     ]
 [<Tests>]
 let tests =
