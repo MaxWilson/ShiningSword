@@ -105,6 +105,8 @@ let units = testList "Unit.Chargen" [
         test <@ offer.LabelWhenUnselected 0 = "Fast-Draw (Sword) +1" @>
         let offer = and'([skill("Fast-Draw (Sword)", +1); skill("Fast-Draw (Dagger)", +1)])
         test <@ offer.LabelWhenUnselected 0 = "Fast-Draw (Sword) +1 and Fast-Draw (Dagger) +1" @>
+        test <@ (skill("Fast-Draw (Sword)", +1)).config.key = Some "Fast-Draw (Sword) +1" @>
+        test <@ (and'([skill("Fast-Draw (Sword)", +1); skill("Fast-Draw (Dagger)", +1)])).config.key = Some "Fast-Draw (Sword) +1 and Fast-Draw (Dagger) +1" @>
         let offer = eitherN[and'([skill("Fast-Draw (Sword)", +1); skill("Fast-Draw (Dagger)", +1)]); skill("Stealth", +1) |> Op.promote]
         offer |> testFor ["Stealth +1"] (Either(None, [true, key "Stealth +1", Leaf "Stealth +1"]))
     testCase "nested either with list" <| fun () ->

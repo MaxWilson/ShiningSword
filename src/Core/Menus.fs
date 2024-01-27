@@ -148,13 +148,15 @@ type Op =
     static let andF config (offers: _ ListOffer list) =
         offer(
             { config.inner
-                with explicitUnselectedLabel =
-                        match config.inner.label, offers with
-                        | Some label, _ -> Some label
-                        | None, [lhs;rhs] ->
-                            // promote label in the simple case
-                            Some $"{lhs.LabelWhenUnselected 0} and {lhs.LabelWhenUnselected 1}"
-                        | _ -> None
+                with
+                explicitUnselectedLabel =
+                    match config.inner.label, offers with
+                    | Some label, _ -> Some label
+                    | None, [lhs;rhs] ->
+                        // promote label in the simple case
+                        Some $"{lhs.LabelWhenUnselected 0} and {rhs.LabelWhenUnselected 1}"
+                    | _ -> None
+                key = config.inner.key |> Option.orElseWith (fun () -> offers |> List.collect (_.config.key >> List.ofOption) |> String.join " and " |> Some)
                 },
             fun config input ->
                 let children = [
