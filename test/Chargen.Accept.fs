@@ -100,6 +100,13 @@ let units = testList "Unit.Chargen" [
     testCase "basic either" <| fun () ->
         either[trait' Fight; trait' Hide] |> testFor [] (Either(None, [false, key "Fight", Leaf "Fight"; false, key "Hide", Leaf "Hide"]))
         either[trait' Fight; trait' Hide] |> testFor ["Fight"] (Either(None, [true, key "Fight", Leaf "Fight"]))
+    testCase "simple either" <| fun () ->
+        let offer = eitherN (keyedConfig "Fast-draws", 1, [ // the key is deliberately different from the skill and label, just to show that we can be
+            skill("Fast-Draw (Sword)", +2) |> promote
+            and'([skill("Fast-Draw (Sword)", +1); skill("Fast-Draw (Dagger)", +1)])
+            ])
+        test <@ offer.config.key = Some "Fast-draws" @>
+        offer |> testFor ["Fast/-draws-Fast/-Draw (Sword) +2"] (Either(None, [true, key "Fast/-draws-Fast/-Draw (Sword) +2", Leaf "Fast-Draw (Sword) +2"]))
     testCase "key verification" <| fun() ->
         let offer = skill("Fast-Draw (Sword)", +1)
         test <@ offer.LabelWhenUnselected 0 = "Fast-Draw (Sword) +1" @>
@@ -114,6 +121,12 @@ let units = testList "Unit.Chargen" [
                 skill("Main-gauche", +1)
                 ])
         test <@ offer.config.key = Some "Sword and Dagger" @>
+        let offer = eitherN (keyedConfig "Fast-draws", 1, [ // the key is deliberately different from the skill and label, just to show that we can be
+            skill("Fast-Draw (Sword)", +2) |> promote
+            and'([skill("Fast-Draw (Sword)", +1); skill("Fast-Draw (Dagger)", +1)])
+            ])
+        test <@ offer.config.key = Some "Fast-draws" @>
+
     testCase "nested either with list" <| fun () ->
         let nestedEither = eitherN [
             either(labelConfig "Sword!", [skillN("Rapier", [+5..+6]); skillN("Broadsword", [+5..+6]); skillN("Shortsword", [+5..+6])]) |> promote // make sure to exercise Op.level even though the actual DFRPG swashbuckler doesn't have a +6 option
@@ -161,6 +174,20 @@ let units = testList "Unit.Chargen" [
                         ])
                     ])
             )
+    testCase "rendering" <| fun () ->
+        let menus =
+            Either(None, [true, key "Foo",
+                And(None, [
+                    Leaf("Bar")
+                    Leaf("Baz")
+                    ])
+                ])
+        test <@ render pseudoReactApi [menus] = Fragment([
+            Checked("Foo", key "Foo", [
+                Checked("Bar", key "Foo", [])
+                Checked("Baz", key "Foo", [])
+                ])
+            ]) @>
     ]
 [<Tests>]
 let tests =
@@ -190,7 +217,10 @@ let tests =
                         ]
                     eitherN (keyedConfig "Fast-draws", 1, [ // the key is deliberately different from the skill and label, just to show that we can be
                         skill("Fast-Draw (Sword)", +2) |> promote
-                        and'([skill("Fast-Draw (Sword)", +1); skill("Fast-Draw (Dagger)", +1)])
+                        and'([
+                            skill("Fast-Draw (Sword)", +1)
+                            skill("Fast-Draw (Dagger)", +1)
+                            ])
                         ])
                     ]
                 let offers = swash()
@@ -208,9 +238,14 @@ let tests =
                             false, key "Sword!-Shortsword", Leaf "Shortsword +5"
                             ])
                         ])
-                    Either(None, [true, key "Fast/-draws-Option 2", Leaf "Fast-Draw (Sword) +1 and Fast-Draw (Dagger) +1"])
+                    Either(None, [true, key "Fast/-draws-Fast/-Draw (Sword) +1 and Fast/-Draw (Dagger) +1",
+                        And(None, [
+                            Leaf("Fast-Draw (Sword) +1")
+                            Leaf("Fast-Draw (Dagger) +1")
+                            ])
+                        ])
                     ]
-                offers |> testFors ["Sword!"; "Fast/-draws-Option 2"] expectedMenus // evaluate swash() with Sword! selected and compare it to expectedMenus. Escape Fast-Draw to prevent it from being interpreted by parseKey as Fast + Draw
+                offers |> testFors ["Sword!"; "Fast/-draws-Fast/-Draw (Sword) +1 and Fast/-Draw (Dagger) +1"] expectedMenus // evaluate swash() with Sword! selected and compare it to expectedMenus. Escape Fast-Draw to prevent it from being interpreted by parseKey as Fast + Draw
                 render pseudoReactApi expectedMenus // if that passes, render it to ReactElements and see if it looks right
             let fail expect v = failwith $"Expected {expect} but got {v}\nContext: {pseudoActual}"
             let (|Checked|) = function Checked(label, key, children) -> Checked(label, key, children) | v -> fail "Checked" v

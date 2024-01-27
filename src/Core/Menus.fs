@@ -77,12 +77,16 @@ let render (render: 'reactElement RenderApi) (menus: MenuOutput list) =
             match lst |> List.filter Tuple3.get1 with
             | [true, key, v] -> Some (key, v)
             | _ -> None
+
+        // if we're inside of a collapsed EITHER, then convert any and all leaves into checkboxes that can uncheck part of this EITHER and uncollapse it
         let collapsedRender key =
-            { render with unconditional = fun (label, children) -> render.checked'(label, key, children) } // if we're inside of a collapsed EITHER, then convert any and all leaves into checkboxes that can uncheck part of this EITHER and uncollapse it
+            { render with unconditional = fun (label, children) -> render.checked'(label, key, children) }
+
         match menu with
         | Either(None, OneSelection (key, child)) ->
+            // if the either has no label and is already ready, just omit it from the visual tree and show the child directly. I'm not sure it's correct to ignore renderMe though.
             let renderChild (label, children) = render.checked'(label, key, children)
-            recur recurOnChildren (collapsedRender key, renderChild) child // if the either has no label and is already ready, just omit it from the visual tree and show the child directly. I'm not sure it's correct to ignore renderMe though.
+            recur recurOnChildren (collapsedRender key, renderChild) child
         | Either(label, selections) ->
             let collapse = selections |> List.every (fun (isChecked, _, _) -> isChecked)
             let children = [
@@ -271,8 +275,9 @@ type Op =
                 let (v, menu) = o.recur input
                 List.ofOption v, menu
             )
-let evaluate (state: OfferInput) (offer: _ Offer) =
-    offer.recur state
+let evaluate (input: OfferInput) (offer: _ Offer) =
+    // we need to be able to distinguish between eithers if they are at the root, so extend the prefix by the root key if one exists
+    offer.recur (input.extend offer.config.key)
 
 open type Op
 
