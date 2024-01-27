@@ -81,12 +81,15 @@ let testFor (selections: string list) expected offers =
         let same, actual, expected = String.diff actualS expectedS
         failtest $"Actual diverged from expected! After: \n{same}\n\nExpected: \n{expected}\n\nbut got:\n{actual}"
 
-let testFors (selections: string list) expected offers =
-    let actual = offers |> List.map (evalFor selections)
+let assertEqual actual expected =
     if actual <> expected then
         let actualS, expectedS = actual |> String.structured, expected |> String.structured
         let same, actual, expected = String.diff actualS expectedS
         failtest $"Actual diverged from expected! After: \n{same}\n\nExpected: \n{expected}\n\nbut got:\n{actual}"
+
+let testFors (selections: string list) expected offers =
+    let actual = offers |> List.map (evalFor selections)
+    assertEqual actual expected
 
 type FightHide = Fight | Hide
 let labelConfig txt = let blank = blank() in { blank with toString = None; inner.label = Some txt }
@@ -202,42 +205,75 @@ let units = testList "Unit.Chargen" [
                 ]
             ]) @>
 
+    testCase "Bug 55" <| fun () ->
+        let weaponsAt (bonus: int) = [for name in ["Rapier"; "Broadsword"; "Shortsword"] -> Op.level(name, makeSkill name, [bonus..bonus+3])] // make sure Op.level gets exercised
+        let swash() = [
+            eitherN [
+                either(labelConfig "Sword!", weaponsAt +5) |> promote
+                and'(labelConfig "Sword and Dagger", [either(weaponsAt +4); skill("Main-gauche", +1)])
+                and'(labelConfig "Sword and Shield", [either(weaponsAt +4); skill("Shield", +2)])
+                ]
+            ]
+
+        let expectedMenus = [
+            Either(None, [
+                true, key "Sword and Dagger",
+                    And(Some "Sword and Dagger", [
+                        Either(None, [
+                            false, key "Sword and Dagger-Rapier", Leaf "Rapier +4" // leveled traits are only Leveled if selected. When unselected it's a Leaf just like anything else.
+                            false, key "Sword and Dagger-Broadsword", Leaf "Broadsword +4"
+                            false, key "Sword and Dagger-Shortsword", Leaf "Shortsword +4"
+                            ])
+                        Leaf "Main-gauche +1"
+                        ])
+                ])
+            ]
+        swash() |> testFors ["Sword and Dagger"] expectedMenus // evaluate swash() with Sword! selected and compare it to expectedMenus. Escape Fast-Draw to prevent it from being interpreted by parseKey as Fast + Draw
+        let pseudoActual = render pseudoReactApi expectedMenus // if that passes, render it to ReactElements and see if it looks right
+        assertEqual
+            pseudoActual
+            (Fragment [
+                Checked("Sword and Dagger", key "Sword and Dagger", [
+                    Unchecked("Rapier +4", key "Sword and Dagger-Rapier")
+                    Unchecked("Broadsword +4", key "Sword and Dagger-Broadsword")
+                    Unchecked("Shortsword +4", key "Sword and Dagger-Shortsword")
+                    ])
+                Checked("Main-gauche +1", key "Sword and Dagger", [])
+                ])
     ]
 [<Tests>]
 let tests =
     testList "Accept.Chargen" [
+        let swash(): Trait ListOffer list = [
+            let budgetStub n = fun _ -> n // currently budgetF is hardwired to always think there's another n in the budget. TODO: make it aware of the current selections somehow
+            skill("Climbing", 1) |> promote
+            skillN("Stealth", [1..3]) |> promote
+            budget(budgetStub 20, [
+                trait' CombatReflexes
+                skillN("Acrobatics", [1..3])
+                ])
+            let weaponsAt (bonus: int) = [for name in ["Rapier"; "Broadsword"; "Shortsword"] -> Op.level(name, makeSkill name, [bonus..bonus+3])] // make sure Op.level gets exercised
+            eitherN [
+                either(labelConfig "Sword!", weaponsAt +5) |> promote
+                and'(labelConfig "Sword and Dagger", [either(weaponsAt +4); skill("Main-gauche", +1)])
+                and'(labelConfig "Sword and Shield", [either(weaponsAt +4); skill("Shield", +2)])
+                ]
+            eitherN (keyedConfig "Fast-draws", 1, [ // the key is deliberately different from the skill and label, just to show that we can be
+                skill("Fast-Draw (Sword)", +2) |> promote
+                and'([
+                    skill("Fast-Draw (Sword)", +1)
+                    skill("Fast-Draw (Dagger)", +1)
+                    ])
+                ])
+            ]
+        let key = parseKey
 
         testCase "Interactivity" <| fun () ->
-            let key = parseKey
             let keyedConfig key =
                 let config = blank()
                 { config with inner.key = Some key }
             let pseudoActual = // pseudo-actual because actual will be created from templates + OfferInput (i.e. selected keys), not hardwired as Menus, but that's still TODO
                 // swash is not a MenuOutput but it can create MenuOutputs which can then be either unit tested or turned into ReactElements
-                // think of swash as an offer menu
-                let swash(): Trait ListOffer list = [
-                    let budgetStub n = fun _ -> n // currently budgetF is hardwired to always think there's another n in the budget. TODO: make it aware of the current selections somehow
-                    skill("Climbing", 1) |> promote
-                    skillN("Stealth", [1..3]) |> promote
-                    budget(budgetStub 20, [
-                        trait' CombatReflexes
-                        skillN("Acrobatics", [1..3])
-                        ])
-                    let weaponsAt (bonus: int) = [for name in ["Rapier"; "Broadsword"; "Shortsword"] -> Op.level(name, makeSkill name, [bonus..bonus+3])] // make sure Op.level gets exercised
-                    eitherN [
-                        either(labelConfig "Sword!", weaponsAt +5) |> promote
-                        and'(labelConfig "Sword and Dagger", [either(weaponsAt +4); skill("Main-gauche", +1)])
-                        and'(labelConfig "Sword and Shield", [either(weaponsAt +4); skill("Shield", +2)])
-                        ]
-                    eitherN (keyedConfig "Fast-draws", 1, [ // the key is deliberately different from the skill and label, just to show that we can be
-                        skill("Fast-Draw (Sword)", +2) |> promote
-                        and'([
-                            skill("Fast-Draw (Sword)", +1)
-                            skill("Fast-Draw (Dagger)", +1)
-                            ])
-                        ])
-                    ]
-                let offers = swash()
                 let expectedMenus = [
                     Leaf "Climbing +1" // Leaf not Level because swash() template is only using trait', not level
                     Leveled("Stealth +1", key "Stealth", 0, 3) // Leveled because it can go up to +3
@@ -259,7 +295,7 @@ let tests =
                             ])
                         ])
                     ]
-                offers |> testFors ["Sword!"; "Fast/-draws-Fast/-Draw (Sword) +1 and Fast/-Draw (Dagger) +1"] expectedMenus // evaluate swash() with Sword! selected and compare it to expectedMenus. Escape Fast-Draw to prevent it from being interpreted by parseKey as Fast + Draw
+                swash() |> testFors ["Sword!"; "Fast/-draws-Fast/-Draw (Sword) +1 and Fast/-Draw (Dagger) +1"] expectedMenus // evaluate swash() with Sword! selected and compare it to expectedMenus. Escape Fast-Draw to prevent it from being interpreted by parseKey as Fast + Draw
                 render pseudoReactApi expectedMenus // if that passes, render it to ReactElements and see if it looks right
             let fail expect v = failwith $"Expected {expect} but got {v}\nContext: {pseudoActual}"
             let (|Checked|) = function Checked(label, key, children) -> Checked(label, key, children) | v -> fail "Checked" v
@@ -297,4 +333,4 @@ let tests =
         ptestCase  "Terseness #4" <| fun () -> failtest """hide things too expensive for remaining budget"""
         ptestCase  "UX #1" <| fun () -> failtest """leveled traits"""
         ptestCase "Correctness #2" <| fun () -> failtest """mutual exclusion within either unselects old selection when new selection is made"""
-    ]
+        ]
