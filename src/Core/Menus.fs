@@ -72,30 +72,33 @@ type 'reactElement RenderApi = {
     }
 
 let render (render: 'reactElement RenderApi) (menus: MenuOutput list) =
-    let rec recur recurOnChildren (renderMe: (string * 'reactElement list) -> 'reactElement) menu : 'reactElement =
+    let rec recur recurOnChildren (render, renderMe: (string * 'reactElement list) -> 'reactElement) menu : 'reactElement =
         let (|OneSelection|_|) lst =
             match lst |> List.filter Tuple3.get1 with
             | [true, key, v] -> Some (key, v)
             | _ -> None
+        let collapsedRender key =
+            { render with unconditional = fun (label, children) -> render.checked'(label, key, children) } // if we're inside of a collapsed EITHER, then convert any and all leaves into checkboxes that can uncheck part of this EITHER and uncollapse it
         match menu with
         | Either(None, OneSelection (key, child)) ->
             let renderChild (label, children) = render.checked'(label, key, children)
-            recur recurOnChildren renderChild child // if the either has no label and is already ready, just omit it from the visual tree and show the child directly. I'm not sure it's correct to ignore renderMe though.
+            recur recurOnChildren (collapsedRender key, renderChild) child // if the either has no label and is already ready, just omit it from the visual tree and show the child directly. I'm not sure it's correct to ignore renderMe though.
         | Either(label, selections) ->
+            let collapse = selections |> List.every (fun (isChecked, _, _) -> isChecked)
             let children = [
                 if recurOnChildren then
                     for (isChecked, key, child) in selections do
                         let renderChild (label: string, children) =
                             if isChecked then render.checked'(label, key, children) else render.unchecked(label, key)
-                        let childReact = recur isChecked renderChild child
+                        let childReact = recur isChecked ((if collapse then collapsedRender key else render), renderChild) child
                         childReact
                 ]
-            if selections |> List.every (fun (isChecked, _, _) -> isChecked) then
+            if collapse then
                 render.combine children
             else
                 renderMe(defaultArg label "Choose one:", children)
         | And(label, grants) ->
-            let childReacts = grants |> List.map (recur true render.unconditional)
+            let childReacts = grants |> List.map (recur true (render, render.unconditional))
             match label with
             | Some label ->
                 renderMe(label, childReacts)
@@ -103,7 +106,7 @@ let render (render: 'reactElement RenderApi) (menus: MenuOutput list) =
                 render.combine childReacts
         | Leveled(name, key, lvl, levelCount) -> render.leveledLeaf(name, key, lvl, levelCount)
         | Leaf(name) -> renderMe(name, [])
-    menus |> List.map (recur true render.unconditional) |> render.combine
+    menus |> List.map (recur true (render, render.unconditional)) |> render.combine
 
 type 't EitherPattern = Choice<('t * MenuSelection list), ('t * MenuSelection list), ('t * MenuSelection list)> // convenience type helper to reduce duplication while avoiding type ambiguity. Don't feel bad if we wind up scrapping it.
 
