@@ -234,11 +234,13 @@ let units = testList "Unit.Chargen" [
             pseudoActual
             (Fragment [
                 Checked("Sword and Dagger", key "Sword and Dagger", [
-                    Unchecked("Rapier +4", key "Sword and Dagger-Rapier")
-                    Unchecked("Broadsword +4", key "Sword and Dagger-Broadsword")
-                    Unchecked("Shortsword +4", key "Sword and Dagger-Shortsword")
+                    Checked("Choose one:", key "Sword and Dagger", [
+                        Unchecked("Rapier +4", key "Sword and Dagger-Rapier")
+                        Unchecked("Broadsword +4", key "Sword and Dagger-Broadsword")
+                        Unchecked("Shortsword +4", key "Sword and Dagger-Shortsword")
+                        ])
+                    Checked("Main-gauche +1", key "Sword and Dagger", [])
                     ])
-                Checked("Main-gauche +1", key "Sword and Dagger", [])
                 ])
     ]
 [<Tests>]

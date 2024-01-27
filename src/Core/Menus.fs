@@ -96,7 +96,7 @@ let render (render: 'reactElement RenderApi) (menus: MenuOutput list) =
                     for (isChecked, key, child) in selections do
                         let renderChild (label: string, children) =
                             if isChecked then render.checked'(label, key, children) else render.unchecked(label, key)
-                        let childReact = recur isChecked ((if collapse then collapsedRender key else render), renderChild) child
+                        let childReact = recur (not isChecked) ((if collapse then collapsedRender key else render), renderChild) child
                         childReact
                 ]
             if collapse then
@@ -104,7 +104,7 @@ let render (render: 'reactElement RenderApi) (menus: MenuOutput list) =
             else
                 renderMe(defaultArg label "Choose one:", children)
         | And(label, grants) ->
-            let childReacts = grants |> List.map (recur true (render, render.unconditional))
+            let childReacts = grants |> List.map (recur shortCircuit (render, render.unconditional))
             match label with
             | Some label ->
                 renderMe(label, childReacts)
