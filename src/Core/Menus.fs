@@ -72,7 +72,9 @@ type 'reactElement RenderApi = {
     }
 
 let render (render: 'reactElement RenderApi) (menus: MenuOutput list) =
-    let rec recur recurOnChildren (render, renderMe: (string * 'reactElement list) -> 'reactElement) menu : 'reactElement =
+    let rec recur shortCircuit (render, renderMe: (string * 'reactElement list) -> 'reactElement) menu : 'reactElement =
+        // renderMe lets us delay rendering of a checked/unchecked option inside an either until we have data about its label and children.
+
         let (|OneSelection|_|) lst =
             match lst |> List.filter Tuple3.get1 with
             | [true, key, v] -> Some (key, v)
@@ -86,11 +88,11 @@ let render (render: 'reactElement RenderApi) (menus: MenuOutput list) =
         | Either(None, OneSelection (key, child)) ->
             // if the either has no label and is already ready, just omit it from the visual tree and show the child directly. I'm not sure it's correct to ignore renderMe though.
             let renderChild (label, children) = render.checked'(label, key, children)
-            recur recurOnChildren (collapsedRender key, renderChild) child
+            recur shortCircuit (collapsedRender key, renderChild) child
         | Either(label, selections) ->
             let collapse = selections |> List.every (fun (isChecked, _, _) -> isChecked)
             let children = [
-                if recurOnChildren then
+                if not shortCircuit then // don't show EITHER options in detail until the either itself has been selected
                     for (isChecked, key, child) in selections do
                         let renderChild (label: string, children) =
                             if isChecked then render.checked'(label, key, children) else render.unchecked(label, key)
@@ -110,7 +112,7 @@ let render (render: 'reactElement RenderApi) (menus: MenuOutput list) =
                 render.combine childReacts
         | Leveled(name, key, lvl, levelCount) -> render.leveledLeaf(name, key, lvl, levelCount)
         | Leaf(name) -> renderMe(name, [])
-    menus |> List.map (recur true (render, render.unconditional)) |> render.combine
+    menus |> List.map (recur false (render, render.unconditional)) |> render.combine
 
 type 't EitherPattern = Choice<('t * MenuSelection list), ('t * MenuSelection list), ('t * MenuSelection list)> // convenience type helper to reduce duplication while avoiding type ambiguity. Don't feel bad if we wind up scrapping it.
 
