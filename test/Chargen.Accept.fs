@@ -281,7 +281,10 @@ let tests =
                     Unchecked(Expect "Broadsword +5", Expect ["Broadsword"; "Sword!"])
                     Unchecked(Expect "Shortsword +5", Expect ["Shortsword"; "Sword!"])
                     ])
-                Checked(Expect "Fast-Draw (Sword) +1 and Fast-Draw (Dagger) +1", Expect ["Fast-Draw (Sword) +1 and Fast-Draw (Dagger) +1"], Expect [])
+                Fragment [
+                    Checked(Expect "Fast-Draw (Sword) +1", Expect ["Fast-Draw (Sword) +1 and Fast-Draw (Dagger) +1"; "Fast-draws"], Expect [])
+                    Checked(Expect "Fast-Draw (Dagger) +1", Expect ["Fast-Draw (Sword) +1 and Fast-Draw (Dagger) +1"; "Fast-draws"], Expect [])
+                    ]
                 ]) -> ()
             | v -> matchfail v // maybe we got the wrong number of NumberInputs from the Unconditional or something. Would be nice to have the error message say exactly what went wrong,
                             // but Expect active pattern isn't valid as an input to Fragment/Unconditional/etc. so we can't just Expect a specific list of children. Although... maybe we can refactor
