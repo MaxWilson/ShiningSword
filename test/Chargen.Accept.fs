@@ -177,7 +177,7 @@ let units = testList "Unit.Chargen" [
     testCase "rendering" <| fun () ->
         let menus =
             Either(None, [true, key "Foo",
-                And(None, [
+                And(Some "Foo", [
                     Leaf("Bar")
                     Leaf("Baz")
                     ])
