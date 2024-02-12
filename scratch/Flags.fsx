@@ -1,3 +1,4 @@
+/// Prototyping for Flags.fs
 module Flags
 
 // Normally we'd rely on namespacing to avoid conflicts, but in this case I anticipate opening the Flags module in most namespaces,
