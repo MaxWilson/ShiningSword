@@ -36,6 +36,14 @@ let swash = [
         advantage CombatReflexes
         skill("Acrobatics", [1..3])
         ])
+    eitherN(Menus.blank(), 3, [
+        skill("Rapier", 3) |> promote
+        skill("Sling", 3) |> promote
+        skill("Bow", 3) |> promote
+        skill("Two-handed Sword", 3) |> promote
+        skill("Stealth", 3) |> promote
+        skill("Climbing", 3) |> promote
+        ])
     let mainWeapons = ["Rapier"; "Broadsword"; "Polearm"; "Two-handed sword"]
     let weaponsAt (bonus: int) = mainWeapons |> List.map (fun name -> skill(name, bonus))
     eitherN [

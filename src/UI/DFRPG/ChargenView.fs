@@ -42,7 +42,7 @@ module private Impl =
                 ]
             ]
         }
-    let eval dispatch selections (template: Trait ListOffer list) =
+    let eval dispatch selections (template: _ ListOffer list) =
         let value, menus =
             [
             for offer in template do
@@ -56,7 +56,7 @@ open Impl
 [<ReactComponent>]
 let View() =
     let model, dispatch = React.useElmishSimple init update
-    let profession = swash
+    let profession = swash // Domain.DFRPG.Templates.swashbuckler
     let value, react = eval dispatch model.selections profession // value will be used later for things like enabling/disabling the Save button
     Html.div [
         srcLink

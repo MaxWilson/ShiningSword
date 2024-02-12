@@ -144,14 +144,10 @@ type Op =
                 match children with
                 | Fulfilled(value, childMenus) ->
                     // when we're at quota, exclude all the unpicked options from the menu unless and until some current selections are unpicked
-                    // let values = lst |> List.collect fst
-                    // let childMenus = lst |> List.map snd
                     value, Either(config.label, childMenus)
                 | Partial(value, allChildMenus) ->
-                    // let allChildMenus = children |> List.map snd
                     value, Either(config.label, allChildMenus)
                 | Fallback(fallbackValue, allChildMenus) ->
-                    // let allChildMenus = children |> List.map snd
                     fallbackValue, Either(config.label, allChildMenus)
             )
     static let andF config (offers: _ ListOffer list) =
