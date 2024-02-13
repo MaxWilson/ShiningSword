@@ -248,11 +248,11 @@ let tests =
     testList "Accept.Chargen" [
         let swash(): Trait ListOffer list = [
             let budgetStub n = fun _ -> n // currently budgetF is hardwired to always think there's another n in the budget. TODO: make it aware of the current selections somehow
-            skill("Climbing", 1) |> promote
             skillN("Stealth", [1..3]) |> promote
-            budget(budgetStub 20, [
+            eitherN(blank(), 2, [
                 trait' CombatReflexes
                 skillN("Acrobatics", [1..3])
+                skill("Climbing", 1)
                 ])
             let weaponsAt (bonus: int) = [for name in ["Rapier"; "Broadsword"; "Shortsword"] -> Op.level(name, makeSkill name, [bonus..bonus+3])] // make sure Op.level gets exercised
             eitherN [
@@ -277,11 +277,11 @@ let tests =
             let pseudoActual = // pseudo-actual because actual will be created from templates + OfferInput (i.e. selected keys), not hardwired as Menus, but that's still TODO
                 // swash is not a MenuOutput but it can create MenuOutputs which can then be either unit tested or turned into ReactElements
                 let expectedMenus = [
-                    Leaf "Climbing +1" // Leaf not Level because swash() template is only using trait', not level
                     Leveled("Stealth +1", key "Stealth", 0, 3) // Leveled because it can go up to +3
                     Either(None, [
                         false, key "Combat Reflexes", Leaf "Combat Reflexes"
                         false, key "Acrobatics", Leaf "Acrobatics +1"
+                        true, key "Climbing +1", Leaf "Climbing +1" // Leaf not Level because swash() template is only using trait', not level
                         ])
                     Either(None, [
                         true, key "Sword!", Either(Some "Sword!", [
@@ -297,8 +297,8 @@ let tests =
                             ])
                         ])
                     ]
-                swash() |> testFors ["Sword!"; "Fast/-draws-Fast/-Draw (Sword) +1 and Fast/-Draw (Dagger) +1"] expectedMenus // evaluate swash() with Sword! selected and compare it to expectedMenus. Escape Fast-Draw to prevent it from being interpreted by parseKey as Fast + Draw
-                render pseudoReactApi expectedMenus // if that passes, render it to ReactElements and see if it looks right
+                swash() |> testFors ["Climbing +1"; "Sword!"; "Fast/-draws-Fast/-Draw (Sword) +1 and Fast/-Draw (Dagger) +1"] expectedMenus // evaluate swash() with Sword! selected and compare it to expectedMenus. Escape Fast-Draw to prevent it from being interpreted by parseKey as Fast + Draw
+                Menus.render pseudoReactApi expectedMenus // if that passes, render it to ReactElements and see if it looks right
             let fail expect v = failwith $"Expected {expect} but got {v}\nContext: {pseudoActual}"
             let (|Checked|) = function Checked(label, key, children) -> Checked(label, key, children) | v -> fail "Checked" v
             let (|Unchecked|) = function Unchecked(label, key) -> Unchecked(label, key) | v -> fail "Unchecked" v
@@ -308,11 +308,11 @@ let tests =
             let (|Expect|_|) expect actual = if expect = actual then Some () else fail expect actual
             match pseudoActual with
             | Fragment([
-                Unconditional(Expect "Climbing +1", [])
                 NumberInput(Expect "Stealth +1", Expect ["Stealth"], Expect 0, Expect 3)
                 Unconditional(Expect "Choose one:", [
                     Unchecked(Expect "Combat Reflexes", Expect ["Combat Reflexes"])
                     Unchecked(Expect "Acrobatics +1", Expect ["Acrobatics"]) // note: Acrobatics is the key here, not Acrobatics +1, because it's leveled.
+                    Checked(Expect "Climbing +1", Expect ["Climbing +1"], [])
                     ])
                 Checked(Expect "Sword!", Expect ["Sword!"], [
                     Unchecked(Expect "Rapier +5", Expect ["Rapier"; "Sword!"])
