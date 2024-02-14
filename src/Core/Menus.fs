@@ -75,18 +75,13 @@ let render (render: 'reactElement RenderApi) (menus: MenuOutput list) =
     let rec recur shortCircuit (render, renderMe: (string * 'reactElement list) -> 'reactElement) menu : 'reactElement =
         // renderMe lets us delay rendering of a checked/unchecked option inside an either until we have data about its label and children.
 
-        let (|OneSelection|_|) lst =
-            match lst |> List.filter Tuple3.get1 with
-            | [true, key, v] -> Some (key, v)
-            | _ -> None
-
         // if we're inside of a collapsed EITHER, then convert any and all leaves into checkboxes that can uncheck part of this EITHER and uncollapse it
         let collapsedRender key =
             { render with unconditional = fun (label, children) -> render.checked'(label, key, children) }
 
         match menu with
-        | Either(None, OneSelection (key, child)) ->
-            // if the either has no label and is already ready, just omit it from the visual tree and show the child directly. I'm not sure it's correct to ignore renderMe though.
+        | Either(_, [true, key, child]) ->
+            // if the either has exactly one option (presumably because others are filtered out as unselected), just omit it from the visual tree and show the child directly. I'm not sure it's correct to ignore renderMe though.
             let renderChild (label, children) = render.checked'(label, key, children)
             recur shortCircuit (collapsedRender key, renderChild) child
         | Either(label, selections) ->
@@ -255,6 +250,9 @@ type Op =
             | lst when lst.Length = n -> Fulfilled(lst |> List.collect fst, lst |> List.map snd)
             | lst when lst.Length > 0 -> Partial(lst |> List.collect fst, children |> List.map snd) // return all child menus so user can keep selecting
             | _ -> Fallback([], children |> List.map snd) // return all child menus so user can keep selecting
+        let config =
+            if config.inner.label.IsSome || n = 1 then config
+            else { config with inner = { config.inner with label = Some $"Choose {n}:" } }
         eitherF (|Fulfilled|Partial|Fallback|) [] options config
 
     static member and' (offers: 't OptionOffer list) : 't ListOffer =

@@ -278,7 +278,7 @@ let tests =
                 // swash is not a MenuOutput but it can create MenuOutputs which can then be either unit tested or turned into ReactElements
                 let expectedMenus = [
                     Leveled("Stealth +1", key "Stealth", 0, 3) // Leveled because it can go up to +3
-                    Either(None, [
+                    Either(Some "Choose 2:", [
                         false, key "Combat Reflexes", Leaf "Combat Reflexes"
                         false, key "Acrobatics", Leaf "Acrobatics +1"
                         true, key "Climbing +1", Leaf "Climbing +1" // Leaf not Level because swash() template is only using trait', not level
@@ -309,7 +309,7 @@ let tests =
             match pseudoActual with
             | Fragment([
                 NumberInput(Expect "Stealth +1", Expect ["Stealth"], Expect 0, Expect 3)
-                Unconditional(Expect "Choose one:", [
+                Unconditional(Expect "Choose 2:", [
                     Unchecked(Expect "Combat Reflexes", Expect ["Combat Reflexes"])
                     Unchecked(Expect "Acrobatics +1", Expect ["Acrobatics"]) // note: Acrobatics is the key here, not Acrobatics +1, because it's leveled.
                     Checked(Expect "Climbing +1", Expect ["Climbing +1"], [])
