@@ -51,6 +51,37 @@ module private Impl =
             |> List.unzip
         let reactProps: IReactProperty list = render (reactApi dispatch) menus
         value |> List.collect id, Html.div reactProps
+    module Wizard =
+        type ConstraintStatus = Locked | Unlocked
+        type 't Constraint = (ConstraintStatus * 't) option // locked * value
+        type Nation = string
+        type Sex = Male | Female | Neither
+        type Race = string Constraint
+        type RollMethod = Roll3d6InOrder | Fixed | Roll4d6DropLowest | AverageOf3d6 | PowerLawDistribution
+        type RuleSystem = DFRPG | ADND
+        type Constraints = {
+            // should nation, sex, etc. be flags/fields instead of F# types?
+            // also, don't they belong in Domain? They're domain logic, not UI-specific logic.
+            //    Chargen should take in a set of constraints and spit out a character matching those
+            //    constraints, and a new set of constraints on what things are still flexible, e.g.
+            //    is changing race legal?
+            sex: Sex Constraint
+            race: Race Constraint
+            nation: Nation Constraint
+            profession: string Constraint
+            ruleSystem: RuleSystem Constraint
+            rollMethod: RollMethod Constraint
+            }
+        type Model = unit
+        type Msg = unit
+        let init _ = ()
+        let update msg model = model
+        [<ReactComponent>]
+        let view() =
+            let model, dispatch = React.useElmishSimple init update
+            match model with
+            | _ -> Html.div [ Html.text "Wizard" ]
+
 open Impl
 
 [<ReactComponent>]
@@ -73,9 +104,12 @@ let StubView () =
         react
         ]
 
+let Wizard() = notImpl()
+
+
 [<ReactComponent>]
 let View (args: string list) =
     match args with
     | ["domain"; (Router.Route.Query [ "class", "swash" ] | Router.Route.Query [ "class", "swashbuckler" ] ) ] -> DomainView()
     | "domain"::_ -> DomainView()
-    | _ -> StubView()
+    | _ -> Wizard.view()

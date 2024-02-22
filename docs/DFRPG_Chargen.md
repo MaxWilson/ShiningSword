@@ -10,7 +10,8 @@ Doesn't double-charge for things that show up in multiple sections, like disadva
 ```mermaid
 stateDiagram-v2
     state Chargen {
-      [*] --> RollAttributes
+      [*] --> Constraints
+      Constraints --> RollAttributes
       RollAttributes --> ChooseProfession
       RollAttributes --> ChooseRace
       ChooseRace --> RollAttributes
@@ -19,6 +20,7 @@ stateDiagram-v2
       CompleteTemplate --> BuyEquipment
       BuyEquipment --> Save
       AddQuirks --> Save
+      Constraints: Set race/nation/roll method constraints (optional)
       RollAttributes: Roll Attributes (optional)
       ChooseRace: Choose Race (optional)
       ChooseProfession: Choose Profession (radio buttons, collapsible, remember preference, allows random)
