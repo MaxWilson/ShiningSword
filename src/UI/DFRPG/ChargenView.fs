@@ -76,5 +76,6 @@ let StubView () =
 [<ReactComponent>]
 let View (args: string list) =
     match args with
-    | ["domain"; "swashbuckler"] | ["domain"; "swash"] -> DomainView()
+    | ["domain"; (Router.Route.Query [ "class", "swash" ] | Router.Route.Query [ "class", "swashbuckler" ] ) ] -> DomainView()
+    | "domain"::_ -> DomainView()
     | _ -> StubView()
