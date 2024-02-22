@@ -54,11 +54,27 @@ module private Impl =
 open Impl
 
 [<ReactComponent>]
-let View() =
+let DomainView() =
     let model, dispatch = React.useElmishSimple init update
-    let profession = swash // Domain.DFRPG.Templates.swashbuckler
+    let profession = Domain.DFRPG.Templates.swashbuckler
     let value, react = eval dispatch model.selections profession // value will be used later for things like enabling/disabling the Save button
     Html.div [
         srcLink
         react
         ]
+
+[<ReactComponent>]
+let StubView () =
+    let model, dispatch = React.useElmishSimple init update
+    let profession = swash
+    let value, react = eval dispatch model.selections profession // value will be used later for things like enabling/disabling the Save button
+    Html.div [
+        srcLink
+        react
+        ]
+
+[<ReactComponent>]
+let View (args: string list) =
+    match args with
+    | ["domain"; "swashbuckler"] | ["domain"; "swash"] -> DomainView()
+    | _ -> StubView()

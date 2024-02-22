@@ -15,15 +15,17 @@ let Router() =
         router.onUrlChanged updateUrl
         router.children [
             let lookup = [
-                "priestSpells", "Priest Spells by Sphere", (fun () -> UI.ADND.PriestSpells.View.View())
-                "dfrpgChargen", "Create a character for Dungeon Fantasy RPG", (fun () -> UI.DFRPG.Chargen.View.View())
-                "dfrpgChargen/swash", "Create a swashbuckler for Dungeon Fantasy RPG", (fun () -> UI.DFRPG.Chargen.View.View())
-                "playground", "Ribbit Playground (under construction)", (fun () -> UI.Ribbit.PlaygroundView.View())
+                "priestSpells", "Priest Spells by Sphere", (fun _ -> UI.ADND.PriestSpells.View.View())
+                "dfrpgChargen", "Create a character for Dungeon Fantasy RPG", (fun tail -> UI.DFRPG.Chargen.View.View tail)
+                "playground", "Ribbit Playground (under construction)", (fun _ -> UI.Ribbit.PlaygroundView.View())
                 ]
             let (|Segment|_|) segments =
-                lookup |> List.tryPick (fun ((rootTag, _, _) as args) -> if [rootTag] = segments then Some args else None)
+                match segments with
+                | [] -> None
+                | head::tail ->
+                    lookup |> List.tryPick (fun ((segmentName, _, view) as args) -> if segmentName = head then Some (view, tail) else None)
             match currentUrl with
-            | Segment (_, _, view) -> view()
+            | Segment (view, tail) -> view tail
             | otherwise ->
                 class' "mainPage" Html.div [
                     srcLink
