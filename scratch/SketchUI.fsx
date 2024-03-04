@@ -3,5 +3,8 @@
 #endif
 
 let connect init update view =
-    let dispatch = notImpl
+    let mutable current = init()
+    let dispatch msg =
+        current <- update msg current
+        printfn "\n%s" (view current)
     dispatch

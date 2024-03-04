@@ -1,10 +1,27 @@
 #load "SketchUI.fsx"
 open SketchUI
-
-let init = ()
-let update msg model = model
+let r = System.Random()
+type Model = {
+    truth: int
+    guesses: string list
+    wins: int
+    }
+    with static member fresh() = { truth = r.Next(1, 10); guesses = []; wins = 0 }
+let init _ = Model.fresh()
+let update msg model =
+    match msg with
+    | n when model.truth = n ->
+        let model = { Model.fresh() with wins = model.wins + 1 }
+        printfn "You guessed it! {n} is correct. You've now won %d times!" model.wins
+        model
+    | n ->
+        let feedback = if n < model.truth then $"{n}: Higher!" else $"{n}: Lower!"
+        { model with guesses = model.guesses @ [feedback] }
 let view model =
-    "Hello, world! Notice that there's no dispatch argument"
-let send: unit -> unit = connect init update view
+    $"You've won {model.wins} times. What you know about this next number: {model.guesses}"
+let send = connect init update view
 
-send()
+send 10
+send 5
+send 3
+send 4
