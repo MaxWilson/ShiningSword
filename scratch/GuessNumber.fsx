@@ -19,9 +19,15 @@ let update msg model =
         { model with guesses = model.guesses @ [feedback] }
 let view model =
     $"You've won {model.wins} times. What you know about this next number: {model.guesses}"
-let send = connect init update view
+let send, state = connect init update view
 
 send 10
 send 5
 send 3
 send 4
+
+let view2 model =
+    let fullGuesses = model.guesses |> List.map (sprintf "%A") |> String.concat ", "
+    $"Score: {model.wins}. Hints: {fullGuesses}"
+let send, state = reconnect state update view2
+send 5
